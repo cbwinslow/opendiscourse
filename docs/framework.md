@@ -88,13 +88,13 @@ baskets, rather than a provider-specific list of checkboxes. After discovery:
 
 ```bash
 research-db catalog-sync acs --year 2024
-research-db browse --basket housing
+research-db browse
 ```
 
 The browser starts at Provider → Dataset → Year → Product → Resource. Type to
 filter resources; press Enter to descend or inspect fields; press Backspace to
 go back; press Space to add/remove the highlighted resource; press `c` to
-review the basket; press `Ctrl+Q` to quit.
+review your selection; press `Ctrl+Q` to quit.
 Selections are drafts only. They do not create a fetch plan or download data.
 The same catalog and basket tables will serve FRED, FBI, GovInfo, and other
 adapters when they are implemented.

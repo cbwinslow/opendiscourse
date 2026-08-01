@@ -43,6 +43,14 @@ def sync_acs(year: int) -> int:
     return len(manifest["tables"])
 
 
+def ensure_acs(year: int = 2024) -> int:
+    """Make the current ACS catalog available with no separate user setup step."""
+    if not _acs_manifest(year).is_file():
+        from .ingestion.census import discover_acs_tables
+        discover_acs_tables(year)
+    return sync_acs(year)
+
+
 def search(dataset_id: str, text: str = "", limit: int = 100, year: int | None = None, product: str | None = None) -> list[dict[str, Any]]:
     query = text.strip()
     terms = f"%{query}%"
@@ -65,6 +73,12 @@ def facets(dataset_id: str) -> dict[str, Any]:
         years = cur.fetchall()
         cur.execute("SELECT resource_type, count(*) AS count FROM catalog.resource WHERE dataset_id = %s GROUP BY resource_type ORDER BY resource_type", (dataset_id,))
         products = cur.fetchall()
+    # The ACS release choices are known even before each small table-list
+    # workbook has been cached. Entering an uncached year can trigger metadata
+    # discovery; it never downloads observations.
+    if dataset_id == "census.acs_5":
+        counts = {row["release_year"]: row["count"] for row in years}
+        years = [{"release_year": year, "count": counts.get(year, 0)} for year in range(2024, 2004, -1)]
     return {"dataset": dataset_id, "years": years, "products": products}
 
 
@@ -188,7 +202,7 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             Binding("a", "all", "select filtered"),
             Binding("g", "draft", "write draft"),
             Binding("backspace", "back", "back"),
-            Binding("c", "cart", "basket"),
+            Binding("c", "cart", "selection"),
             Binding("enter", "describe", "inspect fields"),
             Binding("r", "refresh", "refresh"),
             Binding("ctrl+q", "quit", "quit"),
@@ -252,7 +266,7 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
                 table.add_columns("✓", "ID", "Product", "Title")
                 self.load_rows()
                 return
-            self.query_one(Static).update(f"{self.crumb()} · basket {len(basket(basket_name))} · Enter to continue, Backspace to return.")
+            self.query_one(Static).update(f"{self.crumb()} · selection {len(basket(basket_name))} · Enter to continue, Backspace to return.")
 
         def load_rows(self, query: str = "") -> None:
             table = self.query_one(DataTable)
@@ -288,7 +302,10 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             if self.level != "resource":
                 if self.level == "provider": self.provider_id, self.level = self.current_id, "dataset"
                 elif self.level == "dataset": self.dataset_id, self.level = self.current_id, "year"
-                elif self.level == "year": self.year, self.level = int(self.current_id), "product"
+                elif self.level == "year":
+                    self.year, self.level = int(self.current_id), "product"
+                    if self.dataset_id == "census.acs_5" and not _acs_manifest(self.year).is_file():
+                        ensure_acs(self.year)
                 elif self.level == "product": self.product, self.level = self.current_id, "resource"
                 self.load_level(); return
             resource = get_resource(self.current_id)

@@ -6,7 +6,7 @@ import typer
 
 from .capacity import GiB, remote_size, storage_preview
 from .catalog import sync_inventory, validate_inventory
-from .browser import basket as catalog_basket, draft as catalog_draft, facets as catalog_facets, launch as launch_browser, search as catalog_search, sync_acs
+from .browser import basket as catalog_basket, draft as catalog_draft, ensure_acs, facets as catalog_facets, launch as launch_browser, search as catalog_search, sync_acs
 from .contracts import load_contracts, validate_contracts
 from .db import apply_migrations
 from .ingestion.census import STATE_FIPS, bootstrap_housing, describe_acs_table, discover_acs_tables, ingest_acs, plan_contract, review_bulk_contract, search_acs_tables
@@ -21,8 +21,10 @@ from .progress import load_progress, validate_progress
 app = typer.Typer(help="Research database setup and ingestion commands.")
 ingest_app = typer.Typer(help="Provider ingestion commands.")
 bootstrap_app = typer.Typer(help="Resumable bulk download and bootstrap commands.")
+catalog_app = typer.Typer(help="Browse provider offerings, select resources, and create review-only drafts.")
 app.add_typer(ingest_app, name="ingest")
 app.add_typer(bootstrap_app, name="bootstrap")
+app.add_typer(catalog_app, name="catalog")
 
 
 @app.command("init-db")
@@ -141,7 +143,36 @@ def browse(
     product: str | None = typer.Option(None, help="Filter to one exact product type; see catalog-options."),
 ) -> None:
     """Open the keyboard catalog browser; Space selects and Enter inspects."""
+    _catalog_ready()
     launch_browser(dataset, basket, year, product)
+
+
+def _catalog_ready(year: int = 2024) -> None:
+    """Small metadata bootstrap for the normal interactive path."""
+    apply_migrations()
+    sync_inventory()
+    ensure_acs(year)
+
+
+@catalog_app.command("browse")
+def catalog_browse(
+    basket: str = typer.Option("default", help="Persistent selection basket name."),
+) -> None:
+    """Open the source-first browser; current ACS metadata is prepared automatically."""
+    _catalog_ready()
+    launch_browser(None, basket)
+
+
+@catalog_app.command("basket")
+def catalog_basket_view(name: str = typer.Argument("default")) -> None:
+    """Show one persistent selection basket."""
+    typer.echo(json.dumps(catalog_basket(name), indent=2, sort_keys=True, default=str))
+
+
+@catalog_app.command("draft")
+def catalog_draft_view(name: str = typer.Argument("default")) -> None:
+    """Write a disabled review-only draft from a basket."""
+    typer.echo(catalog_draft(name))
 
 
 @app.command("plan-list")

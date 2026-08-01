@@ -39,15 +39,9 @@ research-db ingest census-acs --year 2023 --state 24 --variables NAME,B01003_001
 # plan, but does not download county observations.
 research-db ingest census-plan --contract acshome
 
-# Catalog the official ACS table list and produce a local housing-candidate
-# manifest. This fetches metadata only, not ACS tables or observations.
-research-db ingest census-discover --year 2024
-
-# Load the discovered catalog into PostgreSQL and open the keyboard browser.
-# Type to search; Enter shows fields; Space toggles the current table in the
-# named draft basket; Ctrl+Q exits. This does not download data.
-research-db catalog-sync acs --year 2024
-research-db browse --dataset census.acs_5 --basket housing
+# Open the source-first catalog. On first use it prepares the current ACS
+# metadata catalog automatically; it does not download ACS observations.
+research-db browse
 
 # Check a proposed bulk batch before any download. A non-zero exit means the
 # size is unknown or the required reserve would be breached.
