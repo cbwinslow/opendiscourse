@@ -1,0 +1,268 @@
+version: 1
+description: >-
+  Authoritative-source inventory for the U.S. public-policy, economic, and
+  financial research warehouse. Dataset IDs are stable catalog keys.
+providers:
+  - id: census
+    name: U.S. Census Bureau
+    base_url: https://api.census.gov/data
+    auth: api_key
+    datasets:
+      - id: census.acs_1
+        title: American Community Survey 1-Year
+        access: REST API and summary downloads
+        client: httpx; optional census/censusdis convenience wrappers
+        grain: geography × ACS variable × release vintage
+        identifiers: [GEOID, variable_id, vintage]
+        cadence: annual
+        priority: 1
+        notes: Use only for published population thresholds; retain estimate and MOE.
+      - id: census.acs_5
+        title: American Community Survey 5-Year
+        access: REST API and summary downloads
+        client: httpx; optional census/censusdis convenience wrappers
+        grain: geography × ACS variable × release vintage
+        identifiers: [GEOID, variable_id, vintage]
+        cadence: annual
+        priority: 1
+        notes: Default small-area demographic and housing baseline; do not compare overlapping windows as independent observations.
+      - id: census.decennial
+        title: Decennial Census
+        access: REST API and bulk files
+        client: httpx
+        grain: geography × table variable × census year
+        identifiers: [GEOID, variable_id, vintage]
+        cadence: decennial
+        priority: 2
+      - id: census.population_estimates
+        title: Population Estimates Program
+        access: REST API and downloads
+        client: httpx
+        grain: geography × estimate date × vintage
+        identifiers: [GEOID, date, vintage]
+        cadence: annual
+        priority: 1
+      - id: census.tiger
+        title: TIGER/Line and cartographic boundary files
+        access: bulk ZIP shapefiles
+        client: geopandas + pyogrio + shapely
+        grain: geography boundary × boundary vintage
+        identifiers: [GEOID, geography_type, boundary_vintage]
+        cadence: annual
+        priority: 1
+        notes: Includes state, county, tract, block group, ZCTA, congressional, state legislative, and voting district geographies where available.
+      - id: census.business_patterns
+        title: County Business Patterns and Nonemployer Statistics
+        access: REST API and bulk files
+        client: httpx
+        grain: geography × NAICS × year
+        identifiers: [GEOID, NAICS, year]
+        cadence: annual
+        priority: 2
+      - id: census.government_finance
+        title: Census Government Finance
+        access: API and bulk files
+        client: httpx
+        grain: government unit × finance category × fiscal year
+        identifiers: [government_id, FIPS, fiscal_year]
+        cadence: annual
+        priority: 2
+  - id: fred
+    name: Federal Reserve Bank of St. Louis — FRED and ALFRED
+    base_url: https://api.stlouisfed.org
+    auth: api_key
+    datasets:
+      - id: fred.series
+        title: FRED/ALFRED macroeconomic series
+        access: FRED API v1/v2
+        client: httpx; optional fredapi
+        grain: series × observation date × real-time vintage
+        identifiers: [series_id, observation_date, realtime_start, realtime_end]
+        cadence: provider release schedule
+        priority: 1
+        notes: Retain vintages for revision-aware research and preserve third-party attribution.
+  - id: bea
+    name: Bureau of Economic Analysis
+    base_url: https://apps.bea.gov/api
+    auth: api_key
+    datasets:
+      - id: bea.regional
+        title: Regional GDP, personal income, and price parities
+        access: REST API and bulk files
+        client: httpx
+        grain: table × line code × GeoFIPS × period
+        identifiers: [TableName, LineCode, GeoFips, period]
+        cadence: quarterly_or_annual
+        priority: 1
+  - id: bls
+    name: Bureau of Labor Statistics
+    base_url: https://api.bls.gov/publicAPI/v2
+    auth: optional_registration
+    datasets:
+      - id: bls.laus
+        title: Local Area Unemployment Statistics
+        access: API plus series metadata downloads
+        client: httpx
+        grain: BLS series × period
+        identifiers: [series_id, period]
+        cadence: monthly
+        priority: 1
+      - id: bls.qcew
+        title: Quarterly Census of Employment and Wages
+        access: bulk CSV and API
+        client: httpx; polars for bulk files
+        grain: area × industry × ownership × quarter
+        identifiers: [area_fips, industry_code, own_code, quarter]
+        cadence: quarterly
+        priority: 2
+      - id: bls.cpi
+        title: Consumer Price Index
+        access: API plus series metadata downloads
+        client: httpx
+        grain: series × month
+        identifiers: [series_id, period]
+        cadence: monthly
+        priority: 1
+  - id: treasury
+    name: U.S. Treasury / USAspending
+    auth: varies_by_endpoint
+    datasets:
+      - id: treasury.fiscal_data
+        title: Fiscal Data API
+        access: REST API and CSV
+        client: httpx
+        grain: dataset-specific record
+        identifiers: [record_date, dataset_specific_id]
+        cadence: daily_or_monthly
+        priority: 2
+      - id: treasury.yield_curve
+        title: Daily Treasury par nominal, real, and bill yield curves
+        access: Treasury daily-rate historical pages and CSV/XML feeds
+        client: httpx; built-in HTML parser
+        grain: curve type × observation date × tenor
+        identifiers: [curve_type, observation_date, tenor]
+        cadence: business_daily
+        priority: 1
+        notes: Preserve every published tenor and curve methodology/source metadata.
+      - id: usaspending.awards
+        title: Federal awards and assistance
+        access: REST API and bulk downloads
+        client: httpx; polars for bulk files
+        grain: award transaction
+        identifiers: [award_id, transaction_id, recipient_uei]
+        cadence: daily
+        priority: 2
+  - id: fbi
+    name: FBI Crime Data Explorer
+    auth: api_key_or_bulk
+    datasets:
+      - id: fbi.crime_agency
+        title: Crime agencies and reported offense statistics
+        access: CDE API and annual bulk NIBRS/UCR extracts
+        client: httpx; polars for bulk files
+        grain: agency/ORI × offense × period
+        identifiers: [ori, offense_code, period]
+        cadence: annual_with_incremental_updates
+        priority: 2
+        notes: Store reporting coverage; ORI-to-county is a non-authoritative crosswalk.
+  - id: congress
+    name: Congress.gov and GovInfo
+    auth: api_data_gov_key
+    datasets:
+      - id: congress.legislation
+        title: Federal members, bills, actions, amendments, committees, and House votes
+        access: Congress.gov REST API
+        client: httpx
+        grain: entity/version or roll call/member position
+        identifiers: [bioguide_id, congress, bill_type, bill_number, roll_call]
+        cadence: daily_when_in_session
+        priority: 1
+      - id: congress.govinfo_billstatus
+        title: GovInfo bulk bill status and bill text
+        access: GovInfo bulk XML/JSON directory manifests
+        client: httpx; lxml for XML parsing
+        grain: Congress × bill × version/package
+        identifiers: [congress, package_id, bill_type, bill_number]
+        cadence: daily
+        priority: 1
+      - id: govinfo.bulk
+        title: Bill status/text, Congressional Record, statutes, CFR, and Federal Register
+        access: GovInfo API and bulk XML/JSON
+        client: httpx; lxml for XML parsing
+        grain: package/granule/version
+        identifiers: [package_id, granule_id, congress]
+        cadence: daily_or_collection_release
+        priority: 1
+  - id: openstates
+    name: Plural Open / OpenStates
+    base_url: https://v3.openstates.org
+    auth: api_key
+    datasets:
+      - id: openstates.legislation
+        title: State legislators, bills, actions, sponsorships, votes, committees, and events
+        access: REST API v3
+        client: httpx
+        grain: Open Civic Data entity/version
+        identifiers: [ocd_person_id, ocd_bill_id, jurisdiction, session]
+        cadence: daily_during_sessions
+        priority: 1
+        notes: Availability and completeness vary by jurisdiction.
+      - id: openstates.dump
+        title: OpenStates database/source export
+        access: Official monthly public pg_dump and matching schema archive
+        client: pg_restore/psql only after inspection; otherwise provider parser
+        grain: source-export snapshot
+        identifiers: [snapshot_id, checksum]
+        cadence: provider_defined
+        priority: 2
+        notes: Public pattern is data.openstates.org/postgres/{monthly,schema}/YYYY-MM-*.pgdump. Do not restore into the research database; stage and inspect it first.
+  - id: elections
+    name: Federal Election Commission and election-source partners
+    auth: api_key_varies
+    datasets:
+      - id: fec.campaign_finance
+        title: FEC committees, candidates, filings, receipts, and disbursements
+        access: FEC REST API and bulk files
+        client: httpx; polars for bulk files
+        grain: filing or transaction
+        identifiers: [candidate_id, committee_id, filing_id, transaction_id]
+        cadence: daily_and_filing_schedule
+        priority: 2
+      - id: disclosures.financial
+        title: Congressional financial disclosures and periodic transaction reports
+        access: Official House and Senate disclosure portals, where bulk export is offered
+        client: httpx; PDF/CSV parser selected per source
+        grain: filing/report/transaction
+        identifiers: [chamber, filer_id, report_id, transaction_id]
+        cadence: filing_schedule
+        priority: 2
+        notes: Retain source document URLs and filing amendments; do not infer precise values from disclosed ranges.
+      - id: elections.results
+        title: Election results and precinct/district crosswalks
+        access: State authorities, MIT Election Lab, and VEST where licensing permits
+        client: httpx; geopandas for geographic files
+        grain: election × contest × geographic reporting unit
+        identifiers: [election_id, contest_id, precinct_id, GEOID]
+        cadence: per_election
+        priority: 2
+  - id: markets
+    name: Market-data providers
+    auth: provider_specific
+    datasets:
+      - id: markets.prices
+        title: Securities master, prices, corporate actions, and fundamentals
+        access: licensed provider API; convenience adapters for research
+        client: OpenBB adapters; yfinance only as a non-canonical fallback
+        grain: instrument × session/date
+        identifiers: [instrument_id, ticker, exchange, trade_date]
+        cadence: intraday_or_daily
+        priority: 3
+        notes: Ticker is not an identity. Use a licensed provider for production or redistribution.
+      - id: markets.indices
+        title: Major market index levels and constituents
+        access: Licensed index provider or permitted OpenBB source adapter
+        client: OpenBB Platform adapter
+        grain: index × trade date; constituent × effective date
+        identifiers: [index_id, instrument_id, trade_date]
+        cadence: daily
+        priority: 2

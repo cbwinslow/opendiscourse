@@ -1,0 +1,32 @@
+version: 1
+description: >-
+  Small, stable ingestion contracts. Plan IDs are short, one-word operator
+  names; datasets retain their authoritative catalog IDs. Parameters are the
+  only allowed input to a handler and are recorded with every run.
+plans:
+  - id: fredcore
+    dataset: fred.series
+    handler: fred_core
+    cadence: weekly
+    enabled: true
+    parameters:
+      max_priority: 1
+    notes: Curated macroeconomic baseline; never attempt all FRED series.
+  - id: acshome
+    dataset: census.acs_5
+    handler: acs_housing
+    cadence: annual
+    enabled: true
+    parameters:
+      year: 2024
+      states: [24]
+    notes: Curated ACS 5-year housing variables at county level. Add states deliberately.
+  - id: congcur
+    dataset: congress.legislation
+    handler: congress_bills
+    cadence: daily
+    enabled: true
+    parameters:
+      congress: 119
+      max_records: 250
+    notes: Re-reads the most recently updated bills in the active Congress; historical backfills use an explicit CLI command.

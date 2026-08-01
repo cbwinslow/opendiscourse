@@ -1,0 +1,70 @@
+version: 1
+description: >-
+  Operator-owned register of datasets and legacy artifact groups under review.
+  This records progress, provenance, and the next concrete action; it does not
+  assert that a discovered file is authoritative.
+states: [idea, planned, found, verify, ready, loaded, hold, rejected]
+items:
+  - id: congapi
+    dataset: congress.legislation
+    state: ready
+    scope: 119th Congress; bounded Congress.gov collection pages
+    origin: Congress.gov API
+    provenance: authoritative_api
+    sensitivity: public
+    validate: API response retained with each ingestion run
+    next: Add people, sponsors, actions, and votes after bill collection backfill.
+  - id: cong118
+    dataset: congress.legislation
+    state: found
+    scope: 20 local 118th-Congress bill-list JSON chunks; 18,315 records with only list-level fields
+    origin: /mnt/storage/data-lake/government/epstein/raw-files/congress/bills
+    provenance: legacy_cache_unverified
+    sensitivity: public_claimed
+    validate: Non-primary legacy cache. Its 18,315 records differ from the adjacent 19,315-record historical file; compare against an official fresh snapshot before any use.
+    next: Do not parse. Rebuild the official Congress.gov metadata baseline, then retain or delete this cache only after coverage comparison.
+  - id: govbulk
+    dataset: govinfo.bulk
+    state: found
+    scope: 289 ZIP, 250 XML, and 329 JSON files in a legacy GovInfo bulk cache
+    origin: /mnt/storage/data-lake/government/epstein/raw-files/govinfo_bulk
+    provenance: legacy_cache_unverified
+    sensitivity: public_claimed
+    validate: Verify package and granule IDs against GovInfo manifests.
+    next: Build artifact registrar, then implement BILLSTATUS and bill-text parser.
+  - id: fecbulk
+    dataset: fec.campaign_finance
+    state: found
+    scope: 50 FEC-style bulk ZIP archives; approximately 19.7 GiB
+    origin: /mnt/storage/data-lake/government/fec_bulk_data
+    provenance: legacy_cache_unverified
+    sensitivity: public
+    validate: Match filenames, release years, sizes, and checksums to FEC downloads.
+    next: Register archives and select one transaction family for a pilot parser.
+  - id: acshome
+    dataset: census.acs_5
+    state: ready
+    scope: Curated county-level ACS 5-year housing groups; Maryland first
+    origin: Census API and official summary files
+    provenance: authoritative_api_metadata_verified
+    sensitivity: public
+    validate: Variable metadata, estimate/MOE pairing, and geography coverage.
+    next: Review the recorded 2024 group metadata (five estimate fields, one Maryland request) before explicitly enabling the county-data load.
+  - id: fredcore
+    dataset: fred.series
+    state: planned
+    scope: Versioned core macroeconomic series manifest
+    origin: FRED API
+    provenance: authoritative_planned
+    sensitivity: public
+    validate: Series metadata, observation date, and real-time vintage.
+    next: Set FRED key and run the declared plan.
+  - id: epstein
+    dataset: null
+    state: hold
+    scope: Mixed-origin collection; approximately 794k files and 658 GiB
+    origin: /mnt/storage/data-lake/government/epstein
+    provenance: mixed_unknown
+    sensitivity: sensitive_review
+    validate: Establish source, access, legal, privacy, and retention rules per artifact group.
+    next: Inventory only. Do not bulk-copy, parse, embed, or make entity claims.

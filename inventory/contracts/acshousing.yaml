@@ -1,0 +1,30 @@
+version: 1
+description: >-
+  Draft bulk selection for the complete ACS housing domain. It is intentionally
+  disabled until an operator reviews the generated candidates and an exact
+  artifact manifest passes storage preview.
+contracts:
+  - id: acshousing
+    provider: census
+    dataset: census.acs_5
+    kind: acs_bulk
+    year: 2024
+    products: [detailed_5]
+    target: fact.measurement
+    cadence: annual
+    enabled: false
+    approval: pending
+    selection:
+      include_prefixes: [B25, C25]
+      include_ids: []
+      include_title_terms: [housing]
+      exclude_ids: []
+      add_ids: []
+    storage:
+      stage_multiplier: 1.0
+      database_multiplier: 1.5
+      reserve_gib: 100
+    notes: >-
+      Review with `research-db ingest census-review --contract acshousing`.
+      Exclude or add table IDs here, then approve only after a future exact
+      bulk-file manifest passes storage preview.

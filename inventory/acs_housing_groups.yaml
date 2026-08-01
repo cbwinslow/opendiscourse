@@ -1,0 +1,17 @@
+dataset: census.acs_5
+geography: county
+groups:
+  - B25001 # housing units
+  - B25002 # occupancy status
+  - B25003 # tenure
+  - B25004 # vacancy status
+  - B25010 # average household size of occupied housing units
+  - B25034 # year structure built
+  - B25035 # median year structure built
+  - B25064 # gross rent
+  - B25070 # gross rent as percentage of household income
+  - B25071 # median gross rent as percentage of household income
+  - B25075 # value distribution
+  - B25077 # median housing value
+  - B25081 # mortgage status
+  - B25093 # housing costs as percentage of household income

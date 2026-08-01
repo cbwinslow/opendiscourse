@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-research}
+      POSTGRES_USER: ${POSTGRES_USER:-research}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-research}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      # Keep the database off the small root filesystem.  OD_LAKE_ROOT should
+      # point at the server's spacious, backed-up data partition.
+      - ${OD_LAKE_ROOT:-/home/cbwinslow/workspace/data-lake}/opendiscourse/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12

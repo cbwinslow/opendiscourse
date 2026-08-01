@@ -1,0 +1,18 @@
+version: 1
+description: >-
+  Deliberate Census selections. Contracts say exactly what may be discovered
+  and later loaded; they are not a request to enumerate every Census dataset.
+contracts:
+  - id: acshome
+    provider: census
+    dataset: census.acs_5
+    endpoint: acs/acs5
+    year: 2024
+    geography: county
+    states: ["24"]
+    groups: [B25001, B25003, B25064]
+    estimate_suffix: E
+    cadence: annual
+    target: fact.measurement
+    mode: aggregate
+    notes: Maryland county housing baseline. Run census-plan before any data load.
