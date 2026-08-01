@@ -104,6 +104,11 @@ the original metadata artifact and its checksum. Resources may be refreshed for
 search, but snapshots preserve exactly what the provider advertised at a given
 time; no discovery job may silently erase that history.
 
+The browser currently auto-discovers the verified modern ACS table-based
+releases (2022–2024). Earlier ACS releases remain a separate legacy
+sequence-format adapter task; they are not presented as selectable until their
+metadata path is implemented and tested.
+
 Use `research-db catalog-options` to see discovered years and products, or
 filter the browser with `--year 2024 --product 'Detailed Table'`. `a` requires
 a second press before selecting all currently filtered rows; `g` likewise

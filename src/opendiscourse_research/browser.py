@@ -101,7 +101,9 @@ def facets(dataset_id: str) -> dict[str, Any]:
     # discovery; it never downloads observations.
     if dataset_id == "census.acs_5":
         counts = {row["release_year"]: row["count"] for row in years}
-        years = [{"release_year": year, "count": counts.get(year, 0)} for year in range(2024, 2004, -1)]
+        # Verified table-based catalog releases. Older ACS releases use a
+        # different sequence-format catalog and need their own adapter.
+        years = [{"release_year": year, "count": counts.get(year, 0)} for year in range(2024, 2021, -1)]
     return {"dataset": dataset_id, "years": years, "products": products}
 
 
