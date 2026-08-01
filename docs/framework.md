@@ -99,6 +99,11 @@ Selections are drafts only. They do not create a fetch plan or download data.
 The same catalog and basket tables will serve FRED, FBI, GovInfo, and other
 adapters when they are implemented.
 
+Every provider discovery will also create a `catalog.snapshot` record linked to
+the original metadata artifact and its checksum. Resources may be refreshed for
+search, but snapshots preserve exactly what the provider advertised at a given
+time; no discovery job may silently erase that history.
+
 Use `research-db catalog-options` to see discovered years and products, or
 filter the browser with `--year 2024 --product 'Detailed Table'`. `a` requires
 a second press before selecting all currently filtered rows; `g` likewise

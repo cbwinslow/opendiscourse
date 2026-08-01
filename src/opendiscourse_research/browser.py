@@ -39,6 +39,29 @@ def sync_acs(year: int) -> int:
                     "metadata": Jsonb({"table_id": table["id"], "one_year": table.get("one_year"), "five_year": table.get("five_year")}),
                 },
             )
+        cur.execute(
+            """SELECT artifact_id, remote_url, checksum_sha256
+               FROM ingest.artifact WHERE dataset_id = 'census.acs_5' AND artifact_key = %s""",
+            (f"tables-{year}",),
+        )
+        artifact = cur.fetchone()
+        if artifact is None or artifact["checksum_sha256"] is None:
+            raise ValueError(f"ACS table-list artifact for {year} is not registered")
+        cur.execute(
+            """INSERT INTO catalog.snapshot (dataset_id, source_url, checksum_sha256, artifact_id, metadata)
+               VALUES ('census.acs_5', %s, %s, %s, %s)
+               ON CONFLICT (dataset_id, checksum_sha256) DO UPDATE SET artifact_id = EXCLUDED.artifact_id
+               RETURNING snapshot_id""",
+            (artifact["remote_url"], artifact["checksum_sha256"], artifact["artifact_id"], Jsonb({"year": year, "kind": "acs_table_list"})),
+        )
+        snapshot_id = cur.fetchone()["snapshot_id"]
+        cur.execute(
+            """INSERT INTO catalog.snapshot_resource (snapshot_id, resource_id)
+               SELECT %s, resource_id FROM catalog.resource
+               WHERE dataset_id = 'census.acs_5' AND release_year = %s
+               ON CONFLICT DO NOTHING""",
+            (snapshot_id, year),
+        )
         conn.commit()
     return len(manifest["tables"])
 
