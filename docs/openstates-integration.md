@@ -59,8 +59,9 @@ not have permission to create database roles, alter authentication, or own a
 cross-database superuser mapping. Use a dedicated login constrained to
 `SELECT` on an allow-list of public OpenStates tables.
 
-Run the following as a PostgreSQL administrator after selecting and storing a
-secret for `openstates_fdw` outside this repository:
+For a networked or managed deployment, run the following as a PostgreSQL
+administrator after selecting and storing a secret for `openstates_fdw` outside
+this repository:
 
 ```sql
 CREATE ROLE openstates_fdw LOGIN PASSWORD '<managed-secret>' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
@@ -89,6 +90,17 @@ protected user mapping, not in `.env`, source control, output, or a migration.
 Import only the approved tables into an `openstates_source` schema. After
 verification, create project-owned compatibility views in a dedicated schema;
 do not expose raw foreign tables as the stable application interface.
+
+### Local peer-authenticated deployment
+
+The current workstation uses a Unix-domain socket and PostgreSQL peer
+authentication. Its administrator has provisioned the same `openstates_fdw`
+role without a password, with an FDW server owned by `postgres` and a mapping
+that explicitly starts each remote session as `openstates_fdw`. PostgreSQL
+requires the administrator-owned mapping to set `password_required=false` for
+this local-only peer path; application roles have only `USAGE` on the server
+and `SELECT` on the imported `openstates_source` foreign tables. Do not copy
+this mode to a TCP, shared-host, or hosted-database deployment.
 
 ## Promotion workflow
 

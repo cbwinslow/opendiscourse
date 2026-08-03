@@ -32,6 +32,11 @@ The restore uses PostgreSQL 17 tools and PostGIS 3. A split schema/data dump
 must load the data serially with foreign-key triggers disabled during restore;
 parallel data restore can violate dependency order.
 
+`opendiscourse` accesses the approved OpenStates relations through the
+read-only `openstates_source` foreign schema. This is an integration boundary,
+not a write target; see `docs/openstates-integration.md` for the privilege and
+deployment policy.
+
 ## Docker
 
 `compose.yaml` is an optional development fallback on port `5433`. It is not
