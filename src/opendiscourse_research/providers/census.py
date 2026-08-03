@@ -13,6 +13,7 @@ from ..ingestion.base import IngestionRun, client, json_response
 
 CATALOG_URL = "https://api.census.gov/data.json"
 ACS_TABLE_BASED_YEARS = (2021, 2022, 2023, 2024)
+CBP_2023_URL = "https://www.census.gov/data/datasets/2023/econ/cbp/2023-cbp.html"
 
 
 def _offering_key(item: dict[str, Any]) -> str:
@@ -126,3 +127,17 @@ def sync_acs_bulk_packages() -> int:
             )
         conn.commit()
     return len(ACS_TABLE_BASED_YEARS)
+
+
+def sync_cbp_bulk_packages() -> int:
+    """Publish the official complete CBP annual bundle as one browser choice."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("""INSERT INTO catalog.resource
+            (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
+            VALUES ('census.business_patterns', 'full:2023', 'Complete CSV bundle', %s, %s, 2023, %s)
+            ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type = EXCLUDED.resource_type,
+              title = EXCLUDED.title, summary = EXCLUDED.summary, release_year = EXCLUDED.release_year,
+              metadata = EXCLUDED.metadata, updated_at = now()""",
+            ("2023 County Business Patterns — complete CSV bundle", "Official U.S., state, county, metro, ZIP, and congressional-district CBP files for one annual release.", Jsonb({"package": "complete_csv_bundle", "source_page": CBP_2023_URL})))
+        conn.commit()
+    return 1

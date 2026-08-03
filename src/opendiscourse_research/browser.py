@@ -686,8 +686,14 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
                 self.query_one(Static).update("Press P again to write an explicit, disabled ACS 5-year bulk plan from a selected full package or Detailed Tables.")
                 return
             from .ingestion.acs_bulk import write_acs5_bulk_plan
+            from .ingestion.cbp_bulk import write_cbp_bulk_plan
             try:
-                path = write_acs5_bulk_plan(basket_name, basket(basket_name))
+                selected = basket(basket_name)
+                datasets = {item["dataset_id"] for item in selected}
+                if datasets == {"census.business_patterns"}:
+                    path = write_cbp_bulk_plan(basket_name, selected)
+                else:
+                    path = write_acs5_bulk_plan(basket_name, selected)
             except Exception as exc:
                 self.query_one(Static).update(f"Could not write ACS bulk plan: {exc}")
                 return

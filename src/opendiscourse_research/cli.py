@@ -11,6 +11,7 @@ from .browser import basket as catalog_basket, draft as catalog_draft, ensure_ac
 from .contracts import load_contracts, validate_contracts
 from .db import apply_migrations
 from .ingestion.acs_bulk import preview_acs5_bulk_plan, write_acs5_bulk_plan
+from .ingestion.cbp_bulk import preview_cbp_bulk_plan, write_cbp_bulk_plan
 from .ingestion.census import STATE_FIPS, bootstrap_housing, describe_acs_table, discover_acs_tables, ingest_acs, plan_contract, review_bulk_contract, search_acs_tables
 from .ingestion.congress import ingest_bill
 from .ingestion.bulk import ArtifactSpec, register_local
@@ -370,6 +371,21 @@ def acs_bulk_preview(
     payload = yaml.safe_load(plan.read_text()) or {}
     with render_progress("Measuring ACS bulk artifacts", len(payload.get("artifacts", []))) as update:
         report = preview_acs5_bulk_plan(plan, update)
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@ingest_app.command("cbp-bulk-plan")
+def cbp_bulk_plan(basket: str = typer.Option("default", help="Catalog selection containing one CBP complete bundle.")) -> None:
+    """Write a disabled County Business Patterns bulk plan from a browser selection."""
+    typer.echo(write_cbp_bulk_plan(basket, catalog_basket(basket)))
+
+
+@ingest_app.command("cbp-bulk-preview")
+def cbp_bulk_preview(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Measure every planned CBP artifact; never download its contents."""
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_progress("Measuring CBP bulk artifacts", len(payload.get("artifacts", []))) as update:
+        report = preview_cbp_bulk_plan(plan, update)
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 
