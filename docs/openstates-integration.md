@@ -28,6 +28,30 @@ Compatibility views must label the source and never hide unresolved mappings.
 They are for query interoperability; the canonical source tables remain the
 place for writes, quality checks, and embeddings.
 
+## Canonical compatibility map
+
+OpenDiscourse does not duplicate the upstream Django implementation, but its
+owned tables use the same entity grains and preserve an OCD ID when one is
+published or deterministically assigned by an approved mapping rule.
+
+| OpenStates source relation | Owned canonical relation | Federal source and deterministic identifier |
+|---|---|---|
+| `opencivicdata_jurisdiction` | `core.jurisdiction` | United States: `ocd-jurisdiction/country:us/government` |
+| `opencivicdata_legislativesession` | `core.legislative_session` | Congress number under the U.S. jurisdiction |
+| `opencivicdata_organization` | `core.organization` | Chamber/committee source code or published OCD ID |
+| `opencivicdata_person` + `personidentifier` | `core.person` + `person_identifier` | Bioguide ID; never a display-name match |
+| `opencivicdata_membership` semantics | `core.membership` | Bioguide ID + chamber/office + bounded term evidence |
+| `opencivicdata_bill` + `billidentifier` | `core.bill` + `bill_identifier` | Congress + lower-cased type + number |
+| `opencivicdata_billaction` | `core.bill_action` | Bill key + source XML/API ordinal |
+| `opencivicdata_billsponsorship` | `core.bill_sponsorship` | Bill key + Bioguide ID + sponsorship role |
+| `opencivicdata_billdocument` | `core.bill_document` | Bill key + version code + official URL |
+| `opencivicdata_voteevent` + `personvote` | `core.roll_call` + `fact.member_vote` | Official chamber roll-call ID + Bioguide ID |
+
+The `core` schema is deliberately a canonical compatibility layer, not an ORM
+database. Its tables add raw artifact/payload references, source member paths,
+checksums, and reconciliation metadata that the upstream provider snapshot
+does not own.
+
 ## Least-privilege FDW setup
 
 An administrator must create the FDW path because the application role should
