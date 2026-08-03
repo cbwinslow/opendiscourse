@@ -7,12 +7,29 @@ import yaml
 
 from .capacity import GiB, remote_size, storage_preview
 from .catalog import sync_inventory, validate_inventory
-from .browser import basket as catalog_basket, draft as catalog_draft, ensure_acs, facets as catalog_facets, launch as launch_browser, search as catalog_search, sync_acs
+from .browser import (
+    basket as catalog_basket,
+    draft as catalog_draft,
+    ensure_acs,
+    facets as catalog_facets,
+    launch as launch_browser,
+    search as catalog_search,
+    sync_acs,
+)
 from .contracts import load_contracts, validate_contracts
 from .db import apply_migrations
 from .ingestion.acs_bulk import preview_acs5_bulk_plan, write_acs5_bulk_plan
 from .ingestion.cbp_bulk import preview_cbp_bulk_plan, write_cbp_bulk_plan
-from .ingestion.census import STATE_FIPS, bootstrap_housing, describe_acs_table, discover_acs_tables, ingest_acs, plan_contract, review_bulk_contract, search_acs_tables
+from .ingestion.census import (
+    STATE_FIPS,
+    bootstrap_housing,
+    describe_acs_table,
+    discover_acs_tables,
+    ingest_acs,
+    plan_contract,
+    review_bulk_contract,
+    search_acs_tables,
+)
 from .ingestion.congress import ingest_bill
 from .ingestion.bulk import ArtifactSpec, register_local
 from .ingestion.fred import ingest_manifest, ingest_series
@@ -21,17 +38,24 @@ from .ingestion.treasury import ingest_yield_curve
 from .plans import due_plans, load_plans, run_plan
 from .progress import load_progress, validate_progress
 from .registry import status as registry_status, sync as registry_sync
-from .feedback import progress as render_progress, spinner as render_spinner, timed as render_timed
+from .feedback import (
+    progress as render_progress,
+    spinner as render_spinner,
+    timed as render_timed,
+)
 from .audit import audit_leg
 from .legvalidate import validate_billstatus
 from .govplan import plan_billstatus_backfill
 from .legreconcile import reconcile_billstatus
 from .legload import load_billstatus
+from .peopleload import load_openstates_federal_people
 
 app = typer.Typer(help="Research database setup and ingestion commands.")
 ingest_app = typer.Typer(help="Provider ingestion commands.")
 bootstrap_app = typer.Typer(help="Resumable bulk download and bootstrap commands.")
-catalog_app = typer.Typer(help="Browse provider offerings, select resources, and create review-only drafts.")
+catalog_app = typer.Typer(
+    help="Browse provider offerings, select resources, and create review-only drafts."
+)
 app.add_typer(ingest_app, name="ingest", hidden=True)
 app.add_typer(bootstrap_app, name="bootstrap", hidden=True)
 # Compatibility entry point for earlier scripts. The normal operator surface is
@@ -62,11 +86,15 @@ def catalog_check() -> None:
 
 
 @app.command("progress-list", hidden=True)
-def progress_list(state: str | None = typer.Option(None, help="Filter by progress state.")) -> None:
+def progress_list(
+    state: str | None = typer.Option(None, help="Filter by progress state."),
+) -> None:
     """List the tracked dataset and legacy-artifact work register."""
     for item in load_progress()["items"]:
         if state is None or item["state"] == state:
-            typer.echo(f"{item['id']}\t{item['state']}\t{item.get('dataset') or '-'}\t{item['next']}")
+            typer.echo(
+                f"{item['id']}\t{item['state']}\t{item.get('dataset') or '-'}\t{item['next']}"
+            )
 
 
 @app.command("progress-check", hidden=True)
@@ -84,15 +112,27 @@ def progress_check() -> None:
 def contract_list() -> None:
     """List short, version-controlled data selections."""
     for contract in load_contracts():
-        typer.echo(f"{contract['id']}\t{contract['provider']}\t{contract['dataset']}\t{contract['target']}")
+        typer.echo(
+            f"{contract['id']}\t{contract['provider']}\t{contract['dataset']}\t{contract['target']}"
+        )
 
 
 @app.command("storage-preview", hidden=True)
 def storage_preview_command(
-    url: list[str] = typer.Option(..., "--url", help="Remote artifact URL; repeat for every file in the planned batch."),
-    stage_multiplier: float = typer.Option(1.0, min=0.0, help="Temporary stage size relative to downloads."),
-    database_multiplier: float = typer.Option(1.5, min=0.0, help="Postgres size relative to downloads."),
-    reserve_gib: int = typer.Option(100, min=1, help="Space that must remain free after the batch."),
+    url: list[str] = typer.Option(
+        ...,
+        "--url",
+        help="Remote artifact URL; repeat for every file in the planned batch.",
+    ),
+    stage_multiplier: float = typer.Option(
+        1.0, min=0.0, help="Temporary stage size relative to downloads."
+    ),
+    database_multiplier: float = typer.Option(
+        1.5, min=0.0, help="Postgres size relative to downloads."
+    ),
+    reserve_gib: int = typer.Option(
+        100, min=1, help="Space that must remain free after the batch."
+    ),
 ) -> None:
     """Preview conservative raw, staging, and database space before a download."""
     report = storage_preview(
@@ -124,7 +164,11 @@ def catalog_search_command(
     limit: int = typer.Option(50, min=1, max=500),
 ) -> None:
     """Search any synchronized provider catalog without contacting its provider."""
-    typer.echo(json.dumps(catalog_search(dataset, text, limit), indent=2, sort_keys=True, default=str))
+    typer.echo(
+        json.dumps(
+            catalog_search(dataset, text, limit), indent=2, sort_keys=True, default=str
+        )
+    )
 
 
 @app.command("catalog-basket", hidden=True)
@@ -138,7 +182,9 @@ def catalog_basket_command(
 @app.command("catalog-options", hidden=True)
 def catalog_options(dataset: str = typer.Option("census.acs_5")) -> None:
     """Show discovered years and product types before opening the browser."""
-    typer.echo(json.dumps(catalog_facets(dataset), indent=2, sort_keys=True, default=str))
+    typer.echo(
+        json.dumps(catalog_facets(dataset), indent=2, sort_keys=True, default=str)
+    )
 
 
 @app.command("catalog-draft", hidden=True)
@@ -149,11 +195,22 @@ def catalog_draft_command(name: str = typer.Option("default")) -> None:
 
 @app.command("browse")
 def browse(
-    dataset: str | None = typer.Option(None, help="Start at one dataset, or omit to navigate providers."),
-    selection: str = typer.Option("default", "--selection", "--basket", help="Persistent selection name."),
-    year: int | None = typer.Option(None, help="Filter to one discovered release year."),
-    product: str | None = typer.Option(None, help="Filter to one exact product type; normally choose it interactively."),
-    debug: bool = typer.Option(False, help="Write opt-in navigation diagnostics to lake metadata; search text is excluded."),
+    dataset: str | None = typer.Option(
+        None, help="Start at one dataset, or omit to navigate providers."
+    ),
+    selection: str = typer.Option(
+        "default", "--selection", "--basket", help="Persistent selection name."
+    ),
+    year: int | None = typer.Option(
+        None, help="Filter to one discovered release year."
+    ),
+    product: str | None = typer.Option(
+        None, help="Filter to one exact product type; normally choose it interactively."
+    ),
+    debug: bool = typer.Option(
+        False,
+        help="Write opt-in navigation diagnostics to lake metadata; search text is excluded.",
+    ),
 ) -> None:
     """Open the keyboard catalog browser; Space selects and Enter inspects."""
     _catalog_ready()
@@ -169,13 +226,34 @@ def _catalog_ready(year: int = 2024) -> None:
 
 @app.command("sync")
 def sync_command(
-    refresh: bool = typer.Option(False, help="Re-read implemented provider metadata even when a local snapshot exists."),
-    source: list[str] = typer.Option([], "--source", help="Limit sync to an implemented source: acs, census, fred, or congress."),
-    full: bool = typer.Option(False, help="Use a provider's explicit full-catalog mode; currently FRED only."),
-    preview: bool = typer.Option(False, help="Count a full catalog without storing resources; requires --full."),
-    index: bool = typer.Option(False, help="Run a bounded, resumable metadata-index batch; currently FRED only."),
-    pages: int = typer.Option(1, min=1, max=20, help="FRED release-series pages to index when using --index."),
-    minutes: int | None = typer.Option(None, min=1, max=720, help="Run FRED indexing for this time budget instead of a page count."),
+    refresh: bool = typer.Option(
+        False,
+        help="Re-read implemented provider metadata even when a local snapshot exists.",
+    ),
+    source: list[str] = typer.Option(
+        [],
+        "--source",
+        help="Limit sync to an implemented source: acs, census, fred, or congress.",
+    ),
+    full: bool = typer.Option(
+        False, help="Use a provider's explicit full-catalog mode; currently FRED only."
+    ),
+    preview: bool = typer.Option(
+        False, help="Count a full catalog without storing resources; requires --full."
+    ),
+    index: bool = typer.Option(
+        False,
+        help="Run a bounded, resumable metadata-index batch; currently FRED only.",
+    ),
+    pages: int = typer.Option(
+        1, min=1, max=20, help="FRED release-series pages to index when using --index."
+    ),
+    minutes: int | None = typer.Option(
+        None,
+        min=1,
+        max=720,
+        help="Run FRED indexing for this time budget instead of a page count.",
+    ),
 ) -> None:
     """Refresh every implemented provider metadata catalog; never download bulk data."""
     apply_migrations()
@@ -192,10 +270,14 @@ def sync_command(
         raise typer.BadParameter("--minutes requires --index")
     if index and minutes is not None:
         with render_timed("Indexing FRED metadata", minutes * 60) as report:
-            result = registry_sync(refresh, set(source), full, preview, None, minutes * 60, report)
+            result = registry_sync(
+                refresh, set(source), full, preview, None, minutes * 60, report
+            )
     elif index:
         with render_progress("Preparing FRED metadata index", pages) as report:
-            result = registry_sync(refresh, set(source), full, preview, pages, None, report)
+            result = registry_sync(
+                refresh, set(source), full, preview, pages, None, report
+            )
     else:
         result = registry_sync(refresh, set(source) or None, full, preview)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
@@ -211,21 +293,48 @@ def status_command() -> None:
 
 @app.command("audit")
 def audit_command(
-    hashes: bool = typer.Option(False, "--hashes", help="Also calculate SHA-256 checksums; slower but still read-only."),
+    hashes: bool = typer.Option(
+        False,
+        "--hashes",
+        help="Also calculate SHA-256 checksums; slower but still read-only.",
+    ),
 ) -> None:
     """Inventory known Congressional/GovInfo legacy roots without changing source files."""
     with render_spinner("Scanning legislative legacy artifacts") as report:
         result = audit_leg(hash_files=hashes, report=report)
-    typer.echo(json.dumps({"summary": result["summary"], "roots": result["roots"], "report": result["report"]}, indent=2, sort_keys=True))
+    typer.echo(
+        json.dumps(
+            {
+                "summary": result["summary"],
+                "roots": result["roots"],
+                "report": result["report"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
 
 @app.command("validate")
 def validate_command(
-    dataset: str = typer.Argument("billstatus", help="Read-only validator; currently billstatus."),
-    sample: int = typer.Option(2, min=1, max=20, help="XML files to parse from each archive."),
-    official: bool = typer.Option(False, help="Compare one Congress's cached listing files to live GovInfo directory JSON."),
-    congress: int | None = typer.Option(None, min=1, max=119, help="Congress to compare when using --official."),
-    all_congresses: bool = typer.Option(False, "--all", help="Compare every Congress available in the local BILLSTATUS cache."),
+    dataset: str = typer.Argument(
+        "billstatus", help="Read-only validator; currently billstatus."
+    ),
+    sample: int = typer.Option(
+        2, min=1, max=20, help="XML files to parse from each archive."
+    ),
+    official: bool = typer.Option(
+        False,
+        help="Compare one Congress's cached listing files to live GovInfo directory JSON.",
+    ),
+    congress: int | None = typer.Option(
+        None, min=1, max=119, help="Congress to compare when using --official."
+    ),
+    all_congresses: bool = typer.Option(
+        False,
+        "--all",
+        help="Compare every Congress available in the local BILLSTATUS cache.",
+    ),
 ) -> None:
     """Validate a legacy collection before any artifact admission or ingestion."""
     if dataset != "billstatus":
@@ -236,9 +345,17 @@ def validate_command(
         raise typer.BadParameter("--congress and --all require --official")
     if congress is not None and all_congresses:
         raise typer.BadParameter("choose either --congress or --all")
-    congresses = (congress,) if congress is not None else tuple(range(108, 120)) if all_congresses else ()
+    congresses = (
+        (congress,)
+        if congress is not None
+        else tuple(range(108, 120))
+        if all_congresses
+        else ()
+    )
     with render_spinner("Validating legacy GovInfo BILLSTATUS") as report:
-        result = validate_billstatus(sample=sample, official_congresses=congresses, report=report)
+        result = validate_billstatus(
+            sample=sample, official_congresses=congresses, report=report
+        )
     output = {"summary": result["summary"], "report": result["report"]}
     if "official_comparison" in result:
         output["official_comparison"] = result["official_comparison"]
@@ -247,7 +364,9 @@ def validate_command(
 
 @app.command("plan")
 def plan_command(
-    dataset: str = typer.Argument("billstatus", help="Review-only planner; currently billstatus."),
+    dataset: str = typer.Argument(
+        "billstatus", help="Review-only planner; currently billstatus."
+    ),
     congress: int = typer.Option(119, min=1, max=119),
 ) -> None:
     """Create an exact disabled bulk backfill plan; never download its files."""
@@ -257,36 +376,94 @@ def plan_command(
         result = plan_billstatus_backfill(congress=congress, report=report)
     storage = dict(result["storage"])
     storage["object_count"] = len(storage.pop("objects", []))
-    typer.echo(json.dumps({"contract": result["contract"], "congress": result["congress"], "files": len(result["files"]), "storage": storage, "report": result["report"], "next": result["next"]}, indent=2, sort_keys=True))
+    typer.echo(
+        json.dumps(
+            {
+                "contract": result["contract"],
+                "congress": result["congress"],
+                "files": len(result["files"]),
+                "storage": storage,
+                "report": result["report"],
+                "next": result["next"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
 
 @app.command("reconcile")
 def reconcile_command(
-    dataset: str = typer.Argument("billstatus", help="Read-only reconciler; currently billstatus."),
+    dataset: str = typer.Argument(
+        "billstatus", help="Read-only reconciler; currently billstatus."
+    ),
     congress: int = typer.Option(118, min=1, max=119),
-    limit: int | None = typer.Option(None, min=1, help="Inspect at most this many XML bills; omit for the complete Congress."),
+    limit: int | None = typer.Option(
+        None,
+        min=1,
+        help="Inspect at most this many XML bills; omit for the complete Congress.",
+    ),
 ) -> None:
     """Compare validated BILLSTATUS identities to canonical Postgres bill keys without loading facts."""
     if dataset != "billstatus":
         raise typer.BadParameter("only billstatus is available today")
     with render_spinner("Reconciling validated GovInfo BILLSTATUS") as report:
         result = reconcile_billstatus(congress=congress, limit=limit, report=report)
-    typer.echo(json.dumps({"congress": congress, "summary": result["summary"], "groups": result["groups"], "malformed": len(result["malformed"]), "report": result["report"], "next": result["next"]}, indent=2, sort_keys=True))
+    typer.echo(
+        json.dumps(
+            {
+                "congress": congress,
+                "summary": result["summary"],
+                "groups": result["groups"],
+                "malformed": len(result["malformed"]),
+                "report": result["report"],
+                "next": result["next"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
 
 @app.command("load-billstatus")
 def load_billstatus_command(
     congress: int = typer.Option(118, min=1, max=119),
-    limit: int | None = typer.Option(None, min=1, help="Maximum XML bills to load; omit only after a successful smoke load."),
-    batch_size: int = typer.Option(500, min=1, max=5000, help="Bills per committed transaction; reruns are idempotent."),
-    allow_partial: bool = typer.Option(False, help="Allow a validated but incomplete local cache, such as the 119th Congress."),
+    limit: int | None = typer.Option(
+        None,
+        min=1,
+        help="Maximum XML bills to load; omit only after a successful smoke load.",
+    ),
+    batch_size: int = typer.Option(
+        500,
+        min=1,
+        max=5000,
+        help="Bills per committed transaction; reruns are idempotent.",
+    ),
+    allow_partial: bool = typer.Option(
+        False,
+        help="Allow a validated but incomplete local cache, such as the 119th Congress.",
+    ),
 ) -> None:
     """Load validated local GovInfo BILLSTATUS relationships with artifact lineage."""
     try:
         with render_spinner("Loading validated GovInfo BILLSTATUS") as report:
-            result = load_billstatus(congress=congress, limit=limit, batch_size=batch_size, allow_partial=allow_partial, report=report)
+            result = load_billstatus(
+                congress=congress,
+                limit=limit,
+                batch_size=batch_size,
+                allow_partial=allow_partial,
+                report=report,
+            )
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from None
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("load-openstates-people")
+def load_openstates_people_command() -> None:
+    """Seed canonical federal people from the provisioned OpenStates snapshot."""
+    with render_spinner("Loading OpenStates federal people baseline"):
+        result = load_openstates_federal_people()
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 
@@ -315,17 +492,25 @@ def catalog_draft_view(name: str = typer.Argument("default")) -> None:
 def plan_list() -> None:
     """List the small, version-controlled ingestion contracts."""
     for plan in load_plans():
-        typer.echo(f"{plan['id']}\t{plan['cadence']}\t{plan['dataset']}\t{plan['handler']}")
+        typer.echo(
+            f"{plan['id']}\t{plan['cadence']}\t{plan['dataset']}\t{plan['handler']}"
+        )
 
 
 @app.command("plan-run", hidden=True)
-def plan_run(plan_id: str = typer.Argument(..., help="One-word plan ID from plan-list.")) -> None:
+def plan_run(
+    plan_id: str = typer.Argument(..., help="One-word plan ID from plan-list."),
+) -> None:
     """Execute one declared ingestion contract and retain its normal lineage."""
     typer.echo(f"Ingested {run_plan(plan_id)} records from {plan_id}.")
 
 
 @app.command("plan-due", hidden=True)
-def plan_due(dry_run: bool = typer.Option(False, help="Show due plans without contacting providers.")) -> None:
+def plan_due(
+    dry_run: bool = typer.Option(
+        False, help="Show due plans without contacting providers."
+    ),
+) -> None:
     """Run every contract due for refresh; intended for cron or a systemd timer."""
     plans = due_plans()
     if dry_run:
@@ -349,7 +534,9 @@ def census_acs(
 
 @ingest_app.command("census-plan")
 def census_plan(
-    contract: str = typer.Option(..., help="One-word Census contract ID, e.g. acshome."),
+    contract: str = typer.Option(
+        ..., help="One-word Census contract ID, e.g. acshome."
+    ),
 ) -> None:
     """Discover selected Census metadata only; no observations are downloaded."""
     typer.echo(json.dumps(plan_contract(contract), indent=2, sort_keys=True))
@@ -357,7 +544,11 @@ def census_plan(
 
 @ingest_app.command("census-discover")
 def census_discover(
-    year: int = typer.Option(..., min=2005, help="ACS release year whose official table list should be cataloged."),
+    year: int = typer.Option(
+        ...,
+        min=2005,
+        help="ACS release year whose official table list should be cataloged.",
+    ),
 ) -> None:
     """Catalog ACS table metadata and housing candidates; no ACS data is fetched."""
     typer.echo(json.dumps(discover_acs_tables(year), indent=2, sort_keys=True))
@@ -365,7 +556,9 @@ def census_discover(
 
 @ingest_app.command("census-review")
 def census_review(
-    contract: str = typer.Option(..., help="Draft ACS bulk contract ID, e.g. acshousing."),
+    contract: str = typer.Option(
+        ..., help="Draft ACS bulk contract ID, e.g. acshousing."
+    ),
 ) -> None:
     """Show the exact table IDs selected by a disabled ACS bulk contract."""
     typer.echo(json.dumps(review_bulk_contract(contract), indent=2, sort_keys=True))
@@ -373,7 +566,9 @@ def census_review(
 
 @ingest_app.command("acs-bulk-plan")
 def acs_bulk_plan(
-    basket: str = typer.Option("default", help="Catalog selection containing 2022+ ACS 5-year Detailed Tables."),
+    basket: str = typer.Option(
+        "default", help="Catalog selection containing 2022+ ACS 5-year Detailed Tables."
+    ),
 ) -> None:
     """Write a disabled ACS table-based bulk plan from a browser selection."""
     path = write_acs5_bulk_plan(basket, catalog_basket(basket))
@@ -382,49 +577,82 @@ def acs_bulk_plan(
 
 @ingest_app.command("acs-bulk-preview")
 def acs_bulk_preview(
-    plan: Path = typer.Option(..., exists=True, dir_okay=False, help="Draft plan produced by the browser or acs-bulk-plan."),
+    plan: Path = typer.Option(
+        ...,
+        exists=True,
+        dir_okay=False,
+        help="Draft plan produced by the browser or acs-bulk-plan.",
+    ),
 ) -> None:
     """Measure every planned ACS artifact; never download its contents."""
     payload = yaml.safe_load(plan.read_text()) or {}
-    with render_progress("Measuring ACS bulk artifacts", len(payload.get("artifacts", []))) as update:
+    with render_progress(
+        "Measuring ACS bulk artifacts", len(payload.get("artifacts", []))
+    ) as update:
         report = preview_acs5_bulk_plan(plan, update)
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 
 @ingest_app.command("cbp-bulk-plan")
-def cbp_bulk_plan(basket: str = typer.Option("default", help="Catalog selection containing one CBP complete bundle.")) -> None:
+def cbp_bulk_plan(
+    basket: str = typer.Option(
+        "default", help="Catalog selection containing one CBP complete bundle."
+    ),
+) -> None:
     """Write a disabled County Business Patterns bulk plan from a browser selection."""
     typer.echo(write_cbp_bulk_plan(basket, catalog_basket(basket)))
 
 
 @ingest_app.command("cbp-bulk-preview")
-def cbp_bulk_preview(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def cbp_bulk_preview(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+) -> None:
     """Measure every planned CBP artifact; never download its contents."""
     payload = yaml.safe_load(plan.read_text()) or {}
-    with render_progress("Measuring CBP bulk artifacts", len(payload.get("artifacts", []))) as update:
+    with render_progress(
+        "Measuring CBP bulk artifacts", len(payload.get("artifacts", []))
+    ) as update:
         report = preview_cbp_bulk_plan(plan, update)
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 
 @ingest_app.command("census-search")
 def census_search(
-    text: str = typer.Option(..., help="Words to find in the ID, title, universe, or product type."),
+    text: str = typer.Option(
+        ..., help="Words to find in the ID, title, universe, or product type."
+    ),
     year: int = typer.Option(2024, min=2005),
-    product: str | None = typer.Option(None, help="Optional product filter, e.g. detailed or profile."),
+    product: str | None = typer.Option(
+        None, help="Optional product filter, e.g. detailed or profile."
+    ),
     limit: int = typer.Option(50, min=1, max=500),
 ) -> None:
     """Search the local ACS table catalog without contacting Census."""
-    typer.echo(json.dumps(search_acs_tables(year, text, product, limit), indent=2, sort_keys=True))
+    typer.echo(
+        json.dumps(
+            search_acs_tables(year, text, product, limit), indent=2, sort_keys=True
+        )
+    )
 
 
 @ingest_app.command("census-table")
 def census_table(
     table_id: str = typer.Option(..., "--id", help="ACS table ID, e.g. B25003."),
     year: int = typer.Option(2024, min=2005),
-    all_fields: bool = typer.Option(False, "--all", help="Include Census annotation fields in addition to estimates and MOEs."),
+    all_fields: bool = typer.Option(
+        False,
+        "--all",
+        help="Include Census annotation fields in addition to estimates and MOEs.",
+    ),
 ) -> None:
     """Show official field-level metadata for one Detailed, Profile, or Subject table."""
-    typer.echo(json.dumps(describe_acs_table(year, table_id, include_annotations=all_fields), indent=2, sort_keys=True))
+    typer.echo(
+        json.dumps(
+            describe_acs_table(year, table_id, include_annotations=all_fields),
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
 
 @ingest_app.command("fred")
@@ -438,27 +666,50 @@ def congress_bill(
     bill_type: str = typer.Option(...),
     bill_number: int = typer.Option(...),
 ) -> None:
-    typer.echo(f"Ingested {ingest_bill(congress, bill_type, bill_number)} bill record(s).")
+    typer.echo(
+        f"Ingested {ingest_bill(congress, bill_type, bill_number)} bill record(s)."
+    )
 
 
 @bootstrap_app.command("congress-bills")
 def congress_bills(
     congress: int = typer.Option(..., min=1),
-    max_records: int = typer.Option(250, min=1, help="Maximum bills to retrieve; use repeated runs for controlled backfills."),
-    offset: int = typer.Option(0, min=0, help="Zero-based Congress.gov page offset; advance this for historical backfills."),
+    max_records: int = typer.Option(
+        250,
+        min=1,
+        help="Maximum bills to retrieve; use repeated runs for controlled backfills.",
+    ),
+    offset: int = typer.Option(
+        0,
+        min=0,
+        help="Zero-based Congress.gov page offset; advance this for historical backfills.",
+    ),
 ) -> None:
     """Ingest a bounded page sequence of Congress.gov bill metadata."""
     from .ingestion.congress import ingest_bills
-    typer.echo(f"Ingested {ingest_bills(congress, max_records, offset=offset, mode='backfill')} bill records.")
+
+    typer.echo(
+        f"Ingested {ingest_bills(congress, max_records, offset=offset, mode='backfill')} bill records."
+    )
 
 
 @bootstrap_app.command("register")
 def register(
-    dataset: str = typer.Option(..., help="Existing catalog dataset ID, e.g. congress.legislation."),
-    path: Path = typer.Option(..., exists=True, file_okay=True, dir_okay=False, readable=True),
-    key: str = typer.Option(..., help="Stable source-scoped artifact key; never reuse for a different file."),
-    origin: str | None = typer.Option(None, help="Original publisher URL, or omit to retain the file URI."),
-    note: str | None = typer.Option(None, help="Short provenance note; does not assert authenticity."),
+    dataset: str = typer.Option(
+        ..., help="Existing catalog dataset ID, e.g. congress.legislation."
+    ),
+    path: Path = typer.Option(
+        ..., exists=True, file_okay=True, dir_okay=False, readable=True
+    ),
+    key: str = typer.Option(
+        ..., help="Stable source-scoped artifact key; never reuse for a different file."
+    ),
+    origin: str | None = typer.Option(
+        None, help="Original publisher URL, or omit to retain the file URI."
+    ),
+    note: str | None = typer.Option(
+        None, help="Short provenance note; does not assert authenticity."
+    ),
 ) -> None:
     """Checksum and register one existing local artifact without copying or parsing it."""
     resolved = path.resolve()
@@ -467,7 +718,9 @@ def register(
         artifact_key=key,
         url=origin or resolved.as_uri(),
         filename=resolved.name,
-        metadata={"admission": "local", "note": note} if note else {"admission": "local"},
+        metadata={"admission": "local", "note": note}
+        if note
+        else {"admission": "local"},
     )
     typer.echo(register_local(spec, resolved))
 
@@ -478,24 +731,34 @@ def treasury_curve(
     curve_type: str = typer.Option("daily_treasury_yield_curve"),
 ) -> None:
     """Ingest every published tenor in a Treasury curve for one calendar year."""
-    typer.echo(f"Ingested {ingest_yield_curve(year, curve_type)} Treasury curve measurements.")
+    typer.echo(
+        f"Ingested {ingest_yield_curve(year, curve_type)} Treasury curve measurements."
+    )
 
 
 @bootstrap_app.command("fred-core")
 def fred_core(
-    category: str | None = typer.Option(None, help="One manifest category, e.g. inflation or commodities."),
+    category: str | None = typer.Option(
+        None, help="One manifest category, e.g. inflation or commodities."
+    ),
     max_priority: int = typer.Option(1, min=1, max=3),
 ) -> None:
     """Backfill curated FRED macro, rate, market, commodity, and FX series."""
     results = ingest_manifest(category=category, priority=max_priority)
-    typer.echo(f"Ingested {len(results)} FRED series and {sum(results.values())} observations.")
+    typer.echo(
+        f"Ingested {len(results)} FRED series and {sum(results.values())} observations."
+    )
 
 
 @bootstrap_app.command("acs-housing")
 def acs_housing(
     year: int = typer.Option(..., min=2009),
-    states: str = typer.Option("", help="Comma-separated state FIPS codes; omit only with --nationwide."),
-    nationwide: bool = typer.Option(False, help="Load all state/territory counties; this is a large job."),
+    states: str = typer.Option(
+        "", help="Comma-separated state FIPS codes; omit only with --nationwide."
+    ),
+    nationwide: bool = typer.Option(
+        False, help="Load all state/territory counties; this is a large job."
+    ),
 ) -> None:
     """Bootstrap the curated ACS 5-year county housing table groups."""
     if nationwide:
@@ -503,21 +766,31 @@ def acs_housing(
     elif states:
         selected = [state.strip() for state in states.split(",") if state.strip()]
     else:
-        raise typer.BadParameter("Pass --states 24,51 or explicitly choose --nationwide")
-    typer.echo(f"Ingested {bootstrap_housing(year, selected)} ACS housing measurements.")
+        raise typer.BadParameter(
+            "Pass --states 24,51 or explicitly choose --nationwide"
+        )
+    typer.echo(
+        f"Ingested {bootstrap_housing(year, selected)} ACS housing measurements."
+    )
 
 
 @bootstrap_app.command("openstates-dump")
 def openstates_dump(
     year: int = typer.Option(..., min=2010),
     month: int = typer.Option(..., min=1, max=12),
-    schema: bool = typer.Option(True, help="Also download the matching schema archive."),
-    data: bool = typer.Option(False, help="Download the large public data archive as well."),
+    schema: bool = typer.Option(
+        True, help="Also download the matching schema archive."
+    ),
+    data: bool = typer.Option(
+        False, help="Download the large public data archive as well."
+    ),
 ) -> None:
     """Download and checksum the official OpenStates dump; do not restore it."""
     if not schema and not data:
         raise typer.BadParameter("Choose at least one of --schema or --data")
-    for path in download_monthly_dump(year, month, include_schema=schema, include_data=data):
+    for path in download_monthly_dump(
+        year, month, include_schema=schema, include_data=data
+    ):
         typer.echo(path)
 
 

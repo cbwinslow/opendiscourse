@@ -110,6 +110,50 @@ def loaded_artifact_members(artifact_id: str, conn: Any | None = None) -> set[st
         return {row["source_member"] for row in cur.fetchall()}
 
 
+def sync_openstates_federal_people(conn: Any) -> dict[str, int]:
+    """Seed canonical people and identifiers from the read-only OpenStates baseline."""
+    counts = {"people": 0, "identifiers": 0, "identifier_conflicts": 0}
+    with conn.cursor() as cur:
+        cur.execute(_query("openstates_federal_people"))
+        people = cur.fetchall()
+        for person in people:
+            cur.execute(
+                _query("upsert_person_by_ocd"),
+                {
+                    "ocd_id": person["ocd_id"],
+                    "full_name": person["name"],
+                    "given_name": person["given_name"],
+                    "family_name": person["family_name"],
+                    "metadata": Jsonb(
+                        {
+                            "canonical_baseline": "openstates",
+                            "openstates_ocd_id": person["ocd_id"],
+                            "openstates_extras": person["extras"] or {},
+                        }
+                    ),
+                },
+            )
+            target = cur.fetchone()
+            assert target is not None
+            person_id = str(target["person_id"])
+            counts["people"] += 1
+            cur.execute(
+                _query("openstates_person_identifiers"), {"ocd_id": person["ocd_id"]}
+            )
+            for identifier in cur.fetchall():
+                if identifier["namespace"] == "ocd":
+                    continue
+                cur.execute(
+                    _query("insert_person_identifier"),
+                    {"person_id": person_id, **identifier},
+                )
+                if cur.fetchone() is None:
+                    counts["identifier_conflicts"] += 1
+                else:
+                    counts["identifiers"] += 1
+    return counts
+
+
 def ensure_us_legislative_session(
     congress: int,
     source_artifact_id: str | None = None,

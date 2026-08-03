@@ -85,3 +85,8 @@ already loaded archives and XML members, so rerunning safely resumes a stopped
 load. The 119th Congress
 requires `--allow-partial`; its results remain explicitly partial until the
 approved missing-file backfill is validated and loaded.
+
+Use `research-db load-openstates-people` to seed canonical federal people from
+the provisioned read-only OpenStates snapshot. People are keyed by their OCD
+identifier and retain baseline metadata; conflicting external identifiers are
+reported rather than reassigned. Congress.gov should enrich this baseline.

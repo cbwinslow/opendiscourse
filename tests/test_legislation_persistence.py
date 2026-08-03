@@ -11,6 +11,7 @@ from opendiscourse_research.repositories.legislation import (
     loaded_artifact_members,
     parse_billstatus_xml,
     save_billstatus_bill,
+    sync_openstates_federal_people,
 )
 
 
@@ -201,6 +202,33 @@ class TestLegislationPersistence(unittest.TestCase):
         self.assertIn("UPDATE ingest.run", update_query)
         self.assertEqual(update_params[0], "partial")
         self.assertEqual(update_params[1], 7)
+
+    def test_openstates_people_sync_preserves_identifier_conflicts(self) -> None:
+        mock_conn = MagicMock()
+        mock_cur = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+        mock_cur.fetchall.side_effect = [
+            [
+                {
+                    "ocd_id": "ocd-person/example",
+                    "name": "Example Person",
+                    "given_name": "Example",
+                    "family_name": "Person",
+                    "extras": {},
+                }
+            ],
+            [{"namespace": "bioguide", "external_id": "E000001"}],
+        ]
+        mock_cur.fetchone.side_effect = [
+            {"person_id": "11111111-1111-1111-1111-111111111111"},
+            None,
+        ]
+
+        result = sync_openstates_federal_people(mock_conn)
+
+        self.assertEqual(
+            result, {"people": 1, "identifiers": 0, "identifier_conflicts": 1}
+        )
 
 
 if __name__ == "__main__":
