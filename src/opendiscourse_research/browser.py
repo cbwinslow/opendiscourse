@@ -271,11 +271,11 @@ def search(dataset_id: str, text: str = "", limit: int = 100, year: int | None =
         cur.execute(
             """SELECT resource_id, resource_key, resource_type, title, universe, release_year, metadata
                FROM catalog.resource
-               WHERE dataset_id = %s AND (%s = '' OR resource_key ILIKE %s OR
-                 to_tsvector('english', concat_ws(' ', resource_key, title, universe, resource_type)) @@ websearch_to_tsquery('english', %s))
+               WHERE dataset_id = %s AND (%s = '' OR resource_key ILIKE %s OR title ILIKE %s OR summary ILIKE %s OR metadata::text ILIKE %s OR
+                 to_tsvector('english', concat_ws(' ', resource_key, title, summary, universe, resource_type, metadata::text)) @@ websearch_to_tsquery('english', %s))
                  AND (%s::integer IS NULL OR release_year = %s) AND (%s::text IS NULL OR resource_type = %s)
                ORDER BY resource_key LIMIT %s""",
-            (dataset_id, query, terms, query, year, year, product, product, limit),
+            (dataset_id, query, terms, terms, terms, terms, query, year, year, product, product, limit),
         )
         return cur.fetchall()
 

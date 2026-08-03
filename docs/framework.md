@@ -109,6 +109,11 @@ offering metadata only; this is the safe starting point for discovering ACS,
 housing, Decennial, PEP, business, and other Census APIs. Open it with
 `research-db browse --dataset census.api_catalog`. Browsing a Census offering
 or adding it to a basket does not authorize observation or bulk-file ingestion.
+Search includes each offering's official description, so terms such as
+`housing`, `rent`, and `American Community Survey` find relevant offerings.
+When entered through Provider → Census → Census Data API offering catalog, the
+browser groups offerings into ACS 1-Year, ACS 5-Year, ACS supplemental/special,
+Decennial Census, Population Estimates, and TIGER geography facets.
 
 Every provider discovery will also create a `catalog.snapshot` record linked to
 the original metadata artifact and its checksum. Resources may be refreshed for

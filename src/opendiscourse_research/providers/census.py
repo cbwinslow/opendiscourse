@@ -26,6 +26,25 @@ def _endpoint(item: dict[str, Any]) -> str | None:
     return None
 
 
+def _offering_type(item: dict[str, Any]) -> str:
+    """Classify an offering into a browser facet from its official API path."""
+    path = "/".join(str(part).casefold() for part in item.get("c_dataset", []))
+    description = " ".join(str(item.get(key) or "") for key in ("identifier", "title", "description")).casefold()
+    if path.startswith("acs5") or "/acs5" in path:
+        return "ACS 5-Year"
+    if path.startswith("acs1") or "/acs1" in path:
+        return "ACS 1-Year"
+    if path.startswith("acs"):
+        return "ACS supplemental and special products"
+    if path.startswith("dec") or "decennial" in description:
+        return "Decennial Census"
+    if path.startswith("pep") or "population estimates" in description:
+        return "Population Estimates"
+    if path.startswith("tiger") or "tiger/line" in description:
+        return "TIGER geography"
+    return "Census API offering"
+
+
 def sync_catalog() -> dict[str, int | str]:
     """Index every published Census API offering without fetching observations."""
     with client() as http, IngestionRun("census.api_catalog", {"action": "catalog"}, mode="plan") as run:
@@ -58,12 +77,12 @@ def sync_catalog() -> dict[str, int | str]:
                 cur.execute(
                     """INSERT INTO catalog.resource
                        (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
-                       VALUES ('census.api_catalog', %s, 'Census API offering', %s, %s, %s, %s)
+                       VALUES ('census.api_catalog', %s, %s, %s, %s, %s, %s)
                        ON CONFLICT (dataset_id, resource_key) DO UPDATE SET
                          resource_type = EXCLUDED.resource_type, title = EXCLUDED.title,
                          summary = EXCLUDED.summary, release_year = EXCLUDED.release_year,
                          metadata = EXCLUDED.metadata, updated_at = now()""",
-                    (key, str(item.get("title") or key), item.get("description"), release_year, Jsonb(metadata)),
+                    (key, _offering_type(item), str(item.get("title") or key), item.get("description"), release_year, Jsonb(metadata)),
                 )
                 run.record_count += 1
             cur.execute(
