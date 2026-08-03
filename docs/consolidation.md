@@ -7,6 +7,13 @@
 each useful component has been reviewed, adopted, tested, and recorded here.
 No bulk move or deletion is allowed during consolidation.
 
+OpenStates is the legislative interoperability baseline. Its restored Django /
+Open Civic Data schema remains an immutable upstream snapshot; it is not the
+target for Congress.gov or GovInfo writes. OpenDiscourse owns the canonical
+federal records, source lineage, and reconciliation mappings. A read-only
+database mapping and compatibility views provide one query surface without
+co-mingling provider ownership.
+
 ## What to retain from government
 
 | Asset | Action |
@@ -31,8 +38,11 @@ No bulk move or deletion is allowed during consolidation.
 ## First migration slice
 
 1. Finish and validate the isolated OpenStates restore.
-2. Add read-only FDW/mapping access from `opendiscourse` to `openstates`.
-3. Adapt GovInfo BILLSTATUS ingestion using the official bulk directory and
+2. Provision the least-privilege read-only FDW access described in
+   `docs/openstates-integration.md`.
+3. Add compatibility views and mappings from the OpenStates entity shapes to
+   OpenDiscourse's owned canonical entities.
+4. Adapt GovInfo BILLSTATUS ingestion using the official bulk directory and
    OCD bill/action/sponsorship/document targets.
-4. Add Congress.gov member enrichment using Bioguide IDs.
-5. Add the official vote adapters.
+5. Add Congress.gov member enrichment using Bioguide IDs.
+6. Add the official vote adapters.
