@@ -117,9 +117,12 @@ Decennial Census, Population Estimates, and TIGER geography facets.
 
 ## ACS bulk plans
 
-The browser can turn selected **2022+ ACS 5-Year Detailed Tables** into a
-disabled table-based Summary File plan. Select tables, press `p` twice, then
-run the displayed preflight command:
+The primary browser path is **American Community Survey 5-Year bulk downloads**:
+one full Detailed Tables package per available release (currently 2021–2024).
+Select a release,
+press `p` twice, then run the displayed preflight command. Advanced users can
+also select individual **2022+ ACS 5-Year Detailed Tables** and create the same
+kind of disabled table-based Summary File plan:
 
 ```bash
 research-db ingest acs-bulk-preview --plan /path/to/acs5-selection.yaml

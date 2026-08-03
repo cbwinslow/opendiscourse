@@ -13,6 +13,7 @@ from ..config import settings
 
 
 TABLE_BASED_FIRST_YEAR = 2022
+BULK_PACKAGE_FIRST_YEAR = 2021
 
 
 def _root() -> Path:
@@ -34,6 +35,18 @@ def _table_id(resource: dict[str, Any]) -> tuple[int, str] | None:
     return (year, table_id.upper()) if year >= TABLE_BASED_FIRST_YEAR else None
 
 
+def _full_package_year(resource: dict[str, Any]) -> int | None:
+    """Parse a bulk-browser package resource into an ACS release year."""
+    if resource.get("dataset_id") != "census.acs_5_bulk" or resource.get("resource_type") != "Full Detailed Tables":
+        return None
+    try:
+        prefix, year_text = str(resource["resource_key"]).split(":", 1)
+        year = int(year_text)
+    except (KeyError, ValueError):
+        return None
+    return year if prefix == "full" and year >= BULK_PACKAGE_FIRST_YEAR else None
+
+
 def build_acs5_bulk_plan(basket_name: str, resources: list[dict[str, Any]]) -> dict[str, Any]:
     """Resolve selected modern ACS detailed tables into explicit source files.
 
@@ -41,7 +54,12 @@ def build_acs5_bulk_plan(basket_name: str, resources: list[dict[str, Any]]) -> d
     published geography in a single file per Detailed Table. This function is
     deliberately planning-only: no remote request or data acquisition occurs.
     """
+    packages = sorted({year for resource in resources if (year := _full_package_year(resource))})
     selected = sorted({entry for resource in resources if (entry := _table_id(resource))})
+    if packages and selected:
+        raise ValueError("Choose either full ACS bulk packages or individual Detailed Tables, not both in one plan.")
+    if packages:
+        return _full_package_plan(basket_name, packages)
     if not selected:
         raise ValueError("Select one or more 2022+ ACS 5-year Detailed Tables before creating a bulk plan. Profiles and Subject Tables use different bulk products.")
     artifacts: list[dict[str, Any]] = []
@@ -60,6 +78,27 @@ def build_acs5_bulk_plan(basket_name: str, resources: list[dict[str, Any]]) -> d
         "artifacts": artifacts,
         "storage": {"state": "unpreviewed", "stage_multiplier": 1.0, "database_multiplier": 1.5, "reserve_gib": 100},
         "provenance": {"source_format_documentation": "https://www.census.gov/programs-surveys/acs/data/summary-file.html", "note": "Each selected Detailed Table file contains estimates and margins of error; checksums and byte sizes are captured only during preflight/download."},
+        "next": ["Run `research-db ingest acs-bulk-preview --plan <path>` to resolve byte sizes and storage requirements.", "Review every artifact and select canonical geography filters before changing this plan from draft.", "A future loader must retain artifacts and provenance before inserting canonical measurements."],
+    }
+
+
+def _full_package_plan(basket_name: str, years: list[int]) -> dict[str, Any]:
+    """Build a disabled plan for complete, release-level ACS Summary Files."""
+    artifacts: list[dict[str, Any]] = []
+    for year in years:
+        base = f"https://www2.census.gov/programs-surveys/acs/summary_file/{year}/table-based-SF"
+        artifacts.extend([
+            {"artifact_key": f"acs5-{year}-full", "kind": "full_detailed_tables", "url": f"{base}/data/5YRData/5YRData.zip", "filename": "5YRData.zip", "release_year": year},
+            {"artifact_key": f"acs5-{year}-geography", "kind": "geography", "url": f"{base}/documentation/Geos{year}5YR.txt", "filename": f"Geos{year}5YR.txt", "release_year": year},
+            {"artifact_key": f"acs5-{year}-table-shells", "kind": "table_shells", "url": f"{base}/documentation/ACS{year}5YR_Table_Shells.txt", "filename": f"ACS{year}5YR_Table_Shells.txt", "release_year": year},
+        ])
+    return {
+        "version": 1, "state": "draft", "provider": "census", "dataset": "census.acs_5", "format": "ACS table-based summary file", "created_at": datetime.now(timezone.utc).isoformat(), "basket": basket_name,
+        "selection": {"release_years": years, "package": "full_detailed_tables", "table_count": "all Detailed Tables"},
+        "geography": {"source_coverage": "all geographies published in each release", "canonical_load_scope": "not approved; choose geography filters before enabling a load"},
+        "artifacts": artifacts,
+        "storage": {"state": "unpreviewed", "stage_multiplier": 1.0, "database_multiplier": 1.5, "reserve_gib": 100},
+        "provenance": {"source_format_documentation": "https://www.census.gov/programs-surveys/acs/data/summary-file.html", "note": "Complete release package; checksums and byte sizes are captured only during preflight/download."},
         "next": ["Run `research-db ingest acs-bulk-preview --plan <path>` to resolve byte sizes and storage requirements.", "Review every artifact and select canonical geography filters before changing this plan from draft.", "A future loader must retain artifacts and provenance before inserting canonical measurements."],
     }
 

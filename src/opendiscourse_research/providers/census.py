@@ -7,10 +7,12 @@ from typing import Any
 
 from psycopg.types.json import Jsonb
 
+from ..db import connect
 from ..ingestion.base import IngestionRun, client, json_response
 
 
 CATALOG_URL = "https://api.census.gov/data.json"
+ACS_TABLE_BASED_YEARS = (2021, 2022, 2023, 2024)
 
 
 def _offering_key(item: dict[str, Any]) -> str:
@@ -101,3 +103,26 @@ def sync_catalog() -> dict[str, int | str]:
             )
         run.conn.commit()
     return {"resources": run.record_count, "payload_id": payload_id}
+
+
+def sync_acs_bulk_packages() -> int:
+    """Publish one clear, complete ACS Summary File download per modern release."""
+    with connect() as conn, conn.cursor() as cur:
+        for year in ACS_TABLE_BASED_YEARS:
+            base = f"https://www2.census.gov/programs-surveys/acs/summary_file/{year}/table-based-SF"
+            cur.execute(
+                """INSERT INTO catalog.resource
+                   (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
+                   VALUES ('census.acs_5_bulk', %s, 'Full Detailed Tables', %s, %s, %s, %s)
+                   ON CONFLICT (dataset_id, resource_key) DO UPDATE SET
+                     resource_type = EXCLUDED.resource_type, title = EXCLUDED.title,
+                     summary = EXCLUDED.summary, release_year = EXCLUDED.release_year,
+                     metadata = EXCLUDED.metadata, updated_at = now()""",
+                (
+                    f"full:{year}", f"{year} ACS 5-Year — full Detailed Tables summary file",
+                    "One official bulk package containing every Detailed Table, estimates, margins of error, and published geography for this ACS 5-year release.",
+                    year, Jsonb({"package": "full_summary_file", "url": f"{base}/data/5YRData/5YRData.zip", "geography_url": f"{base}/documentation/Geos{year}5YR.txt", "table_shells_url": f"{base}/documentation/ACS{year}5YR_Table_Shells.txt"}),
+                ),
+            )
+        conn.commit()
+    return len(ACS_TABLE_BASED_YEARS)
