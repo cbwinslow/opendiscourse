@@ -416,6 +416,7 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             Binding("space", "toggle", "select / unselect"),
             Binding("a", "all", "select filtered"),
             Binding("g", "draft", "write draft"),
+            Binding("p", "bulk_plan", "write ACS bulk plan"),
             Binding("f", "fetch", "fetch provider search"),
             Binding("backspace", "back", "back"),
             Binding("c", "cart", "selection"),
@@ -484,7 +485,7 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             if self.level in {"product", "year"}:
                 return common + "  Space select highlighted group (press twice)"
             if self.level == "resource":
-                extra = "Space select resource  A select filtered  G write draft"
+                extra = "Space select resource  A select filtered  G write draft  P ACS bulk plan"
                 if self.dataset_id == "fred.series":
                     extra += "  F focus FRED search; Enter fetches results"
                 return common + "  " + extra
@@ -677,6 +678,22 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             path = draft(basket_name)
             self.confirm = None
             self.query_one(Static).update(f"Wrote disabled draft: {path}")
+
+        def action_bulk_plan(self) -> None:
+            """Write a review-only ACS summary-file plan from the selection."""
+            if self.confirm != "bulk_plan":
+                self.confirm = "bulk_plan"
+                self.query_one(Static).update("Press P again to write an explicit, disabled ACS 5-year bulk plan from selected Detailed Tables.")
+                return
+            from .ingestion.acs_bulk import write_acs5_bulk_plan
+            try:
+                path = write_acs5_bulk_plan(basket_name, basket(basket_name))
+            except Exception as exc:
+                self.query_one(Static).update(f"Could not write ACS bulk plan: {exc}")
+                return
+            self.confirm = None
+            self._debug("acs_bulk_plan_written", path=str(path))
+            self.query_one(Static).update(f"Wrote disabled ACS bulk plan: {path}\nRun `research-db ingest acs-bulk-preview --plan {path}` to measure every artifact.")
 
         def action_back(self) -> None:
             previous = {"dataset": "provider", "year": "dataset", "product": "year", "resource": "product", "cart": "resource"}

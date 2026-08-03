@@ -3,12 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 import json
 import typer
+import yaml
 
 from .capacity import GiB, remote_size, storage_preview
 from .catalog import sync_inventory, validate_inventory
 from .browser import basket as catalog_basket, draft as catalog_draft, ensure_acs, facets as catalog_facets, launch as launch_browser, search as catalog_search, sync_acs
 from .contracts import load_contracts, validate_contracts
 from .db import apply_migrations
+from .ingestion.acs_bulk import preview_acs5_bulk_plan, write_acs5_bulk_plan
 from .ingestion.census import STATE_FIPS, bootstrap_housing, describe_acs_table, discover_acs_tables, ingest_acs, plan_contract, review_bulk_contract, search_acs_tables
 from .ingestion.congress import ingest_bill
 from .ingestion.bulk import ArtifactSpec, register_local
@@ -349,6 +351,26 @@ def census_review(
 ) -> None:
     """Show the exact table IDs selected by a disabled ACS bulk contract."""
     typer.echo(json.dumps(review_bulk_contract(contract), indent=2, sort_keys=True))
+
+
+@ingest_app.command("acs-bulk-plan")
+def acs_bulk_plan(
+    basket: str = typer.Option("default", help="Catalog selection containing 2022+ ACS 5-year Detailed Tables."),
+) -> None:
+    """Write a disabled ACS table-based bulk plan from a browser selection."""
+    path = write_acs5_bulk_plan(basket, catalog_basket(basket))
+    typer.echo(path)
+
+
+@ingest_app.command("acs-bulk-preview")
+def acs_bulk_preview(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False, help="Draft plan produced by the browser or acs-bulk-plan."),
+) -> None:
+    """Measure every planned ACS artifact; never download its contents."""
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_progress("Measuring ACS bulk artifacts", len(payload.get("artifacts", []))) as update:
+        report = preview_acs5_bulk_plan(plan, update)
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 
 @ingest_app.command("census-search")

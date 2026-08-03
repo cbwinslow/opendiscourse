@@ -115,6 +115,23 @@ When entered through Provider → Census → Census Data API offering catalog, t
 browser groups offerings into ACS 1-Year, ACS 5-Year, ACS supplemental/special,
 Decennial Census, Population Estimates, and TIGER geography facets.
 
+## ACS bulk plans
+
+The browser can turn selected **2022+ ACS 5-Year Detailed Tables** into a
+disabled table-based Summary File plan. Select tables, press `p` twice, then
+run the displayed preflight command:
+
+```bash
+research-db ingest acs-bulk-preview --plan /path/to/acs5-selection.yaml
+```
+
+The plan names every official table data file plus its geography and table-shell
+files. The preflight uses only HEAD/range metadata requests and writes a separate
+report containing every URL, published byte size, temporary-stage estimate,
+PostgreSQL estimate, free space, and approval decision. It never downloads data.
+The Summary File contains estimates and MOEs for every published geography, so a
+later approved loader must state its canonical geography filter explicitly.
+
 Every provider discovery will also create a `catalog.snapshot` record linked to
 the original metadata artifact and its checksum. Resources may be refreshed for
 search, but snapshots preserve exactly what the provider advertised at a given
