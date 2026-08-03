@@ -1,4 +1,5 @@
 """Repository queries and persistence for deterministic federal legislation."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -43,6 +44,7 @@ def register_artifact(
     period_end: str | None = None,
     content_type: str | None = None,
     metadata: dict[str, Any] | None = None,
+    conn: Any | None = None,
 ) -> dict[str, Any]:
     """Register or update a local bulk artifact safely in ingest.artifact."""
     params = {
@@ -58,19 +60,54 @@ def register_artifact(
         "status": status,
         "metadata": Jsonb(metadata or {}),
     }
-    with connect() as conn, conn.cursor() as cur:
+    if conn is not None:
+        with conn.cursor() as cur:
+            cur.execute(_query("register_artifact"), params)
+            row = cur.fetchone()
+            return dict(row) if row else {}
+
+    with connect() as active_conn, active_conn.cursor() as cur:
         cur.execute(_query("register_artifact"), params)
         row = cur.fetchone()
-        conn.commit()
+        active_conn.commit()
         return dict(row) if row else {}
 
 
-def get_artifact(dataset_id: str, artifact_key: str) -> dict[str, Any] | None:
+def get_artifact(
+    dataset_id: str,
+    artifact_key: str,
+    conn: Any | None = None,
+) -> dict[str, Any] | None:
     """Retrieve an existing artifact record by dataset_id and artifact_key."""
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(_query("get_artifact"), {"dataset_id": dataset_id, "artifact_key": artifact_key})
+    if conn is not None:
+        with conn.cursor() as cur:
+            cur.execute(
+                _query("get_artifact"),
+                {"dataset_id": dataset_id, "artifact_key": artifact_key},
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+    with connect() as active_conn, active_conn.cursor() as cur:
+        cur.execute(
+            _query("get_artifact"),
+            {"dataset_id": dataset_id, "artifact_key": artifact_key},
+        )
         row = cur.fetchone()
         return dict(row) if row else None
+
+
+def loaded_artifact_members(artifact_id: str, conn: Any | None = None) -> set[str]:
+    """Return fully persisted XML member names for a GovInfo archive artifact."""
+    params = {"artifact_id": artifact_id}
+    if conn is not None:
+        with conn.cursor() as cur:
+            cur.execute(_query("loaded_artifact_members"), params)
+            return {row["source_member"] for row in cur.fetchall()}
+
+    with connect() as active_conn, active_conn.cursor() as cur:
+        cur.execute(_query("loaded_artifact_members"), params)
+        return {row["source_member"] for row in cur.fetchall()}
 
 
 def ensure_us_legislative_session(
@@ -78,40 +115,59 @@ def ensure_us_legislative_session(
     source_artifact_id: str | None = None,
     source_payload_id: str | None = None,
     metadata: dict[str, Any] | None = None,
+    conn: Any | None = None,
 ) -> str:
     """Ensure US jurisdiction and legislative session with explicit source lineage."""
     if source_artifact_id is None and source_payload_id is None:
-        raise ValueError("Legislative session requires source_artifact_id or source_payload_id lineage")
+        raise ValueError(
+            "Legislative session requires source_artifact_id or source_payload_id lineage"
+        )
     jurisdiction_id = "ocd-jurisdiction/country:us/government"
     identifier = str(congress)
     session_metadata = {"congress": congress, "country": "us"}
     if metadata:
         session_metadata.update(metadata)
 
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(_query("ensure_jurisdiction"), {
-            "jurisdiction_id": jurisdiction_id,
-            "name": "United States Congress",
-            "classification": "government",
-            "metadata": Jsonb({"country": "us"}),
-        })
-        cur.execute(_query("ensure_legislative_session"), {
-            "jurisdiction_id": jurisdiction_id,
-            "identifier": identifier,
-            "name": f"{congress}th Congress",
-            "classification": "congress",
-            "active": congress >= 119,
-            "source_artifact_id": source_artifact_id,
-            "source_payload_id": source_payload_id,
-            "metadata": Jsonb(session_metadata),
-        })
-        row = cur.fetchone()
-        conn.commit()
-        assert row is not None
-        return str(row["legislative_session_id"])
+    def _ensure(active_conn: Any) -> str:
+        with active_conn.cursor() as cur:
+            cur.execute(
+                _query("ensure_jurisdiction"),
+                {
+                    "jurisdiction_id": jurisdiction_id,
+                    "name": "United States Congress",
+                    "classification": "government",
+                    "metadata": Jsonb({"country": "us"}),
+                },
+            )
+            cur.execute(
+                _query("ensure_legislative_session"),
+                {
+                    "jurisdiction_id": jurisdiction_id,
+                    "identifier": identifier,
+                    "name": f"{congress}th Congress",
+                    "classification": "congress",
+                    "active": congress >= 119,
+                    "source_artifact_id": source_artifact_id,
+                    "source_payload_id": source_payload_id,
+                    "metadata": Jsonb(session_metadata),
+                },
+            )
+            row = cur.fetchone()
+            assert row is not None
+            return str(row["legislative_session_id"])
+
+    if conn is not None:
+        return _ensure(conn)
+
+    with connect() as active_conn:
+        result = _ensure(active_conn)
+        active_conn.commit()
+        return result
 
 
-def parse_billstatus_xml(content: bytes | str, member_name: str | None = None) -> dict[str, Any]:
+def parse_billstatus_xml(
+    content: bytes | str, member_name: str | None = None
+) -> dict[str, Any]:
     """Parse one GovInfo BILLSTATUS XML member into structured dictionary representation."""
     if isinstance(content, str):
         content = content.encode("utf-8")
@@ -139,56 +195,70 @@ def parse_billstatus_xml(content: bytes | str, member_name: str | None = None) -
 
     introduced_date = _text_or_none(bill.findtext("introducedDate"))
     latest = bill.find("latestAction")
-    latest_action_date = _text_or_none(latest.findtext("actionDate")) if latest is not None else None
-    latest_action = _text_or_none(latest.findtext("text")) if latest is not None else None
+    latest_action_date = (
+        _text_or_none(latest.findtext("actionDate")) if latest is not None else None
+    )
+    latest_action = (
+        _text_or_none(latest.findtext("text")) if latest is not None else None
+    )
 
     identifiers = [
         {
             "namespace": "us.bill",
             "external_id": f"{congress}-{bill_type}-{bill_number}",
             "source_url": None,
-            "metadata": {"congress": congress, "type": bill_type, "number": bill_number},
+            "metadata": {
+                "congress": congress,
+                "type": bill_type,
+                "number": bill_number,
+            },
         }
     ]
     if member_name:
         package_id = member_name.rsplit(".", 1)[0]
-        identifiers.append({
-            "namespace": "govinfo.package",
-            "external_id": package_id,
-            "source_url": f"https://www.govinfo.gov/bulkdata/BILLSTATUS/{congress}/{bill_type}/{package_id}.xml",
-            "metadata": {"member_name": member_name},
-        })
+        identifiers.append(
+            {
+                "namespace": "govinfo.package",
+                "external_id": package_id,
+                "source_url": f"https://www.govinfo.gov/bulkdata/BILLSTATUS/{congress}/{bill_type}/{package_id}.xml",
+                "metadata": {"member_name": member_name},
+            }
+        )
 
     sponsorships = []
     for sp in bill.findall("./sponsors/item"):
         bioguide = sp.findtext("bioguideId")
         if bioguide:
-            sponsorships.append({
-                "member_namespace": "bioguide",
-                "member_external_id": bioguide.strip(),
-                "role": "sponsor",
-                "source_member": member_name,
-                "metadata": {
-                    "full_name": sp.findtext("fullName"),
-                    "party": sp.findtext("party"),
-                    "state": sp.findtext("state"),
-                    "district": sp.findtext("district"),
-                },
-            })
+            sponsorships.append(
+                {
+                    "member_namespace": "bioguide",
+                    "member_external_id": bioguide.strip(),
+                    "role": "sponsor",
+                    "source_member": member_name,
+                    "metadata": {
+                        "full_name": sp.findtext("fullName"),
+                        "party": sp.findtext("party"),
+                        "state": sp.findtext("state"),
+                        "district": sp.findtext("district"),
+                    },
+                }
+            )
     for cosp in bill.findall("./cosponsors/item"):
         bioguide = cosp.findtext("bioguideId")
         if bioguide:
-            sponsorships.append({
-                "member_namespace": "bioguide",
-                "member_external_id": bioguide.strip(),
-                "role": "cosponsor",
-                "source_member": member_name,
-                "metadata": {
-                    "full_name": cosp.findtext("fullName"),
-                    "sponsorship_date": cosp.findtext("sponsorshipDate"),
-                    "is_original": cosp.findtext("isOriginalCosponsor"),
-                },
-            })
+            sponsorships.append(
+                {
+                    "member_namespace": "bioguide",
+                    "member_external_id": bioguide.strip(),
+                    "role": "cosponsor",
+                    "source_member": member_name,
+                    "metadata": {
+                        "full_name": cosp.findtext("fullName"),
+                        "sponsorship_date": cosp.findtext("sponsorshipDate"),
+                        "is_original": cosp.findtext("isOriginalCosponsor"),
+                    },
+                }
+            )
 
     actions = []
     for ordinal, act in enumerate(bill.findall("./actions/item"), start=1):
@@ -197,51 +267,59 @@ def parse_billstatus_xml(content: bytes | str, member_name: str | None = None) -
         act_type = act.findtext("type")
         act_code = act.findtext("actionCode")
         classification = [c for c in (act_type, act_code) if c]
-        actions.append({
-            "action_date": action_date,
-            "description": desc,
-            "classification": classification if classification else None,
-            "source_ordinal": ordinal,
-            "source_member": member_name,
-            "metadata": {
-                "action_code": act_code,
-                "action_type": act_type,
-            },
-        })
+        actions.append(
+            {
+                "action_date": action_date,
+                "description": desc,
+                "classification": classification if classification else None,
+                "source_ordinal": ordinal,
+                "source_member": member_name,
+                "metadata": {
+                    "action_code": act_code,
+                    "action_type": act_type,
+                },
+            }
+        )
 
     committees = []
     for comm in bill.findall("./committees/item"):
         code = comm.findtext("systemCode")
         if code:
-            committees.append({
-                "namespace": "congress.gov.committee",
-                "external_id": code.strip().lower(),
-                "name": comm.findtext("name"),
-                "chamber": comm.findtext("chamber"),
-                "source_member": member_name,
-                "metadata": {"type": comm.findtext("type")},
-            })
+            committees.append(
+                {
+                    "namespace": "congress.gov.committee",
+                    "external_id": code.strip().lower(),
+                    "name": comm.findtext("name"),
+                    "chamber": comm.findtext("chamber"),
+                    "source_member": member_name,
+                    "metadata": {"type": comm.findtext("type")},
+                }
+            )
 
     subjects = []
     policy = bill.findtext("./policyArea/name")
     if policy:
-        subjects.append({
-            "namespace": "congress.gov.subject",
-            "external_id": policy.strip().lower().replace(" ", "-"),
-            "label": policy.strip(),
-            "source_member": member_name,
-            "metadata": {"kind": "policy_area"},
-        })
+        subjects.append(
+            {
+                "namespace": "congress.gov.subject",
+                "external_id": policy.strip().lower().replace(" ", "-"),
+                "label": policy.strip(),
+                "source_member": member_name,
+                "metadata": {"kind": "policy_area"},
+            }
+        )
     for subj in bill.findall("./subjects/legislativeSubjects/item"):
         s_name = subj.findtext("name")
         if s_name:
-            subjects.append({
-                "namespace": "congress.gov.subject",
-                "external_id": s_name.strip().lower().replace(" ", "-"),
-                "label": s_name.strip(),
-                "source_member": member_name,
-                "metadata": {"kind": "legislative_subject"},
-            })
+            subjects.append(
+                {
+                    "namespace": "congress.gov.subject",
+                    "external_id": s_name.strip().lower().replace(" ", "-"),
+                    "label": s_name.strip(),
+                    "source_member": member_name,
+                    "metadata": {"kind": "legislative_subject"},
+                }
+            )
 
     documents = []
     for doc in bill.findall("./textVersions/item"):
@@ -251,15 +329,17 @@ def parse_billstatus_xml(content: bytes | str, member_name: str | None = None) -
         url = formats[0].findtext("url") if formats else None
         if not url:
             url = f"https://www.govinfo.gov/bulkdata/BILLSTATUS/{congress}/{bill_type}/{member_name or 'doc'}"
-        documents.append({
-            "document_type": doc_type,
-            "version_code": doc_type,
-            "title": doc_type,
-            "published_at": pub_date,
-            "source_url": url,
-            "source_member": member_name,
-            "metadata": {},
-        })
+        documents.append(
+            {
+                "document_type": doc_type,
+                "version_code": doc_type,
+                "title": doc_type,
+                "published_at": pub_date,
+                "source_url": url,
+                "source_member": member_name,
+                "metadata": {},
+            }
+        )
 
     return {
         "congress": congress,
@@ -288,110 +368,150 @@ def save_billstatus_bill(
 ) -> str:
     """Upsert core.bill plus identifiers, actions, sponsorships, committees, subjects, and documents."""
     if source_artifact_id is None and source_payload_id is None:
-        raise ValueError("Persistence requires source_artifact_id or source_payload_id lineage")
+        raise ValueError(
+            "Persistence requires source_artifact_id or source_payload_id lineage"
+        )
 
     def _execute(c: Any) -> str:
         with c.cursor() as cur:
-            cur.execute(_query("upsert_bill"), {
-                "jurisdiction": "us",
-                "legislative_session": str(bill_data["congress"]),
-                "bill_type": bill_data["bill_type"],
-                "bill_number": bill_data["bill_number"],
-                "title": bill_data.get("title"),
-                "introduced_date": bill_data.get("introduced_date"),
-                "latest_action_date": bill_data.get("latest_action_date"),
-                "latest_action": bill_data.get("latest_action"),
-                "metadata": Jsonb({"source": "govinfo_billstatus"}),
-                "legislative_session_id": legislative_session_id,
-                "ocd_id": None,
-            })
+            cur.execute(
+                _query("upsert_bill"),
+                {
+                    "jurisdiction": "us",
+                    "legislative_session": str(bill_data["congress"]),
+                    "bill_type": bill_data["bill_type"],
+                    "bill_number": bill_data["bill_number"],
+                    "title": bill_data.get("title"),
+                    "introduced_date": bill_data.get("introduced_date"),
+                    "latest_action_date": bill_data.get("latest_action_date"),
+                    "latest_action": bill_data.get("latest_action"),
+                    "metadata": Jsonb({"source": "govinfo_billstatus"}),
+                    "legislative_session_id": legislative_session_id,
+                    "ocd_id": None,
+                },
+            )
             row = cur.fetchone()
             assert row is not None
             bill_id = str(row["bill_id"])
 
             for item in bill_data.get("identifiers", []):
-                cur.execute(_query("upsert_bill_identifier"), {
-                    "bill_id": bill_id,
-                    "namespace": item["namespace"],
-                    "external_id": item["external_id"],
-                    "source_artifact_id": source_artifact_id,
-                    "source_payload_id": source_payload_id,
-                    "source_url": item.get("source_url"),
-                    "metadata": Jsonb(item.get("metadata", {})),
-                })
+                cur.execute(
+                    _query("upsert_bill_identifier"),
+                    {
+                        "bill_id": bill_id,
+                        "namespace": item["namespace"],
+                        "external_id": item["external_id"],
+                        "source_artifact_id": source_artifact_id,
+                        "source_payload_id": source_payload_id,
+                        "source_url": item.get("source_url"),
+                        "metadata": Jsonb(item.get("metadata", {})),
+                    },
+                )
 
             for act in bill_data.get("actions", []):
-                cur.execute(_query("upsert_bill_action"), {
-                    "bill_id": bill_id,
-                    "action_date": act.get("action_date"),
-                    "description": act["description"],
-                    "classification": act.get("classification"),
-                    "source_artifact_id": source_artifact_id,
-                    "source_payload_id": source_payload_id,
-                    "source_member": source_member or act.get("source_member"),
-                    "source_ordinal": act.get("source_ordinal"),
-                    "metadata": Jsonb(act.get("metadata", {})),
-                })
+                cur.execute(
+                    _query("upsert_bill_action"),
+                    {
+                        "bill_id": bill_id,
+                        "action_date": act.get("action_date"),
+                        "description": act["description"],
+                        "classification": act.get("classification"),
+                        "source_artifact_id": source_artifact_id,
+                        "source_payload_id": source_payload_id,
+                        "source_member": source_member or act.get("source_member"),
+                        "source_ordinal": act.get("source_ordinal"),
+                        "metadata": Jsonb(act.get("metadata", {})),
+                    },
+                )
 
             for sp in bill_data.get("sponsorships", []):
-                cur.execute(_query("find_person_by_identifier"), {
-                    "namespace": sp["member_namespace"],
-                    "external_id": sp["member_external_id"],
-                })
+                cur.execute(
+                    _query("find_person_by_identifier"),
+                    {
+                        "namespace": sp["member_namespace"],
+                        "external_id": sp["member_external_id"],
+                    },
+                )
                 p_row = cur.fetchone()
                 person_id = str(p_row["person_id"]) if p_row else None
 
-                cur.execute(_query("upsert_bill_sponsorship"), {
-                    "bill_id": bill_id,
-                    "person_id": person_id,
-                    "member_namespace": sp["member_namespace"],
-                    "member_external_id": sp["member_external_id"],
-                    "role": sp["role"],
-                    "source_artifact_id": source_artifact_id,
-                    "source_payload_id": source_payload_id,
-                    "source_member": source_member or sp.get("source_member"),
-                    "metadata": Jsonb(sp.get("metadata", {})),
-                })
+                cur.execute(
+                    _query("upsert_bill_sponsorship"),
+                    {
+                        "bill_id": bill_id,
+                        "person_id": person_id,
+                        "member_namespace": sp["member_namespace"],
+                        "member_external_id": sp["member_external_id"],
+                        "role": sp["role"],
+                        "source_artifact_id": source_artifact_id,
+                        "source_payload_id": source_payload_id,
+                        "source_member": source_member or sp.get("source_member"),
+                        "metadata": Jsonb(sp.get("metadata", {})),
+                    },
+                )
 
             for comm in bill_data.get("committees", []):
-                cur.execute(_query("upsert_bill_committee"), {
-                    "bill_id": bill_id,
-                    "namespace": comm.get("namespace", "congress.gov.committee"),
-                    "external_id": comm["external_id"],
-                    "name": comm.get("name"),
-                    "chamber": comm.get("chamber"),
-                    "source_artifact_id": source_artifact_id,
-                    "source_payload_id": source_payload_id,
-                    "source_member": source_member or comm.get("source_member"),
-                    "metadata": Jsonb(comm.get("metadata", {})),
-                })
+                cur.execute(
+                    _query("upsert_bill_committee"),
+                    {
+                        "bill_id": bill_id,
+                        "namespace": comm.get("namespace", "congress.gov.committee"),
+                        "external_id": comm["external_id"],
+                        "name": comm.get("name"),
+                        "chamber": comm.get("chamber"),
+                        "source_artifact_id": source_artifact_id,
+                        "source_payload_id": source_payload_id,
+                        "source_member": source_member or comm.get("source_member"),
+                        "metadata": Jsonb(comm.get("metadata", {})),
+                    },
+                )
 
             for subj in bill_data.get("subjects", []):
-                cur.execute(_query("upsert_bill_subject"), {
-                    "bill_id": bill_id,
-                    "namespace": subj.get("namespace", "congress.gov.subject"),
-                    "external_id": subj["external_id"],
-                    "label": subj["label"],
-                    "source_artifact_id": source_artifact_id,
-                    "source_payload_id": source_payload_id,
-                    "source_member": source_member or subj.get("source_member"),
-                    "metadata": Jsonb(subj.get("metadata", {})),
-                })
+                cur.execute(
+                    _query("upsert_bill_subject"),
+                    {
+                        "bill_id": bill_id,
+                        "namespace": subj.get("namespace", "congress.gov.subject"),
+                        "external_id": subj["external_id"],
+                        "label": subj["label"],
+                        "source_artifact_id": source_artifact_id,
+                        "source_payload_id": source_payload_id,
+                        "source_member": source_member or subj.get("source_member"),
+                        "metadata": Jsonb(subj.get("metadata", {})),
+                    },
+                )
 
             for doc in bill_data.get("documents", []):
-                cur.execute(_query("upsert_document"), {
-                    "document_type": "bill_text_version",
-                    "source_key": doc["source_url"], "title": doc.get("title"),
-                    "published_at": doc.get("published_at"), "canonical_url": doc["source_url"],
-                    "artifact_id": source_artifact_id, "source_payload_id": source_payload_id,
-                    "metadata": Jsonb({**doc.get("metadata", {}), "version_code": doc.get("version_code"), "source_member": source_member or doc.get("source_member")}),
-                })
+                cur.execute(
+                    _query("upsert_document"),
+                    {
+                        "document_type": "bill_text_version",
+                        "source_key": doc["source_url"],
+                        "title": doc.get("title"),
+                        "published_at": doc.get("published_at"),
+                        "canonical_url": doc["source_url"],
+                        "artifact_id": source_artifact_id,
+                        "source_payload_id": source_payload_id,
+                        "metadata": Jsonb(
+                            {
+                                **doc.get("metadata", {}),
+                                "version_code": doc.get("version_code"),
+                                "source_member": source_member
+                                or doc.get("source_member"),
+                            }
+                        ),
+                    },
+                )
                 document = cur.fetchone()
                 assert document is not None
-                cur.execute(_query("upsert_bill_document"), {
-                    "bill_id": bill_id,
-                    "document_id": document["document_id"], "relation": "text_version",
-                })
+                cur.execute(
+                    _query("upsert_bill_document"),
+                    {
+                        "bill_id": bill_id,
+                        "document_id": document["document_id"],
+                        "relation": "text_version",
+                    },
+                )
 
             return bill_id
 

@@ -278,12 +278,13 @@ def reconcile_command(
 def load_billstatus_command(
     congress: int = typer.Option(118, min=1, max=119),
     limit: int | None = typer.Option(None, min=1, help="Maximum XML bills to load; omit only after a successful smoke load."),
+    batch_size: int = typer.Option(500, min=1, max=5000, help="Bills per committed transaction; reruns are idempotent."),
     allow_partial: bool = typer.Option(False, help="Allow a validated but incomplete local cache, such as the 119th Congress."),
 ) -> None:
     """Load validated local GovInfo BILLSTATUS relationships with artifact lineage."""
     try:
         with render_spinner("Loading validated GovInfo BILLSTATUS") as report:
-            result = load_billstatus(congress=congress, limit=limit, allow_partial=allow_partial, report=report)
+            result = load_billstatus(congress=congress, limit=limit, batch_size=batch_size, allow_partial=allow_partial, report=report)
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from None
     typer.echo(json.dumps(result, indent=2, sort_keys=True))

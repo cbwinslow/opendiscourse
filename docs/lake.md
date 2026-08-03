@@ -77,3 +77,11 @@ For a validated incomplete collection, run `research-db plan billstatus
 --congress 119`. It creates an exact official missing-file manifest and a
 capacity preview under `meta/plan/govinfo/`; the version-controlled `billstatus`
 contract remains disabled and no file is downloaded.
+
+After a complete validation and reconciliation, load one bounded batch with
+`research-db load-billstatus --congress 118 --limit 100`. The loader commits
+at `--batch-size` boundaries, records an `ingest.run` with coverage, and skips
+already loaded archives and XML members, so rerunning safely resumes a stopped
+load. The 119th Congress
+requires `--allow-partial`; its results remain explicitly partial until the
+approved missing-file backfill is validated and loaded.
