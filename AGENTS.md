@@ -43,6 +43,14 @@ architecture, operations, and user-facing procedures documented as the system
 changes; update the relevant documentation in the same change as a behavior,
 schema, contract, or workflow change.
 
+Design new code around reusable, interoperable primitives rather than a single
+provider or one-off workflow. Separate source-specific parsing and transport
+from shared validation, identity resolution, provenance, persistence, and
+reporting. Prefer stable interfaces, portable schemas, and source-native
+identifiers so additional providers can reuse the same pathway without copying
+or weakening its safeguards. Generalize only from demonstrated common needs;
+keep provider-specific behavior explicit at the adapter boundary.
+
 ## Git and GitHub workflow
 
 Make small, cohesive commits as work reaches a verified checkpoint. Each
