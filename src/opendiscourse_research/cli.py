@@ -26,6 +26,7 @@ from .audit import audit_leg
 from .legvalidate import validate_billstatus
 from .govplan import plan_billstatus_backfill
 from .legreconcile import reconcile_billstatus
+from .legload import load_billstatus
 
 app = typer.Typer(help="Research database setup and ingestion commands.")
 ingest_app = typer.Typer(help="Provider ingestion commands.")
@@ -271,6 +272,21 @@ def reconcile_command(
     with render_spinner("Reconciling validated GovInfo BILLSTATUS") as report:
         result = reconcile_billstatus(congress=congress, limit=limit, report=report)
     typer.echo(json.dumps({"congress": congress, "summary": result["summary"], "groups": result["groups"], "malformed": len(result["malformed"]), "report": result["report"], "next": result["next"]}, indent=2, sort_keys=True))
+
+
+@app.command("load-billstatus")
+def load_billstatus_command(
+    congress: int = typer.Option(118, min=1, max=119),
+    limit: int | None = typer.Option(None, min=1, help="Maximum XML bills to load; omit only after a successful smoke load."),
+    allow_partial: bool = typer.Option(False, help="Allow a validated but incomplete local cache, such as the 119th Congress."),
+) -> None:
+    """Load validated local GovInfo BILLSTATUS relationships with artifact lineage."""
+    try:
+        with render_spinner("Loading validated GovInfo BILLSTATUS") as report:
+            result = load_billstatus(congress=congress, limit=limit, allow_partial=allow_partial, report=report)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from None
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 
 @catalog_app.command("browse", hidden=True)
