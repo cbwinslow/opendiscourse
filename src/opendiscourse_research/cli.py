@@ -152,19 +152,15 @@ def browse(
     debug: bool = typer.Option(False, help="Write opt-in navigation diagnostics to lake metadata; search text is excluded."),
 ) -> None:
     """Open the keyboard catalog browser; Space selects and Enter inspects."""
-    with render_spinner("Preparing catalog browser"):
-        _catalog_ready(dataset)
+    _catalog_ready()
     launch_browser(dataset, selection, year, product, debug)
 
 
-def _catalog_ready(dataset: str | None) -> None:
-    """Prepare only the requested browser source, never unrelated providers."""
+def _catalog_ready(year: int = 2024) -> None:
+    """Small metadata bootstrap for the normal interactive path."""
     apply_migrations()
     sync_inventory()
-    if dataset == "census.acs_5":
-        registry_sync(sources={"acs"})
-    elif dataset == "census.api_catalog":
-        registry_sync(sources={"census"})
+    registry_sync()
 
 
 @app.command("sync")
