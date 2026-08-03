@@ -6,6 +6,7 @@ from typing import Any
 from collections.abc import Callable
 
 from .browser import ensure_acs, preview_fred_full, sync_fred, sync_fred_full
+from .providers.census import sync_catalog as sync_census_catalog
 from .providers.fred import index_batch as index_fred_batch
 from .providers.congress import sync as sync_congress
 from .repositories.catalog import discovery
@@ -18,7 +19,12 @@ ACS_YEARS = (2022, 2023, 2024)
 def sync(refresh: bool = False, sources: set[str] | None = None, full: bool = False, preview: bool = False, index_pages: int | None = None, index_seconds: int | None = None, report: Callable[[str], None] | None = None) -> dict[str, Any]:
     """Synchronize implemented metadata adapters; never acquire bulk data."""
     results: dict[str, Any] = {}
-    requested = sources or {"acs", "fred", "congress"}
+    requested = sources or {"acs", "census", "fred", "congress"}
+    if "census" in requested:
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM catalog.snapshot WHERE dataset_id = 'census.api_catalog' LIMIT 1")
+            census_ready = cur.fetchone() is not None
+        results["census"] = sync_census_catalog() if refresh or not census_ready else {"state": "current"}
     if "acs" in requested:
         with connect() as conn, conn.cursor() as cur:
             cur.execute("SELECT DISTINCT (metadata->>'year')::integer AS year FROM catalog.snapshot WHERE dataset_id = 'census.acs_5'")

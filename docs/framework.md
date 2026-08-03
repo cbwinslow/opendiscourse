@@ -103,6 +103,13 @@ adapters when they are implemented.
 downloads bulk observations. `research-db status` distinguishes catalog-ready
 datasets from registered providers that still need an adapter.
 
+`research-db sync --source census` indexes every offering currently published
+in the official Census Data API catalog. It stores the source response and
+offering metadata only; this is the safe starting point for discovering ACS,
+housing, Decennial, PEP, business, and other Census APIs. Open it with
+`research-db browse --dataset census.api_catalog`. Browsing a Census offering
+or adding it to a basket does not authorize observation or bulk-file ingestion.
+
 Every provider discovery will also create a `catalog.snapshot` record linked to
 the original metadata artifact and its checksum. Resources may be refreshed for
 search, but snapshots preserve exactly what the provider advertised at a given

@@ -152,21 +152,25 @@ def browse(
     debug: bool = typer.Option(False, help="Write opt-in navigation diagnostics to lake metadata; search text is excluded."),
 ) -> None:
     """Open the keyboard catalog browser; Space selects and Enter inspects."""
-    _catalog_ready()
+    with render_spinner("Preparing catalog browser"):
+        _catalog_ready(dataset)
     launch_browser(dataset, selection, year, product, debug)
 
 
-def _catalog_ready(year: int = 2024) -> None:
-    """Small metadata bootstrap for the normal interactive path."""
+def _catalog_ready(dataset: str | None) -> None:
+    """Prepare only the requested browser source, never unrelated providers."""
     apply_migrations()
     sync_inventory()
-    registry_sync()
+    if dataset == "census.acs_5":
+        registry_sync(sources={"acs"})
+    elif dataset == "census.api_catalog":
+        registry_sync(sources={"census"})
 
 
 @app.command("sync")
 def sync_command(
     refresh: bool = typer.Option(False, help="Re-read implemented provider metadata even when a local snapshot exists."),
-    source: list[str] = typer.Option([], "--source", help="Limit sync to an implemented source: acs, fred, or congress."),
+    source: list[str] = typer.Option([], "--source", help="Limit sync to an implemented source: acs, census, fred, or congress."),
     full: bool = typer.Option(False, help="Use a provider's explicit full-catalog mode; currently FRED only."),
     preview: bool = typer.Option(False, help="Count a full catalog without storing resources; requires --full."),
     index: bool = typer.Option(False, help="Run a bounded, resumable metadata-index batch; currently FRED only."),
