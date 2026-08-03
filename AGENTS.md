@@ -20,6 +20,29 @@ Repositories own PostgreSQL persistence. Reusable runtime SQL belongs in
 `sql/query/`; schema changes belong in ordered `sql/` migrations. New public
 modules and functions require concise docstrings.
 
+## Engineering, database, and AI practice
+
+Follow established industry standards for software engineering, database
+administration, security, and operations. Favor clear module ownership, typed
+interfaces, explicit error handling, idempotent and observable data changes,
+least-privilege access, parameterized queries, ordered reversible migrations,
+and validation appropriate to the risk of a change. Preserve immutable source
+evidence and provenance; never silently overwrite, co-mingle, or promote data
+whose ownership, coverage, or quality has not been established.
+
+Treat provider snapshots and canonical warehouse data as separate owned
+systems. Preserve upstream schemas and refreshability; use documented
+read-only mappings or views before copying data, and record the rationale,
+source identifiers, and validation evidence for every consolidation decision.
+
+Use AI-assisted tools deliberately: delegate bounded work when it improves
+coverage or speed, verify all generated output against the repository and
+primary evidence, protect secrets and sensitive inputs, and retain human-
+reviewable reasoning in code, migrations, runbooks, and commit history. Keep
+architecture, operations, and user-facing procedures documented as the system
+changes; update the relevant documentation in the same change as a behavior,
+schema, contract, or workflow change.
+
 ## Git and GitHub workflow
 
 Make small, cohesive commits as work reaches a verified checkpoint. Each
