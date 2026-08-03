@@ -11,40 +11,13 @@ from xml.etree import ElementTree
 import zipfile
 
 from .config import settings
-from .legvalidate import BILLSTATUS_ROOT, LISTING
+from .legarchive import billstatus_groups
 from .repositories.legislation import bill_keys
 
 
 def _output() -> Path:
     """Return the metadata-only reconciliation report directory."""
     return Path(settings.data_root).expanduser().resolve().parent / "meta" / "reconcile" / "billstatus"
-
-
-def _complete_groups(congress: int) -> list[dict[str, Any]]:
-    """Require official validation evidence before a cache is used as an input."""
-    report = Path(settings.data_root).expanduser().resolve().parent / "meta" / "validate" / "billstatus" / "latest.json"
-    if not report.is_file():
-        raise FileNotFoundError("Run `research-db validate billstatus --official --all` before reconciliation")
-    payload = json.loads(report.read_text())
-    official = {
-        item["bill_type"]: item
-        for item in payload.get("official_comparison", [])
-        if item.get("congress") == congress and item.get("matches_official") is True
-    }
-    groups: list[dict[str, Any]] = []
-    for listing in sorted(BILLSTATUS_ROOT.rglob(f"BILLSTATUS_{congress}_*_listing.json")):
-        match = LISTING.search(listing.name)
-        if match is None:
-            continue
-        bill_type = match.group(2)
-        if bill_type not in official:
-            continue
-        archive = listing.with_name(f"BILLSTATUS-{congress}-{bill_type}.zip")
-        if archive.is_file():
-            groups.append({"bill_type": bill_type, "archive": archive, "official": official[bill_type]})
-    if not groups:
-        raise ValueError(f"No officially complete local BILLSTATUS groups are available for Congress {congress}")
-    return groups
 
 
 def _bill_details(content: bytes) -> dict[str, Any] | None:
@@ -79,7 +52,7 @@ def reconcile_billstatus(
     """Compare one complete BILLSTATUS cache to canonical bill keys without mutations."""
     if limit is not None and limit < 1:
         raise ValueError("limit must be positive")
-    groups = _complete_groups(congress)
+    groups = billstatus_groups(congress)
     summary: Counter[str] = Counter()
     by_type: list[dict[str, Any]] = []
     malformed: list[str] = []
