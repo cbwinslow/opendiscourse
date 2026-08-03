@@ -8,16 +8,16 @@ items:
   - id: congapi
     dataset: congress.legislation
     state: ready
-    scope: 119th Congress; bounded Congress.gov collection pages
+    scope: "Browser catalog prepopulated for Congresses 1-119: members, bills, actions, amendments, committees, and House votes"
     origin: Congress.gov API
     provenance: authoritative_api
     sensitivity: public
     validate: API response retained with each ingestion run
-    next: Add people, sponsors, actions, and votes after bill collection backfill.
+    next: Build the official coverage comparator, then approve bounded member and bill metadata contracts before enabling ingestion.
   - id: cong118
     dataset: congress.legislation
     state: found
-    scope: 20 local 118th-Congress bill-list JSON chunks; 18,315 records with only list-level fields
+    scope: 24 local Congress JSON artifacts (11.4 MiB), including 118th-Congress bill-list chunks; list-level fields only
     origin: /mnt/storage/data-lake/government/epstein/raw-files/congress/bills
     provenance: legacy_cache_unverified
     sensitivity: public_claimed
@@ -25,13 +25,22 @@ items:
     next: Do not parse. Rebuild the official Congress.gov metadata baseline, then retain or delete this cache only after coverage comparison.
   - id: govbulk
     dataset: govinfo.bulk
-    state: found
-    scope: 289 ZIP, 250 XML, and 329 JSON files in a legacy GovInfo bulk cache
+    state: verify
+    scope: 868 legacy GovInfo artifacts (289 ZIP, 250 XML, 329 JSON; 5.46 GiB) across BILLS, BILLSTATUS, and BILLSUM; Congresses 108-119. BILLSTATUS structural validation passed for 96 archive groups, but the 119th cache is incomplete versus live GovInfo.
     origin: /mnt/storage/data-lake/government/epstein/raw-files/govinfo_bulk
     provenance: legacy_cache_unverified
     sensitivity: public_claimed
-    validate: Verify package and granule IDs against GovInfo manifests.
-    next: Build artifact registrar, then implement BILLSTATUS and bill-text parser.
+    validate: Verify package and granule IDs against GovInfo manifests. The 119th Congress comparison found 2,831 XML files absent from local BILLSTATUS listing metadata; treat local data as a partial cache only.
+    next: Review the disabled 119th-Congress missing-file plan (2,831 XML, 28.3 MB, capacity approved) at meta/plan/govinfo/billstatus-119-missing.json. Do not download or ingest until explicitly approved.
+  - id: congdata
+    dataset: congress.legislation
+    state: verify
+    scope: 268,773 legacy artifacts (2.01 GiB), primarily 268,740 bill JSON records under congress-data; Congresses 93-113 and one 118th item
+    origin: /mnt/storage/data-lake/government/congress/congress-data
+    provenance: legacy_cache_unverified
+    sensitivity: public_claimed
+    validate: Identify the historical downloader/version, inspect record schema, and compare per-Congress bill IDs to Congress.gov before admission.
+    next: Keep in place. Build a coverage comparator before registering any selected artifact.
   - id: fecbulk
     dataset: fec.campaign_finance
     state: found

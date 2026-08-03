@@ -99,6 +99,10 @@ Selections are drafts only. They do not create a fetch plan or download data.
 The same catalog and basket tables will serve FRED, FBI, GovInfo, and other
 adapters when they are implemented.
 
+`research-db sync` refreshes every implemented metadata adapter and never
+downloads bulk observations. `research-db status` distinguishes catalog-ready
+datasets from registered providers that still need an adapter.
+
 Every provider discovery will also create a `catalog.snapshot` record linked to
 the original metadata artifact and its checksum. Resources may be refreshed for
 search, but snapshots preserve exactly what the provider advertised at a given

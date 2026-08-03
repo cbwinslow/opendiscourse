@@ -10,9 +10,9 @@ cp .env.example .env
 python -m venv .venv && source .venv/bin/activate
 pip install -e '.[analytics,spatial,ingest]'
 research-db init-db
-research-db catalog-check
-research-db plan-list
-research-db progress-list
+research-db sync
+research-db status
+research-db browse
 ```
 
 No provider is contacted by `init-db`. Each ingestion run records the provider,
@@ -43,6 +43,10 @@ research-db ingest census-plan --contract acshome
 # metadata catalog automatically; it does not download ACS observations.
 research-db browse
 
+# Optional: refresh implemented metadata adapters, or see browser readiness.
+research-db sync
+research-db status
+
 # Check a proposed bulk batch before any download. A non-zero exit means the
 # size is unknown or the required reserve would be breached.
 research-db storage-preview --url 'https://example.gov/release.zip'
@@ -62,6 +66,14 @@ research-db bootstrap treasury-curve --year 2025
 # Curated priority-one FRED macro, labor, rates, yield, index, commodity, and FX series.
 # Requires FRED_API_KEY in .env.
 research-db bootstrap fred-core
+
+# Build the local FRED *metadata* catalog in resumable batches. This stores
+# series descriptors only—never observations—and resumes safely after a stop.
+# Start small, then use 20-page batches for normal progress.
+research-db sync --source fred --index --pages 1
+research-db sync --source fred --index --pages 20
+research-db sync --source fred --index --minutes 30
+research-db status
 
 # Curated ACS 5-year housing groups for Maryland counties; requires CENSUS_API_KEY.
 research-db bootstrap acs-housing --year 2023 --states 24
@@ -94,6 +106,12 @@ Bulk acquisition details and profile guidance are in `docs/bulk-bootstrap-plan.m
 Run `research-db plan-due` from a cron job or systemd timer to refresh every
 due plan. It records a per-plan refresh cursor only after the provider run
 finishes successfully.
+
+FRED discovery and FRED observations are deliberately separate. The index
+command grows the browser's local series catalog; selecting series writes only
+a disabled draft. Observation ingestion remains an explicit approved contract.
+For bounded manual runs and the optional user-level systemd timer, see
+`docs/runners.md`.
 
 `inventory/progress.yaml` is the operational work register: it records what
 has been found, verified, loaded, put on hold, and selected next. See

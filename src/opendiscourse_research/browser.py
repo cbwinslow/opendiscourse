@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from pathlib import Path
+from time import sleep
 from typing import Any
 
 import yaml
@@ -11,6 +13,9 @@ from psycopg.types.json import Jsonb
 
 from .config import settings
 from .db import connect
+from .ingestion.base import client, json_response
+from .providers.fred import search as search_fred
+from .repositories.catalog import resource_ids
 
 
 def _acs_manifest(year: int) -> Path:
@@ -74,6 +79,191 @@ def ensure_acs(year: int = 2024) -> int:
     return sync_acs(year)
 
 
+def _fred_manifest() -> tuple[Path, list[dict[str, Any]]]:
+    path = Path(__file__).resolve().parents[2] / "inventory" / "core_fred_series.yaml"
+    return path, yaml.safe_load(path.read_text())["series"]
+
+
+def _fred_metadata(series_id: str) -> tuple[dict[str, Any], str | None]:
+    """Fetch descriptive FRED metadata only; observations are never requested."""
+    if not settings.fred_api_key:
+        return {}, None
+    with client() as http:
+        response = http.get(
+            "https://api.stlouisfed.org/fred/series",
+            params={"series_id": series_id, "api_key": settings.fred_api_key, "file_type": "json"},
+        )
+    try:
+        series = json_response(response).get("seriess", [])
+    except ValueError as exc:
+        return {}, str(exc)
+    return (series[0] if series else {}), None
+
+
+def sync_fred(refresh: bool = False) -> dict[str, Any]:
+    """Publish the deliberate FRED series allow-list to the local catalog.
+
+    The manifest is the catalog's authoritative selection boundary. A refresh
+    augments it with provider descriptions, but no observation data is acquired.
+    """
+    path, series = _fred_manifest()
+    enrich = refresh and bool(settings.fred_api_key)
+    issues: list[str] = []
+    with connect() as conn, conn.cursor() as cur:
+        for entry in series:
+            remote, issue = _fred_metadata(entry["series_id"]) if enrich else ({}, None)
+            if issue:
+                issues.append(entry["series_id"])
+            metadata = {
+                "series_id": entry["series_id"], "category": entry["category"],
+                "priority": entry["priority"], "notes": entry.get("notes"),
+                "provider": {
+                    key: remote[key] for key in (
+                        "observation_start", "observation_end", "frequency",
+                        "frequency_short", "units", "units_short",
+                        "seasonal_adjustment", "last_updated",
+                    ) if key in remote
+                },
+            }
+            if issue:
+                metadata["provider_error"] = issue
+            cur.execute(
+                """INSERT INTO catalog.resource
+                   (dataset_id, resource_key, resource_type, title, summary, metadata)
+                   VALUES ('fred.series', %(key)s, %(type)s, %(title)s, %(summary)s, %(metadata)s)
+                   ON CONFLICT (dataset_id, resource_key) DO UPDATE SET
+                     resource_type = EXCLUDED.resource_type, title = EXCLUDED.title,
+                     summary = EXCLUDED.summary, metadata = EXCLUDED.metadata, updated_at = now()""",
+                {
+                    "key": entry["series_id"], "type": entry["category"],
+                    "title": remote.get("title", entry["label"]),
+                    "summary": remote.get("notes", entry.get("notes") or entry["label"]),
+                    "metadata": Jsonb(metadata),
+                },
+            )
+        checksum = sha256(path.read_bytes()).hexdigest()
+        cur.execute(
+            """INSERT INTO catalog.snapshot (dataset_id, source_url, checksum_sha256, metadata)
+               VALUES ('fred.series', %s, %s, %s)
+               ON CONFLICT (dataset_id, checksum_sha256) DO UPDATE SET metadata = EXCLUDED.metadata
+               RETURNING snapshot_id""",
+            (
+                "https://api.stlouisfed.org/fred/series", checksum,
+                Jsonb({"kind": "curated_series_manifest", "path": str(path), "enriched": enrich}),
+            ),
+        )
+        snapshot_id = cur.fetchone()["snapshot_id"]
+        cur.execute(
+            """INSERT INTO catalog.snapshot_resource (snapshot_id, resource_id)
+               SELECT %s, resource_id FROM catalog.resource WHERE dataset_id = 'fred.series'
+               ON CONFLICT DO NOTHING""",
+            (snapshot_id,),
+        )
+        conn.commit()
+    return {
+        "resources": len(series), "state": "synced", "enriched": enrich,
+        "issues": issues,
+    }
+
+
+def _fred_get(endpoint: str, **params: Any) -> dict[str, Any]:
+    if not settings.fred_api_key:
+        raise ValueError("FRED_API_KEY is required for full FRED catalog discovery")
+    # Full catalog discovery makes many small requests. Back off on the
+    # provider's explicit rate signal rather than retrying aggressively.
+    for attempt in range(5):
+        with client() as http:
+            response = http.get(
+                f"https://api.stlouisfed.org/fred/{endpoint}",
+                params={**params, "api_key": settings.fred_api_key, "file_type": "json"},
+            )
+        if response.status_code != 429:
+            return json_response(response)
+        if attempt == 4:
+            return json_response(response)
+        retry_after = response.headers.get("retry-after")
+        try:
+            delay = min(float(retry_after), 30.0) if retry_after else float(2 ** attempt)
+        except ValueError:
+            delay = float(2 ** attempt)
+        sleep(delay)
+    raise AssertionError("unreachable")
+
+
+def _fred_categories() -> list[dict[str, Any]]:
+    """Walk the official category tree once; no series are acquired here."""
+    seen: set[int] = {0}
+    pending = [0]
+    categories: list[dict[str, Any]] = []
+    while pending:
+        parent_id = pending.pop()
+        for category in _fred_get("category/children", category_id=parent_id).get("categories", []):
+            category_id = int(category["id"])
+            if category_id in seen:
+                continue
+            seen.add(category_id)
+            categories.append(category)
+            pending.append(category_id)
+    return categories
+
+
+def preview_fred_full() -> dict[str, Any]:
+    """Count category memberships before a potentially large metadata crawl."""
+    categories = _fred_categories()
+    memberships = 0
+    for category in categories:
+        payload = _fred_get("category/series", category_id=category["id"], limit=1, offset=0)
+        memberships += int(payload.get("count", 0))
+    return {"state": "preview", "categories": len(categories), "series_memberships": memberships,
+            "note": "Memberships include duplicates because one series can belong to multiple categories. No series metadata was stored."}
+
+
+def sync_fred_full() -> dict[str, Any]:
+    """Index all discoverable FRED series metadata; never request observations."""
+    categories = _fred_categories()
+    series: dict[str, dict[str, Any]] = {}
+    memberships = 0
+    for category in categories:
+        offset = 0
+        while True:
+            payload = _fred_get("category/series", category_id=category["id"], limit=1000, offset=offset)
+            page = payload.get("seriess", [])
+            memberships += len(page)
+            for item in page:
+                entry = series.setdefault(item["id"], {**item, "categories": []})
+                entry["categories"].append({"id": category["id"], "name": category["name"]})
+            offset += len(page)
+            if not page or offset >= int(payload.get("count", 0)):
+                break
+    canonical = json.dumps(series, sort_keys=True, separators=(",", ":")).encode()
+    with connect() as conn, conn.cursor() as cur:
+        for series_id, item in series.items():
+            metadata = {key: item.get(key) for key in ("observation_start", "observation_end", "frequency", "frequency_short", "units", "units_short", "seasonal_adjustment", "last_updated", "popularity")}
+            metadata.update({"series_id": series_id, "categories": item["categories"], "scope": "full"})
+            cur.execute(
+                """INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, metadata)
+                   VALUES ('fred.series', %s, 'series', %s, %s, %s)
+                   ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type = EXCLUDED.resource_type,
+                     title = EXCLUDED.title, summary = EXCLUDED.summary, metadata = EXCLUDED.metadata, updated_at = now()""",
+                (series_id, item.get("title", series_id), item.get("notes"), Jsonb(metadata)),
+            )
+        checksum = sha256(canonical).hexdigest()
+        cur.execute(
+            """INSERT INTO catalog.snapshot (dataset_id, source_url, checksum_sha256, metadata)
+               VALUES ('fred.series', %s, %s, %s)
+               ON CONFLICT (dataset_id, checksum_sha256) DO UPDATE SET metadata = EXCLUDED.metadata
+               RETURNING snapshot_id""",
+            ("https://api.stlouisfed.org/fred/category/series", checksum,
+             Jsonb({"kind": "full_category_catalog", "categories": len(categories), "memberships": memberships, "resources": len(series)})),
+        )
+        snapshot_id = cur.fetchone()["snapshot_id"]
+        cur.execute("""INSERT INTO catalog.snapshot_resource (snapshot_id, resource_id)
+                       SELECT %s, resource_id FROM catalog.resource WHERE dataset_id = 'fred.series'
+                       ON CONFLICT DO NOTHING""", (snapshot_id,))
+        conn.commit()
+    return {"state": "synced", "categories": len(categories), "series_memberships": memberships, "resources": len(series)}
+
+
 def search(dataset_id: str, text: str = "", limit: int = 100, year: int | None = None, product: str | None = None) -> list[dict[str, Any]]:
     query = text.strip()
     terms = f"%{query}%"
@@ -92,7 +282,7 @@ def search(dataset_id: str, text: str = "", limit: int = 100, year: int | None =
 
 def facets(dataset_id: str) -> dict[str, Any]:
     with connect() as conn, conn.cursor() as cur:
-        cur.execute("SELECT release_year, count(*) AS count FROM catalog.resource WHERE dataset_id = %s GROUP BY release_year ORDER BY release_year DESC", (dataset_id,))
+        cur.execute("SELECT release_year, count(*) AS count FROM catalog.resource WHERE dataset_id = %s AND release_year IS NOT NULL GROUP BY release_year ORDER BY release_year DESC", (dataset_id,))
         years = cur.fetchall()
         cur.execute("SELECT resource_type, count(*) AS count FROM catalog.resource WHERE dataset_id = %s GROUP BY resource_type ORDER BY resource_type", (dataset_id,))
         products = cur.fetchall()
@@ -211,7 +401,7 @@ def draft(name: str) -> Path:
     return path
 
 
-def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year: int | None = None, product: str | None = None) -> None:
+def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year: int | None = None, product: str | None = None, debug: bool = False) -> None:
     """Open the optional Textual UI, keeping the catalog API dependency-free."""
     try:
         from textual.app import App, ComposeResult
@@ -226,9 +416,11 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             Binding("space", "toggle", "select / unselect"),
             Binding("a", "all", "select filtered"),
             Binding("g", "draft", "write draft"),
+            Binding("f", "fetch", "fetch provider search"),
             Binding("backspace", "back", "back"),
             Binding("c", "cart", "selection"),
             Binding("enter", "describe", "inspect fields"),
+            Binding("o", "open", "open highlighted"),
             Binding("r", "refresh", "refresh"),
             Binding("ctrl+q", "quit", "quit"),
         ]
@@ -236,6 +428,7 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
         #query { margin: 1 1 0 1; }
         #grid { height: 1fr; margin: 1; }
         #detail { height: 12; border: round $accent; padding: 1; overflow: auto; }
+        #help { height: 4; border: round $primary; padding: 0 1; margin: 0 1 1 1; }
         """
 
         def __init__(self) -> None:
@@ -248,23 +441,68 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             self.year = year
             self.product = product
             self.confirm: str | None = None
+            self.cart_origin = self.level
+            self.trace_enabled = debug
+            self.debug_path = Path(settings.data_root).resolve().parent / "meta" / "debug" / "tui.jsonl"
 
         def compose(self) -> ComposeResult:
             yield Header()
             yield Input(placeholder="Search IDs, titles, or universes…", id="query")
             yield DataTable(id="grid", cursor_type="row")
             yield Static("Loading catalog…", id="detail")
+            yield Static("↑/↓ move  Enter or O open  Backspace back  Space select  C selection  F fetch FRED search  A select filtered  G write draft  R refresh  Ctrl+Q quit", id="help")
             yield Footer()
 
         def on_mount(self) -> None:
             table = self.query_one(DataTable)
+            table.focus()
             self.load_level()
+
+        def _set_initial_row(self) -> None:
+            """Focus the grid and make Enter useful before the first arrow key."""
+            table = self.query_one(DataTable)
+            if not self.rows:
+                self.current_id = None
+                return
+            self.current_id = str(self.rows[0].get("resource_id") or self.rows[0].get("provider_id") or self.rows[0].get("dataset_id") or self.rows[0].get("release_year") or self.rows[0].get("resource_type"))
+            table.move_cursor(row=0)
+            table.focus()
+            self._debug("screen_loaded", rows=len(self.rows))
+
+        def _debug(self, event: str, **data: Any) -> None:
+            """Append opt-in navigation diagnostics without recording search text."""
+            if not self.trace_enabled:
+                return
+            self.debug_path.parent.mkdir(parents=True, exist_ok=True)
+            payload = {"event": event, "level": self.level, "current_id": self.current_id, **data}
+            with self.debug_path.open("a") as handle:
+                handle.write(json.dumps(payload, sort_keys=True) + "\n")
+
+        def _help(self) -> str:
+            """Render the controls relevant to the current navigation level."""
+            common = "↑/↓ move  O or Enter open  Backspace back  C selection  R refresh  Ctrl+Q quit"
+            if self.level in {"product", "year"}:
+                return common + "  Space select highlighted group (press twice)"
+            if self.level == "resource":
+                extra = "Space select resource  A select filtered  G write draft"
+                if self.dataset_id == "fred.series":
+                    extra += "  F focus FRED search; Enter fetches results"
+                return common + "  " + extra
+            return common
 
         def crumb(self) -> str:
             return " › ".join(item for item in [self.provider_id, self.dataset_id, str(self.year) if self.year else None, self.product, self.level] if item)
 
         def load_level(self) -> None:
             table = self.query_one(DataTable)
+            query = self.query_one(Input)
+            # Search is relevant only after a concrete dataset/product has
+            # been chosen. Keeping it out of navigation makes the source-first
+            # workflow immediately understandable.
+            query.display = self.level == "resource"
+            if self.level != "resource":
+                query.value = ""
+            self.query_one("#help", Static).update(self._help())
             table.clear(columns=True)
             self.rows = []
             if self.level == "provider":
@@ -291,6 +529,7 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
                 table.add_columns("✓", "ID", "Product", "Title")
                 self.load_rows()
                 return
+            self._set_initial_row()
             self.query_one(Static).update(f"{self.crumb()} · selection {len(basket(basket_name))} · Enter to continue, Backspace to return.")
 
         def load_rows(self, query: str = "") -> None:
@@ -301,32 +540,67 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             for row in self.rows:
                 metadata = row["metadata"]
                 table.add_row("●" if str(row["resource_id"]) in selected else "", metadata.get("table_id", row["resource_key"]), row["resource_type"], row["title"], key=str(row["resource_id"]))
+            self._set_initial_row()
             self.query_one(Static).update(f"{len(self.rows)} resources. Space selects; Enter fetches field metadata for the highlighted resource.")
 
         def on_input_changed(self, event: Input.Changed) -> None:
             if self.level == "resource": self.load_rows(event.value)
 
+        def on_input_submitted(self, event: Input.Submitted) -> None:
+            """Fetch an explicit FRED search only after the user submits text."""
+            if self.level == "resource" and self.dataset_id == "fred.series":
+                self._fetch_fred(event.value)
+
         def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
             self.current_id = str(event.row_key.value)
+            self._debug("highlight")
             if self.level != "resource": return
             resource = get_resource(self.current_id)
             fields = resource["fields"]
             body = f"{resource['title']}\n{resource.get('universe') or 'Universe not published'}\n{resource['resource_type']} · {len(fields)} cached fields"
             self.query_one(Static).update(body)
 
+        def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+            """Support mouse activation and terminals that route Enter to the grid."""
+            self.current_id = str(event.row_key.value)
+            self._debug("row_selected")
+            self.action_describe()
+
         def action_toggle(self) -> None:
-            if not self.current_id or self.level != "resource":
+            if not self.current_id:
+                return
+            if self.level in {"year", "product"}:
+                group_year = int(self.current_id) if self.level == "year" else self.year
+                group_product = self.current_id if self.level == "product" else None
+                ids = resource_ids(self.dataset_id or "", group_year, group_product)
+                marker = f"group:{self.level}:{self.current_id}"
+                if self.confirm != marker:
+                    self.confirm = marker
+                    self.query_one(Static).update(f"Press Space again to add all {len(ids)} resources in this {self.level} to the selection.")
+                    return
+                add_all(basket_name, ids)
+                self.confirm = None
+                self._debug("group_selected", count=len(ids), group=self.current_id)
+                self.query_one(Static).update(f"Added {len(ids)} resources from this {self.level} to the selection.")
+                return
+            if self.level != "resource":
                 return
             selected = toggle(basket_name, self.current_id)
-            self.query_one(Static).update("Selected in basket." if selected else "Removed from basket.")
+            self._debug("resource_toggled", selected=selected)
+            self.query_one(Static).update("Added to selection." if selected else "Removed from selection.")
             self.load_rows(self.query_one(Input).value)
 
         def action_describe(self) -> None:
             if not self.current_id:
                 return
+            self._debug("open")
             if self.level != "resource":
                 if self.level == "provider": self.provider_id, self.level = self.current_id, "dataset"
-                elif self.level == "dataset": self.dataset_id, self.level = self.current_id, "year"
+                elif self.level == "dataset":
+                    self.dataset_id = self.current_id
+                    # Release years are meaningful for ACS, but a series
+                    # catalog such as FRED goes directly to its categories.
+                    self.level = "year" if facets(self.dataset_id)["years"] else "product"
                 elif self.level == "year":
                     self.year, self.level = int(self.current_id), "product"
                     if self.dataset_id == "census.acs_5" and not _acs_manifest(self.year).is_file():
@@ -348,6 +622,10 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             except Exception as exc:
                 self.query_one(Static).update(f"Could not fetch field metadata: {exc}")
 
+        def action_open(self) -> None:
+            """Open the highlighted row with a reliable, visible keybinding."""
+            self.action_describe()
+
         def action_all(self) -> None:
             if self.level != "resource": return
             if self.confirm != "all":
@@ -356,6 +634,30 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             self.confirm = None
             self.query_one(Static).update(f"Selected {len(self.rows)} currently filtered resources.")
             self.load_rows(self.query_one(Input).value)
+
+        def action_fetch(self) -> None:
+            """Focus FRED search, or fetch the already-entered query."""
+            if self.level != "resource" or self.dataset_id != "fred.series":
+                self.query_one(Static).update("Provider search is available after opening FRED resources.")
+                return
+            query = self.query_one(Input).value
+            if len(query.strip()) < 2:
+                self.query_one(Input).focus()
+                self.query_one(Static).update("Type at least two characters, then press Enter to search official FRED metadata.")
+                return
+            self._fetch_fred(query)
+
+        def _fetch_fred(self, query: str) -> None:
+            """Cache one paced official FRED search page and return focus to results."""
+            try:
+                count = search_fred(query)
+            except Exception as exc:
+                self.query_one(Static).update(f"FRED search was not cached: {exc}")
+                return
+            self.load_rows(query)
+            self.query_one(DataTable).focus()
+            self._debug("fred_search_cached", count=count)
+            self.query_one(Static).update(f"Cached {count} FRED search results. Space selects; G writes a disabled draft.")
 
         def action_draft(self) -> None:
             if self.confirm != "draft":
@@ -366,9 +668,16 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
 
         def action_back(self) -> None:
             previous = {"dataset": "provider", "year": "dataset", "product": "year", "resource": "product", "cart": "resource"}
-            if self.level in previous: self.level = previous[self.level]; self.load_level()
+            if self.level == "cart":
+                self.level = self.cart_origin
+            elif self.level == "product" and self.dataset_id and not facets(self.dataset_id)["years"]:
+                self.level = "dataset"
+            elif self.level in previous:
+                self.level = previous[self.level]
+            self.load_level()
 
         def action_cart(self) -> None:
+            self.cart_origin = self.level
             self.level = "cart"; self.load_level()
 
         def action_refresh(self) -> None:

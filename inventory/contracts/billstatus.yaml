@@ -1,0 +1,25 @@
+version: 1
+description: >-
+  Disabled GovInfo BILLSTATUS backfill contract. The exact file manifest and
+  capacity decision are generated from a completed official comparison.
+contracts:
+  - id: billstatus
+    provider: congress
+    dataset: congress.govinfo_billstatus
+    kind: govinfo_bulk
+    target: core.bill
+    cadence: daily
+    enabled: false
+    approval: pending
+    selection:
+      collection: BILLSTATUS
+      congress: 119
+      scope: official_missing_only
+    storage:
+      stage_multiplier: 1.0
+      database_multiplier: 1.5
+      reserve_gib: 100
+    notes: >-
+      Generate with `research-db plan billstatus --congress 119`. Do not enable
+      until the exact official manifest, capacity preview, XML validation, and
+      relational mapping review are approved.

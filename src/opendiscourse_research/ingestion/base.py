@@ -59,7 +59,15 @@ def client() -> httpx.Client:
 
 def json_response(response: httpx.Response) -> Any:
     """Reject provider HTML/error pages that incorrectly return a 2xx status."""
-    response.raise_for_status()
+    # Provider clients commonly put API keys in query parameters. Never let an
+    # httpx exception render the full request URL into a CLI traceback.
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError:
+        safe_url = str(response.url.copy_with(query=None))
+        # Do not chain the original exception: httpx embeds the request URL in
+        # it, which can include an API key.
+        raise ValueError(f"Provider returned HTTP {response.status_code} for {safe_url}") from None
     content_type = response.headers.get("content-type", "")
     if "json" not in content_type.lower():
         excerpt = response.text[:240].replace("\n", " ")
