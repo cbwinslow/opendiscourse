@@ -48,7 +48,10 @@ from .legvalidate import validate_billstatus
 from .govplan import plan_billstatus_backfill
 from .legreconcile import reconcile_billstatus
 from .legload import load_billstatus
-from .peopleload import load_openstates_federal_people
+from .peopleload import (
+    load_openstates_federal_organizations,
+    load_openstates_federal_people,
+)
 
 app = typer.Typer(help="Research database setup and ingestion commands.")
 ingest_app = typer.Typer(help="Provider ingestion commands.")
@@ -464,6 +467,14 @@ def load_openstates_people_command() -> None:
     """Seed canonical federal people from the provisioned OpenStates snapshot."""
     with render_spinner("Loading OpenStates federal people baseline"):
         result = load_openstates_federal_people()
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("load-openstates-organizations")
+def load_openstates_organizations_command() -> None:
+    """Seed canonical federal organizations from the provisioned OpenStates snapshot."""
+    with render_spinner("Loading OpenStates federal organization baseline"):
+        result = load_openstates_federal_organizations()
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 

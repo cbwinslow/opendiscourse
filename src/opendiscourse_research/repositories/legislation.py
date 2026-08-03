@@ -162,6 +162,32 @@ def resolve_bill_sponsorship_people(conn: Any) -> int:
         return len(cur.fetchall())
 
 
+def sync_openstates_federal_organizations(conn: Any) -> int:
+    """Seed canonical federal organizations from the read-only OpenStates baseline."""
+    with conn.cursor() as cur:
+        cur.execute(_query("openstates_federal_organizations"))
+        organizations = cur.fetchall()
+        for organization in organizations:
+            cur.execute(
+                _query("upsert_organization_by_ocd"),
+                {
+                    "ocd_id": organization["ocd_id"],
+                    "organization_type": organization["classification"],
+                    "name": organization["name"],
+                    "metadata": Jsonb(
+                        {
+                            "canonical_baseline": "openstates",
+                            "openstates_ocd_id": organization["ocd_id"],
+                            "parent_ocd_id": organization["parent_id"],
+                            "openstates_extras": organization["extras"] or {},
+                        }
+                    ),
+                },
+            )
+            assert cur.fetchone() is not None
+    return len(organizations)
+
+
 def ensure_us_legislative_session(
     congress: int,
     source_artifact_id: str | None = None,

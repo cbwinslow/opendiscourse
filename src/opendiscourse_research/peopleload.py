@@ -11,6 +11,7 @@ from .config import settings
 from .ingestion.base import IngestionRun
 from .repositories.legislation import (
     resolve_bill_sponsorship_people,
+    sync_openstates_federal_organizations,
     sync_openstates_federal_people,
 )
 
@@ -46,3 +47,26 @@ def load_openstates_federal_people() -> dict[str, Any]:
     target.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
     result["report"] = str(target)
     return result
+
+
+def load_openstates_federal_organizations() -> dict[str, Any]:
+    """Load baseline federal organizations and stable OCD identifiers."""
+    with IngestionRun(
+        "openstates.legislation",
+        {
+            "source": "openstates_source.opencivicdata_organization",
+            "jurisdiction": "ocd-jurisdiction/country:us/government",
+            "role": "canonical_baseline",
+        },
+        mode="backfill",
+    ) as run:
+        assert run.conn is not None
+        organizations = sync_openstates_federal_organizations(run.conn)
+        run.record_count = organizations
+        run.conn.commit()
+    return {
+        "schema": 1,
+        "kind": "openstates_organizations_load",
+        "organizations": organizations,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
