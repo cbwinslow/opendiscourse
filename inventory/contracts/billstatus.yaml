@@ -3,6 +3,26 @@ description: >-
   Disabled GovInfo BILLSTATUS backfill contract. The exact file manifest and
   capacity decision are generated from a completed official comparison.
 contracts:
+  - id: billstatus118
+    provider: congress
+    dataset: congress.govinfo_billstatus
+    kind: govinfo_bulk
+    target: core.bill
+    cadence: historical_backfill
+    enabled: true
+    approval: approved_bounded_loader
+    selection:
+      collection: BILLSTATUS
+      congress: 118
+      scope: validated_local_complete
+    storage:
+      stage_multiplier: 0.0
+      database_multiplier: 1.5
+      reserve_gib: 100
+    notes: >-
+      Complete local cache validated against GovInfo and reconciled 100 percent
+      to the OpenStates federal bill baseline. Load in bounded batches with
+      archive/member provenance and post-load quality checks.
   - id: billstatus
     provider: congress
     dataset: congress.govinfo_billstatus
