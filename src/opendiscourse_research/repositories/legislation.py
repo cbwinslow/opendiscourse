@@ -188,6 +188,29 @@ def sync_openstates_federal_organizations(conn: Any) -> int:
     return len(organizations)
 
 
+def load_openstates_votes(congress: int, limit: int, artifact_id: str, conn: Any) -> dict[str, int]:
+    """Load a bounded OpenStates congressional vote batch using stable OCD keys."""
+    counts = {"roll_calls": 0, "member_votes": 0, "unresolved_people": 0}
+    with conn.cursor() as cur:
+        cur.execute(_query("openstates_vote_events"), {"congress": str(congress), "limit": limit})
+        for vote in cur.fetchall():
+            cur.execute(_query("find_organization_by_identifier"), {"namespace": "ocd", "external_id": vote["organization_id"]})
+            organization = cur.fetchone()
+            cur.execute(_query("upsert_openstates_roll_call"), {"congress": str(congress), "chamber": "house" if "lower" in vote["identifier"] else "senate", "external_id": vote["identifier"], "occurred_at": vote["start_date"], "question": vote["motion_text"], "result": vote["result"], "metadata": Jsonb({"source": "openstates", "ocd_id": vote["ocd_id"], "source_bill_ocd_id": vote["bill_id"]}), "ocd_id": vote["ocd_id"], "organization_id": organization["organization_id"] if organization else None})
+            roll_call = cur.fetchone()
+            counts["roll_calls"] += 1
+            cur.execute(_query("openstates_person_votes"), {"vote_ocd_id": vote["ocd_id"]})
+            for position in cur.fetchall():
+                cur.execute(_query("find_person_by_identifier"), {"namespace": "ocd", "external_id": position["voter_id"]})
+                person = cur.fetchone()
+                if not person:
+                    counts["unresolved_people"] += 1
+                    continue
+                cur.execute(_query("upsert_member_vote"), {"roll_call_id": roll_call["roll_call_id"], "person_id": person["person_id"], "position": position["option"], "source_artifact_id": artifact_id})
+                counts["member_votes"] += 1
+    return counts
+
+
 def ensure_us_legislative_session(
     congress: int,
     source_artifact_id: str | None = None,

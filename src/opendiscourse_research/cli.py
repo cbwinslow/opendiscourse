@@ -51,6 +51,7 @@ from .legload import load_billstatus
 from .peopleload import (
     load_openstates_federal_organizations,
     load_openstates_federal_people,
+    load_openstates_votes,
 )
 
 app = typer.Typer(help="Research database setup and ingestion commands.")
@@ -475,6 +476,17 @@ def load_openstates_organizations_command() -> None:
     """Seed canonical federal organizations from the provisioned OpenStates snapshot."""
     with render_spinner("Loading OpenStates federal organization baseline"):
         result = load_openstates_federal_organizations()
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("load-openstates-votes")
+def load_openstates_votes_command(
+    congress: int = typer.Option(118, min=1, max=119),
+    limit: int = typer.Option(1, min=1, help="Vote events to load; begin with a smoke batch."),
+) -> None:
+    """Load bounded OpenStates congressional roll calls and member positions."""
+    with render_spinner("Loading OpenStates congressional votes"):
+        result = load_openstates_votes(congress, limit)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 

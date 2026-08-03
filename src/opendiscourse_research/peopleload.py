@@ -10,10 +10,23 @@ from typing import Any
 from .config import settings
 from .ingestion.base import IngestionRun
 from .repositories.legislation import (
+    load_openstates_votes as persist_openstates_votes,
+    register_artifact,
     resolve_bill_sponsorship_people,
     sync_openstates_federal_organizations,
     sync_openstates_federal_people,
 )
+
+
+def load_openstates_votes(congress: int, limit: int = 1) -> dict[str, Any]:
+    """Load a bounded congressional vote batch from the OpenStates snapshot."""
+    with IngestionRun("openstates.legislation", {"congress": congress, "limit": limit, "role": "vote_backfill"}, mode="backfill") as run:
+        assert run.conn is not None
+        artifact = register_artifact("openstates.legislation", "openstates_source://opencivicdata_voteevent", "openstates_source.opencivicdata_voteevent", f"federal-votes-{congress}", status="loaded", metadata={"congress": congress}, conn=run.conn)
+        counts = persist_openstates_votes(congress, limit, str(artifact["artifact_id"]), run.conn)
+        run.record_count = counts["roll_calls"]
+        run.conn.commit()
+    return counts
 
 
 def load_openstates_federal_people() -> dict[str, Any]:
