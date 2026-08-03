@@ -557,7 +557,10 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             if self.level != "resource": return
             resource = get_resource(self.current_id)
             fields = resource["fields"]
+            endpoint = resource["metadata"].get("endpoint")
             body = f"{resource['title']}\n{resource.get('universe') or 'Universe not published'}\n{resource['resource_type']} · {len(fields)} cached fields"
+            if endpoint:
+                body += f"\nAPI endpoint: {endpoint}"
             self.query_one(Static).update(body)
 
         def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
@@ -608,6 +611,15 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
                 elif self.level == "product": self.product, self.level = self.current_id, "resource"
                 self.load_level(); return
             resource = get_resource(self.current_id)
+            if resource["dataset_id"] == "census.api_catalog":
+                metadata = resource["metadata"]
+                lines = [resource["title"], "", resource.get("summary") or "No provider description published."]
+                for label, key in (("API endpoint", "endpoint"), ("Variables", "variables_url"), ("Groups", "groups_url"), ("Geography", "geography_url")):
+                    if metadata.get(key):
+                        lines.extend(["", f"{label}: {metadata[key]}"])
+                lines.extend(["", "Catalog metadata only — selection does not download data."])
+                self.query_one(Static).update("\n".join(lines))
+                return
             if resource["dataset_id"] != "census.acs_5":
                 self.query_one(Static).update("Field discovery is not yet implemented for this provider.")
                 return
