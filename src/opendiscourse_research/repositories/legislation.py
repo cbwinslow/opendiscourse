@@ -188,11 +188,11 @@ def sync_openstates_federal_organizations(conn: Any) -> int:
     return len(organizations)
 
 
-def load_openstates_votes(congress: int, limit: int, artifact_id: str, conn: Any) -> dict[str, int]:
+def load_openstates_votes(congress: int, limit: int, artifact_id: str, conn: Any, after_ocd_id: str | None = None) -> dict[str, int]:
     """Load a bounded OpenStates congressional vote batch using stable OCD keys."""
     counts = {"roll_calls": 0, "member_votes": 0, "unresolved_people": 0}
     with conn.cursor() as cur:
-        cur.execute(_query("openstates_vote_events"), {"congress": str(congress), "limit": limit})
+        cur.execute(_query("openstates_vote_events"), {"congress": str(congress), "limit": limit, "after_ocd_id": after_ocd_id})
         for vote in cur.fetchall():
             cur.execute(_query("find_organization_by_identifier"), {"namespace": "ocd", "external_id": vote["organization_id"]})
             organization = cur.fetchone()
