@@ -10,6 +10,7 @@ from opendiscourse_research.repositories.legislation import (
     ensure_us_legislative_session,
     loaded_artifact_members,
     parse_billstatus_xml,
+    resolve_bill_sponsorship_people,
     save_billstatus_bill,
     sync_openstates_federal_people,
 )
@@ -228,6 +229,20 @@ class TestLegislationPersistence(unittest.TestCase):
 
         self.assertEqual(
             result, {"people": 1, "identifiers": 0, "identifier_conflicts": 1}
+        )
+
+    def test_resolve_bill_sponsorship_people_returns_updated_count(self) -> None:
+        mock_conn = MagicMock()
+        mock_cur = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+        mock_cur.fetchall.return_value = [
+            {"bill_sponsorship_id": "a"},
+            {"bill_sponsorship_id": "b"},
+        ]
+
+        self.assertEqual(resolve_bill_sponsorship_people(mock_conn), 2)
+        self.assertIn(
+            "UPDATE core.bill_sponsorship", mock_cur.execute.call_args.args[0]
         )
 
 

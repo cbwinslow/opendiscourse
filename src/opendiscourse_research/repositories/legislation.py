@@ -147,11 +147,19 @@ def sync_openstates_federal_people(conn: Any) -> dict[str, int]:
                     _query("insert_person_identifier"),
                     {"person_id": person_id, **identifier},
                 )
-                if cur.fetchone() is None:
+                result = cur.fetchone()
+                if result is None or str(result["person_id"]) != person_id:
                     counts["identifier_conflicts"] += 1
                 else:
                     counts["identifiers"] += 1
     return counts
+
+
+def resolve_bill_sponsorship_people(conn: Any) -> int:
+    """Link unresolved bill sponsorships to canonical people by stable identifier."""
+    with conn.cursor() as cur:
+        cur.execute(_query("resolve_bill_sponsorship_people"))
+        return len(cur.fetchall())
 
 
 def ensure_us_legislative_session(

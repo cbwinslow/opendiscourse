@@ -9,7 +9,10 @@ from typing import Any
 
 from .config import settings
 from .ingestion.base import IngestionRun
-from .repositories.legislation import sync_openstates_federal_people
+from .repositories.legislation import (
+    resolve_bill_sponsorship_people,
+    sync_openstates_federal_people,
+)
 
 
 def load_openstates_federal_people() -> dict[str, Any]:
@@ -22,6 +25,7 @@ def load_openstates_federal_people() -> dict[str, Any]:
     with IngestionRun("openstates.legislation", parameters, mode="backfill") as run:
         assert run.conn is not None
         counts = sync_openstates_federal_people(run.conn)
+        counts["sponsorship_links_resolved"] = resolve_bill_sponsorship_people(run.conn)
         run.record_count = counts["people"]
         run.conn.commit()
 
