@@ -58,6 +58,8 @@ class IngestionRun(AbstractContextManager):
 
     def __exit__(self, exc_type, exc, tb) -> None:
         status = "failed" if exc else self.status_override or "succeeded"
+        if exc:
+            self.conn.rollback()
         with self.conn.cursor() as cur:
             cur.execute(
                 "UPDATE ingest.run SET status = %s, finished_at = now(), record_count = %s, error_message = %s WHERE run_id = %s",
