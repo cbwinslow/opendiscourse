@@ -22,7 +22,7 @@ REQUIRED_VOTE_TABLES = {
     "public.opencivicdata_personvote",
 }
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
-_TABLE_LINE = re.compile(r"\bTABLE\s+(\S+)\s+(\S+)\b")
+_TABLE_LINE = re.compile(r"\bTABLE(?:\s+DATA)?\s+(\S+)\s+(\S+)\b")
 
 
 def load_snapshot_manifest(path: Path) -> dict[str, Any]:
@@ -137,8 +137,13 @@ def archive_tables(path: Path) -> set[str]:
         text=True,
         timeout=120,
     )
+    return tables_from_pg_restore_listing(completed.stdout)
+
+
+def tables_from_pg_restore_listing(listing: str) -> set[str]:
+    """Extract schema-qualified table names from `pg_restore --list` output."""
     tables: set[str] = set()
-    for line in completed.stdout.splitlines():
+    for line in listing.splitlines():
         match = _TABLE_LINE.search(line)
         if match:
             tables.add(f"{match.group(1)}.{match.group(2)}")

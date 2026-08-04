@@ -17,6 +17,7 @@ from opendiscourse_research.openstatesrefresh import (
 )
 from opendiscourse_research.openstatessnapshot import (
     pg_restore_executable,
+    tables_from_pg_restore_listing,
     validate_snapshot_artifact,
     write_snapshot_manifest,
 )
@@ -223,3 +224,9 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
 
     def test_snapshot_tool_prefers_the_newest_local_pg_restore(self) -> None:
         self.assertIn("pg_restore", pg_restore_executable())
+
+    def test_snapshot_listing_parses_table_data_entries(self) -> None:
+        tables = tables_from_pg_restore_listing(
+            "6343; 0 18235 TABLE DATA public opencivicdata_voteevent openstates\n"
+        )
+        self.assertEqual(tables, {"public.opencivicdata_voteevent"})
