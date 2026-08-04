@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ..config import settings
 from .base import IngestionRun, client, json_response
+from ..repositories.legislation import resolve_bill_sponsorship_people, upsert_congress_person
 
 
 def _upsert_bill(cur, bill: dict, payload_id: str) -> None:
@@ -36,6 +37,22 @@ def ingest_bill(congress: int, bill_type: str, bill_number: int) -> int:
         with run.conn.cursor() as cur:
             _upsert_bill(cur, bill, payload_id)
             run.record_count = 1
+        run.conn.commit()
+        return run.record_count
+
+
+def ingest_member(bioguide_id: str) -> int:
+    """Fetch one primary Congress.gov member record and resolve linked sponsors."""
+    if not settings.congress_api_key:
+        raise ValueError("CONGRESS_API_KEY is required for Congress.gov ingestion")
+    url = f"https://api.congress.gov/v3/member/{bioguide_id}"
+    with client() as http, IngestionRun("congress.legislation", {"bioguide_id": bioguide_id}, mode="backfill") as run:
+        response = http.get(url, params={"api_key": settings.congress_api_key, "format": "json"})
+        payload = json_response(response)
+        run.store_payload(response, payload)
+        member = payload["member"]
+        upsert_congress_person(member, run.conn)
+        run.record_count = resolve_bill_sponsorship_people(run.conn)
         run.conn.commit()
         return run.record_count
 

@@ -162,6 +162,25 @@ def resolve_bill_sponsorship_people(conn: Any) -> int:
         return len(cur.fetchall())
 
 
+def upsert_congress_person(member: dict[str, Any], conn: Any) -> str:
+    """Upsert a Congress.gov member by BioGuide ID with primary-source metadata."""
+    bioguide_id = member.get("bioguideId")
+    if not bioguide_id:
+        raise ValueError("Congress.gov member is missing bioguideId")
+    full_name = member.get("directOrderName") or member.get("name") or bioguide_id
+    with conn.cursor() as cur:
+        cur.execute(_query("upsert_person_by_bioguide"), {
+            "bioguide_id": bioguide_id,
+            "full_name": full_name,
+            "given_name": member.get("firstName"),
+            "family_name": member.get("lastName"),
+            "metadata": Jsonb({"congress_gov_member": member}),
+        })
+        row = cur.fetchone()
+        assert row is not None
+        return str(row["person_id"])
+
+
 def sync_openstates_federal_organizations(conn: Any) -> int:
     """Seed canonical federal organizations from the read-only OpenStates baseline."""
     with conn.cursor() as cur:
