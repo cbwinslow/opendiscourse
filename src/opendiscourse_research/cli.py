@@ -20,6 +20,7 @@ from .contracts import load_contracts, validate_contracts
 from .db import apply_migrations
 from .ingestion.acs_bulk import preview_acs5_bulk_plan, write_acs5_bulk_plan
 from .ingestion.cbp_bulk import preview_cbp_bulk_plan, write_cbp_bulk_plan
+from .ingestion.cbp_load import load_cbp, stage_cbp
 from .ingestion.census import (
     STATE_FIPS,
     bootstrap_housing,
@@ -714,6 +715,26 @@ def cbp_bulk_download(plan: Path = typer.Option(..., exists=True, dir_okay=False
     with render_progress("Downloading CBP bulk artifacts", len(payload.get("artifacts", []))) as update:
         result = download_plan(plan, update)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@ingest_app.command("cbp-bulk-stage")
+def cbp_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Stage approved, downloaded CBP source rows without altering facts."""
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_spinner("Staging CBP source rows") as update:
+        count = stage_cbp(payload, update)
+    typer.echo(f"Staged {count} CBP source rows.")
+
+
+@ingest_app.command("cbp-bulk-load")
+def cbp_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Load staged CBP rows into artifact-linked canonical business facts."""
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_spinner("Loading CBP business facts") as update:
+        count = load_cbp(payload, update)
+    typer.echo(f"Loaded {count} CBP business facts.")
 
 
 @ingest_app.command("census-search")

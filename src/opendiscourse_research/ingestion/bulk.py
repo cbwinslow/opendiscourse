@@ -125,6 +125,7 @@ def approve_plan(path: Path, scope: dict[str, Any]) -> dict[str, Any]:
     if not preview.get("approved"):
         raise ValueError(f"Preflight did not approve {path}: {preview.get('reason', 'unknown reason')}")
     plan["state"] = "approved"
+    plan.setdefault("storage", {})["state"] = "previewed"
     plan["canonical_load_scope"] = scope
     plan["approval"] = {"approved_at": datetime.now(timezone.utc).isoformat(), "preview_report": str(preview_path), "artifact_count": len(plan.get("artifacts", []))}
     temp = path.with_suffix(".yaml.part")
