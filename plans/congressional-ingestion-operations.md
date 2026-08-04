@@ -107,6 +107,11 @@ Success criteria:
 4. Execute the approved 119th GovInfo backfill and only then consider promotion.
 5. Add scheduling after all prior gates are green.
 
+The next execution phase is detailed in
+[`openstates-119th-vote-refresh.md`](openstates-119th-vote-refresh.md). It
+keeps the 119th vote refresh disabled until its source snapshot and dry-run
+approval gates are satisfied.
+
 ## Non-negotiable safeguards
 
 - Provider snapshots remain read-only sources; canonical tables retain mapping
