@@ -78,6 +78,12 @@ scope, then staged 26,775 rows and loaded 680,850 facts. Together the two
 plans provide all 14 reviewed ACS housing tables, 833,850 canonical facts,
 3,274 state/county geographies, and 14 source Detailed Table artifacts.
 
+The identical two-plan, state/county package was then verified for the 2023
+ACS 5-year release: 833,850 facts across the same 14 reviewed tables and
+3,274 geographies. The current verified housing baseline is therefore
+1,667,700 artifact-linked facts across 2023 and 2024, with all four plans
+reported `healthy`.
+
 An analyst can start with total housing units (`B25001_E001`) like this:
 
 ```sql
