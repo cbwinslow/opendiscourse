@@ -70,6 +70,12 @@ Success measures:
   extraction time, and expected row counts for `voteevent` and `personvote`.
 - Review can determine exactly which snapshot produced any canonical row.
 
+Implementation: use the reviewed template at
+`plans/templates/openstates-snapshot-manifest.yaml` and validate a supplied
+dump with `research-db validate-openstates-snapshot --manifest <path>`. The
+validator is read-only: it verifies byte count, SHA-256, and required archive
+relations before any restore or FDW action is considered.
+
 ### 2. Read-only discovery and dry run
 
 1. Implement a provider-owned snapshot inspection command. It may request

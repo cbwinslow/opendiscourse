@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import unittest
+from hashlib import sha256
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import yaml
 
 from opendiscourse_research.openstatesrefresh import (
     build_openstates_vote_dry_run,
     require_openstates_snapshot_download_approval,
     validate_openstates_vote_contract,
 )
+from opendiscourse_research.openstatessnapshot import validate_snapshot_artifact
 
 
 def contract() -> dict:
@@ -67,3 +73,70 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
             require_openstates_snapshot_download_approval(candidate)
         candidate["approval"] = "approved_snapshot_acquisition"
         require_openstates_snapshot_download_approval(candidate)
+
+    def test_snapshot_validator_requires_checksum_and_vote_tables(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            artifact = root / "snapshot.pgdump"
+            artifact.write_bytes(b"immutable provider snapshot")
+            manifest = root / "snapshot.yaml"
+            manifest.write_text(
+                yaml.safe_dump(
+                    {
+                        "schema": 1,
+                        "provider": "openstates",
+                        "dataset": "openstates.dump",
+                        "artifact_key": "openstates-public-2026-08",
+                        "remote_url": "https://example.test/snapshot.pgdump",
+                        "local_path": str(artifact),
+                        "period": "2026-08",
+                        "bytes": artifact.stat().st_size,
+                        "checksum_sha256": sha256(artifact.read_bytes()).hexdigest(),
+                        "expected_tables": [
+                            "public.opencivicdata_legislativesession",
+                            "public.opencivicdata_voteevent",
+                            "public.opencivicdata_personvote",
+                        ],
+                    }
+                )
+            )
+            tables = {
+                "public.opencivicdata_legislativesession",
+                "public.opencivicdata_voteevent",
+                "public.opencivicdata_personvote",
+            }
+            result = validate_snapshot_artifact(manifest, table_lister=lambda _: tables)
+            self.assertTrue(result["read_only"])
+            self.assertEqual(result["archive_table_count"], 3)
+
+    def test_snapshot_validator_rejects_missing_archive_table(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            artifact = root / "snapshot.pgdump"
+            artifact.write_bytes(b"immutable provider snapshot")
+            manifest = root / "snapshot.yaml"
+            manifest.write_text(
+                yaml.safe_dump(
+                    {
+                        "schema": 1,
+                        "provider": "openstates",
+                        "dataset": "openstates.dump",
+                        "artifact_key": "openstates-public-2026-08-missing",
+                        "remote_url": "https://example.test/snapshot.pgdump",
+                        "local_path": str(artifact),
+                        "period": "2026-08",
+                        "bytes": artifact.stat().st_size,
+                        "checksum_sha256": sha256(artifact.read_bytes()).hexdigest(),
+                        "expected_tables": [
+                            "public.opencivicdata_legislativesession",
+                            "public.opencivicdata_voteevent",
+                            "public.opencivicdata_personvote",
+                        ],
+                    }
+                )
+            )
+            with self.assertRaisesRegex(ValueError, "missing required tables"):
+                validate_snapshot_artifact(
+                    manifest,
+                    table_lister=lambda _: {"public.opencivicdata_voteevent"},
+                )

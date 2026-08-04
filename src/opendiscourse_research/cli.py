@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import subprocess
 import typer
 import yaml
 
@@ -64,6 +65,7 @@ from .peopleload import (
     load_openstates_votes,
 )
 from .openstatesrefresh import dry_run_openstates_vote_refresh
+from .openstatessnapshot import validate_snapshot_artifact
 
 app = typer.Typer(help="Research database setup and ingestion commands.")
 ingest_app = typer.Typer(help="Provider ingestion commands.")
@@ -529,6 +531,19 @@ def plan_openstates_vote_refresh_command() -> None:
     with render_spinner("Inspecting OpenStates vote snapshot without writes"):
         result = dry_run_openstates_vote_refresh()
     typer.echo(json.dumps(result, indent=2, sort_keys=True, default=str))
+
+
+@app.command("validate-openstates-snapshot")
+def validate_openstates_snapshot_command(
+    manifest: Path = typer.Option(..., exists=True, dir_okay=False, readable=True),
+) -> None:
+    """Validate one local OpenStates pg_dump without restoring or registering it."""
+    try:
+        with render_spinner("Validating local OpenStates snapshot without restore"):
+            result = validate_snapshot_artifact(manifest)
+    except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as exc:
+        raise typer.BadParameter(str(exc)) from None
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 
 @app.command("congress-health")

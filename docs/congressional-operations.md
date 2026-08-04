@@ -47,6 +47,12 @@ the same gate: it refuses data-dump download until `openstatesvotes` is enabled
 with `approval: approved_snapshot_acquisition`. Schema-only downloads remain
 read-only provider artifacts, but they do not authorize a vote refresh.
 
+After an approved data dump exists, copy
+`plans/templates/openstates-snapshot-manifest.yaml` to the review location,
+fill it with the exact artifact path, bytes, and SHA-256, then run
+`research-db validate-openstates-snapshot --manifest <path>`. This inspects the
+pg_dump directory only; it does not restore, register, or map the snapshot.
+
 ## Identity exceptions
 
 Run the unresolved-identity report before enrichment. Resolve an identifier
