@@ -41,6 +41,13 @@ def billstatus_coverage(
     return "complete" if validated and reconciled and loaded else "partial"
 
 
+def is_recovered_run(run: dict[str, Any]) -> bool:
+    """Identify a failed run deliberately closed by stale-run recovery."""
+    return str(run.get("error_message") or "").startswith(
+        "Recovered by congressional health check:"
+    )
+
+
 def congressional_health() -> dict[str, Any]:
     """Return and persist one source-aware congressional ingestion health report."""
     with connect() as conn, conn.cursor() as cur:
@@ -71,14 +78,16 @@ def congressional_health() -> dict[str, Any]:
     result["stale_runs"] = [
         run for run in health["latest_runs"] if run["status"] == "running"
     ]
+    failed_runs = [run for run in health["latest_runs"] if run["status"] == "failed"]
+    result["recovered_runs"] = [run for run in failed_runs if is_recovered_run(run)]
     result["failed_runs"] = [
-        run for run in health["latest_runs"] if run["status"] == "failed"
+        run for run in failed_runs if not is_recovered_run(run)
     ]
     result["status"] = (
         "failed"
         if result["failed_runs"]
         else "attention"
-        if result["stale_runs"]
+        if result["stale_runs"] or result["recovered_runs"]
         else "healthy"
     )
     target = meta_root / "health" / "congressional.json"

@@ -4,7 +4,9 @@
 
 Run `research-db congress-health` before a refresh. It writes the source-aware
 report under `meta/health/congressional.json`. Review `status`, `failed_runs`,
-and `stale_runs` before treating a refresh as healthy.
+`recovered_runs`, and `stale_runs` before treating a refresh as healthy. A
+recovered run is retained as operational evidence and produces `attention`, not
+an active `failed` state.
 
 Run `research-db reconcile-openstates-votes --congress 118` to verify the
 documented 1,089 source events and 1,088 stable roll-call identifiers. The

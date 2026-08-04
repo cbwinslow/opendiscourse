@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from opendiscourse_research.congresshealth import billstatus_coverage
+from opendiscourse_research.congresshealth import billstatus_coverage, is_recovered_run
 
 
 class TestCongressHealth(unittest.TestCase):
@@ -19,3 +19,11 @@ class TestCongressHealth(unittest.TestCase):
         reconciliation = {"congress": 119, "summary": {"canonical_bill_missing": 0}, "malformed": []}
         runs = [{"dataset_id": "congress.govinfo_billstatus", "status": "succeeded", "parameters": {"congress": 119, "coverage": "complete"}}]
         self.assertEqual(billstatus_coverage(validation, reconciliation, runs), "partial")
+
+    def test_recovered_run_is_not_an_active_failure(self) -> None:
+        self.assertTrue(
+            is_recovered_run(
+                {"error_message": "Recovered by congressional health check: stale run."}
+            )
+        )
+        self.assertFalse(is_recovered_run({"error_message": "connection refused"}))
