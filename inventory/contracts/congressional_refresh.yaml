@@ -1,0 +1,58 @@
+version: 1
+description: >-
+  Reviewed, disabled-by-default incremental congressional refresh contracts.
+  Enabling any contract requires credential, pacing, source-manifest, and
+  validation approval in the same change.
+contracts:
+  - id: openstatesvotes
+    provider: openstates
+    dataset: openstates.legislation
+    kind: snapshot_incremental
+    target: core.roll_call
+    cadence: daily
+    enabled: false
+    approval: pending
+    selection:
+      jurisdiction: ocd-jurisdiction/country:us/government
+      congresses: [118, 119]
+      entities: [voteevent, personvote]
+    cursor:
+      strategy: ocd_vote_event_keyset
+      key: ocd_id
+      page_size: 25
+    provenance:
+      source: openstates_source
+      artifact_required: true
+    validation:
+      dry_run_required: true
+      reconcile_command: reconcile-openstates-votes
+      idempotency_required: true
+      partial_congresses: [119]
+    notes: >-
+      Source snapshot remains read-only. Enable only after an approved snapshot
+      refresh procedure and a successful dry run with no canonical writes.
+  - id: congresspeople
+    provider: congress
+    dataset: congress.legislation
+    kind: api_enrichment
+    target: core.person
+    cadence: daily
+    enabled: false
+    approval: pending
+    selection:
+      congress: 119
+      entity: members
+    cursor:
+      strategy: provider_updated_at
+      key: updateDate
+    provenance:
+      source: congress.gov
+      raw_payload_required: true
+    validation:
+      dry_run_required: true
+      stable_identifier_required: true
+      conflict_report_required: true
+      idempotency_required: true
+    notes: >-
+      Enrich OpenStates baseline identities only from stable primary-source
+      identifiers; never reassign a conflicting identifier automatically.
