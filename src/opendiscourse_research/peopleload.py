@@ -13,6 +13,7 @@ from .repositories.legislation import (
     get_resume_cursor,
     load_openstates_votes as persist_openstates_votes,
     register_artifact,
+    record_vote_identity_exceptions,
     resolve_bill_sponsorship_people,
     save_resume_cursor,
     sync_openstates_federal_organizations,
@@ -60,6 +61,13 @@ def load_openstates_votes(
             remaining -= page["roll_calls"]
             for key in counts:
                 counts[key] += page[key]
+            record_vote_identity_exceptions(
+                congress,
+                str(artifact["artifact_id"]),
+                str(run.run_id),
+                page.get("unresolved_voter_ids", []),
+                run.conn,
+            )
             run.record_count = counts["roll_calls"]
             save_resume_cursor(
                 "openstates.legislation",

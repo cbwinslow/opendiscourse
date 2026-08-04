@@ -135,6 +135,12 @@ Success measures:
    approved Congress.gov BioGuide lookup. Emit exceptions rather than using
    name matching.
 
+Implementation: each committed vote page records unresolved OpenStates voter
+IDs in `ingest.identity_exception` with the source artifact and `ingest.run`
+that observed them. `research-db report-congressional-identity-exceptions`
+reports currently unresolved sponsor and voter identifiers without a full FDW
+scan.
+
 Success measures:
 
 - Smoke load is bounded and idempotent on a second execution.

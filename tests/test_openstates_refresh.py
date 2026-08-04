@@ -17,6 +17,7 @@ from opendiscourse_research.openstatesrefresh import (
 )
 from opendiscourse_research.openstatessnapshot import validate_snapshot_artifact
 from opendiscourse_research.peopleload import load_openstates_votes
+from opendiscourse_research.identityexceptions import unresolved_congressional_identities
 
 
 def contract() -> dict:
@@ -176,6 +177,7 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
                 ],
             ) as page_loader,
             patch("opendiscourse_research.peopleload.save_resume_cursor") as save_cursor,
+            patch("opendiscourse_research.peopleload.record_vote_identity_exceptions") as record_exceptions,
         ):
             result = load_openstates_votes(119, limit=2, page_size=1, resume=True)
         self.assertEqual(page_loader.call_args_list[0].args[-1], "ocd-vote-10")
@@ -183,3 +185,21 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
         self.assertEqual(result["next_cursor"], "ocd-vote-11")
         self.assertEqual(result["checkpoint_state"], "complete")
         self.assertEqual(save_cursor.call_args_list[-1].args[-2], "complete")
+        self.assertEqual(record_exceptions.call_count, 1)
+
+    def test_identity_exception_report_preserves_reason(self) -> None:
+        conn = MagicMock()
+        conn.__enter__.return_value = conn
+        cur = conn.cursor.return_value.__enter__.return_value
+        cur.fetchall.return_value = [
+            {
+                "kind": "voter",
+                "namespace": "ocd",
+                "external_id": "<missing>",
+                "reason": "missing_ocd_voter_id",
+                "references": 100,
+            }
+        ]
+        with patch("opendiscourse_research.identityexceptions.connect", return_value=conn):
+            result = unresolved_congressional_identities()
+        self.assertEqual(result["exceptions"][0]["reason"], "missing_ocd_voter_id")

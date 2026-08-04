@@ -20,7 +20,7 @@ def unresolved_congressional_identities() -> dict[str, Any]:
         "schema": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "exceptions": rows,
-        "voter_audit": "Use the recorded unresolved_people totals from vote ingestion runs; a source-wide voter scan is intentionally opt-in because the FDW cannot efficiently join every person-vote row.",
+        "voter_audit": "Voter exceptions are recorded per committed OpenStates vote page with source artifact and ingestion-run lineage. A source-wide FDW voter scan remains intentionally opt-in.",
     }
     target = Path(settings.data_root).expanduser().resolve().parent / "meta" / "exceptions" / "congressional-identities.json"
     target.parent.mkdir(parents=True, exist_ok=True)

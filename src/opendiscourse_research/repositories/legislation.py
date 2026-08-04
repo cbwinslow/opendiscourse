@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from collections import Counter
 from typing import Any
 from xml.etree import ElementTree
 
@@ -92,6 +93,38 @@ def save_resume_cursor(
         )
         row = cur.fetchone()
     return dict(row) if row else {}
+
+
+def record_vote_identity_exceptions(
+    congress: int,
+    source_artifact_id: str,
+    run_id: str,
+    voter_ids: list[str | None],
+    conn: Any,
+) -> int:
+    """Persist unresolved voter identifiers with source/run evidence."""
+    if not voter_ids:
+        return 0
+    values = Counter(voter_id or "<missing>" for voter_id in voter_ids)
+    with conn.cursor() as cur:
+        for external_id, reference_count in values.items():
+            cur.execute(
+                _query("record_vote_identity_exception"),
+                {
+                    "dataset_id": "openstates.legislation",
+                    "run_id": run_id,
+                    "source_artifact_id": source_artifact_id,
+                    "congress": congress,
+                    "external_id": external_id,
+                    "reason": (
+                        "missing_ocd_voter_id"
+                        if external_id == "<missing>"
+                        else "no_canonical_person_identifier"
+                    ),
+                    "reference_count": reference_count,
+                },
+            )
+    return len(values)
 
 
 def register_artifact(
@@ -271,7 +304,7 @@ def sync_openstates_federal_organizations(conn: Any) -> int:
 
 def load_openstates_votes(congress: int, limit: int, artifact_id: str, conn: Any, after_ocd_id: str | None = None) -> dict[str, Any]:
     """Load a bounded OpenStates congressional vote batch using stable OCD keys."""
-    counts: dict[str, Any] = {"roll_calls": 0, "member_votes": 0, "unresolved_people": 0, "last_ocd_id": after_ocd_id}
+    counts: dict[str, Any] = {"roll_calls": 0, "member_votes": 0, "unresolved_people": 0, "unresolved_voter_ids": [], "last_ocd_id": after_ocd_id}
     with conn.cursor() as cur:
         cur.execute(_query("openstates_vote_events"), {"congress": str(congress), "limit": limit, "after_ocd_id": after_ocd_id})
         for vote in cur.fetchall():
@@ -287,6 +320,7 @@ def load_openstates_votes(congress: int, limit: int, artifact_id: str, conn: Any
                 person = cur.fetchone()
                 if not person:
                     counts["unresolved_people"] += 1
+                    counts["unresolved_voter_ids"].append(position["voter_id"])
                     continue
                 cur.execute(_query("upsert_member_vote"), {"roll_call_id": roll_call["roll_call_id"], "person_id": person["person_id"], "position": position["option"], "source_artifact_id": artifact_id})
                 counts["member_votes"] += 1

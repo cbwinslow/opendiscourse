@@ -61,8 +61,11 @@ pg_dump directory only; it does not restore, register, or map the snapshot.
 
 ## Identity exceptions
 
-Run the unresolved-identity report before enrichment. Resolve an identifier
-only through a stable primary-source key. The Congress.gov member adapter is
+Run `research-db report-congressional-identity-exceptions` before and after an
+enrichment run. It lists unresolved sponsorships and every unresolved voter ID
+encountered by a committed OpenStates vote page, including its reason, with
+source artifact/run lineage retained in the database. Resolve an identifier only through a stable
+primary-source key. The Congress.gov member adapter is
 the approved path for BioGuide exceptions; it stores the API payload and then
 re-resolves related sponsorships. Do not use name matching.
 

@@ -66,6 +66,7 @@ from .peopleload import (
 )
 from .openstatesrefresh import dry_run_openstates_vote_refresh
 from .openstatessnapshot import validate_snapshot_artifact
+from .identityexceptions import unresolved_congressional_identities
 
 app = typer.Typer(help="Research database setup and ingestion commands.")
 ingest_app = typer.Typer(help="Provider ingestion commands.")
@@ -553,6 +554,14 @@ def validate_openstates_snapshot_command(
 def congress_health_command() -> None:
     """Write one read-only source-aware congressional ingestion health report."""
     typer.echo(json.dumps(congressional_health(), indent=2, sort_keys=True, default=str))
+
+
+@app.command("report-congressional-identity-exceptions")
+def report_congressional_identity_exceptions_command() -> None:
+    """Write current unresolved sponsor and voter identifiers without matching names."""
+    with render_spinner("Reporting unresolved congressional identities"):
+        result = unresolved_congressional_identities()
+    typer.echo(json.dumps(result, indent=2, sort_keys=True, default=str))
 
 
 @app.command("recover-stale-congress-runs")
