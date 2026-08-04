@@ -125,6 +125,19 @@ ORDER BY geography.geoid, value.table_id;
 
 ## Operational verification and regression tests
 
+Run the read-only operational report before a refresh or any new bulk approval:
+
+```bash
+research-db census-health
+```
+
+It writes `meta/health/census.json` and classifies each Census family as
+`healthy`, `attention`, `failed`, or `unknown`. A family is only `healthy` when
+the plan's expected artifacts are registered, canonical rows retain artifact
+lineage, and the plan's approved scope is actually loaded. In particular, ACS
+remains `unknown` until a canonical loader is deliberately implemented; a
+cataloged ZIP alone is not a health signal.
+
 Run the deterministic contract tests before changing a package builder, a
 scope gate, or DHC's table-matrix interpretation:
 

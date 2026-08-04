@@ -58,6 +58,7 @@ from .govbackfill import backfill_billstatus_missing
 from .legreconcile import reconcile_billstatus
 from .legload import load_billstatus
 from .congresshealth import congressional_health, recover_stale_congressional_runs
+from .censushealth import census_health
 from .votereconcile import reconcile_openstates_votes
 from .peopleload import (
     load_openstates_federal_organizations,
@@ -569,6 +570,15 @@ def create_openstates_snapshot_manifest_command(
 def congress_health_command() -> None:
     """Write one read-only source-aware congressional ingestion health report."""
     typer.echo(json.dumps(congressional_health(), indent=2, sort_keys=True, default=str))
+
+
+@app.command("census-health")
+def census_health_command() -> None:
+    """Write one read-only health report for Census bulk packages and lineage."""
+    result = census_health()
+    typer.echo(json.dumps(result, indent=2, sort_keys=True, default=str))
+    if result["status"] == "failed":
+        raise typer.Exit(1)
 
 
 @app.command("report-congressional-identity-exceptions")
