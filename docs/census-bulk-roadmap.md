@@ -122,3 +122,41 @@ ORDER BY geography.geoid, value.table_id;
   schemas before an adapter is promoted beyond preview.
 - Show phase, completed/total, elapsed time, remaining time when meaningful,
   resume location, and actionable failure messages for download/stage/load jobs.
+
+## Operational verification and regression tests
+
+Run the deterministic contract tests before changing a package builder, a
+scope gate, or DHC's table-matrix interpretation:
+
+```bash
+uv run --extra ingest python -m unittest tests.test_census_bulk -v
+```
+
+The test suite uses only generated local fixtures. It proves that a package
+cannot mix releases/vintages, approval cannot bypass a successful preview,
+unsupported canonical scopes fail before a load, and table-matrix offsets do
+not shift when an earlier DHC table is not selected.
+
+After a real bulk lifecycle, verify lineage and idempotent coverage in the
+database. Counts will grow as additional approved scopes are loaded; every
+canonical row must remain linked to an artifact:
+
+```sql
+SELECT 'cbp' AS family, count(*) AS rows, count(source_artifact_id) AS linked
+FROM fact.business_pattern
+UNION ALL
+SELECT 'pep', count(*), count(source_artifact_id)
+FROM fact.population_estimate
+UNION ALL
+SELECT 'dhc', count(*), count(source_artifact_id)
+FROM fact.decennial_dhc_value
+UNION ALL
+SELECT 'tiger', count(*), count(source_artifact_id)
+FROM core.geography_boundary;
+```
+
+For recovery, rerun the same lifecycle command only from the plan's current
+state: a `.part` artifact resumes download; `downloaded` permits staging;
+`staged` permits canonical loading. Do not edit a loaded plan to widen its
+scope—write, preview, and approve a new plan so the expanded evidence remains
+separately auditable.
