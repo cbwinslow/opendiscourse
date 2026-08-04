@@ -28,7 +28,8 @@ def build_dhc_bulk_plan(basket_name: str, resources: list[dict[str, Any]]) -> di
     if len(matching) != 1 or len(resources) != 1:
         raise ValueError("Select exactly the 2020 DHC complete national archive; it cannot be combined with another package.")
     url = "https://www2.census.gov/programs-surveys/decennial/2020/data/demographic-and-housing-characteristics-file/National/us2020.dhc.zip"
-    return {"version": 1, "state": "draft", "provider": "census", "dataset": "census.decennial", "format": "2020 DHC segmented CSV-in-ZIP", "created_at": datetime.now(timezone.utc).isoformat(), "basket": basket_name, "selection": {"product": "DHC", "release_year": 2020, "package": "complete_national_archive"}, "canonical_load_scope": "not approved; select supported summary levels and DHC tables after a LOGRECNO-aware loader is available", "artifacts": [{"artifact_key": "dhc-2020-national", "kind": "complete_national_archive", "url": url, "filename": "us2020.dhc.zip", "release_year": 2020}], "storage": {"state": "unpreviewed", "stage_multiplier": 4.0, "database_multiplier": 2.0, "reserve_gib": 100}, "provenance": {"source_page": url.rsplit('/', 1)[0] + "/", "note": "GEO headers and numbered segments are preserved separately. A loader must use LOGRECNO and record source member/ordinal for every canonical fact."}, "next": ["Run dhc-bulk-preview to record official size and peak storage.", "Review selected summary levels and tables before approval.", "Do not download until the LOGRECNO-aware loader and validation policy are approved."]}
+    matrix = "https://www2.census.gov/programs-surveys/decennial/2020/technical-documentation/complete-tech-docs/demographic-and-housing-characteristics-file-and-demographic-profile/2020-dhc-table-matrix.xlsx"
+    return {"version": 1, "state": "draft", "provider": "census", "dataset": "census.decennial", "format": "2020 DHC segmented pipe-delimited ZIP", "created_at": datetime.now(timezone.utc).isoformat(), "basket": basket_name, "selection": {"product": "DHC", "release_year": 2020, "package": "complete_national_archive"}, "canonical_load_scope": "not approved; select summary levels and DHC tables", "artifacts": [{"artifact_key": "dhc-2020-national", "kind": "complete_national_archive", "url": url, "filename": "us2020.dhc.zip", "release_year": 2020}, {"artifact_key": "dhc-2020-table-matrix", "kind": "table_matrix", "url": matrix, "filename": "2020-dhc-table-matrix.xlsx", "release_year": 2020}], "storage": {"state": "unpreviewed", "stage_multiplier": 4.0, "database_multiplier": 2.0, "reserve_gib": 100}, "provenance": {"source_page": url.rsplit('/', 1)[0] + "/", "note": "The official matrix maps table variables to segment positions. GEO records and segments retain member/ordinal lineage."}}
 
 
 def write_dhc_bulk_plan(basket_name: str, resources: list[dict[str, Any]]) -> Path:
@@ -40,7 +41,7 @@ def write_dhc_bulk_plan(basket_name: str, resources: list[dict[str, Any]]) -> Pa
 def preview_dhc_bulk_plan(path: Path, update: Callable[[str], None] | None = None) -> dict[str, Any]:
     """Measure the DHC archive without downloading its contents."""
     plan = yaml.safe_load(path.read_text()) or {}
-    if plan.get("format") != "2020 DHC segmented CSV-in-ZIP": raise ValueError(f"{path} is not a DHC bulk plan")
+    if plan.get("format") != "2020 DHC segmented pipe-delimited ZIP": raise ValueError(f"{path} is not a DHC bulk plan")
     objects = []
     for artifact in plan["artifacts"]:
         if update: update(f"Sizing {artifact['artifact_key']}")

@@ -22,6 +22,7 @@ from .ingestion.acs_bulk import preview_acs5_bulk_plan, write_acs5_bulk_plan
 from .ingestion.cbp_bulk import preview_cbp_bulk_plan, write_cbp_bulk_plan
 from .ingestion.cbp_load import load_cbp, stage_cbp
 from .ingestion.dhc_bulk import preview_dhc_bulk_plan, write_dhc_bulk_plan
+from .ingestion.dhc_load import load_dhc, stage_dhc
 from .ingestion.pep_bulk import preview_pep_bulk_plan, write_pep_bulk_plan
 from .ingestion.pep_load import load_pep, stage_pep
 from .ingestion.tiger_bulk import preview_tiger_bulk_plan, write_tiger_bulk_plan
@@ -807,6 +808,40 @@ def dhc_bulk_preview(plan: Path = typer.Option(..., exists=True, dir_okay=False)
     with render_progress("Measuring DHC bulk archive", len(payload.get("artifacts", []))) as update:
         report = preview_dhc_bulk_plan(plan, update)
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@ingest_app.command("dhc-bulk-approve")
+def dhc_bulk_approve(plan: Path = typer.Option(..., exists=True, dir_okay=False), summary_level: list[str] = typer.Option(..., help="DHC summary levels to load; repeat."), table: list[str] = typer.Option(..., help="DHC table IDs to load; repeat.")) -> None:
+    """Approve DHC summary levels and tables before downloading the archive."""
+    typer.echo(json.dumps(approve_plan(plan, {"summary_levels": summary_level, "tables": table}), indent=2, sort_keys=True))
+
+
+@ingest_app.command("dhc-bulk-download")
+def dhc_bulk_download(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Resumably download approved DHC artifacts and register checksums."""
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_progress("Downloading DHC bulk artifacts", len(payload.get("artifacts", []))) as update:
+        typer.echo(json.dumps(download_plan(plan, update), indent=2, sort_keys=True))
+
+
+@ingest_app.command("dhc-bulk-stage")
+def dhc_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Stage selected DHC GEO records without changing canonical facts."""
+    apply_migrations(); payload = yaml.safe_load(plan.read_text()) or {}
+    with render_spinner("Staging DHC GEO records") as update:
+        count = stage_dhc(payload, update)
+    advance_plan(plan, "downloaded", "staged", "staging", {"geo_row_count": count})
+    typer.echo(f"Staged {count} DHC GEO records.")
+
+
+@ingest_app.command("dhc-bulk-load")
+def dhc_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Load approved DHC table cells with GEO/LOGRECNO and artifact lineage."""
+    apply_migrations(); payload = yaml.safe_load(plan.read_text()) or {}
+    with render_spinner("Loading DHC table values") as update:
+        count = load_dhc(payload, update)
+    advance_plan(plan, "staged", "loaded", "load", {"value_count": count})
+    typer.echo(f"Loaded {count} DHC table values.")
 
 
 @ingest_app.command("tiger-bulk-plan")
