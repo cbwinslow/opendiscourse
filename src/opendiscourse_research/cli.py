@@ -1103,9 +1103,12 @@ def openstates_dump(
     if not schema and not data:
         raise typer.BadParameter("Choose at least one of --schema or --data")
     try:
-        paths = download_monthly_dump(
-            year, month, include_schema=schema, include_data=data
-        )
+        with render_spinner(
+            f"Downloading approved OpenStates {year}-{month:02d} dump artifacts"
+        ):
+            paths = download_monthly_dump(
+                year, month, include_schema=schema, include_data=data
+            )
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from None
     for path in paths:
