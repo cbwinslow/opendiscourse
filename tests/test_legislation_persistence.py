@@ -204,6 +204,23 @@ class TestLegislationPersistence(unittest.TestCase):
         self.assertEqual(update_params[0], "partial")
         self.assertEqual(update_params[1], 7)
 
+    def test_ingestion_run_rolls_back_before_recording_failure(self) -> None:
+        mock_conn = MagicMock()
+        mock_cur = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+        mock_cur.fetchone.return_value = {
+            "run_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        }
+
+        with patch(
+            "opendiscourse_research.ingestion.base.connect", return_value=mock_conn
+        ):
+            with self.assertRaisesRegex(RuntimeError, "expected"):
+                with IngestionRun("openstates.legislation", {"test": True}):
+                    raise RuntimeError("expected")
+
+        mock_conn.rollback.assert_called_once()
+
     def test_openstates_people_sync_preserves_identifier_conflicts(self) -> None:
         mock_conn = MagicMock()
         mock_cur = MagicMock()

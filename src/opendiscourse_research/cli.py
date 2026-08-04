@@ -48,6 +48,7 @@ from .legvalidate import validate_billstatus
 from .govplan import plan_billstatus_backfill
 from .legreconcile import reconcile_billstatus
 from .legload import load_billstatus
+from .votereconcile import reconcile_openstates_votes
 from .peopleload import (
     load_openstates_federal_organizations,
     load_openstates_federal_people,
@@ -429,6 +430,16 @@ def reconcile_command(
     )
 
 
+@app.command("reconcile-openstates-votes")
+def reconcile_openstates_votes_command(
+    congress: int = typer.Option(118, min=1, max=119),
+) -> None:
+    """Reconcile OpenStates vote-event coverage with canonical roll calls."""
+    typer.echo(
+        json.dumps(reconcile_openstates_votes(congress), indent=2, sort_keys=True)
+    )
+
+
 @app.command("load-billstatus")
 def load_billstatus_command(
     congress: int = typer.Option(118, min=1, max=119),
@@ -482,7 +493,9 @@ def load_openstates_organizations_command() -> None:
 @app.command("load-openstates-votes")
 def load_openstates_votes_command(
     congress: int = typer.Option(118, min=1, max=119),
-    limit: int = typer.Option(1, min=1, help="Vote events to load; begin with a smoke batch."),
+    limit: int = typer.Option(
+        1, min=1, help="Vote events to load; begin with a smoke batch."
+    ),
 ) -> None:
     """Load bounded OpenStates congressional roll calls and member positions."""
     with render_spinner("Loading OpenStates congressional votes"):

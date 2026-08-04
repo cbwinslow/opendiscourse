@@ -90,3 +90,10 @@ Use `research-db load-openstates-people` to seed canonical federal people from
 the provisioned read-only OpenStates snapshot. People are keyed by their OCD
 identifier and retain baseline metadata; conflicting external identifiers are
 reported rather than reassigned. Congress.gov should enrich this baseline.
+
+Federal vote events use the same read-only OpenStates snapshot. Start with
+`research-db load-openstates-votes --congress 118 --limit 1` and reconcile with
+`research-db reconcile-openstates-votes --congress 118`. The 118th source has
+1,089 events but 1,088 stable roll-call identifiers; the reconciliation report
+records the single duplicate. Loads for the 119th Congress are explicitly
+recorded as partial coverage.
