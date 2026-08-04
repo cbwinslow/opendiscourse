@@ -15,7 +15,10 @@ from opendiscourse_research.openstatesrefresh import (
     require_openstates_snapshot_download_approval,
     validate_openstates_vote_contract,
 )
-from opendiscourse_research.openstatessnapshot import validate_snapshot_artifact
+from opendiscourse_research.openstatessnapshot import (
+    validate_snapshot_artifact,
+    write_snapshot_manifest,
+)
 from opendiscourse_research.peopleload import load_openstates_votes
 from opendiscourse_research.identityexceptions import unresolved_congressional_identities
 
@@ -203,3 +206,16 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
         with patch("opendiscourse_research.identityexceptions.connect", return_value=conn):
             result = unresolved_congressional_identities()
         self.assertEqual(result["exceptions"][0]["reason"], "missing_ocd_voter_id")
+
+    def test_manifest_candidate_uses_artifact_checksum(self) -> None:
+        with TemporaryDirectory() as temporary:
+            artifact = Path(temporary) / "snapshot.pgdump"
+            artifact.write_bytes(b"immutable source")
+            target = write_snapshot_manifest(
+                artifact,
+                "2026-07",
+                "https://example.test/2026-07-public.pgdump",
+            )
+        payload = yaml.safe_load(target.read_text())
+        self.assertEqual(payload["bytes"], len(b"immutable source"))
+        self.assertEqual(payload["checksum_sha256"], sha256(b"immutable source").hexdigest())

@@ -71,6 +71,46 @@ def checksum(path: Path) -> str:
     return digest.hexdigest()
 
 
+def write_snapshot_manifest(artifact: Path, period: str, remote_url: str) -> Path:
+    """Create an immutable reviewed-manifest candidate for a downloaded dump."""
+    if not artifact.is_file():
+        raise FileNotFoundError(artifact)
+    if not re.fullmatch(r"\d{4}-\d{2}", period):
+        raise ValueError("period must use YYYY-MM")
+    if not remote_url.startswith("https://"):
+        raise ValueError("remote_url must use HTTPS")
+    artifact_key = f"openstates-public-{period}"
+    manifest = {
+        "schema": 1,
+        "provider": "openstates",
+        "dataset": "openstates.dump",
+        "artifact_key": artifact_key,
+        "remote_url": remote_url,
+        "local_path": str(artifact.resolve()),
+        "period": period,
+        "bytes": artifact.stat().st_size,
+        "checksum_sha256": checksum(artifact),
+        "source_watermark": None,
+        "expected_tables": sorted(REQUIRED_VOTE_TABLES),
+        "notes": (
+            "Generated from an immutable local artifact. Validation does not authorize "
+            "restore, FDW remapping, canonical loading, promotion, or scheduling."
+        ),
+    }
+    target = (
+        Path(settings.data_root).expanduser().resolve().parent
+        / "meta"
+        / "plan"
+        / "openstates"
+        / f"{artifact_key}.yaml"
+    )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(".yaml.tmp")
+    temporary.write_text(yaml.safe_dump(manifest, sort_keys=False))
+    temporary.replace(target)
+    return target
+
+
 def archive_tables(path: Path) -> set[str]:
     """List table names in a pg_dump custom archive without restoring it."""
     completed = subprocess.run(

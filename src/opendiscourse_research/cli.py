@@ -65,7 +65,7 @@ from .peopleload import (
     load_openstates_votes,
 )
 from .openstatesrefresh import dry_run_openstates_vote_refresh
-from .openstatessnapshot import validate_snapshot_artifact
+from .openstatessnapshot import validate_snapshot_artifact, write_snapshot_manifest
 from .identityexceptions import unresolved_congressional_identities
 
 app = typer.Typer(help="Research database setup and ingestion commands.")
@@ -548,6 +548,21 @@ def validate_openstates_snapshot_command(
     except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as exc:
         raise typer.BadParameter(str(exc)) from None
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("create-openstates-snapshot-manifest")
+def create_openstates_snapshot_manifest_command(
+    artifact: Path = typer.Option(..., exists=True, dir_okay=False, readable=True),
+    period: str = typer.Option(..., help="Snapshot period in YYYY-MM format."),
+    source_url: str = typer.Option(..., help="Exact immutable provider download URL."),
+) -> None:
+    """Create a checksum-backed manifest candidate for one downloaded dump."""
+    try:
+        with render_spinner("Checksumming OpenStates snapshot for manifest"):
+            target = write_snapshot_manifest(artifact, period, source_url)
+    except (FileNotFoundError, ValueError) as exc:
+        raise typer.BadParameter(str(exc)) from None
+    typer.echo(target)
 
 
 @app.command("congress-health")
