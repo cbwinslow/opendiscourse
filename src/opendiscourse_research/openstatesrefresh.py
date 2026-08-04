@@ -44,6 +44,17 @@ def validate_openstates_vote_contract(contract: dict[str, Any]) -> None:
         raise ValueError("contract must name the provider snapshot endpoint template")
 
 
+def require_openstates_snapshot_download_approval(contract: dict[str, Any]) -> None:
+    """Enforce the explicit gate before a vote-source data dump is downloaded."""
+    validate_openstates_vote_contract(contract)
+    if not contract.get("enabled"):
+        raise ValueError("OpenStates vote snapshot download is disabled by contract")
+    if contract.get("approval") != "approved_snapshot_acquisition":
+        raise ValueError(
+            "OpenStates vote snapshot download requires approved_snapshot_acquisition"
+        )
+
+
 def build_openstates_vote_dry_run(
     contract: dict[str, Any], counts: dict[str, dict[str, Any]], free_bytes: int
 ) -> dict[str, Any]:

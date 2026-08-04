@@ -3,10 +3,14 @@ from __future__ import annotations
 from datetime import date
 
 from .bulk import ArtifactSpec, download
+from ..contracts import get_contract
+from ..openstatesrefresh import require_openstates_snapshot_download_approval
 
 
 def download_monthly_dump(year: int, month: int, *, include_schema: bool = True, include_data: bool = False) -> list[str]:
     """Fetch the official OpenStates public pg_dump artifacts without restoring them."""
+    if include_data:
+        require_openstates_snapshot_download_approval(get_contract("openstatesvotes"))
     period = date(year, month, 1)
     stamp = period.strftime("%Y-%m")
     specs = []

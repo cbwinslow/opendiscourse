@@ -6,6 +6,7 @@ import unittest
 
 from opendiscourse_research.openstatesrefresh import (
     build_openstates_vote_dry_run,
+    require_openstates_snapshot_download_approval,
     validate_openstates_vote_contract,
 )
 
@@ -56,3 +57,13 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
             },
         )
         self.assertTrue(result["storage"]["sufficient_reserve"])
+
+    def test_data_snapshot_download_requires_specific_approval(self) -> None:
+        candidate = contract()
+        with self.assertRaisesRegex(ValueError, "disabled by contract"):
+            require_openstates_snapshot_download_approval(candidate)
+        candidate["enabled"] = True
+        with self.assertRaisesRegex(ValueError, "approved_snapshot_acquisition"):
+            require_openstates_snapshot_download_approval(candidate)
+        candidate["approval"] = "approved_snapshot_acquisition"
+        require_openstates_snapshot_download_approval(candidate)

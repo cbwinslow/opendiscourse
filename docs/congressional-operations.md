@@ -42,6 +42,11 @@ is disabled. Review the report and the detailed refresh plan before approving
 snapshot acquisition; source-to-canonical equality does not by itself prove
 that the current Congress is complete.
 
+The existing `research-db bootstrap openstates-dump --data` command now enforces
+the same gate: it refuses data-dump download until `openstatesvotes` is enabled
+with `approval: approved_snapshot_acquisition`. Schema-only downloads remain
+read-only provider artifacts, but they do not authorize a vote refresh.
+
 ## Identity exceptions
 
 Run the unresolved-identity report before enrichment. Resolve an identifier

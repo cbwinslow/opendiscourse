@@ -1075,9 +1075,13 @@ def openstates_dump(
     """Download and checksum the official OpenStates dump; do not restore it."""
     if not schema and not data:
         raise typer.BadParameter("Choose at least one of --schema or --data")
-    for path in download_monthly_dump(
-        year, month, include_schema=schema, include_data=data
-    ):
+    try:
+        paths = download_monthly_dump(
+            year, month, include_schema=schema, include_data=data
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from None
+    for path in paths:
         typer.echo(path)
 
 
