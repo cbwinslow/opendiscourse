@@ -55,6 +55,45 @@ def openstates_vote_snapshot_counts(
     return result
 
 
+def get_resume_cursor(
+    dataset_id: str, cursor_key: str, conn: Any
+) -> dict[str, Any] | None:
+    """Return one persisted ingestion checkpoint without changing it."""
+    with conn.cursor() as cur:
+        cur.execute(
+            _query("get_resume_cursor"),
+            {"dataset_id": dataset_id, "cursor_key": cursor_key},
+        )
+        row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def save_resume_cursor(
+    dataset_id: str,
+    cursor_key: str,
+    cursor: dict[str, Any],
+    source_artifact_id: str,
+    last_run_id: str,
+    state: str,
+    conn: Any,
+) -> dict[str, Any]:
+    """Persist a source-scoped checkpoint in the caller's transaction."""
+    with conn.cursor() as cur:
+        cur.execute(
+            _query("save_resume_cursor"),
+            {
+                "dataset_id": dataset_id,
+                "cursor_key": cursor_key,
+                "cursor": Jsonb(cursor),
+                "source_artifact_id": source_artifact_id,
+                "last_run_id": last_run_id,
+                "state": state,
+            },
+        )
+        row = cur.fetchone()
+    return dict(row) if row else {}
+
+
 def register_artifact(
     dataset_id: str,
     remote_url: str,

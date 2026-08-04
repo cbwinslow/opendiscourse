@@ -518,10 +518,13 @@ def load_openstates_votes_command(
     limit: int = typer.Option(
         1, min=1, help="Vote events to load; begin with a smoke batch."
     ),
+    resume: bool = typer.Option(
+        False, help="Continue from the last committed keyset checkpoint."
+    ),
 ) -> None:
     """Load bounded OpenStates congressional roll calls and member positions."""
     with render_spinner("Loading OpenStates congressional votes"):
-        result = load_openstates_votes(congress, limit)
+        result = load_openstates_votes(congress, limit, resume=resume)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 

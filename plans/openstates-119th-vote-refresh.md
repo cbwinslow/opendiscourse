@@ -144,6 +144,11 @@ Success measures:
   artifact, cursor/range, and explicit `partial` coverage until promotion.
 - All canonical write paths use repositories and parameterized SQL.
 
+Implementation: the vote loader persists an `ingest.resume_cursor` checkpoint
+after every committed keyset page. `research-db load-openstates-votes --resume`
+continues after its recorded `ocd_id` and prints a safe resume command. A
+snapshot change still requires a new artifact/validation cycle before reuse.
+
 ### 5. Reconciliation and 119th promotion decision
 
 1. Run `research-db reconcile-openstates-votes --congress 119` and persist a

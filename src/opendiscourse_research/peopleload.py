@@ -10,26 +10,50 @@ from typing import Any
 from .config import settings
 from .ingestion.base import IngestionRun
 from .repositories.legislation import (
+    get_resume_cursor,
     load_openstates_votes as persist_openstates_votes,
     register_artifact,
     resolve_bill_sponsorship_people,
+    save_resume_cursor,
     sync_openstates_federal_organizations,
     sync_openstates_federal_people,
 )
 
 
-def load_openstates_votes(congress: int, limit: int = 1, page_size: int = 25) -> dict[str, Any]:
+def load_openstates_votes(
+    congress: int,
+    limit: int = 1,
+    page_size: int = 25,
+    *,
+    resume: bool = False,
+) -> dict[str, Any]:
     """Load a bounded congressional vote batch in committed keyset pages."""
     if limit < 1 or page_size < 1:
         raise ValueError("limit and page_size must be positive")
-    with IngestionRun("openstates.legislation", {"congress": congress, "limit": limit, "role": "vote_backfill"}, mode="backfill") as run:
+    cursor_key = f"openstatesvotes:{congress}"
+    parameters = {
+        "congress": congress,
+        "limit": limit,
+        "page_size": page_size,
+        "resume": resume,
+        "role": "vote_backfill",
+    }
+    with IngestionRun("openstates.legislation", parameters, mode="backfill") as run:
         assert run.conn is not None
         artifact = register_artifact("openstates.legislation", "openstates_source://opencivicdata_voteevent", "openstates_source.opencivicdata_voteevent", f"federal-votes-{congress}", status="loaded", metadata={"congress": congress}, conn=run.conn)
         counts = {"roll_calls": 0, "member_votes": 0, "unresolved_people": 0}
-        remaining, cursor, pages = limit, None, 0
+        checkpoint = get_resume_cursor("openstates.legislation", cursor_key, run.conn)
+        cursor = (
+            (checkpoint or {}).get("cursor", {}).get("last_ocd_id")
+            if resume
+            else None
+        )
+        resumed_from = cursor
+        remaining, pages, state = limit, 0, "paused"
         while remaining:
             page = persist_openstates_votes(congress, min(page_size, remaining), str(artifact["artifact_id"]), run.conn, cursor)
             if not page["roll_calls"]:
+                state = "complete"
                 break
             pages += 1
             cursor = page["last_ocd_id"]
@@ -37,11 +61,37 @@ def load_openstates_votes(congress: int, limit: int = 1, page_size: int = 25) ->
             for key in counts:
                 counts[key] += page[key]
             run.record_count = counts["roll_calls"]
+            save_resume_cursor(
+                "openstates.legislation",
+                cursor_key,
+                {"last_ocd_id": cursor},
+                str(artifact["artifact_id"]),
+                str(run.run_id),
+                "running",
+                run.conn,
+            )
             run.conn.commit()
+        save_resume_cursor(
+            "openstates.legislation",
+            cursor_key,
+            {"last_ocd_id": cursor} if cursor else {},
+            str(artifact["artifact_id"]),
+            str(run.run_id),
+            state,
+            run.conn,
+        )
         if congress >= 119:
             run.mark_partial()
         run.conn.commit()
-    return {**counts, "pages": pages, "next_cursor": cursor, "coverage": "partial" if congress >= 119 else "complete"}
+    return {
+        **counts,
+        "pages": pages,
+        "resumed_from": resumed_from,
+        "next_cursor": cursor,
+        "checkpoint_state": state,
+        "resume_command": f"research-db load-openstates-votes --congress {congress} --limit {limit} --resume",
+        "coverage": "partial" if congress >= 119 else "complete",
+    }
 
 
 def load_openstates_federal_people() -> dict[str, Any]:

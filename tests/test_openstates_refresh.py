@@ -6,6 +6,7 @@ import unittest
 from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import MagicMock, patch
 
 import yaml
 
@@ -15,6 +16,7 @@ from opendiscourse_research.openstatesrefresh import (
     validate_openstates_vote_contract,
 )
 from opendiscourse_research.openstatessnapshot import validate_snapshot_artifact
+from opendiscourse_research.peopleload import load_openstates_votes
 
 
 def contract() -> dict:
@@ -140,3 +142,44 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
                     manifest,
                     table_lister=lambda _: {"public.opencivicdata_voteevent"},
                 )
+
+    def test_vote_loader_resumes_from_committed_checkpoint(self) -> None:
+        run = MagicMock()
+        run.conn = MagicMock()
+        run.run_id = "run-119"
+        run.__enter__.return_value = run
+        with (
+            patch("opendiscourse_research.peopleload.IngestionRun", return_value=run),
+            patch(
+                "opendiscourse_research.peopleload.register_artifact",
+                return_value={"artifact_id": "artifact-119"},
+            ),
+            patch(
+                "opendiscourse_research.peopleload.get_resume_cursor",
+                return_value={"cursor": {"last_ocd_id": "ocd-vote-10"}},
+            ),
+            patch(
+                "opendiscourse_research.peopleload.persist_openstates_votes",
+                side_effect=[
+                    {
+                        "roll_calls": 1,
+                        "member_votes": 2,
+                        "unresolved_people": 0,
+                        "last_ocd_id": "ocd-vote-11",
+                    },
+                    {
+                        "roll_calls": 0,
+                        "member_votes": 0,
+                        "unresolved_people": 0,
+                        "last_ocd_id": "ocd-vote-11",
+                    },
+                ],
+            ) as page_loader,
+            patch("opendiscourse_research.peopleload.save_resume_cursor") as save_cursor,
+        ):
+            result = load_openstates_votes(119, limit=2, page_size=1, resume=True)
+        self.assertEqual(page_loader.call_args_list[0].args[-1], "ocd-vote-10")
+        self.assertEqual(result["resumed_from"], "ocd-vote-10")
+        self.assertEqual(result["next_cursor"], "ocd-vote-11")
+        self.assertEqual(result["checkpoint_state"], "complete")
+        self.assertEqual(save_cursor.call_args_list[-1].args[-2], "complete")

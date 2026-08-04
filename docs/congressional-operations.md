@@ -24,6 +24,12 @@ bounded smoke or repair batch. The loader uses committed keyset pages and is
 idempotent. For the current Congress, use the same command with `--congress
 119`; every resulting run is explicitly `partial`.
 
+After a failed or deliberately bounded vote batch, rerun with `--resume` to
+continue after the last committed `ocd_id`. The result prints the exact resume
+command and preserves the checkpoint with its source artifact and ingestion-run
+lineage. Do not use `--resume` after the source snapshot has changed; validate
+and stage the new snapshot first.
+
 Run `research-db load-billstatus --congress 118` or `--congress 119` only
 against a validated complete local archive. The loader records artifact lineage
 and resumes by skipping already-loaded archives and XML members.
