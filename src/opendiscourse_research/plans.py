@@ -14,7 +14,7 @@ from .ingestion.congress import ingest_bills
 from .ingestion.fred import ingest_manifest
 
 ROOT = Path(__file__).resolve().parents[2]
-HANDLERS = {"fred_core", "acs_housing", "congress_bills"}
+HANDLERS = {"fred_core", "acs_housing", "congress_bills", "census_metadata"}
 
 
 def load_plans() -> list[dict[str, Any]]:
@@ -63,6 +63,9 @@ def run_plan(plan_id: str) -> int:
     plan = plans[plan_id]
     if not plan.get("enabled", True):
         raise ValueError(f"Plan {plan_id!r} is disabled")
+    # Keep the catalog foreign-key allow-list aligned with the reviewed file
+    # before recording an execution cursor for a newly introduced plan.
+    sync_plans()
     args = plan["parameters"]
     if plan["handler"] == "fred_core":
         count = sum(ingest_manifest(priority=args.get("max_priority", 1)).values())
@@ -70,6 +73,10 @@ def run_plan(plan_id: str) -> int:
         count = bootstrap_housing(args["year"], [str(state).zfill(2) for state in args["states"]])
     elif plan["handler"] == "congress_bills":
         count = ingest_bills(args["congress"], args.get("max_records", 250), mode="incremental")
+    elif plan["handler"] == "census_metadata":
+        from .registry import sync as registry_sync
+        result = registry_sync(sources={"census"})
+        count = sum(value for value in result["results"]["census"].values() if isinstance(value, int))
     else:
         raise AssertionError(f"Handler validation missed {plan['handler']!r}")
     with connect() as conn, conn.cursor() as cur:

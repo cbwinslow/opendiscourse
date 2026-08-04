@@ -21,6 +21,13 @@ plans:
       year: 2024
       states: [24]
     notes: Curated ACS 5-year housing variables at county level. Add states deliberately.
+  - id: censusmeta
+    dataset: census.api_catalog
+    handler: census_metadata
+    cadence: weekly
+    enabled: true
+    parameters: {}
+    notes: Refreshes Census package and API metadata only; never downloads or promotes bulk data.
   - id: congcur
     dataset: congress.legislation
     handler: congress_bills
