@@ -25,6 +25,7 @@ from .ingestion.dhc_bulk import preview_dhc_bulk_plan, write_dhc_bulk_plan
 from .ingestion.pep_bulk import preview_pep_bulk_plan, write_pep_bulk_plan
 from .ingestion.pep_load import load_pep, stage_pep
 from .ingestion.tiger_bulk import preview_tiger_bulk_plan, write_tiger_bulk_plan
+from .ingestion.tiger_load import load_tiger, stage_tiger
 from .ingestion.census import (
     STATE_FIPS,
     bootstrap_housing,
@@ -821,6 +822,41 @@ def tiger_bulk_preview(plan: Path = typer.Option(..., exists=True, dir_okay=Fals
     with render_progress("Measuring TIGER bulk archives", len(payload.get("artifacts", []))) as update:
         report = preview_tiger_bulk_plan(plan, update)
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@ingest_app.command("tiger-bulk-approve")
+def tiger_bulk_approve(plan: Path = typer.Option(..., exists=True, dir_okay=False), layer: list[str] = typer.Option(..., help="Boundary layers to load; repeat this option.")) -> None:
+    """Approve named TIGER layers for one boundary vintage."""
+    typer.echo(json.dumps(approve_plan(plan, {"layers": layer}), indent=2, sort_keys=True))
+
+
+@ingest_app.command("tiger-bulk-download")
+def tiger_bulk_download(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Resumably download approved TIGER artifacts and register checksums."""
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_progress("Downloading TIGER bulk archives", len(payload.get("artifacts", []))) as update:
+        result = download_plan(plan, update)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@ingest_app.command("tiger-bulk-stage")
+def tiger_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Stage approved TIGER features without changing canonical boundaries."""
+    apply_migrations(); payload = yaml.safe_load(plan.read_text()) or {}
+    with render_spinner("Staging TIGER source features") as update:
+        count = stage_tiger(payload, update)
+    advance_plan(plan, "downloaded", "staged", "staging", {"feature_count": count})
+    typer.echo(f"Staged {count} TIGER source features.")
+
+
+@ingest_app.command("tiger-bulk-load")
+def tiger_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Load staged TIGER features into artifact-linked PostGIS boundaries."""
+    apply_migrations(); payload = yaml.safe_load(plan.read_text()) or {}
+    with render_spinner("Loading TIGER geography boundaries") as update:
+        count = load_tiger(payload, update)
+    advance_plan(plan, "staged", "loaded", "load", {"boundary_count": count})
+    typer.echo(f"Loaded {count} TIGER geography boundaries.")
 
 
 @ingest_app.command("census-search")
