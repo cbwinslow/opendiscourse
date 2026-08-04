@@ -30,6 +30,15 @@ and validation appropriate to the risk of a change. Preserve immutable source
 evidence and provenance; never silently overwrite, co-mingle, or promote data
 whose ownership, coverage, or quality has not been established.
 
+Develop tests alongside the code, schemas, queries, and workflows they cover;
+do not defer test design until implementation is complete. Start from the
+behaviors, boundaries, failure modes, data states, and recovery paths the change
+must handle, then add proportionate unit, integration, and regression coverage.
+Tests must exercise both intended outcomes and meaningful error, idempotency,
+pagination/resume, provenance, and migration cases when applicable. Treat a
+change as unverified until its relevant automated tests and risk-appropriate
+runtime checks pass; record any intentionally untested boundary and its reason.
+
 Treat provider snapshots and canonical warehouse data as separate owned
 systems. Preserve upstream schemas and refreshability; use documented
 read-only mappings or views before copying data, and record the rationale,
