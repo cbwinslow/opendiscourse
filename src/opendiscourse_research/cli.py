@@ -46,6 +46,7 @@ from .feedback import (
 from .audit import audit_leg
 from .legvalidate import validate_billstatus
 from .govplan import plan_billstatus_backfill
+from .govbackfill import backfill_billstatus_missing
 from .legreconcile import reconcile_billstatus
 from .legload import load_billstatus
 from .congresshealth import congressional_health, recover_stale_congressional_runs
@@ -396,6 +397,16 @@ def plan_command(
             sort_keys=True,
         )
     )
+
+
+@app.command("backfill-billstatus")
+def backfill_billstatus_command(
+    congress: int = typer.Option(119, min=1, max=119),
+) -> None:
+    """Download approved official BILLSTATUS XML into local ZIP archives."""
+    with render_spinner("Backfilling approved GovInfo BILLSTATUS files") as report:
+        result = backfill_billstatus_missing(congress, report)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 
 @app.command("reconcile")

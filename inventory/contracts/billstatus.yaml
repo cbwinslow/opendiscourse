@@ -29,8 +29,8 @@ contracts:
     kind: govinfo_bulk
     target: core.bill
     cadence: daily
-    enabled: false
-    approval: pending
+    enabled: true
+    approval: approved_missing_file_backfill
     selection:
       collection: BILLSTATUS
       congress: 119
@@ -40,6 +40,6 @@ contracts:
       database_multiplier: 1.5
       reserve_gib: 100
     notes: >-
-      Generate with `research-db plan billstatus --congress 119`. Do not enable
-      until the exact official manifest, capacity preview, XML validation, and
-      relational mapping review are approved.
+      User-approved 2026-08-04 after review of the official 2,831-file missing
+      manifest and sufficient capacity preview. Validate, reconcile, and retain
+      partial coverage until the completed local cache passes promotion gates.
