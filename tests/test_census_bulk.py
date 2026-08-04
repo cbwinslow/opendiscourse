@@ -10,12 +10,15 @@ import yaml
 
 from opendiscourse_research.ingestion.bulk import advance_plan, approve_plan
 from opendiscourse_research.ingestion.cbp_bulk import build_cbp_bulk_plan
+from opendiscourse_research.ingestion.acs_bulk import build_acs5_bulk_plan
 from opendiscourse_research.ingestion.dhc_bulk import build_dhc_bulk_plan
 from opendiscourse_research.ingestion.dhc_load import _matrix, _scope as dhc_scope
+from opendiscourse_research.ingestion.acs_load import _geo_id as acs_geo_id, _numeric as acs_numeric, _scope as acs_scope
 from opendiscourse_research.ingestion.pep_bulk import build_pep_bulk_plan
 from opendiscourse_research.ingestion.pep_load import _scope as pep_scope
 from opendiscourse_research.ingestion.tiger_bulk import build_tiger_bulk_plan
 from opendiscourse_research.ingestion.tiger_load import _scope as tiger_scope
+from opendiscourse_research.browser import acs_package_tables
 
 
 def resource(dataset_id: str, key: str, resource_type: str) -> dict[str, str]:
@@ -23,6 +26,22 @@ def resource(dataset_id: str, key: str, resource_type: str) -> dict[str, str]:
 
 
 class TestCensusBulkPlans(unittest.TestCase):
+    def test_reviewed_acs_housing_core_package_is_small_and_explicit(self) -> None:
+        self.assertEqual(
+            acs_package_tables(),
+            ["B25001", "B25002", "B25003", "B25004", "B25010", "B25064", "B25077"],
+        )
+        with self.assertRaisesRegex(ValueError, "Unknown or invalid ACS package"):
+            acs_package_tables("not-a-package")
+
+    def test_acs_detailed_table_plan_uses_bulk_dataset_for_artifact_lineage(self) -> None:
+        plan = build_acs5_bulk_plan(
+            "test",
+            [resource("census.acs_5", "2024:B25001", "Detailed Table")],
+        )
+        self.assertEqual(plan["dataset"], "census.acs_5_bulk")
+        self.assertEqual(plan["artifacts"][-1]["artifact_key"], "acs5-2024-b25001")
+
     def test_cbp_plan_contains_complete_release_and_rejects_mixed_years(self) -> None:
         selected = [resource("census.business_patterns", "full:2023", "Complete CSV bundle")]
         plan = build_cbp_bulk_plan("test", selected)
@@ -80,6 +99,22 @@ class TestCensusScopesAndMatrix(unittest.TestCase):
             pep_scope({"canonical_load_scope": {"geography_levels": ["zip"]}})
         with self.assertRaisesRegex(ValueError, "supported TIGER"):
             tiger_scope({"canonical_load_scope": {"layers": ["block"]}})
+        with self.assertRaisesRegex(ValueError, "supported ACS"):
+            acs_scope({"canonical_load_scope": {"geography_types": ["tract"]}})
+
+    def test_acs_geo_ids_only_admit_state_and_county(self) -> None:
+        self.assertEqual(acs_geo_id("0400000US06"), ("state", "06"))
+        self.assertEqual(acs_geo_id("0500000US06037"), ("county", "06037"))
+        self.assertIsNone(acs_geo_id("0100000US"))
+        self.assertIsNone(acs_geo_id("1400000US06037101100"))
+        self.assertIsNone(acs_geo_id("0500000US0603"))
+
+    def test_acs_numeric_cells_preserve_values_and_null_unavailable_markers(self) -> None:
+        self.assertEqual(acs_numeric("123.45"), __import__("decimal").Decimal("123.45"))
+        for value in (None, "", "N", ".", "-666666666", "-999999999"):
+            self.assertIsNone(acs_numeric(value))
+        with self.assertRaisesRegex(ValueError, "Invalid ACS numeric"):
+            acs_numeric("not-a-number")
 
     def test_dhc_matrix_preserves_column_offsets_for_skipped_tables(self) -> None:
         import openpyxl

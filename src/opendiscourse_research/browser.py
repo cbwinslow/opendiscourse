@@ -385,6 +385,38 @@ def add_all(name: str, resource_ids: list[str]) -> int:
     return len(resource_ids)
 
 
+def acs_package_tables(package: str = "housing_core") -> list[str]:
+    """Return the reviewed ACS Detailed Tables named by a versioned package."""
+    path = Path(__file__).resolve().parents[2] / "inventory" / "acs_housing_groups.yaml"
+    manifest = yaml.safe_load(path.read_text()) or {}
+    entry = manifest.get("packages", {}).get(package)
+    tables = entry.get("tables") if isinstance(entry, dict) else None
+    if not isinstance(tables, list) or not tables or not all(isinstance(table, str) and table for table in tables):
+        raise ValueError(f"Unknown or invalid ACS package {package!r} in {path}")
+    return [table.upper() for table in tables]
+
+
+def add_acs_package(name: str, release_year: int, package: str = "housing_core") -> int:
+    """Add one reviewed ACS package to a basket only when its catalog is complete."""
+    if release_year < 2022:
+        raise ValueError("Reviewed ACS bulk packages require a 2022 or later table-based release")
+    tables = acs_package_tables(package)
+    keys = [f"{release_year}:{table}" for table in tables]
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT resource_id, resource_key FROM catalog.resource WHERE dataset_id='census.acs_5' AND release_year=%s AND resource_type='Detailed Table' AND resource_key=ANY(%s)",
+            (release_year, keys),
+        )
+        rows = cur.fetchall()
+    found = {row["resource_key"] for row in rows}
+    missing = sorted(set(keys) - found)
+    if missing:
+        raise ValueError(
+            f"ACS {release_year} catalog is missing reviewed package tables: {', '.join(missing)}; discover or synchronize that release before selecting it"
+        )
+    return add_all(name, [str(row["resource_id"]) for row in rows])
+
+
 def draft(name: str) -> Path:
     """Export a basket to a disabled, review-only contract draft in lake metadata."""
     items = basket(name)
@@ -417,6 +449,7 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             Binding("a", "all", "select filtered"),
             Binding("g", "draft", "write draft"),
             Binding("p", "bulk_plan", "write bulk plan"),
+            Binding("h", "housing_core", "add ACS Housing Core"),
             Binding("f", "fetch", "fetch provider search"),
             Binding("backspace", "back", "back"),
             Binding("c", "cart", "selection"),
@@ -486,6 +519,8 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
                 return common + "  Space select highlighted group (press twice)"
             if self.level == "resource":
                 extra = "Space select resource  A select filtered  G write draft  P bulk plan"
+                if self.dataset_id == "census.acs_5" and self.product == "Detailed Table" and self.year:
+                    extra += "  H add Housing Core"
                 if self.dataset_id == "fred.series":
                     extra += "  F focus FRED search; Enter fetches results"
                 return common + "  " + extra
@@ -646,6 +681,26 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             add_all(basket_name, [str(row["resource_id"]) for row in self.rows])
             self.confirm = None
             self.query_one(Static).update(f"Selected {len(self.rows)} currently filtered resources.")
+            self.load_rows(self.query_one(Input).value)
+
+        def action_housing_core(self) -> None:
+            """Add the small reviewed ACS Housing Core package after confirmation."""
+            if self.level != "resource" or self.dataset_id != "census.acs_5" or self.product != "Detailed Table" or not self.year:
+                self.query_one(Static).update("Open an ACS release's Detailed Table product to add the reviewed Housing Core package.")
+                return
+            marker = f"acs-housing-core:{self.year}"
+            if self.confirm != marker:
+                self.confirm = marker
+                self.query_one(Static).update("Press H again to add the seven reviewed ACS Housing Core tables for this release.")
+                return
+            try:
+                count = add_acs_package(basket_name, self.year)
+            except Exception as exc:
+                self.query_one(Static).update(f"Could not add ACS Housing Core: {exc}")
+                return
+            self.confirm = None
+            self._debug("acs_package_selected", package="housing_core", release_year=self.year, count=count)
+            self.query_one(Static).update(f"Added {count} ACS Housing Core tables. Press P to write its bulk plan.")
             self.load_rows(self.query_one(Input).value)
 
         def action_fetch(self) -> None:

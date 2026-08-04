@@ -20,6 +20,7 @@ from .browser import (
 from .contracts import load_contracts, validate_contracts
 from .db import apply_migrations
 from .ingestion.acs_bulk import preview_acs5_bulk_plan, write_acs5_bulk_plan
+from .ingestion.acs_load import load_acs_bulk, stage_acs_bulk
 from .ingestion.cbp_bulk import preview_cbp_bulk_plan, write_cbp_bulk_plan
 from .ingestion.cbp_load import load_cbp, stage_cbp
 from .ingestion.dhc_bulk import preview_dhc_bulk_plan, write_dhc_bulk_plan
@@ -739,6 +740,28 @@ def acs_bulk_download(plan: Path = typer.Option(..., exists=True, dir_okay=False
     with render_progress("Downloading ACS bulk artifacts", len(payload.get("artifacts", []))) as update:
         result = download_plan(plan, update)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@ingest_app.command("acs-bulk-stage")
+def acs_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Stage selected ACS Detailed Table rows without altering canonical facts."""
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_spinner("Staging ACS Detailed Table rows") as update:
+        count = stage_acs_bulk(payload, update)
+    advance_plan(plan, "downloaded", "staged", "staging", {"row_count": count})
+    typer.echo(f"Staged {count} ACS source rows.")
+
+
+@ingest_app.command("acs-bulk-load")
+def acs_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Load staged ACS rows into artifact-linked estimates and margins of error."""
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_spinner("Loading ACS estimates and margins of error") as update:
+        count = load_acs_bulk(payload, update)
+    advance_plan(plan, "staged", "loaded", "load", {"fact_count": count})
+    typer.echo(f"Loaded {count} ACS estimates and margins of error.")
 
 
 @ingest_app.command("cbp-bulk-plan")

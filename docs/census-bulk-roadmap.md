@@ -33,9 +33,11 @@ tables, and analytical tables remain separately owned and queryable.
 
 ## Package families and order
 
-1. **ACS 5-year Summary File — complete release package** (implemented through
-   catalog and preview): yearly Detailed Table archive, geography file, and
-   table shells. It is the reference implementation for explicit bulk plans.
+1. **ACS 5-year Summary File — reviewed Detailed Table packages** (state/county
+   loader implemented): the browser offers `Housing Core` as seven reviewed
+   Detailed Tables. It stages source rows and loads estimates/MOEs with artifact
+   lineage. Complete release packages remain preview/download-only until their
+   distinct archive parser and scope contract are reviewed.
 2. **County Business Patterns (CBP)** (loaded and verified for 2023): one current-year bundle with
    county, state, U.S., CBSA/MSA, ZIP, and reference artifacts. The source is
    CSV-in-ZIP and maps naturally to a typed business-statistics fact table.
@@ -134,9 +136,28 @@ research-db census-health
 It writes `meta/health/census.json` and classifies each Census family as
 `healthy`, `attention`, `failed`, or `unknown`. A family is only `healthy` when
 the plan's expected artifacts are registered, canonical rows retain artifact
-lineage, and the plan's approved scope is actually loaded. In particular, ACS
-remains `unknown` until a canonical loader is deliberately implemented; a
-cataloged ZIP alone is not a health signal.
+lineage, and the plan's approved scope is actually loaded. ACS is only healthy
+when selected Detailed Table facts are linked to all expected downloaded
+artifacts; a cataloged package or ZIP alone is not a health signal.
+
+## ACS Housing Core workflow
+
+Open a 2022-or-later ACS Detailed Table release in the browser and press `H`
+twice to add the seven reviewed Housing Core tables to the current selection.
+The package is defined in `inventory/acs_housing_groups.yaml`, so it is visible
+and reviewable outside the TUI. Press `P` to write a plan, then follow the
+normal lifecycle:
+
+```bash
+research-db ingest acs-bulk-preview --plan meta/bulk-plans/acs5-<selection>.yaml
+research-db ingest acs-bulk-approve --plan meta/bulk-plans/acs5-<selection>.yaml --geography state --geography county
+research-db ingest acs-bulk-download --plan meta/bulk-plans/acs5-<selection>.yaml
+research-db ingest acs-bulk-stage --plan meta/bulk-plans/acs5-<selection>.yaml
+research-db ingest acs-bulk-load --plan meta/bulk-plans/acs5-<selection>.yaml
+research-db census-health
+```
+
+The `H` shortcut only changes a persistent selection; it never downloads data.
 
 Run the deterministic contract tests before changing a package builder, a
 scope gate, or DHC's table-matrix interpretation:

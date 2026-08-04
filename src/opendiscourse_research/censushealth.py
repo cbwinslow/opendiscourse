@@ -13,7 +13,7 @@ from .db import connect
 
 
 FAMILIES = {
-    "census.acs_5_bulk": {"name": "ACS 5-year bulk", "fact_table": None},
+    "census.acs_5_bulk": {"name": "ACS 5-year bulk", "fact_table": "fact.acs_bulk_estimate"},
     "census.business_patterns": {"name": "County Business Patterns", "fact_table": "fact.business_pattern"},
     "census.population_estimates": {"name": "Population Estimates Program", "fact_table": "fact.population_estimate"},
     "census.decennial": {"name": "2020 Decennial DHC", "fact_table": "fact.decennial_dhc_value"},
@@ -42,7 +42,7 @@ def classify_plan(plan: dict[str, Any], artifacts: list[dict[str, Any]], fact_co
     errors.extend(f"artifact failed: {row['artifact_key']}" for row in artifacts if row.get("status") == "failed")
     if state == "loaded" and errors:
         return "failed", errors
-    if state == "loaded" and plan.get("dataset") != "census.acs_5_bulk" and fact_count == 0:
+    if state == "loaded" and fact_count == 0:
         return "failed", ["loaded plan has no canonical artifact-linked rows"]
     if state == "loaded":
         return "healthy", []

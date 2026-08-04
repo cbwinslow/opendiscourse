@@ -72,7 +72,7 @@ def build_acs5_bulk_plan(basket_name: str, resources: list[dict[str, Any]]) -> d
     for year, table_id in selected:
         artifacts.append({"artifact_key": f"acs5-{year}-{table_id.lower()}", "kind": "detailed_table", "table_id": table_id, "release_year": year, "url": f"https://www2.census.gov/programs-surveys/acs/summary_file/{year}/table-based-SF/data/5YRData/acsdt5y{year}-{table_id.lower()}.dat", "filename": f"acsdt5y{year}-{table_id.lower()}.dat"})
     return {
-        "version": 1, "state": "draft", "provider": "census", "dataset": "census.acs_5", "format": "ACS table-based summary file", "created_at": datetime.now(timezone.utc).isoformat(), "basket": basket_name,
+        "version": 1, "state": "draft", "provider": "census", "dataset": "census.acs_5_bulk", "format": "ACS table-based summary file", "created_at": datetime.now(timezone.utc).isoformat(), "basket": basket_name,
         "selection": {"release_years": sorted({year for year, _ in selected}), "detailed_tables": [{"year": year, "table_id": table_id} for year, table_id in selected], "table_count": len(selected)},
         "geography": {"source_coverage": "all geographies published in each selected table", "canonical_load_scope": "not approved; choose geography filters before enabling a load"},
         "artifacts": artifacts,
@@ -93,7 +93,7 @@ def _full_package_plan(basket_name: str, years: list[int]) -> dict[str, Any]:
             {"artifact_key": f"acs5-{year}-table-shells", "kind": "table_shells", "url": f"{base}/documentation/ACS{year}5YR_Table_Shells.txt", "filename": f"ACS{year}5YR_Table_Shells.txt", "release_year": year},
         ])
     return {
-        "version": 1, "state": "draft", "provider": "census", "dataset": "census.acs_5", "format": "ACS table-based summary file", "created_at": datetime.now(timezone.utc).isoformat(), "basket": basket_name,
+        "version": 1, "state": "draft", "provider": "census", "dataset": "census.acs_5_bulk", "format": "ACS table-based summary file", "created_at": datetime.now(timezone.utc).isoformat(), "basket": basket_name,
         "selection": {"release_years": years, "package": "full_detailed_tables", "table_count": "all Detailed Tables"},
         "geography": {"source_coverage": "all geographies published in each release", "canonical_load_scope": "not approved; choose geography filters before enabling a load"},
         "artifacts": artifacts,

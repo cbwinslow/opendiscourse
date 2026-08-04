@@ -19,6 +19,7 @@ class TestCensusHealth(unittest.TestCase):
         plan["state"] = "loaded"
         self.assertEqual(classify_plan(plan, [{"artifact_key": "tiger", "status": "failed"}], 1)[0], "failed")
 
-    def test_loaded_acs_plan_is_healthy_without_canonical_loader(self) -> None:
+    def test_loaded_acs_plan_requires_artifact_linked_canonical_rows(self) -> None:
         plan = {"dataset": "census.acs_5_bulk", "state": "loaded", "artifacts": [{"artifact_key": "acs"}]}
-        self.assertEqual(classify_plan(plan, [{"artifact_key": "acs", "status": "downloaded"}], 0)[0], "healthy")
+        self.assertEqual(classify_plan(plan, [{"artifact_key": "acs", "status": "downloaded"}], 2)[0], "healthy")
+        self.assertEqual(classify_plan(plan, [{"artifact_key": "acs", "status": "downloaded"}], 0)[0], "failed")

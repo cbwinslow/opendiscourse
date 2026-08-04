@@ -16,6 +16,7 @@ from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.db import apply_migrations, connect
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion.cbp_load import load_cbp, stage_cbp
+from opendiscourse_research.ingestion.acs_load import load_acs_bulk, stage_acs_bulk
 from opendiscourse_research.ingestion.dhc_load import load_dhc, stage_dhc
 from opendiscourse_research.ingestion.pep_load import load_pep, stage_pep
 from opendiscourse_research.ingestion.tiger_load import load_tiger, stage_tiger
@@ -54,10 +55,12 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
             row = cur.fetchone()
             if row:
                 cur.execute("DELETE FROM fact.business_pattern WHERE source_artifact_id=%s", (row["artifact_id"],))
+                cur.execute("DELETE FROM fact.acs_bulk_estimate WHERE source_artifact_id=%s", (row["artifact_id"],))
                 cur.execute("DELETE FROM fact.population_estimate WHERE source_artifact_id=%s", (row["artifact_id"],))
                 cur.execute("DELETE FROM fact.decennial_dhc_value WHERE source_artifact_id=%s", (row["artifact_id"],))
                 cur.execute("DELETE FROM core.geography_boundary WHERE source_artifact_id=%s", (row["artifact_id"],))
                 cur.execute("DELETE FROM stage.cbp_row WHERE artifact_id=%s", (row["artifact_id"],))
+                cur.execute("DELETE FROM stage.acs_bulk_row WHERE artifact_id=%s", (row["artifact_id"],))
                 cur.execute("DELETE FROM stage.pep_row WHERE artifact_id=%s", (row["artifact_id"],))
                 cur.execute("DELETE FROM stage.dhc_geo_row WHERE artifact_id=%s", (row["artifact_id"],))
                 cur.execute("DELETE FROM stage.tiger_feature WHERE artifact_id=%s", (row["artifact_id"],))
@@ -68,6 +71,7 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
     def test_cbp_generated_zip_stages_and_loads_idempotently(self) -> None:
         key = "cbp-2023-cbp23st"
         self._remove_artifact(key)
+
         path = Path(self.temp.name) / "cbp.zip"
         with ZipFile(path, "w") as archive:
             archive.writestr("cbp23st.txt", "fipstate,naics,lfo,est,emp,qp1,ap,emp_nf,qp1_nf,ap_nf\n99,00,,10,20,30,40,,,,\n")
@@ -80,6 +84,49 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
         with connect() as conn, conn.cursor() as cur:
             cur.execute("SELECT count(*) FROM fact.business_pattern WHERE source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s)", (key,))
             self.assertEqual(cur.fetchone()["count"], 1)
+        self._remove_artifact(key)
+
+    def test_acs_generated_dat_stages_and_loads_idempotently(self) -> None:
+        key = "acs-2024-b25001-integration"
+        self._remove_artifact(key)
+        path = Path(self.temp.name) / "acs.dat"
+        path.write_text(
+            "GEO_ID|B25001_E001|B25001_M001|B25001_E002|B25001_M002\n"
+            "0500000US99001|100|7|N|.\n"
+            "0400000US99|200|9|-999999999|4\n"
+            "0100000US|300|11|12|1\n"
+        )
+        self._register("census.acs_5_bulk", key, path)
+        plan = {
+            "state": "downloaded",
+            "canonical_load_scope": {"geography_types": ["county", "state"]},
+            "artifacts": [{"artifact_key": key, "kind": "detailed_table", "release_year": 2024, "table_id": "B25001"}],
+        }
+        self.assertEqual(stage_acs_bulk(plan), 2)
+        plan["state"] = "staged"
+        self.assertEqual(load_acs_bulk(plan), 8)
+        self.assertEqual(load_acs_bulk(plan), 8)
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT geography.geoid,field_id,measure,value FROM fact.acs_bulk_estimate estimate "
+                "JOIN core.geography geography USING (geography_id) "
+                "WHERE source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s) "
+                "ORDER BY geography.geoid,field_id",
+                (key,),
+            )
+            self.assertEqual(
+                cur.fetchall(),
+                [
+                    {"geoid": "99", "field_id": "B25001_E001", "measure": "estimate", "value": __import__("decimal").Decimal("200")},
+                    {"geoid": "99", "field_id": "B25001_E002", "measure": "estimate", "value": None},
+                    {"geoid": "99", "field_id": "B25001_M001", "measure": "margin_of_error", "value": __import__("decimal").Decimal("9")},
+                    {"geoid": "99", "field_id": "B25001_M002", "measure": "margin_of_error", "value": __import__("decimal").Decimal("4")},
+                    {"geoid": "99001", "field_id": "B25001_E001", "measure": "estimate", "value": __import__("decimal").Decimal("100")},
+                    {"geoid": "99001", "field_id": "B25001_E002", "measure": "estimate", "value": None},
+                    {"geoid": "99001", "field_id": "B25001_M001", "measure": "margin_of_error", "value": __import__("decimal").Decimal("7")},
+                    {"geoid": "99001", "field_id": "B25001_M002", "measure": "margin_of_error", "value": None},
+                ],
+            )
         self._remove_artifact(key)
 
     def test_pep_generated_csv_stages_and_loads_all_vintage_years(self) -> None:
