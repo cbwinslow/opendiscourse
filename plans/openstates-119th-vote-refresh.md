@@ -179,6 +179,10 @@ Promotion criteria:
 - source watermark/coverage evidence supports a complete 119th scope;
 - unit/integration tests and catalog validation pass.
 
+The congressional health report includes `identity_exceptions` for unresolved
+sponsorships and voter references. Any nonzero count keeps the operational
+state at `attention` and requires review before promotion.
+
 If any criterion fails, preserve all evidence and retain `votes.119: partial`.
 
 ### 6. Scheduling and operational handoff

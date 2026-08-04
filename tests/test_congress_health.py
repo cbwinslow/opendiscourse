@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import unittest
 
-from opendiscourse_research.congresshealth import billstatus_coverage, is_recovered_run
+from opendiscourse_research.congresshealth import (
+    billstatus_coverage,
+    has_identity_attention,
+    is_recovered_run,
+)
 
 
 class TestCongressHealth(unittest.TestCase):
@@ -27,3 +31,11 @@ class TestCongressHealth(unittest.TestCase):
             )
         )
         self.assertFalse(is_recovered_run({"error_message": "connection refused"}))
+
+    def test_unresolved_voters_require_health_attention(self) -> None:
+        self.assertTrue(has_identity_attention({"unresolved_voters": 1}))
+        self.assertFalse(
+            has_identity_attention(
+                {"unresolved_voters": 0, "unresolved_sponsorships": 0}
+            )
+        )

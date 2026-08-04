@@ -48,6 +48,11 @@ def is_recovered_run(run: dict[str, Any]) -> bool:
     )
 
 
+def has_identity_attention(health: dict[str, Any]) -> bool:
+    """Return whether unresolved identity evidence requires operator review."""
+    return bool(health.get("unresolved_sponsorships") or health.get("unresolved_voters"))
+
+
 def congressional_health() -> dict[str, Any]:
     """Return and persist one source-aware congressional ingestion health report."""
     with connect() as conn, conn.cursor() as cur:
@@ -83,11 +88,15 @@ def congressional_health() -> dict[str, Any]:
     result["failed_runs"] = [
         run for run in failed_runs if not is_recovered_run(run)
     ]
+    result["identity_exceptions"] = {
+        "unresolved_sponsorships": health["unresolved_sponsorships"],
+        "unresolved_voters": health["unresolved_voters"],
+    }
     result["status"] = (
         "failed"
         if result["failed_runs"]
         else "attention"
-        if result["stale_runs"] or result["recovered_runs"]
+        if result["stale_runs"] or result["recovered_runs"] or has_identity_attention(health)
         else "healthy"
     )
     target = meta_root / "health" / "congressional.json"
