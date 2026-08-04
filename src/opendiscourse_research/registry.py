@@ -6,7 +6,7 @@ from typing import Any
 from collections.abc import Callable
 
 from .browser import ensure_acs, preview_fred_full, sync_fred, sync_fred_full
-from .providers.census import sync_acs_bulk_packages, sync_cbp_bulk_packages, sync_catalog as sync_census_catalog
+from .providers.census import sync_acs_bulk_packages, sync_cbp_bulk_packages, sync_pep_bulk_packages, sync_catalog as sync_census_catalog
 from .providers.fred import index_batch as index_fred_batch
 from .providers.congress import sync as sync_congress
 from .repositories.catalog import discovery
@@ -25,7 +25,7 @@ def sync(refresh: bool = False, sources: set[str] | None = None, full: bool = Fa
             cur.execute("SELECT 1 FROM catalog.snapshot WHERE dataset_id = 'census.api_catalog' LIMIT 1")
             census_ready = cur.fetchone() is not None
         catalog_result = sync_census_catalog() if refresh or not census_ready else {"state": "current"}
-        results["census"] = {**catalog_result, "acs_bulk_packages": sync_acs_bulk_packages(), "cbp_bulk_packages": sync_cbp_bulk_packages()}
+        results["census"] = {**catalog_result, "acs_bulk_packages": sync_acs_bulk_packages(), "cbp_bulk_packages": sync_cbp_bulk_packages(), "pep_bulk_packages": sync_pep_bulk_packages()}
     if "acs" in requested:
         with connect() as conn, conn.cursor() as cur:
             cur.execute("SELECT DISTINCT (metadata->>'year')::integer AS year FROM catalog.snapshot WHERE dataset_id = 'census.acs_5'")

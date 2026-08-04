@@ -141,3 +141,13 @@ def sync_cbp_bulk_packages() -> int:
             ("2023 County Business Patterns — complete CSV bundle", "Official U.S., state, county, metro, ZIP, and congressional-district CBP files for one annual release.", Jsonb({"package": "complete_csv_bundle", "source_page": CBP_2023_URL})))
         conn.commit()
     return 1
+
+
+def sync_pep_bulk_packages() -> int:
+    """Publish the latest complete PEP vintage as one no-mixing package."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("""INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
+          VALUES ('census.population_estimates', 'vintage:2025', 'National, state, and county totals', %s, %s, 2025, %s)
+          ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""", ("2025 Population Estimates — national, state, and county totals", "Complete 2025 PEP vintage for national/state/county totals. Never combine it with another vintage.", Jsonb({"package": "national_state_county_totals", "vintage": 2025})))
+        conn.commit()
+    return 1
