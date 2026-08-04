@@ -48,6 +48,7 @@ from .legvalidate import validate_billstatus
 from .govplan import plan_billstatus_backfill
 from .legreconcile import reconcile_billstatus
 from .legload import load_billstatus
+from .congresshealth import congressional_health
 from .votereconcile import reconcile_openstates_votes
 from .peopleload import (
     load_openstates_federal_organizations,
@@ -501,6 +502,12 @@ def load_openstates_votes_command(
     with render_spinner("Loading OpenStates congressional votes"):
         result = load_openstates_votes(congress, limit)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("congress-health")
+def congress_health_command() -> None:
+    """Write one read-only source-aware congressional ingestion health report."""
+    typer.echo(json.dumps(congressional_health(), indent=2, sort_keys=True, default=str))
 
 
 @catalog_app.command("browse", hidden=True)
