@@ -7,6 +7,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import re
+import shutil
 import subprocess
 from typing import Any, Callable
 
@@ -71,6 +72,22 @@ def checksum(path: Path) -> str:
     return digest.hexdigest()
 
 
+def pg_restore_executable() -> str:
+    """Return the newest locally installed pg_restore that can read new dumps."""
+    candidates = list(Path("/usr/lib/postgresql").glob("*/bin/pg_restore"))
+    path_candidate = shutil.which("pg_restore")
+    if path_candidate:
+        candidates.append(Path(path_candidate))
+    if not candidates:
+        raise FileNotFoundError("pg_restore is required to inspect an OpenStates dump")
+
+    def major(path: Path) -> int:
+        match = re.search(r"/postgresql/(\d+)/", str(path))
+        return int(match.group(1)) if match else 0
+
+    return str(max(candidates, key=major))
+
+
 def write_snapshot_manifest(artifact: Path, period: str, remote_url: str) -> Path:
     """Create an immutable reviewed-manifest candidate for a downloaded dump."""
     if not artifact.is_file():
@@ -114,7 +131,7 @@ def write_snapshot_manifest(artifact: Path, period: str, remote_url: str) -> Pat
 def archive_tables(path: Path) -> set[str]:
     """List table names in a pg_dump custom archive without restoring it."""
     completed = subprocess.run(
-        ["pg_restore", "--list", str(path)],
+        [pg_restore_executable(), "--list", str(path)],
         check=True,
         capture_output=True,
         text=True,

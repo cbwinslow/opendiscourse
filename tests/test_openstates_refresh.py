@@ -16,6 +16,7 @@ from opendiscourse_research.openstatesrefresh import (
     validate_openstates_vote_contract,
 )
 from opendiscourse_research.openstatessnapshot import (
+    pg_restore_executable,
     validate_snapshot_artifact,
     write_snapshot_manifest,
 )
@@ -213,9 +214,12 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
             artifact.write_bytes(b"immutable source")
             target = write_snapshot_manifest(
                 artifact,
-                "2026-07",
-                "https://example.test/2026-07-public.pgdump",
+                "2099-01",
+                "https://example.test/2099-01-public.pgdump",
             )
         payload = yaml.safe_load(target.read_text())
         self.assertEqual(payload["bytes"], len(b"immutable source"))
         self.assertEqual(payload["checksum_sha256"], sha256(b"immutable source").hexdigest())
+
+    def test_snapshot_tool_prefers_the_newest_local_pg_restore(self) -> None:
+        self.assertIn("pg_restore", pg_restore_executable())
