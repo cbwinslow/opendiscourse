@@ -21,6 +21,8 @@ from .db import apply_migrations
 from .ingestion.acs_bulk import preview_acs5_bulk_plan, write_acs5_bulk_plan
 from .ingestion.cbp_bulk import preview_cbp_bulk_plan, write_cbp_bulk_plan
 from .ingestion.cbp_load import load_cbp, stage_cbp
+from .ingestion.pep_bulk import preview_pep_bulk_plan, write_pep_bulk_plan
+from .ingestion.pep_load import load_pep, stage_pep
 from .ingestion.census import (
     STATE_FIPS,
     bootstrap_housing,
@@ -737,6 +739,56 @@ def cbp_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -
         count = load_cbp(payload, update)
     advance_plan(plan, "staged", "loaded", "load", {"fact_count": count})
     typer.echo(f"Loaded {count} CBP business facts.")
+
+
+@ingest_app.command("pep-bulk-plan")
+def pep_bulk_plan(basket: str = typer.Option("default", help="Catalog selection containing one PEP release vintage.")) -> None:
+    """Write a disabled Population Estimates Program vintage plan."""
+    typer.echo(write_pep_bulk_plan(basket, catalog_basket(basket)))
+
+
+@ingest_app.command("pep-bulk-preview")
+def pep_bulk_preview(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Measure every planned PEP artifact; never download its contents."""
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_progress("Measuring PEP bulk artifacts", len(payload.get("artifacts", []))) as update:
+        report = preview_pep_bulk_plan(plan, update)
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@ingest_app.command("pep-bulk-approve")
+def pep_bulk_approve(plan: Path = typer.Option(..., exists=True, dir_okay=False), geography: list[str] = typer.Option(..., help="Canonical geography levels to load; repeat this option.")) -> None:
+    """Approve a previewed PEP vintage with an explicit geography scope."""
+    typer.echo(json.dumps(approve_plan(plan, {"geography_levels": geography}), indent=2, sort_keys=True))
+
+
+@ingest_app.command("pep-bulk-download")
+def pep_bulk_download(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Resumably download an approved PEP plan and register immutable artifacts."""
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_progress("Downloading PEP bulk artifacts", len(payload.get("artifacts", []))) as update:
+        result = download_plan(plan, update)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@ingest_app.command("pep-bulk-stage")
+def pep_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Stage approved PEP source rows without altering canonical estimates."""
+    apply_migrations(); payload = yaml.safe_load(plan.read_text()) or {}
+    with render_spinner("Staging PEP source rows") as update:
+        count = stage_pep(payload, update)
+    advance_plan(plan, "downloaded", "staged", "staging", {"row_count": count})
+    typer.echo(f"Staged {count} PEP source rows.")
+
+
+@ingest_app.command("pep-bulk-load")
+def pep_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Load staged PEP rows into artifact-linked canonical population estimates."""
+    apply_migrations(); payload = yaml.safe_load(plan.read_text()) or {}
+    with render_spinner("Loading PEP population estimates") as update:
+        count = load_pep(payload, update)
+    advance_plan(plan, "staged", "loaded", "load", {"fact_count": count})
+    typer.echo(f"Loaded {count} PEP population estimates.")
 
 
 @ingest_app.command("census-search")

@@ -36,12 +36,14 @@ tables, and analytical tables remain separately owned and queryable.
 1. **ACS 5-year Summary File — complete release package** (implemented through
    catalog and preview): yearly Detailed Table archive, geography file, and
    table shells. It is the reference implementation for explicit bulk plans.
-2. **County Business Patterns (CBP)** (catalog and preview implemented): one current-year bundle with
+2. **County Business Patterns (CBP)** (loaded and verified for 2023): one current-year bundle with
    county, state, U.S., CBSA/MSA, ZIP, and reference artifacts. The source is
    CSV-in-ZIP and maps naturally to a typed business-statistics fact table.
-3. **Population Estimates Program (PEP)**: one package per published vintage.
-   Do not mix vintages; raw CSV releases are revised annually and must retain
-   vintage identity.
+3. **Population Estimates Program (PEP)** (loaded and verified for 2025): one package per published vintage.
+   Do not mix vintages; raw CSV releases are revised annually and retain
+   `release_vintage` on every canonical estimate. The normal package contains
+   national, state, and county totals; it does not imply that every PEP product
+   has been loaded.
 4. **2020 Decennial DHC**: product-specific package selection. The loader must
    join geographic headers and segmented files with `LOGRECNO`; it is not an
    ACS-compatible table loader.
@@ -61,6 +63,28 @@ tables, and analytical tables remain separately owned and queryable.
   records the source artifact for every loaded fact.
 - At least one county-level analytical query is documented and validated against
   source rows.
+
+The verified 2023 load contains 1,461,327 typed facts from three registered
+artifacts. For example, a county analyst can start with:
+
+```sql
+SELECT geography.geoid, business.naics, business.establishments, business.employment
+FROM fact.business_pattern AS business
+JOIN core.geography AS geography ON geography.geography_id = business.geography_id
+WHERE business.release_year = 2023
+  AND geography.geography_type = 'county'
+  AND business.naics = '00'
+ORDER BY geography.geoid;
+```
+
+## PEP checkpoint
+
+The browser exposes a single PEP release vintage, and `P` writes the same
+review-only plan as `research-db ingest pep-bulk-plan`. The 2025 package was
+previewed, explicitly approved for nation/state/county, checksum-registered,
+staged as 3,248 source rows, and loaded as 19,488 annual estimates for
+2020–2025. Each fact retains the source artifact, source ordinal, and release
+vintage, so a later PEP release cannot silently replace the prior one.
 
 ## Design constraints
 
