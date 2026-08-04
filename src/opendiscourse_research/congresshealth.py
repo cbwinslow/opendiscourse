@@ -27,6 +27,16 @@ def congressional_health() -> dict[str, Any]:
     result["stale_runs"] = [
         run for run in health["latest_runs"] if run["status"] == "running"
     ]
+    result["failed_runs"] = [
+        run for run in health["latest_runs"] if run["status"] == "failed"
+    ]
+    result["status"] = (
+        "failed"
+        if result["failed_runs"]
+        else "attention"
+        if result["stale_runs"]
+        else "healthy"
+    )
     target = Path(settings.data_root).expanduser().resolve().parent / "meta" / "health" / "congressional.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(result, indent=2, sort_keys=True, default=str) + "\n")
