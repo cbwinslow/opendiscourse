@@ -44,11 +44,13 @@ tables, and analytical tables remain separately owned and queryable.
    `release_vintage` on every canonical estimate. The normal package contains
    national, state, and county totals; it does not imply that every PEP product
    has been loaded.
-4. **2020 Decennial DHC** (cataloged and capacity-previewed): product-specific
-   package selection. The complete national archive is 2.29 GB compressed and
-   projects to 9.14 GB staged; it remains download-disabled until the loader can
-   join geographic headers and segmented files with `LOGRECNO`. It is not an
-   ACS-compatible table loader.
+4. **2020 Decennial DHC** (loaded and verified for a deliberate analytical
+   scope): product-specific package selection. The complete national archive is
+   2.29 GB compressed. GEO records and selected numbered segments join through
+   `LOGRECNO`, using the official table matrix to map variables to source
+   columns. The verified state/county H1 and P1 load contains 22,758
+   artifact-linked values; additional DHC tables or summary levels require an
+   explicit new approval rather than silently expanding the canonical scope.
 5. **TIGER/Line** (loaded and verified for 2020 national core layers):
    geography layer packages by vintage. These load into spatial staging and
    `core.geography_boundary`, never measurement facts. The verified core load
@@ -91,6 +93,24 @@ previewed, explicitly approved for nation/state/county, checksum-registered,
 staged as 3,248 source rows, and loaded as 19,488 annual estimates for
 2020–2025. Each fact retains the source artifact, source ordinal, and release
 vintage, so a later PEP release cannot silently replace the prior one.
+
+## DHC checkpoint
+
+The verified 2020 DHC plan downloads the complete national archive together
+with Census's table matrix, selects summary levels `040` and `050`, and selects
+tables `H1` and `P1`. It stages 11,379 GEO records, then records both the
+source segment/member and source row ordinal for every canonical value. The
+Alabama state totals validate directly against the published segments:
+`H0010001 = 2,288,330` and `P0010001 = 5,024,279`.
+
+```sql
+SELECT geography.geoid, value.table_id, value.variable_id, value.value
+FROM fact.decennial_dhc_value AS value
+JOIN core.geography AS geography ON geography.geography_id = value.geography_id
+WHERE geography.geography_type = 'county'
+  AND value.table_id IN ('H1', 'P1')
+ORDER BY geography.geoid, value.table_id;
+```
 
 ## Design constraints
 
