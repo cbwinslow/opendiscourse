@@ -63,6 +63,7 @@ from .peopleload import (
     load_openstates_federal_people,
     load_openstates_votes,
 )
+from .openstatesrefresh import dry_run_openstates_vote_refresh
 
 app = typer.Typer(help="Research database setup and ingestion commands.")
 ingest_app = typer.Typer(help="Provider ingestion commands.")
@@ -520,6 +521,14 @@ def load_openstates_votes_command(
     with render_spinner("Loading OpenStates congressional votes"):
         result = load_openstates_votes(congress, limit)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("plan-openstates-vote-refresh")
+def plan_openstates_vote_refresh_command() -> None:
+    """Inspect the OpenStates vote source snapshot without mutating any data."""
+    with render_spinner("Inspecting OpenStates vote snapshot without writes"):
+        result = dry_run_openstates_vote_refresh()
+    typer.echo(json.dumps(result, indent=2, sort_keys=True, default=str))
 
 
 @app.command("congress-health")

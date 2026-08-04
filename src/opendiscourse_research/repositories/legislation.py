@@ -32,6 +32,29 @@ def bill_keys(congress: int, bill_type: str) -> set[str]:
         return {row["bill_number"] for row in cur.fetchall()}
 
 
+def openstates_vote_snapshot_counts(
+    congresses: list[int], conn: Any
+) -> dict[str, dict[str, Any]]:
+    """Read source and canonical vote counts without mutating either system."""
+    identifiers = [str(congress) for congress in congresses]
+    result = {identifier: {"congress": int(identifier)} for identifier in identifiers}
+    with conn.cursor() as cur:
+        cur.execute(_query("openstates_vote_snapshot_counts"), {"congresses": identifiers})
+        for row in cur.fetchall():
+            result[row["congress"]].update(dict(row))
+        for congress in identifiers:
+            cur.execute(
+                _query("openstates_person_vote_snapshot_count"), {"congress": congress}
+            )
+            result[congress]["source_person_votes"] = cur.fetchone()[
+                "source_person_votes"
+            ]
+        cur.execute(_query("canonical_vote_counts"), {"congresses": identifiers})
+        for row in cur.fetchall():
+            result[row["congress"]].update(dict(row))
+    return result
+
+
 def register_artifact(
     dataset_id: str,
     remote_url: str,

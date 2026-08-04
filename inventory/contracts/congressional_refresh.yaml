@@ -23,6 +23,12 @@ contracts:
     provenance:
       source: openstates_source
       artifact_required: true
+    snapshot:
+      endpoint_template: https://data.openstates.org/postgres/monthly/{YYYY-MM}-public.pgdump
+      retention: preserve_previous_until_post_load_reconciliation
+      fdw_schema: openstates_source
+    storage:
+      reserve_gib: 100
     validation:
       dry_run_required: true
       reconcile_command: reconcile-openstates-votes

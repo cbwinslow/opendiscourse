@@ -28,6 +28,20 @@ Run `research-db load-billstatus --congress 118` or `--congress 119` only
 against a validated complete local archive. The loader records artifact lineage
 and resumes by skipping already-loaded archives and XML members.
 
+## OpenStates vote refresh planning
+
+Run `research-db plan-openstates-vote-refresh` before requesting an OpenStates
+snapshot refresh. It opens a read-only database transaction, writes
+`meta/plan/openstates/openstatesvotes-dry-run.json`, and records source and
+canonical vote counts, source watermarks, storage reserve, and approval gates.
+It does not contact OpenStates, alter the source FDW, write canonical tables,
+or create an `ingest.run` record.
+
+An `approval_required` result is expected while the `openstatesvotes` contract
+is disabled. Review the report and the detailed refresh plan before approving
+snapshot acquisition; source-to-canonical equality does not by itself prove
+that the current Congress is complete.
+
 ## Identity exceptions
 
 Run the unresolved-identity report before enrichment. Resolve an identifier

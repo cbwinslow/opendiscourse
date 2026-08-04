@@ -15,6 +15,15 @@ roll calls and 163,452 member votes. This is internally reconciled but remains
 `partial` because the snapshot has not been refreshed and assessed for current
 119th coverage.
 
+## Implementation status
+
+The contract-backed read-only dry run is implemented as
+`research-db plan-openstates-vote-refresh`. It records source/canonical counts,
+source event watermarks, storage reserve, and approval state in
+`meta/plan/openstates/openstatesvotes-dry-run.json`. Its expected current
+result is `approval_required`: snapshot acquisition, source access, promotion,
+and scheduling remain deliberately unapproved.
+
 ## Desired outcome
 
 Maintain OpenStates as the bill/person/vote reference baseline while producing
