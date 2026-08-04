@@ -44,8 +44,10 @@ tables, and analytical tables remain separately owned and queryable.
    `release_vintage` on every canonical estimate. The normal package contains
    national, state, and county totals; it does not imply that every PEP product
    has been loaded.
-4. **2020 Decennial DHC**: product-specific package selection. The loader must
-   join geographic headers and segmented files with `LOGRECNO`; it is not an
+4. **2020 Decennial DHC** (cataloged and capacity-previewed): product-specific
+   package selection. The complete national archive is 2.29 GB compressed and
+   projects to 9.14 GB staged; it remains download-disabled until the loader can
+   join geographic headers and segmented files with `LOGRECNO`. It is not an
    ACS-compatible table loader.
 5. **TIGER/Line**: geography layer packages by vintage. These load into spatial
    staging and `core.geography_boundary`, never measurement facts.

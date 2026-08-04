@@ -21,6 +21,7 @@ from .db import apply_migrations
 from .ingestion.acs_bulk import preview_acs5_bulk_plan, write_acs5_bulk_plan
 from .ingestion.cbp_bulk import preview_cbp_bulk_plan, write_cbp_bulk_plan
 from .ingestion.cbp_load import load_cbp, stage_cbp
+from .ingestion.dhc_bulk import preview_dhc_bulk_plan, write_dhc_bulk_plan
 from .ingestion.pep_bulk import preview_pep_bulk_plan, write_pep_bulk_plan
 from .ingestion.pep_load import load_pep, stage_pep
 from .ingestion.census import (
@@ -789,6 +790,21 @@ def pep_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -
         count = load_pep(payload, update)
     advance_plan(plan, "staged", "loaded", "load", {"fact_count": count})
     typer.echo(f"Loaded {count} PEP population estimates.")
+
+
+@ingest_app.command("dhc-bulk-plan")
+def dhc_bulk_plan(basket: str = typer.Option("default", help="Catalog selection containing the complete 2020 DHC archive.")) -> None:
+    """Write a disabled 2020 Decennial DHC archive plan."""
+    typer.echo(write_dhc_bulk_plan(basket, catalog_basket(basket)))
+
+
+@ingest_app.command("dhc-bulk-preview")
+def dhc_bulk_preview(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Measure the DHC archive; never download its contents."""
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_progress("Measuring DHC bulk archive", len(payload.get("artifacts", []))) as update:
+        report = preview_dhc_bulk_plan(plan, update)
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 
 @ingest_app.command("census-search")

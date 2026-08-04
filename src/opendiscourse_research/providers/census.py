@@ -14,6 +14,7 @@ from ..ingestion.base import IngestionRun, client, json_response
 CATALOG_URL = "https://api.census.gov/data.json"
 ACS_TABLE_BASED_YEARS = (2021, 2022, 2023, 2024)
 CBP_2023_URL = "https://www.census.gov/data/datasets/2023/econ/cbp/2023-cbp.html"
+DHC_2020_URL = "https://www2.census.gov/programs-surveys/decennial/2020/data/demographic-and-housing-characteristics-file/National/us2020.dhc.zip"
 
 
 def _offering_key(item: dict[str, Any]) -> str:
@@ -149,5 +150,15 @@ def sync_pep_bulk_packages() -> int:
         cur.execute("""INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
           VALUES ('census.population_estimates', 'vintage:2025', 'National, state, and county totals', %s, %s, 2025, %s)
           ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""", ("2025 Population Estimates — national, state, and county totals", "Complete 2025 PEP vintage for national/state/county totals. Never combine it with another vintage.", Jsonb({"package": "national_state_county_totals", "vintage": 2025})))
+        conn.commit()
+    return 1
+
+
+def sync_dhc_bulk_packages() -> int:
+    """Publish the one complete 2020 DHC archive without disguising segments as tables."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("""INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
+          VALUES ('census.decennial', 'dhc:2020:national', 'Complete DHC national archive', %s, %s, 2020, %s)
+          ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""", ("2020 Decennial DHC — complete national archive", "Official 2020 Demographic and Housing Characteristics archive. Geographic headers and segmented records remain source-shaped until an explicit LOGRECNO-aware loader is approved.", Jsonb({"package": "complete_national_dhc", "url": DHC_2020_URL})))
         conn.commit()
     return 1
