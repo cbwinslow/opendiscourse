@@ -71,6 +71,13 @@ estimate/MOE facts. All raw files retain SHA-256 checksums; every fact retains
 its Detailed Table artifact and source row ordinal. `research-db census-health`
 reports this package and the broader Census families as `healthy`.
 
+The separate 2024 `Housing Extended` plan covers the other reviewed housing
+tables: `B25034`, `B25035`, `B25070`, `B25071`, `B25075`, `B25081`, and
+`B25093`. Its 463,508,537-byte preflight passed the same explicit state/county
+scope, then staged 26,775 rows and loaded 680,850 facts. Together the two
+plans provide all 14 reviewed ACS housing tables, 833,850 canonical facts,
+3,274 state/county geographies, and 14 source Detailed Table artifacts.
+
 An analyst can start with total housing units (`B25001_E001`) like this:
 
 ```sql
@@ -166,11 +173,11 @@ artifacts; a cataloged package or ZIP alone is not a health signal.
 
 ## ACS Housing Core workflow
 
-Open a 2022-or-later ACS Detailed Table release in the browser and press `H`
-twice to add the seven reviewed Housing Core tables to the current selection.
-The package is defined in `inventory/acs_housing_groups.yaml`, so it is visible
-and reviewable outside the TUI. Press `P` to write a plan, then follow the
-normal lifecycle:
+Open a 2022-or-later ACS Detailed Table release in the browser. Press `H`
+twice to add the seven reviewed Housing Core tables or `J` twice to add the
+seven complementary Housing Extended tables. The packages are defined in
+`inventory/acs_housing_groups.yaml`, so they are visible and reviewable outside
+the TUI. Press `P` to write a plan, then follow the normal lifecycle:
 
 ```bash
 research-db ingest acs-bulk-preview --plan meta/bulk-plans/acs5-<selection>.yaml
@@ -181,7 +188,7 @@ research-db ingest acs-bulk-load --plan meta/bulk-plans/acs5-<selection>.yaml
 research-db census-health
 ```
 
-The `H` shortcut only changes a persistent selection; it never downloads data.
+The `H` and `J` shortcuts only change a persistent selection; neither downloads data.
 
 Run the deterministic contract tests before changing a package builder, a
 scope gate, or DHC's table-matrix interpretation:

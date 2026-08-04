@@ -450,6 +450,7 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             Binding("g", "draft", "write draft"),
             Binding("p", "bulk_plan", "write bulk plan"),
             Binding("h", "housing_core", "add ACS Housing Core"),
+            Binding("j", "housing_extended", "add ACS Housing Extended"),
             Binding("f", "fetch", "fetch provider search"),
             Binding("backspace", "back", "back"),
             Binding("c", "cart", "selection"),
@@ -520,7 +521,7 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             if self.level == "resource":
                 extra = "Space select resource  A select filtered  G write draft  P bulk plan"
                 if self.dataset_id == "census.acs_5" and self.product == "Detailed Table" and self.year:
-                    extra += "  H add Housing Core"
+                    extra += "  H add Housing Core  J add Housing Extended"
                 if self.dataset_id == "fred.series":
                     extra += "  F focus FRED search; Enter fetches results"
                 return common + "  " + extra
@@ -685,22 +686,30 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
 
         def action_housing_core(self) -> None:
             """Add the small reviewed ACS Housing Core package after confirmation."""
+            self._add_acs_housing_package("housing_core", "Housing Core")
+
+        def action_housing_extended(self) -> None:
+            """Add the complementary reviewed ACS Housing Extended package."""
+            self._add_acs_housing_package("housing_extended", "Housing Extended")
+
+        def _add_acs_housing_package(self, package: str, label: str) -> None:
+            """Require a second keypress before changing a curated ACS basket."""
             if self.level != "resource" or self.dataset_id != "census.acs_5" or self.product != "Detailed Table" or not self.year:
-                self.query_one(Static).update("Open an ACS release's Detailed Table product to add the reviewed Housing Core package.")
+                self.query_one(Static).update(f"Open an ACS release's Detailed Table product to add the reviewed {label} package.")
                 return
-            marker = f"acs-housing-core:{self.year}"
+            marker = f"acs-{package}:{self.year}"
             if self.confirm != marker:
                 self.confirm = marker
-                self.query_one(Static).update("Press H again to add the seven reviewed ACS Housing Core tables for this release.")
+                self.query_one(Static).update(f"Press the same key again to add the seven reviewed ACS {label} tables for this release.")
                 return
             try:
-                count = add_acs_package(basket_name, self.year)
+                count = add_acs_package(basket_name, self.year, package)
             except Exception as exc:
-                self.query_one(Static).update(f"Could not add ACS Housing Core: {exc}")
+                self.query_one(Static).update(f"Could not add ACS {label}: {exc}")
                 return
             self.confirm = None
-            self._debug("acs_package_selected", package="housing_core", release_year=self.year, count=count)
-            self.query_one(Static).update(f"Added {count} ACS Housing Core tables. Press P to write its bulk plan.")
+            self._debug("acs_package_selected", package=package, release_year=self.year, count=count)
+            self.query_one(Static).update(f"Added {count} ACS {label} tables. Press P to write its bulk plan.")
             self.load_rows(self.query_one(Input).value)
 
         def action_fetch(self) -> None:

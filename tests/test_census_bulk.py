@@ -34,6 +34,10 @@ class TestCensusBulkPlans(unittest.TestCase):
             acs_package_tables(),
             ["B25001", "B25002", "B25003", "B25004", "B25010", "B25064", "B25077"],
         )
+        self.assertEqual(
+            acs_package_tables("housing_extended"),
+            ["B25034", "B25035", "B25070", "B25071", "B25075", "B25081", "B25093"],
+        )
         with self.assertRaisesRegex(ValueError, "Unknown or invalid ACS package"):
             acs_package_tables("not-a-package")
 
