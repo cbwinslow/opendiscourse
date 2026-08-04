@@ -10,8 +10,8 @@ contracts:
     kind: snapshot_incremental
     target: core.roll_call
     cadence: daily
-    enabled: false
-    approval: pending
+    enabled: true
+    approval: approved_snapshot_acquisition
     selection:
       jurisdiction: ocd-jurisdiction/country:us/government
       congresses: [118, 119]
@@ -35,8 +35,11 @@ contracts:
       idempotency_required: true
       partial_congresses: [119]
     notes: >-
-      Source snapshot remains read-only. Enable only after an approved snapshot
-      refresh procedure and a successful dry run with no canonical writes.
+      User approved snapshot acquisition on 2026-08-04 after the read-only
+      dry run, storage check, manifest validator, resume drill, and exception
+      reporting were verified. Acquire only the latest completed monthly export;
+      snapshot restore, FDW remapping, canonical loading, and promotion remain
+      separately gated.
   - id: congresspeople
     provider: congress
     dataset: congress.legislation
