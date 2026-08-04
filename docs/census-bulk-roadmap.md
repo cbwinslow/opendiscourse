@@ -84,6 +84,14 @@ ACS 5-year release: 833,850 facts across the same 14 reviewed tables and
 1,667,700 artifact-linked facts across 2023 and 2024, with all four plans
 reported `healthy`.
 
+The final currently supported table-based release, 2022, was also loaded with
+the same two reviewed plans: 152,920 Core facts and 680,494 Extended facts
+(833,414 total). The 2022–2024 state/county housing baseline now has six
+loaded plans, 2,501,114 artifact-linked facts, 14 reviewed tables per year,
+and six health-verified artifact sets. Pre-2022 ACS uses a different source
+format and remains a separate adapter/project rather than an undocumented
+extension of this loader.
+
 An analyst can start with total housing units (`B25001_E001`) like this:
 
 ```sql
