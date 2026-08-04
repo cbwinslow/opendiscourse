@@ -23,15 +23,21 @@ research-db plan-run censusmeta
 research-db census-health
 ```
 
-To install the optional user-level weekly timer, copy both
-`ops/systemd/opendiscourse-census-metadata.*` files to
+To install the optional user-level weekly metadata timer and daily health
+timer, copy both `opendiscourse-census-metadata.*` and
+`opendiscourse-census-health.*` files from `ops/systemd/` to
 `~/.config/systemd/user/`, then run:
 
 ```bash
 systemctl --user daemon-reload
 systemctl --user enable --now opendiscourse-census-metadata.timer
+systemctl --user enable --now opendiscourse-census-health.timer
 systemctl --user list-timers opendiscourse-census-metadata.timer
+systemctl --user list-timers opendiscourse-census-health.timer
 ```
+
+The health service exits nonzero only for `failed`, making it safe to monitor
+without treating an ordinary pending approval as an outage.
 
 ## Bulk recovery
 
