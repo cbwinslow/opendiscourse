@@ -24,6 +24,7 @@ from .ingestion.cbp_load import load_cbp, stage_cbp
 from .ingestion.dhc_bulk import preview_dhc_bulk_plan, write_dhc_bulk_plan
 from .ingestion.pep_bulk import preview_pep_bulk_plan, write_pep_bulk_plan
 from .ingestion.pep_load import load_pep, stage_pep
+from .ingestion.tiger_bulk import preview_tiger_bulk_plan, write_tiger_bulk_plan
 from .ingestion.census import (
     STATE_FIPS,
     bootstrap_housing,
@@ -804,6 +805,21 @@ def dhc_bulk_preview(plan: Path = typer.Option(..., exists=True, dir_okay=False)
     payload = yaml.safe_load(plan.read_text()) or {}
     with render_progress("Measuring DHC bulk archive", len(payload.get("artifacts", []))) as update:
         report = preview_dhc_bulk_plan(plan, update)
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@ingest_app.command("tiger-bulk-plan")
+def tiger_bulk_plan(basket: str = typer.Option("default", help="Catalog selection containing the TIGER national boundary package.")) -> None:
+    """Write a disabled 2020 TIGER/Line national-boundary plan."""
+    typer.echo(write_tiger_bulk_plan(basket, catalog_basket(basket)))
+
+
+@ingest_app.command("tiger-bulk-preview")
+def tiger_bulk_preview(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Measure TIGER archive sizes; never download their contents."""
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_progress("Measuring TIGER bulk archives", len(payload.get("artifacts", []))) as update:
+        report = preview_tiger_bulk_plan(plan, update)
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 

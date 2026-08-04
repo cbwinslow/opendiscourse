@@ -49,8 +49,11 @@ tables, and analytical tables remain separately owned and queryable.
    projects to 9.14 GB staged; it remains download-disabled until the loader can
    join geographic headers and segmented files with `LOGRECNO`. It is not an
    ACS-compatible table loader.
-5. **TIGER/Line**: geography layer packages by vintage. These load into spatial
-   staging and `core.geography_boundary`, never measurement facts.
+5. **TIGER/Line** (cataloged and previewable for 2020 national core layers):
+   geography layer packages by vintage. These load into spatial staging and
+   `core.geography_boundary`, never measurement facts. Tract, block-group, and
+   block packages remain deliberately separate, rather than hidden inside a
+   monolithic national download.
 
 ## CBP first-milestone acceptance criteria
 

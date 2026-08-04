@@ -689,6 +689,7 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
             from .ingestion.cbp_bulk import write_cbp_bulk_plan
             from .ingestion.dhc_bulk import write_dhc_bulk_plan
             from .ingestion.pep_bulk import write_pep_bulk_plan
+            from .ingestion.tiger_bulk import write_tiger_bulk_plan
             try:
                 selected = basket(basket_name)
                 datasets = {item["dataset_id"] for item in selected}
@@ -701,6 +702,9 @@ def launch(dataset_id: str = "census.acs_5", basket_name: str = "default", year:
                 elif datasets == {"census.decennial"}:
                     path = write_dhc_bulk_plan(basket_name, selected)
                     command = "dhc-bulk-preview"
+                elif datasets == {"census.tiger"}:
+                    path = write_tiger_bulk_plan(basket_name, selected)
+                    command = "tiger-bulk-preview"
                 else:
                     path = write_acs5_bulk_plan(basket_name, selected)
                     command = "acs-bulk-preview"

@@ -162,3 +162,13 @@ def sync_dhc_bulk_packages() -> int:
           ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""", ("2020 Decennial DHC — complete national archive", "Official 2020 Demographic and Housing Characteristics archive. Geographic headers and segmented records remain source-shaped until an explicit LOGRECNO-aware loader is approved.", Jsonb({"package": "complete_national_dhc", "url": DHC_2020_URL})))
         conn.commit()
     return 1
+
+
+def sync_tiger_bulk_packages() -> int:
+    """Publish a small, complete national boundary package for one TIGER vintage."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("""INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
+          VALUES ('census.tiger', 'national:2020:core-boundaries', 'National core boundary layers', %s, %s, 2020, %s)
+          ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""", ("2020 TIGER/Line — national core boundary layers", "Official nationwide state, county, CBSA, and ZCTA boundary archives. State-partitioned tract, block-group, and block layers stay separate to keep package sizes and scope clear.", Jsonb({"package": "national_core_boundaries", "base_url": "https://www2.census.gov/geo/tiger/TIGER2020"})))
+        conn.commit()
+    return 1
