@@ -24,10 +24,17 @@ source event watermarks, storage reserve, and approval state in
 result is `approval_required`: snapshot acquisition, source access, promotion,
 and scheduling remain deliberately unapproved.
 
-### Current measured blockers
+### Current measured state
 
-- `openstatesvotes` remains disabled with `approval: pending`; no new provider
-  snapshot may be downloaded, staged, restored, or mapped through the FDW.
+- The user-approved July 2026 monthly export was acquired at
+  `raw/openstates/dump/openstates/2026-07-public.pgdump` (10,711,908,617
+  bytes; SHA-256 `e4b8eb6d40d2da768074dab29bbf0d6949b8f24a50d75c5807669edcee5af78c`).
+  Its immutable manifest and read-only validation report are under
+  `meta/plan/openstates/`; validation found 41 archive tables including all
+  required vote relations.
+- The snapshot remains un-restored and is not exposed through the FDW. Restore,
+  remapping, canonical loading, promotion, and scheduling remain separately
+  gated.
 - The current 119th source baseline is internally reconciled at 739 events and
   739 canonical roll calls, but its latest source-event watermark is
   2026-06-30 and therefore does not prove current 119th completeness.
