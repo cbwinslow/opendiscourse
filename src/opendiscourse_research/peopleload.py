@@ -18,17 +18,30 @@ from .repositories.legislation import (
 )
 
 
-def load_openstates_votes(congress: int, limit: int = 1) -> dict[str, Any]:
-    """Load a bounded congressional vote batch from the OpenStates snapshot."""
+def load_openstates_votes(congress: int, limit: int = 1, page_size: int = 25) -> dict[str, Any]:
+    """Load a bounded congressional vote batch in committed keyset pages."""
+    if limit < 1 or page_size < 1:
+        raise ValueError("limit and page_size must be positive")
     with IngestionRun("openstates.legislation", {"congress": congress, "limit": limit, "role": "vote_backfill"}, mode="backfill") as run:
         assert run.conn is not None
         artifact = register_artifact("openstates.legislation", "openstates_source://opencivicdata_voteevent", "openstates_source.opencivicdata_voteevent", f"federal-votes-{congress}", status="loaded", metadata={"congress": congress}, conn=run.conn)
-        counts = persist_openstates_votes(congress, limit, str(artifact["artifact_id"]), run.conn)
-        run.record_count = counts["roll_calls"]
+        counts = {"roll_calls": 0, "member_votes": 0, "unresolved_people": 0}
+        remaining, cursor, pages = limit, None, 0
+        while remaining:
+            page = persist_openstates_votes(congress, min(page_size, remaining), str(artifact["artifact_id"]), run.conn, cursor)
+            if not page["roll_calls"]:
+                break
+            pages += 1
+            cursor = page["last_ocd_id"]
+            remaining -= page["roll_calls"]
+            for key in counts:
+                counts[key] += page[key]
+            run.record_count = counts["roll_calls"]
+            run.conn.commit()
         if congress >= 119:
             run.mark_partial()
         run.conn.commit()
-    return {**counts, "coverage": "partial" if congress >= 119 else "complete"}
+    return {**counts, "pages": pages, "next_cursor": cursor, "coverage": "partial" if congress >= 119 else "complete"}
 
 
 def load_openstates_federal_people() -> dict[str, Any]:
