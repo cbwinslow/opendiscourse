@@ -78,7 +78,7 @@ def build_acs5_bulk_plan(basket_name: str, resources: list[dict[str, Any]]) -> d
         "artifacts": artifacts,
         "storage": {"state": "unpreviewed", "stage_multiplier": 1.0, "database_multiplier": 1.5, "reserve_gib": 100},
         "provenance": {"source_format_documentation": "https://www.census.gov/programs-surveys/acs/data/summary-file.html", "note": "Each selected Detailed Table file contains estimates and margins of error; checksums and byte sizes are captured only during preflight/download."},
-        "next": ["Run `research-db ingest acs-bulk-preview --plan <path>` to resolve byte sizes and storage requirements.", "Review every artifact and select canonical geography filters before changing this plan from draft.", "A future loader must retain artifacts and provenance before inserting canonical measurements."],
+        "next": ["Run `research-db ingest acs-bulk-preview --plan <path>` to resolve byte sizes and storage requirements.", "Review every artifact and select canonical geography filters before changing this plan from draft.", "After download, run `acs-bulk-stage`, then `acs-bulk-load`; both retain immutable artifact lineage."],
     }
 
 
@@ -99,7 +99,7 @@ def _full_package_plan(basket_name: str, years: list[int]) -> dict[str, Any]:
         "artifacts": artifacts,
         "storage": {"state": "unpreviewed", "stage_multiplier": 1.0, "database_multiplier": 1.5, "reserve_gib": 100},
         "provenance": {"source_format_documentation": "https://www.census.gov/programs-surveys/acs/data/summary-file.html", "note": "Complete release package; checksums and byte sizes are captured only during preflight/download."},
-        "next": ["Run `research-db ingest acs-bulk-preview --plan <path>` to resolve byte sizes and storage requirements.", "Review every artifact and select canonical geography filters before changing this plan from draft.", "A future loader must retain artifacts and provenance before inserting canonical measurements."],
+        "next": ["Run `research-db ingest acs-bulk-preview --plan <path>` to resolve byte sizes and storage requirements.", "Review every artifact and select canonical geography filters before changing this plan from draft.", "Complete release packages are preview/download-only until a dedicated archive loader is approved."],
     }
 
 
@@ -116,7 +116,7 @@ def write_acs5_bulk_plan(basket_name: str, resources: list[dict[str, Any]]) -> P
 def preview_acs5_bulk_plan(path: Path, update: Callable[[str], None] | None = None) -> dict[str, Any]:
     """Measure every planned source file and write a non-mutating preview report."""
     plan = yaml.safe_load(path.read_text()) or {}
-    if plan.get("dataset") != "census.acs_5" or plan.get("format") != "ACS table-based summary file":
+    if plan.get("dataset") != "census.acs_5_bulk" or plan.get("format") != "ACS table-based summary file":
         raise ValueError(f"{path} is not an ACS 5-year table-based bulk plan")
     artifacts = plan.get("artifacts", [])
     if not artifacts:

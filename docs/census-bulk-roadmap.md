@@ -60,6 +60,30 @@ tables, and analytical tables remain separately owned and queryable.
    Tract, block-group, and block packages remain deliberately separate, rather
    than hidden inside a monolithic national download.
 
+## ACS Housing Core checkpoint
+
+The first production ACS package is the 2024 5-year `Housing Core` selection:
+`B25001`, `B25002`, `B25003`, `B25004`, `B25010`, `B25064`, and `B25077`.
+Its reviewed preflight measured nine official artifacts (the seven tables plus
+geography and table-shell evidence) at 263,760,889 bytes. The explicit
+state/county approval staged 26,775 source rows and loaded 153,000 typed
+estimate/MOE facts. All raw files retain SHA-256 checksums; every fact retains
+its Detailed Table artifact and source row ordinal. `research-db census-health`
+reports this package and the broader Census families as `healthy`.
+
+An analyst can start with total housing units (`B25001_E001`) like this:
+
+```sql
+SELECT geography.geography_type, geography.geoid, estimate.value AS housing_units
+FROM fact.acs_bulk_estimate AS estimate
+JOIN core.geography AS geography USING (geography_id)
+WHERE estimate.release_year = 2024
+  AND estimate.table_id = 'B25001'
+  AND estimate.field_id = 'B25001_E001'
+  AND estimate.measure = 'estimate'
+ORDER BY geography.geography_type, geography.geoid;
+```
+
 ## CBP first-milestone acceptance criteria
 
 - Browser exposes a single named 2023 CBP complete package and its component
@@ -179,9 +203,10 @@ OPENDISCOURSE_TEST_DATABASE_URL='postgresql:///opendiscourse_test?port=5434' \
   uv run --extra ingest --extra spatial python -m unittest tests.test_census_bulk_integration -v
 ```
 
-Those integration tests generate a minimal CBP ZIP and PEP CSV locally, run
-the real stage/load functions twice, and assert that artifact-linked fact rows
-are not duplicated. They never contact Census or use production artifacts.
+Those integration tests generate minimal ACS, CBP, PEP, DHC, and TIGER source
+fixtures locally, run the real stage/load functions twice, and assert that
+artifact-linked fact rows are not duplicated. They never contact Census or use
+production artifacts.
 
 After a real bulk lifecycle, verify lineage and idempotent coverage in the
 database. Counts will grow as additional approved scopes are loaded; every

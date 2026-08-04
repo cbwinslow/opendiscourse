@@ -5,12 +5,15 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 import yaml
 
 from opendiscourse_research.ingestion.bulk import advance_plan, approve_plan
 from opendiscourse_research.ingestion.cbp_bulk import build_cbp_bulk_plan
 from opendiscourse_research.ingestion.acs_bulk import build_acs5_bulk_plan
+from opendiscourse_research.ingestion.acs_bulk import preview_acs5_bulk_plan
+from opendiscourse_research.capacity import RemoteObject
 from opendiscourse_research.ingestion.dhc_bulk import build_dhc_bulk_plan
 from opendiscourse_research.ingestion.dhc_load import _matrix, _scope as dhc_scope
 from opendiscourse_research.ingestion.acs_load import _geo_id as acs_geo_id, _numeric as acs_numeric, _scope as acs_scope
@@ -41,6 +44,21 @@ class TestCensusBulkPlans(unittest.TestCase):
         )
         self.assertEqual(plan["dataset"], "census.acs_5_bulk")
         self.assertEqual(plan["artifacts"][-1]["artifact_key"], "acs5-2024-b25001")
+        self.assertIn("acs-bulk-stage", plan["next"][-1])
+
+    def test_acs_bulk_dataset_plan_passes_preflight_contract_check(self) -> None:
+        plan = build_acs5_bulk_plan(
+            "test", [resource("census.acs_5", "2024:B25001", "Detailed Table")]
+        )
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "acs.yaml"
+            path.write_text(yaml.safe_dump(plan, sort_keys=False))
+            with patch(
+                "opendiscourse_research.ingestion.acs_bulk.remote_size",
+                return_value=RemoteObject("https://example.test/acs", 1),
+            ):
+                report = preview_acs5_bulk_plan(path)
+        self.assertTrue(report["approved"])
 
     def test_cbp_plan_contains_complete_release_and_rejects_mixed_years(self) -> None:
         selected = [resource("census.business_patterns", "full:2023", "Complete CSV bundle")]
