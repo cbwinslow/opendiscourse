@@ -162,3 +162,16 @@ def download_plan(path: Path, update: Callable[[str], None] | None = None) -> di
     temp.write_text(yaml.safe_dump(plan, sort_keys=False))
     temp.replace(path)
     return {"state": "downloaded", "plan": str(path), "artifact_count": len(downloaded), "paths": downloaded}
+
+
+def advance_plan(path: Path, expected_state: str, next_state: str, details_key: str, details: dict[str, Any]) -> dict[str, Any]:
+    """Atomically record one completed bulk lifecycle phase in its plan."""
+    plan = yaml.safe_load(path.read_text()) or {}
+    if plan.get("state") != expected_state:
+        raise ValueError(f"Plan must be {expected_state!r}, found {plan.get('state')!r}")
+    plan["state"] = next_state
+    plan[details_key] = {"completed_at": datetime.now(timezone.utc).isoformat(), **details}
+    temp = path.with_suffix(".yaml.part")
+    temp.write_text(yaml.safe_dump(plan, sort_keys=False))
+    temp.replace(path)
+    return plan

@@ -32,7 +32,7 @@ from .ingestion.census import (
     search_acs_tables,
 )
 from .ingestion.congress import ingest_bill
-from .ingestion.bulk import ArtifactSpec, approve_plan, download_plan, register_local
+from .ingestion.bulk import ArtifactSpec, advance_plan, approve_plan, download_plan, register_local
 from .ingestion.fred import ingest_manifest, ingest_series
 from .ingestion.openstates import download_monthly_dump
 from .ingestion.treasury import ingest_yield_curve
@@ -724,6 +724,7 @@ def cbp_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) 
     payload = yaml.safe_load(plan.read_text()) or {}
     with render_spinner("Staging CBP source rows") as update:
         count = stage_cbp(payload, update)
+    advance_plan(plan, "downloaded", "staged", "staging", {"row_count": count})
     typer.echo(f"Staged {count} CBP source rows.")
 
 
@@ -734,6 +735,7 @@ def cbp_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -
     payload = yaml.safe_load(plan.read_text()) or {}
     with render_spinner("Loading CBP business facts") as update:
         count = load_cbp(payload, update)
+    advance_plan(plan, "staged", "loaded", "load", {"fact_count": count})
     typer.echo(f"Loaded {count} CBP business facts.")
 
 
