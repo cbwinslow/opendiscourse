@@ -137,6 +137,18 @@ cannot mix releases/vintages, approval cannot bypass a successful preview,
 unsupported canonical scopes fail before a load, and table-matrix offsets do
 not shift when an earlier DHC table is not selected.
 
+For database stage/load idempotence, use a disposable PostgreSQL database; the
+test refuses to run unless its URL is explicitly supplied:
+
+```bash
+OPENDISCOURSE_TEST_DATABASE_URL='postgresql:///opendiscourse_test?port=5434' \
+  uv run --extra ingest python -m unittest tests.test_census_bulk_integration -v
+```
+
+Those integration tests generate a minimal CBP ZIP and PEP CSV locally, run
+the real stage/load functions twice, and assert that artifact-linked fact rows
+are not duplicated. They never contact Census or use production artifacts.
+
 After a real bulk lifecycle, verify lineage and idempotent coverage in the
 database. Counts will grow as additional approved scopes are loaded; every
 canonical row must remain linked to an artifact:
