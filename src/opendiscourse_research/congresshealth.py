@@ -12,15 +12,59 @@ from .repositories.legislation import _query
 from .votereconcile import reconcile_openstates_votes
 
 
+def billstatus_coverage(
+    validation: dict[str, Any] | None,
+    reconciliation: dict[str, Any] | None,
+    latest_runs: list[dict[str, Any]],
+) -> str:
+    """Classify BILLSTATUS coverage from validation, reconciliation, and run evidence."""
+    comparisons = [
+        item
+        for item in (validation or {}).get("official_comparison", [])
+        if item.get("congress") == 119
+    ]
+    validated = bool(comparisons) and all(
+        item.get("archive_matches_official") is True for item in comparisons
+    )
+    reconciled = (
+        (reconciliation or {}).get("congress") == 119
+        and (reconciliation or {}).get("summary", {}).get("canonical_bill_missing") == 0
+        and not (reconciliation or {}).get("malformed")
+    )
+    loaded = any(
+        run.get("dataset_id") == "congress.govinfo_billstatus"
+        and run.get("status") == "succeeded"
+        and run.get("parameters", {}).get("congress") == 119
+        and run.get("parameters", {}).get("coverage") == "complete"
+        for run in latest_runs
+    )
+    return "complete" if validated and reconciled and loaded else "partial"
+
+
 def congressional_health() -> dict[str, Any]:
     """Return and persist one source-aware congressional ingestion health report."""
     with connect() as conn, conn.cursor() as cur:
         cur.execute(_query("congress_health"))
         health = cur.fetchone()["health"]
+    meta_root = Path(settings.data_root).expanduser().resolve().parent / "meta"
+    validation_path = meta_root / "validate" / "billstatus" / "latest.json"
+    reconciliation_path = meta_root / "reconcile" / "billstatus" / "119.json"
+    validation = json.loads(validation_path.read_text()) if validation_path.is_file() else None
+    reconciliation = (
+        json.loads(reconciliation_path.read_text()) if reconciliation_path.is_file() else None
+    )
     result: dict[str, Any] = {
         "schema": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "coverage": {"118": "complete", "119": "partial"},
+        "coverage": {
+            "bills": {
+                "118": "complete",
+                "119": billstatus_coverage(validation, reconciliation, health["latest_runs"]),
+            },
+            "people": {"federal": "complete" if health["unresolved_sponsorships"] == 0 else "partial"},
+            "organizations": {"federal": "complete"},
+            "votes": {"118": "complete", "119": "partial"},
+        },
         "canonical": health,
         "vote_reconciliation": {"118": reconcile_openstates_votes(118), "119": reconcile_openstates_votes(119)},
     }
@@ -37,7 +81,7 @@ def congressional_health() -> dict[str, Any]:
         if result["stale_runs"]
         else "healthy"
     )
-    target = Path(settings.data_root).expanduser().resolve().parent / "meta" / "health" / "congressional.json"
+    target = meta_root / "health" / "congressional.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(result, indent=2, sort_keys=True, default=str) + "\n")
     result["report"] = str(target)

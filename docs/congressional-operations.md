@@ -22,9 +22,9 @@ bounded smoke or repair batch. The loader uses committed keyset pages and is
 idempotent. For the current Congress, use the same command with `--congress
 119`; every resulting run is explicitly `partial`.
 
-Run `research-db load-billstatus --congress 118` only against the validated
-complete local archive. The loader records artifact lineage and resumes by
-skipping already-loaded archives and XML members.
+Run `research-db load-billstatus --congress 118` or `--congress 119` only
+against a validated complete local archive. The loader records artifact lineage
+and resumes by skipping already-loaded archives and XML members.
 
 ## Identity exceptions
 
@@ -35,8 +35,10 @@ re-resolves related sponsorships. Do not use name matching.
 
 ## 119th GovInfo promotion gate
 
-The 119th BILLSTATUS contract remains disabled. Do not download or promote it
-until all of the following are reviewed and approved in the same change:
+The 119th BILLSTATUS promotion completed on 2026-08-04: all eight archives
+match GovInfo's official inventory, and reconciliation found 18,052 canonical
+bill matches with zero missing or malformed XML members. Future refreshes still
+require all of the following gates:
 
 1. Official missing-file manifest and capacity preview.
 2. Downloaded files validated against the official listing.

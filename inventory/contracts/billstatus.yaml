@@ -30,16 +30,16 @@ contracts:
     target: core.bill
     cadence: daily
     enabled: true
-    approval: approved_missing_file_backfill
+    approval: approved_complete_backfill
     selection:
       collection: BILLSTATUS
       congress: 119
-      scope: official_missing_only
+      scope: validated_local_complete
     storage:
       stage_multiplier: 1.0
       database_multiplier: 1.5
       reserve_gib: 100
     notes: >-
-      User-approved 2026-08-04 after review of the official 2,831-file missing
-      manifest and sufficient capacity preview. Validate, reconcile, and retain
-      partial coverage until the completed local cache passes promotion gates.
+      Promoted 2026-08-04 after the approved official 2,831-file backfill,
+      archive-to-listing validation, and 119th reconciliation: 18,052 XML
+      bills, zero malformed identities, and zero missing canonical bill keys.

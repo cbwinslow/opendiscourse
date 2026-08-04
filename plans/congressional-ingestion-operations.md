@@ -13,6 +13,7 @@ tables or promoting incomplete coverage as complete.
 | Entity | Scope | Verified state | Evidence |
 |---|---:|---:|---|
 | Bills | 118th Congress | 19,315 canonical bills | Complete GovInfo BILLSTATUS reconciliation |
+| Bills | 119th Congress | 18,052 canonical bills | Complete GovInfo inventory validation and BILLSTATUS reconciliation |
 | People | Federal baseline | 723 people / 9,115 identifiers | OpenStates snapshot load |
 | Organizations | Federal baseline | 242 organizations | OpenStates snapshot load |
 | Roll calls | 118th Congress | 1,088 canonical roll calls | 1,089 source events collapse to 1,088 unique keys |
@@ -72,8 +73,9 @@ enrichment run, including the reason each remains unresolved.
 
 ### 4. 119th Congress completeness policy
 
-Keep all 119th data explicitly partial until the approved GovInfo missing-file
-backfill is downloaded, validated, reconciled, and loaded.
+Keep each 119th entity explicitly partial until its approved source backfill is
+downloaded, validated, reconciled, and loaded. BILLSTATUS bill coverage may be
+complete while 119th vote coverage remains partial.
 
 Success criteria:
 
