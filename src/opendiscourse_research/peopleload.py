@@ -25,8 +25,10 @@ def load_openstates_votes(congress: int, limit: int = 1) -> dict[str, Any]:
         artifact = register_artifact("openstates.legislation", "openstates_source://opencivicdata_voteevent", "openstates_source.opencivicdata_voteevent", f"federal-votes-{congress}", status="loaded", metadata={"congress": congress}, conn=run.conn)
         counts = persist_openstates_votes(congress, limit, str(artifact["artifact_id"]), run.conn)
         run.record_count = counts["roll_calls"]
+        if congress >= 119:
+            run.mark_partial()
         run.conn.commit()
-    return counts
+    return {**counts, "coverage": "partial" if congress >= 119 else "complete"}
 
 
 def load_openstates_federal_people() -> dict[str, Any]:
