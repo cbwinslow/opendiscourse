@@ -138,6 +138,10 @@ Success measures:
   not assumed.
 - A failed restore leaves the prior source FDW mapping usable.
 
+Implementation: `research-db validate-openstates-stage --database <stage_db>`
+performs the post-restore read-only table, count, identifier, watermark,
+person-vote, and extension checks before an FDW mapping change is considered.
+
 ### 4. Canonical vote refresh with safe resume
 
 1. Run a bounded smoke load for 119th votes using the existing keyset cursor

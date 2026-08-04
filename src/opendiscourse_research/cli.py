@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import json
 import subprocess
+import psycopg
 import typer
 import yaml
 
@@ -68,6 +69,7 @@ from .peopleload import (
 )
 from .openstatesrefresh import dry_run_openstates_vote_refresh
 from .openstatessnapshot import validate_snapshot_artifact, write_snapshot_manifest
+from .openstatesstage import validate_openstates_stage
 from .identityexceptions import unresolved_congressional_identities
 
 app = typer.Typer(help="Research database setup and ingestion commands.")
@@ -565,6 +567,19 @@ def create_openstates_snapshot_manifest_command(
     except (FileNotFoundError, ValueError) as exc:
         raise typer.BadParameter(str(exc)) from None
     typer.echo(target)
+
+
+@app.command("validate-openstates-stage")
+def validate_openstates_stage_command(
+    database: str = typer.Option(..., help="Isolated provider staging database name."),
+) -> None:
+    """Validate a restored OpenStates staging database without remapping the FDW."""
+    try:
+        with render_spinner("Validating restored OpenStates staging database"):
+            result = validate_openstates_stage(database)
+    except (ValueError, psycopg.Error) as exc:
+        raise typer.BadParameter(str(exc)) from None
+    typer.echo(json.dumps(result, indent=2, sort_keys=True, default=str))
 
 
 @app.command("congress-health")

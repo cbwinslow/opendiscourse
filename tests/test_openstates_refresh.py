@@ -23,6 +23,7 @@ from opendiscourse_research.openstatessnapshot import (
 )
 from opendiscourse_research.peopleload import load_openstates_votes
 from opendiscourse_research.identityexceptions import unresolved_congressional_identities
+from opendiscourse_research.openstatesstage import build_stage_validation
 
 
 def contract() -> dict:
@@ -230,3 +231,45 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
             "6343; 0 18235 TABLE DATA public opencivicdata_voteevent openstates\n"
         )
         self.assertEqual(tables, {"public.opencivicdata_voteevent"})
+
+    def test_stage_validation_requires_every_vote_relation_and_population(self) -> None:
+        result = build_stage_validation(
+            "openstates_stage_202607",
+            {
+                "public.opencivicdata_legislativesession",
+                "public.opencivicdata_voteevent",
+                "public.opencivicdata_personvote",
+            },
+            [
+                {
+                    "congress": "118",
+                    "source_events": 1,
+                    "source_keys": 1,
+                    "source_person_votes": 1,
+                },
+                {
+                    "congress": "119",
+                    "source_events": 1,
+                    "source_keys": 1,
+                    "source_person_votes": 1,
+                }
+            ],
+            ["postgis"],
+        )
+        self.assertTrue(result["valid"])
+        self.assertEqual(result["missing_congresses"], [])
+        missing_congress = build_stage_validation(
+            "openstates_stage_202607",
+            {
+                "public.opencivicdata_legislativesession",
+                "public.opencivicdata_voteevent",
+                "public.opencivicdata_personvote",
+            },
+            [{"congress": "119", "source_events": 1, "source_keys": 1, "source_person_votes": 1}],
+            ["postgis"],
+        )
+        self.assertFalse(missing_congress["valid"])
+        self.assertEqual(missing_congress["missing_congresses"], ["118"])
+        incomplete = build_stage_validation("openstates_stage_202607", set(), [], [])
+        self.assertFalse(incomplete["valid"])
+        self.assertIn("public.opencivicdata_voteevent", incomplete["missing_required_tables"])

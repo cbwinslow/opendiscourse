@@ -60,6 +60,12 @@ fill it with the exact artifact path, bytes, and SHA-256, then run
 `research-db validate-openstates-snapshot --manifest <path>`. This inspects the
 pg_dump directory only; it does not restore, register, or map the snapshot.
 
+After an isolated restore completes, run
+`research-db validate-openstates-stage --database <stage_db>`. It uses a
+read-only transaction to check required relations, 118th/119th vote counts,
+unique vote identifiers, source watermarks, person-vote totals, and extensions
+before an FDW remap is considered.
+
 ## Identity exceptions
 
 Run `research-db report-congressional-identity-exceptions` before and after an
