@@ -42,3 +42,12 @@ def congressional_health() -> dict[str, Any]:
     target.write_text(json.dumps(result, indent=2, sort_keys=True, default=str) + "\n")
     result["report"] = str(target)
     return result
+
+
+def recover_stale_congressional_runs(older_than: str = "6 hours") -> list[dict[str, Any]]:
+    """Mark long-abandoned congressional runs failed with explicit recovery evidence."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(_query("fail_stale_runs"), {"older_than": older_than})
+        rows = [dict(row) for row in cur.fetchall()]
+        conn.commit()
+    return rows

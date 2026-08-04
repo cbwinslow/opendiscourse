@@ -48,7 +48,7 @@ from .legvalidate import validate_billstatus
 from .govplan import plan_billstatus_backfill
 from .legreconcile import reconcile_billstatus
 from .legload import load_billstatus
-from .congresshealth import congressional_health
+from .congresshealth import congressional_health, recover_stale_congressional_runs
 from .votereconcile import reconcile_openstates_votes
 from .peopleload import (
     load_openstates_federal_organizations,
@@ -508,6 +508,14 @@ def load_openstates_votes_command(
 def congress_health_command() -> None:
     """Write one read-only source-aware congressional ingestion health report."""
     typer.echo(json.dumps(congressional_health(), indent=2, sort_keys=True, default=str))
+
+
+@app.command("recover-stale-congress-runs")
+def recover_stale_congress_runs_command(
+    older_than: str = typer.Option("6 hours", help="PostgreSQL interval threshold."),
+) -> None:
+    """Mark abandoned congressional runs failed with an explicit recovery reason."""
+    typer.echo(json.dumps(recover_stale_congressional_runs(older_than), indent=2, default=str))
 
 
 @catalog_app.command("browse", hidden=True)
