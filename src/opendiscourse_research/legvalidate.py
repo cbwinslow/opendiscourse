@@ -146,6 +146,16 @@ def validate_billstatus(
             for congress in official_congresses
             for comparison in _official_compare(groups, congress, report)
         ]
+        archive_by_key = {
+            (group["congress"], group["bill_type"]): group
+            for group in groups
+        }
+        for comparison in result["official_comparison"]:
+            archive = archive_by_key.get((comparison["congress"], comparison["bill_type"]), {})
+            comparison["archive_matches_official"] = (
+                comparison.get("matches_official") is True
+                and archive.get("listing_matches_archive") is True
+            )
     output = _output()
     output.mkdir(parents=True, exist_ok=True)
     target = output / "latest.json"

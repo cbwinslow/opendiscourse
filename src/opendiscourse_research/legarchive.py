@@ -22,7 +22,11 @@ def billstatus_groups(congress: int, *, allow_partial: bool = False) -> list[dic
     }
     if not comparisons:
         raise ValueError(f"No official BILLSTATUS validation is available for Congress {congress}")
-    incomplete = [kind for kind, item in comparisons.items() if item.get("matches_official") is not True]
+    incomplete = [
+        kind
+        for kind, item in comparisons.items()
+        if item.get("archive_matches_official") is not True
+    ]
     if incomplete and not allow_partial:
         raise ValueError(
             f"Congress {congress} cache is partial ({', '.join(sorted(incomplete))}); pass --allow-partial to proceed"

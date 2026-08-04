@@ -49,7 +49,7 @@ def load_billstatus(
 
     groups = billstatus_groups(congress, allow_partial=allow_partial)
 
-    is_partial = any(g.get("coverage") == "partial" for g in groups) or congress >= 119
+    is_partial = any(g.get("coverage") == "partial" for g in groups)
     coverage = "partial" if is_partial else "complete"
 
     total_processed = 0
