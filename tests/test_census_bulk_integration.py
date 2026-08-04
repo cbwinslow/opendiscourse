@@ -16,7 +16,9 @@ from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.db import apply_migrations, connect
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion.cbp_load import load_cbp, stage_cbp
+from opendiscourse_research.ingestion.dhc_load import load_dhc, stage_dhc
 from opendiscourse_research.ingestion.pep_load import load_pep, stage_pep
+from opendiscourse_research.ingestion.tiger_load import load_tiger, stage_tiger
 
 
 TEST_DATABASE_URL = __import__("os").environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
@@ -53,8 +55,12 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
             if row:
                 cur.execute("DELETE FROM fact.business_pattern WHERE source_artifact_id=%s", (row["artifact_id"],))
                 cur.execute("DELETE FROM fact.population_estimate WHERE source_artifact_id=%s", (row["artifact_id"],))
+                cur.execute("DELETE FROM fact.decennial_dhc_value WHERE source_artifact_id=%s", (row["artifact_id"],))
+                cur.execute("DELETE FROM core.geography_boundary WHERE source_artifact_id=%s", (row["artifact_id"],))
                 cur.execute("DELETE FROM stage.cbp_row WHERE artifact_id=%s", (row["artifact_id"],))
                 cur.execute("DELETE FROM stage.pep_row WHERE artifact_id=%s", (row["artifact_id"],))
+                cur.execute("DELETE FROM stage.dhc_geo_row WHERE artifact_id=%s", (row["artifact_id"],))
+                cur.execute("DELETE FROM stage.tiger_feature WHERE artifact_id=%s", (row["artifact_id"],))
                 cur.execute("DELETE FROM ingest.artifact WHERE artifact_id=%s", (row["artifact_id"],))
             cur.execute("DELETE FROM core.geography WHERE geography_type='state' AND geoid='99'")
             conn.commit()
@@ -92,4 +98,59 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
         with connect() as conn, conn.cursor() as cur:
             cur.execute("SELECT count(*) FROM fact.population_estimate WHERE source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s)", (key,))
             self.assertEqual(cur.fetchone()["count"], 6)
+        self._remove_artifact(key)
+
+    def test_dhc_generated_geo_segments_and_matrix_load_idempotently(self) -> None:
+        archive_key, matrix_key = "dhc-2020-national", "dhc-2020-table-matrix"
+        self._remove_artifact(archive_key); self._remove_artifact(matrix_key)
+        archive_path = Path(self.temp.name) / "dhc.zip"
+        geo = ["DHCST", "ZZ", "040", "00", "00", "000", "00", "0000001", "0400000US99"]
+        segment_1 = ["DHCST", "ZZ", "000", "01", "0000001", "17"]
+        segment_5 = ["DHCST", "ZZ", "000", "05", "0000001", "23"]
+        with ZipFile(archive_path, "w") as archive:
+            archive.writestr("usgeo2020.dhc", "|".join(geo) + "\n")
+            archive.writestr("us000012020.dhc", "|".join(segment_1) + "\n")
+            archive.writestr("us000052020.dhc", "|".join(segment_5) + "\n")
+        matrix_path = Path(self.temp.name) / "matrix.xlsx"
+        import openpyxl
+        book = openpyxl.Workbook(); sheet = book.active; sheet.title = "DHC Table Matrix"
+        sheet.append(["title"] * 4); sheet.append(["headers"] * 4)
+        sheet.append([None, "H1", "H0010001", 1]); sheet.append([None, "P1", "P0010001", 5])
+        book.save(matrix_path)
+        self._register("census.decennial", archive_key, archive_path)
+        self._register("census.decennial", matrix_key, matrix_path)
+        plan = {"state": "downloaded", "canonical_load_scope": {"summary_levels": ["040"], "tables": ["H1", "P1"]}}
+        self.assertEqual(stage_dhc(plan), 1)
+        plan["state"] = "staged"
+        self.assertEqual(load_dhc(plan), 2)
+        load_dhc(plan)
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT table_id,value FROM fact.decennial_dhc_value WHERE source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s) ORDER BY table_id", (archive_key,))
+            self.assertEqual(cur.fetchall(), [{"table_id": "H1", "value": 17}, {"table_id": "P1", "value": 23}])
+        self._remove_artifact(archive_key); self._remove_artifact(matrix_key)
+
+    def test_tiger_generated_shapefile_stages_and_loads_idempotently(self) -> None:
+        try:
+            import geopandas
+            from shapely.geometry import Polygon
+        except ImportError:
+            self.skipTest("TIGER integration requires the spatial extra")
+        key = "integration-tiger-state"
+        self._remove_artifact(key)
+        source = Path(self.temp.name) / "state.shp"
+        frame = geopandas.GeoDataFrame({"GEOID": ["99"], "NAME": ["Integration State"], "STATEFP": ["99"]}, geometry=[Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])], crs="EPSG:4269")
+        frame.to_file(source, driver="ESRI Shapefile")
+        archive_path = Path(self.temp.name) / "state.zip"
+        with ZipFile(archive_path, "w") as archive:
+            for member in source.parent.glob("state.*"):
+                archive.write(member, member.name)
+        self._register("census.tiger", key, archive_path)
+        plan = {"state": "downloaded", "selection": {"boundary_vintage": 2020}, "canonical_load_scope": {"layers": ["state"]}, "artifacts": [{"artifact_key": key, "kind": "state"}]}
+        self.assertEqual(stage_tiger(plan), 1)
+        plan["state"] = "staged"
+        self.assertEqual(load_tiger(plan), 1)
+        load_tiger(plan)
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM core.geography_boundary boundary JOIN core.geography geography USING (geography_id) WHERE geography.geography_type='state' AND geography.geoid='99' AND boundary.boundary_vintage=2020 AND boundary.source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s)", (key,))
+            self.assertEqual(cur.fetchone()["count"], 1)
         self._remove_artifact(key)

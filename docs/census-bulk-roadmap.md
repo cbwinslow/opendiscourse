@@ -142,7 +142,7 @@ test refuses to run unless its URL is explicitly supplied:
 
 ```bash
 OPENDISCOURSE_TEST_DATABASE_URL='postgresql:///opendiscourse_test?port=5434' \
-  uv run --extra ingest python -m unittest tests.test_census_bulk_integration -v
+  uv run --extra ingest --extra spatial python -m unittest tests.test_census_bulk_integration -v
 ```
 
 Those integration tests generate a minimal CBP ZIP and PEP CSV locally, run
