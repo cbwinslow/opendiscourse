@@ -24,6 +24,17 @@ source event watermarks, storage reserve, and approval state in
 result is `approval_required`: snapshot acquisition, source access, promotion,
 and scheduling remain deliberately unapproved.
 
+### Current measured blockers
+
+- `openstatesvotes` remains disabled with `approval: pending`; no new provider
+  snapshot may be downloaded, staged, restored, or mapped through the FDW.
+- The current 119th source baseline is internally reconciled at 739 events and
+  739 canonical roll calls, but its latest source-event watermark is
+  2026-06-30 and therefore does not prove current 119th completeness.
+- The bounded resume drill recorded 100 voter references with no OpenStates
+  voter ID. They are retained as `missing_ocd_voter_id` exceptions and must not
+  be name-matched or silently discarded.
+
 ## Desired outcome
 
 Maintain OpenStates as the bill/person/vote reference baseline while producing
