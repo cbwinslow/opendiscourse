@@ -31,7 +31,7 @@ from .ingestion.census import (
     search_acs_tables,
 )
 from .ingestion.congress import ingest_bill
-from .ingestion.bulk import ArtifactSpec, register_local
+from .ingestion.bulk import ArtifactSpec, approve_plan, download_plan, register_local
 from .ingestion.fred import ingest_manifest, ingest_series
 from .ingestion.openstates import download_monthly_dump
 from .ingestion.treasury import ingest_yield_curve
@@ -655,6 +655,24 @@ def acs_bulk_preview(
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 
+@ingest_app.command("acs-bulk-approve")
+def acs_bulk_approve(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    geography: list[str] = typer.Option(..., help="Canonical geography types to load; repeat this option."),
+) -> None:
+    """Approve a previewed ACS plan with an explicit canonical geography scope."""
+    typer.echo(json.dumps(approve_plan(plan, {"geography_types": geography}), indent=2, sort_keys=True))
+
+
+@ingest_app.command("acs-bulk-download")
+def acs_bulk_download(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Resumably download an approved ACS plan and register immutable artifacts."""
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_progress("Downloading ACS bulk artifacts", len(payload.get("artifacts", []))) as update:
+        result = download_plan(plan, update)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
 @ingest_app.command("cbp-bulk-plan")
 def cbp_bulk_plan(
     basket: str = typer.Option(
@@ -676,6 +694,26 @@ def cbp_bulk_preview(
     ) as update:
         report = preview_cbp_bulk_plan(plan, update)
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@ingest_app.command("cbp-bulk-approve")
+def cbp_bulk_approve(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    geography: list[str] = typer.Option(..., help="Canonical geography levels to load; repeat this option."),
+    naics_prefix: list[str] = typer.Option([], help="Optional NAICS prefixes to retain; repeat this option."),
+) -> None:
+    """Approve a previewed CBP plan with explicit geography and industry scope."""
+    scope = {"geography_levels": geography, "naics_prefixes": naics_prefix or ["all"]}
+    typer.echo(json.dumps(approve_plan(plan, scope), indent=2, sort_keys=True))
+
+
+@ingest_app.command("cbp-bulk-download")
+def cbp_bulk_download(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Resumably download an approved CBP plan and register immutable artifacts."""
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_progress("Downloading CBP bulk artifacts", len(payload.get("artifacts", []))) as update:
+        result = download_plan(plan, update)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 
 @ingest_app.command("census-search")

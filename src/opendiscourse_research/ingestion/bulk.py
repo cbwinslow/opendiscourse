@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from datetime import datetime, timezone
 from hashlib import sha256
+import json
 from mimetypes import guess_type
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Callable, Iterator
 
 import httpx
 from psycopg.types.json import Jsonb
+import yaml
 
 from ..config import settings
 from ..db import connect
@@ -108,3 +111,53 @@ def register_local(spec: ArtifactSpec, path: Path) -> Path:
         content_type=guess_type(resolved.name)[0],
     )
     return resolved
+
+
+def approve_plan(path: Path, scope: dict[str, Any]) -> dict[str, Any]:
+    """Approve one previewed bulk plan with an explicit canonical load scope."""
+    plan = yaml.safe_load(path.read_text()) or {}
+    if plan.get("state") != "draft":
+        raise ValueError(f"Plan must be in draft state, found {plan.get('state')!r}")
+    preview_path = path.with_suffix(".preview.json")
+    if not preview_path.is_file():
+        raise ValueError(f"No preflight report for {path}; run the matching bulk-preview command first")
+    preview = json.loads(preview_path.read_text())
+    if not preview.get("approved"):
+        raise ValueError(f"Preflight did not approve {path}: {preview.get('reason', 'unknown reason')}")
+    plan["state"] = "approved"
+    plan["canonical_load_scope"] = scope
+    plan["approval"] = {"approved_at": datetime.now(timezone.utc).isoformat(), "preview_report": str(preview_path), "artifact_count": len(plan.get("artifacts", []))}
+    temp = path.with_suffix(".yaml.part")
+    temp.write_text(yaml.safe_dump(plan, sort_keys=False))
+    temp.replace(path)
+    return plan
+
+
+def download_plan(path: Path, update: Callable[[str], None] | None = None) -> dict[str, Any]:
+    """Download every approved plan artifact resumably and register checksums."""
+    plan = yaml.safe_load(path.read_text()) or {}
+    if plan.get("state") != "approved":
+        raise ValueError(f"Plan must be approved before download, found {plan.get('state')!r}")
+    dataset_id = plan.get("dataset")
+    if not isinstance(dataset_id, str):
+        raise ValueError("Plan is missing a dataset ID")
+    artifacts = plan.get("artifacts", [])
+    if not artifacts:
+        raise ValueError("Plan contains no artifacts")
+    downloaded: list[str] = []
+    for artifact in artifacts:
+        key, url, filename = artifact.get("artifact_key"), artifact.get("url"), artifact.get("filename")
+        if not all(isinstance(value, str) and value for value in (key, url, filename)):
+            raise ValueError(f"Invalid artifact entry in {path}: {artifact!r}")
+        if update:
+            update(f"Downloading {key}")
+        year = artifact.get("release_year")
+        scoped_filename = f"{year}/{filename}" if year is not None else filename
+        spec = ArtifactSpec(dataset_id=dataset_id, artifact_key=key, url=url, filename=scoped_filename, metadata={"plan": str(path), "kind": artifact.get("kind"), "release_year": year})
+        downloaded.append(str(download(spec)))
+    plan["state"] = "downloaded"
+    plan["download"] = {"completed_at": datetime.now(timezone.utc).isoformat(), "artifact_count": len(downloaded), "paths": downloaded}
+    temp = path.with_suffix(".yaml.part")
+    temp.write_text(yaml.safe_dump(plan, sort_keys=False))
+    temp.replace(path)
+    return {"state": "downloaded", "plan": str(path), "artifact_count": len(downloaded), "paths": downloaded}
