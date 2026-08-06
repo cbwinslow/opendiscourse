@@ -690,8 +690,19 @@ def plan_due(
         for plan in plans:
             typer.echo(plan["id"])
         return
+    # One plan's failure must not prevent the rest of the due batch from
+    # running -- a systemd timer invoking this daily should not have every
+    # later plan silently skipped because an earlier one hit a transient
+    # provider error.
+    failed_plans: list[str] = []
     for plan in plans:
-        typer.echo(f"{plan['id']}: {run_plan(plan['id'])} records")
+        try:
+            typer.echo(f"{plan['id']}: {run_plan(plan['id'])} records")
+        except Exception as exc:  # noqa: BLE001 -- one bad plan must not abort the batch
+            failed_plans.append(plan["id"])
+            typer.echo(f"{plan['id']}: FAILED ({exc})")
+    if failed_plans:
+        raise typer.Exit(1)
 
 
 @ingest_app.command("census-acs")
@@ -1251,10 +1262,16 @@ def fred_core(
     max_priority: int = typer.Option(1, min=1, max=3),
 ) -> None:
     """Backfill curated FRED macro, rate, market, commodity, and FX series."""
-    results = ingest_manifest(category=category, priority=max_priority)
+    with render_spinner("Backfilling curated FRED series") as update:
+        successes, failures = ingest_manifest(
+            category=category, priority=max_priority, report=update
+        )
     typer.echo(
-        f"Ingested {len(results)} FRED series and {sum(results.values())} observations."
+        f"Ingested {len(successes)} FRED series and {sum(successes.values())} observations."
     )
+    if failures:
+        typer.echo(f"{len(failures)} series failed: {', '.join(failures)}")
+        raise typer.Exit(1)
 
 
 @bootstrap_app.command("bls-core")
@@ -1265,10 +1282,16 @@ def bls_core(
     max_priority: int = typer.Option(1, min=1, max=3),
 ) -> None:
     """Backfill curated BLS CPI and LAUS series."""
-    results = ingest_bls_manifest(category=category, priority=max_priority)
+    with render_spinner("Backfilling curated BLS series") as update:
+        successes, failures = ingest_bls_manifest(
+            category=category, priority=max_priority, report=update
+        )
     typer.echo(
-        f"Ingested {len(results)} BLS series and {sum(results.values())} observations."
+        f"Ingested {len(successes)} BLS series and {sum(successes.values())} observations."
     )
+    if failures:
+        typer.echo(f"{len(failures)} series failed: {', '.join(failures)}")
+        raise typer.Exit(1)
 
 
 @bootstrap_app.command("acs-housing")

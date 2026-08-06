@@ -91,8 +91,10 @@ def run_plan(plan_id: str) -> int:
     # before recording an execution cursor for a newly introduced plan.
     sync_plans()
     args = plan["parameters"]
+    failures: dict[str, str] = {}
     if plan["handler"] == "fred_core":
-        count = sum(ingest_manifest(priority=args.get("max_priority", 1)).values())
+        successes, failures = ingest_manifest(priority=args.get("max_priority", 1))
+        count = sum(successes.values())
     elif plan["handler"] == "acs_housing":
         count = bootstrap_housing(
             args["year"], [str(state).zfill(2) for state in args["states"]]
@@ -111,7 +113,8 @@ def run_plan(plan_id: str) -> int:
             if isinstance(value, int)
         )
     elif plan["handler"] == "bls_core":
-        count = sum(ingest_bls_manifest(priority=args.get("max_priority", 1)).values())
+        successes, failures = ingest_bls_manifest(priority=args.get("max_priority", 1))
+        count = sum(successes.values())
     else:
         raise AssertionError(f"Handler validation missed {plan['handler']!r}")
     with connect() as conn, conn.cursor() as cur:
@@ -121,11 +124,24 @@ def run_plan(plan_id: str) -> int:
             (
                 plan_id,
                 Jsonb(
-                    {"last_count": count, "completed_at": datetime.now(UTC).isoformat()}
+                    {
+                        "last_count": count,
+                        "completed_at": datetime.now(UTC).isoformat(),
+                        "failures": failures or None,
+                    }
                 ),
             ),
         )
         conn.commit()
+    if failures:
+        # The cursor above still records this run so a scheduled retry
+        # doesn't immediately repeat the series that already succeeded;
+        # surface the partial failure clearly rather than reporting a
+        # silent full success.
+        raise ValueError(
+            f"Plan {plan_id!r} completed with {len(failures)} failed series: "
+            + ", ".join(f"{k} ({v})" for k, v in failures.items())
+        )
     return count
 
 

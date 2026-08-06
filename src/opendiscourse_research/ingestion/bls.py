@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -78,9 +79,15 @@ def ingest_series(
 
 
 def ingest_manifest(
-    category: str | None = None, priority: int | None = None
-) -> dict[str, int]:
-    """Backfill the version-controlled BLS core manifest, one traceable run per series."""
+    category: str | None = None,
+    priority: int | None = None,
+    report: Callable[[str], None] | None = None,
+) -> tuple[dict[str, int], dict[str, str]]:
+    """Backfill the version-controlled BLS core manifest, one traceable run per series.
+
+    A failure on one series is recorded and skipped rather than aborting the
+    remaining curated backfill; returns (successes, failures).
+    """
     path = Path(__file__).resolve().parents[3] / "inventory" / "core_bls_series.yaml"
     series = yaml.safe_load(path.read_text())["series"]
     selected = [
@@ -89,7 +96,17 @@ def ingest_manifest(
         if (category is None or entry["category"] == category)
         and (priority is None or entry["priority"] <= priority)
     ]
-    return {
-        entry["series_id"]: ingest_series(entry["dataset"], entry["series_id"])
-        for entry in selected
-    }
+    successes: dict[str, int] = {}
+    failures: dict[str, str] = {}
+    for entry in selected:
+        series_id = entry["series_id"]
+        try:
+            successes[series_id] = ingest_series(entry["dataset"], series_id)
+        except Exception as exc:  # noqa: BLE001 -- one bad series must not abort the batch
+            failures[series_id] = str(exc)
+            if report:
+                report(f"{series_id}: failed ({exc})")
+            continue
+        if report:
+            report(f"{series_id}: {successes[series_id]} observations")
+    return successes, failures

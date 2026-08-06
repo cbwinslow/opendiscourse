@@ -1,11 +1,28 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
+from time import monotonic, sleep
 
 import yaml
 
 from ..config import settings
 from .base import IngestionRun, client, json_response
+
+# providers/fred.py already paces its own (metadata-only) requests at this
+# rate; ingest_manifest's back-to-back series fetches never had the same
+# pacing, and a batch run once saw a transiently-failing series (HTTP 400)
+# that succeeded fine when retried in isolation moments later.
+PACE_SECONDS = 1.0
+
+# Batch commits rather than one per row: a large daily series (e.g. the Fed
+# funds rate since 1954) is ~26,000 observations, and a commit-per-row round
+# trip made that take minutes. The whole series already arrives in one API
+# response, so there is no resumability benefit to committing more often
+# than this -- a failure mid-series is re-run from scratch either way
+# (idempotent via ON CONFLICT), matching the batch size already used by the
+# Census bulk loaders (acs_load.py, cbp_load.py).
+_COMMIT_BATCH = 2000
 
 
 def ingest_series(series_id: str) -> int:
@@ -40,14 +57,22 @@ def ingest_series(series_id: str) -> int:
                     ),
                 )
                 run.record_count += 1
-            run.conn.commit()
+            if run.record_count % _COMMIT_BATCH == 0:
+                run.conn.commit()
+        run.conn.commit()
         return run.record_count
 
 
 def ingest_manifest(
-    category: str | None = None, priority: int | None = None
-) -> dict[str, int]:
-    """Backfill the version-controlled FRED core manifest, one traceable run per series."""
+    category: str | None = None,
+    priority: int | None = None,
+    report: Callable[[str], None] | None = None,
+) -> tuple[dict[str, int], dict[str, str]]:
+    """Backfill the version-controlled FRED core manifest, one traceable run per series.
+
+    A failure on one series is recorded and skipped rather than aborting the
+    remaining curated backfill; returns (successes, failures).
+    """
     path = Path(__file__).resolve().parents[3] / "inventory" / "core_fred_series.yaml"
     series = yaml.safe_load(path.read_text())["series"]
     selected = [
@@ -56,4 +81,23 @@ def ingest_manifest(
         if (category is None or entry["category"] == category)
         and (priority is None or entry["priority"] <= priority)
     ]
-    return {entry["series_id"]: ingest_series(entry["series_id"]) for entry in selected}
+    successes: dict[str, int] = {}
+    failures: dict[str, str] = {}
+    last_request = 0.0
+    for entry in selected:
+        series_id = entry["series_id"]
+        wait = PACE_SECONDS - (monotonic() - last_request)
+        if wait > 0:
+            sleep(wait)
+        try:
+            successes[series_id] = ingest_series(series_id)
+        except Exception as exc:  # noqa: BLE001 -- one bad series must not abort the batch
+            failures[series_id] = str(exc)
+            if report:
+                report(f"{series_id}: failed ({exc})")
+            last_request = monotonic()
+            continue
+        last_request = monotonic()
+        if report:
+            report(f"{series_id}: {successes[series_id]} observations")
+    return successes, failures
