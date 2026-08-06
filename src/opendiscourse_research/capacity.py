@@ -7,6 +7,9 @@ import shutil
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from time import sleep
+
+import httpx
 
 from .config import settings
 from .ingestion.base import client
@@ -22,13 +25,7 @@ class RemoteObject:
     source: str = "remote"
 
 
-def remote_size(url: str) -> RemoteObject:
-    """Obtain a published byte size without downloading the object.
-
-    A one-byte range request is a safe fallback for publishers that do not
-    implement HEAD. An unavailable size remains unknown and deliberately
-    prevents automatic approval.
-    """
+def _probe_size(url: str) -> RemoteObject:
     with client() as http:
         response = http.head(url)
         if response.is_success and response.headers.get("content-length"):
@@ -43,6 +40,27 @@ def remote_size(url: str) -> RemoteObject:
             if response.headers.get("content-length"):
                 return RemoteObject(url, int(response.headers["content-length"]), "get")
     return RemoteObject(url, None, "unknown")
+
+
+def remote_size(url: str) -> RemoteObject:
+    """Obtain a published byte size without downloading the object.
+
+    A one-byte range request is a safe fallback for publishers that do not
+    implement HEAD. An unavailable size remains unknown and deliberately
+    prevents automatic approval -- including when the probe itself fails
+    (timeout, connection reset): one retry after a short pause absorbs a
+    transient blip, but a persistent failure must not abort a preview
+    covering many other artifacts. A bulk plan with hundreds of artifacts
+    makes a network hiccup on any single one a near-certainty, not an edge
+    case.
+    """
+    for attempt in range(2):
+        try:
+            return _probe_size(url)
+        except httpx.HTTPError:
+            if attempt == 0:
+                sleep(2)
+    return RemoteObject(url, None, "error")
 
 
 def storage_preview(
