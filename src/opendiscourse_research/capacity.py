@@ -12,10 +12,19 @@ from time import monotonic, sleep
 import httpx
 
 from .config import settings
-from .ingestion.base import client
 
 MiB = 1024 * 1024
 GiB = 1024 * MiB
+
+# A HEAD request only needs response headers, never a body -- it should be
+# fast even for a large file. Discovered live: some Census artifacts (large
+# ACS Detailed Table files) took 35s+ just for HEAD response headers,
+# repeatedly, so probing with the same 45s timeout used for real downloads
+# (ingestion/base.py::client()) meant one slow URL could cost up to ~90s
+# (attempt + retry) before falling back to "unknown". A dedicated, much
+# shorter timeout here fails fast into that same retry/unknown-size path
+# instead.
+_PROBE_TIMEOUT = 10.0
 
 # A bulk plan preview calls remote_size() once per artifact -- hundreds of
 # times for a multi-table ACS plan. Discovered live: unpaced back-to-back
@@ -34,8 +43,16 @@ class RemoteObject:
     source: str = "remote"
 
 
+def _probe_client() -> httpx.Client:
+    return httpx.Client(
+        timeout=_PROBE_TIMEOUT,
+        follow_redirects=True,
+        headers={"User-Agent": "opendiscourse-research/0.1"},
+    )
+
+
 def _probe_size(url: str) -> RemoteObject:
-    with client() as http:
+    with _probe_client() as http:
         response = http.head(url)
         if response.is_success and response.headers.get("content-length"):
             return RemoteObject(url, int(response.headers["content-length"]), "head")
