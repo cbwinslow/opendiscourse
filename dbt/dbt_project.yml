@@ -1,0 +1,23 @@
+name: opendiscourse
+version: "1.0.0"
+config-version: 2
+
+profile: opendiscourse
+
+model-paths: ["models"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  opendiscourse:
+    # profiles.yml points the connection's default schema at `mart`; every
+    # model lands there directly rather than at a dbt-generated
+    # `<target_schema>_<custom_schema>` compound name.
+    staging:
+      +materialized: view
+    marts:
+      # Views for now: research marts stay trivially fresh with no separate
+      # refresh step to schedule. Revisit as `table`/incremental once a
+      # `dbt build` step is added to the plan-due/systemd refresh cadence
+      # alongside the ingestion adapters that feed these tables.
+      +materialized: view
