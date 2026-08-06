@@ -21,6 +21,7 @@ from opendiscourse_research.ingestion.acs_load import _numeric as acs_numeric
 from opendiscourse_research.ingestion.acs_load import _scope as acs_scope
 from opendiscourse_research.ingestion.bulk import advance_plan, approve_plan
 from opendiscourse_research.ingestion.cbp_bulk import build_cbp_bulk_plan
+from opendiscourse_research.ingestion.census import relevant_acs_tables
 from opendiscourse_research.ingestion.dhc_bulk import build_dhc_bulk_plan
 from opendiscourse_research.ingestion.dhc_load import _matrix
 from opendiscourse_research.ingestion.dhc_load import _scope as dhc_scope
@@ -182,6 +183,57 @@ class TestCensusBulkPlans(unittest.TestCase):
         self.assertEqual(len(build_tiger_bulk_plan("test", selected)["artifacts"]), 4)
         with self.assertRaisesRegex(ValueError, "exactly"):
             build_tiger_bulk_plan("test", [])
+
+    def test_relevant_acs_tables_excludes_flags_collapsed_and_iterations(self) -> None:
+        manifest = {
+            "tables": [
+                {"id": "B01001", "product": "Detailed Table"},  # base -- kept
+                {
+                    "id": "B01001A",
+                    "product": "Detailed Table",
+                },  # race iteration -- dropped
+                {
+                    "id": "C01001",
+                    "product": "Detailed Table",
+                },  # collapsed dup -- dropped
+                {
+                    "id": "B98001",
+                    "product": "Detailed Table",
+                },  # quality measure -- dropped
+                {
+                    "id": "B99001",
+                    "product": "Detailed Table",
+                },  # allocation flag -- dropped
+                {
+                    "id": "B13002",
+                    "product": "Detailed Table",
+                },  # narrow family -- dropped
+                {
+                    "id": "B25001",
+                    "product": "Detailed Table",
+                },  # housing -- dropped by default
+                {
+                    "id": "S0101",
+                    "product": "Subject Tables for Specific Topics",
+                },  # wrong product -- dropped
+                {"id": "B19013", "product": "Detailed Table"},  # base -- kept
+            ]
+        }
+        with TemporaryDirectory() as directory:
+            # relevant_acs_tables reads data_root().parent / "meta" / ...,
+            # matching every other ACS metadata path in this module.
+            manifest_dir = Path(directory) / "meta" / "acs" / "2099"
+            manifest_dir.mkdir(parents=True)
+            (manifest_dir / "tables.json").write_text(json.dumps(manifest))
+            with patch(
+                "opendiscourse_research.ingestion.census.data_root",
+                return_value=Path(directory) / "raw",
+            ):
+                self.assertEqual(relevant_acs_tables(2099), ["B01001", "B19013"])
+                self.assertEqual(
+                    relevant_acs_tables(2099, include_housing_detail=True),
+                    ["B01001", "B19013", "B25001"],
+                )
 
     def test_tiger_plan_uses_the_requested_vintage_not_2020(self) -> None:
         selected = [

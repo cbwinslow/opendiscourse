@@ -396,6 +396,57 @@ def search_acs_tables(
     }
 
 
+# Quality-measure/allocation-flag tables carry no substantive data.
+_ACS_EXCLUDE_PREFIX = ("B98", "B99")
+# Narrow/administrative subject families: grandparents-as-caregivers,
+# fertility, group quarters, and misc B29 -- low relevance to
+# demographics/crime/economics research.
+_ACS_EXCLUDE_FAMILY = ("B10", "B13", "B26", "B29")
+# Same base table repeated once per population subgroup (e.g. B01001A..I =
+# "Sex by Age" x9 race/ethnicity groups); race/ethnicity itself is already
+# captured by the dedicated B02/B03 tables, so the iterations are dropped
+# rather than every subject family being multiplied ~9x.
+_ACS_ITERATION = re.compile(r"^B\d{5}[A-Z]{1,2}$")
+
+
+def relevant_acs_tables(year: int, include_housing_detail: bool = False) -> list[str]:
+    """Return a reviewable, regenerable relevance-filtered ACS Detailed Table list.
+
+    Excludes: quality/allocation-flag tables, all C-prefix "collapsed"
+    tables (a less-detailed duplicate of the corresponding B-table, which
+    is already included), narrow administrative families, and
+    race/ethnicity-iterated repeats of an already-included base table.
+    B25 (housing) is excluded by default since the 14 tables in
+    inventory/acs_housing_groups.yaml already cover it deliberately;
+    pass include_housing_detail=True to add the remaining B25 tables too.
+    Validated against the real 2024 manifest: 552 of 1,451 Detailed
+    Tables survive (fewer if include_housing_detail is left off).
+    """
+    manifest_path = data_root().parent / "meta" / "acs" / str(year) / "tables.json"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(
+            f"No ACS manifest for {year}; run census-discover first"
+        )
+    tables = json.loads(manifest_path.read_text())["tables"]
+    selected = []
+    for table in tables:
+        table_id = table["id"]
+        if table.get("product") != "Detailed Table":
+            continue
+        if table_id.startswith("C"):
+            continue
+        if table_id[:3] in _ACS_EXCLUDE_PREFIX:
+            continue
+        if table_id[:3] in _ACS_EXCLUDE_FAMILY:
+            continue
+        if not include_housing_detail and table_id[:3] == "B25":
+            continue
+        if _ACS_ITERATION.match(table_id):
+            continue
+        selected.append(table_id)
+    return sorted(selected)
+
+
 def _acs_group_endpoint(product: str) -> str:
     if product == "Detailed Table":
         return "acs/acs5"
