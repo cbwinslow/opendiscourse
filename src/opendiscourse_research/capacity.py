@@ -7,7 +7,7 @@ import shutil
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from time import sleep
+from time import monotonic, sleep
 
 import httpx
 
@@ -16,6 +16,15 @@ from .ingestion.base import client
 
 MiB = 1024 * 1024
 GiB = 1024 * MiB
+
+# A bulk plan preview calls remote_size() once per artifact -- hundreds of
+# times for a multi-table ACS plan. Discovered live: unpaced back-to-back
+# HEAD requests to the same publisher (Census) produced a high rate of
+# timeouts, each costing a 45s wait plus a retry, turning a preview that
+# should take minutes into the better part of an hour. Same fix as FRED's
+# providers/fred.py::PACE_SECONDS.
+PACE_SECONDS = 0.5
+_last_probe = 0.0
 
 
 @dataclass(frozen=True)
@@ -54,12 +63,20 @@ def remote_size(url: str) -> RemoteObject:
     makes a network hiccup on any single one a near-certainty, not an edge
     case.
     """
+    global _last_probe
     for attempt in range(2):
+        wait = PACE_SECONDS - (monotonic() - _last_probe)
+        if wait > 0:
+            sleep(wait)
         try:
-            return _probe_size(url)
+            result = _probe_size(url)
         except httpx.HTTPError:
+            _last_probe = monotonic()
             if attempt == 0:
                 sleep(2)
+            continue
+        _last_probe = monotonic()
+        return result
     return RemoteObject(url, None, "error")
 
 
