@@ -1,31 +1,41 @@
 """Regression tests for Census bulk plans, gates, and format mappings."""
+
 from __future__ import annotations
 
 import json
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 from unittest.mock import patch
 
 import yaml
 
+from opendiscourse_research.browser import acs_package_tables
+from opendiscourse_research.capacity import RemoteObject
+from opendiscourse_research.ingestion.acs_bulk import (
+    build_acs5_bulk_plan,
+    preview_acs5_bulk_plan,
+)
+from opendiscourse_research.ingestion.acs_load import _geo_id as acs_geo_id
+from opendiscourse_research.ingestion.acs_load import _numeric as acs_numeric
+from opendiscourse_research.ingestion.acs_load import _scope as acs_scope
 from opendiscourse_research.ingestion.bulk import advance_plan, approve_plan
 from opendiscourse_research.ingestion.cbp_bulk import build_cbp_bulk_plan
-from opendiscourse_research.ingestion.acs_bulk import build_acs5_bulk_plan
-from opendiscourse_research.ingestion.acs_bulk import preview_acs5_bulk_plan
-from opendiscourse_research.capacity import RemoteObject
 from opendiscourse_research.ingestion.dhc_bulk import build_dhc_bulk_plan
-from opendiscourse_research.ingestion.dhc_load import _matrix, _scope as dhc_scope
-from opendiscourse_research.ingestion.acs_load import _geo_id as acs_geo_id, _numeric as acs_numeric, _scope as acs_scope
+from opendiscourse_research.ingestion.dhc_load import _matrix
+from opendiscourse_research.ingestion.dhc_load import _scope as dhc_scope
 from opendiscourse_research.ingestion.pep_bulk import build_pep_bulk_plan
 from opendiscourse_research.ingestion.pep_load import _scope as pep_scope
 from opendiscourse_research.ingestion.tiger_bulk import build_tiger_bulk_plan
 from opendiscourse_research.ingestion.tiger_load import _scope as tiger_scope
-from opendiscourse_research.browser import acs_package_tables
 
 
 def resource(dataset_id: str, key: str, resource_type: str) -> dict[str, str]:
-    return {"dataset_id": dataset_id, "resource_key": key, "resource_type": resource_type}
+    return {
+        "dataset_id": dataset_id,
+        "resource_key": key,
+        "resource_type": resource_type,
+    }
 
 
 class TestCensusBulkPlans(unittest.TestCase):
@@ -41,7 +51,9 @@ class TestCensusBulkPlans(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unknown or invalid ACS package"):
             acs_package_tables("not-a-package")
 
-    def test_acs_detailed_table_plan_uses_bulk_dataset_for_artifact_lineage(self) -> None:
+    def test_acs_detailed_table_plan_uses_bulk_dataset_for_artifact_lineage(
+        self,
+    ) -> None:
         plan = build_acs5_bulk_plan(
             "test",
             [resource("census.acs_5", "2024:B25001", "Detailed Table")],
@@ -65,41 +77,150 @@ class TestCensusBulkPlans(unittest.TestCase):
         self.assertTrue(report["approved"])
 
     def test_cbp_plan_contains_complete_release_and_rejects_mixed_years(self) -> None:
-        selected = [resource("census.business_patterns", "full:2023", "Complete CSV bundle")]
+        selected = [
+            resource("census.business_patterns", "full:2023", "Complete CSV bundle")
+        ]
         plan = build_cbp_bulk_plan("test", selected)
         self.assertEqual(plan["state"], "draft")
-        self.assertEqual(len(plan["artifacts"]), 10)
+        self.assertEqual(len(plan["artifacts"]), 8)
         with self.assertRaisesRegex(ValueError, "one CBP plan per release year"):
-            build_cbp_bulk_plan("test", selected + [resource("census.business_patterns", "full:2022", "Complete CSV bundle")])
+            build_cbp_bulk_plan(
+                "test",
+                selected
+                + [
+                    resource(
+                        "census.business_patterns", "full:2022", "Complete CSV bundle"
+                    )
+                ],
+            )
+
+    def test_cbp_plan_uses_the_requested_years_own_filenames(self) -> None:
+        selected = [
+            resource("census.business_patterns", "full:2015", "Complete CSV bundle")
+        ]
+        plan = build_cbp_bulk_plan("test", selected)
+        urls = [artifact["url"] for artifact in plan["artifacts"]]
+        self.assertTrue(any(url.endswith("cbp15co.zip") for url in urls))
+        self.assertFalse(any("cbp23" in url for url in urls))
 
     def test_pep_plan_never_mixes_vintages(self) -> None:
-        selected = [resource("census.population_estimates", "vintage:2025", "National, state, and county totals")]
-        self.assertEqual(build_pep_bulk_plan("test", selected)["selection"]["vintage"], 2025)
+        selected = [
+            resource(
+                "census.population_estimates",
+                "vintage:2020-2025",
+                "National, state, and county totals",
+            )
+        ]
+        plan = build_pep_bulk_plan("test", selected)
+        self.assertEqual(plan["selection"]["vintage"], "2020-2025")
+        self.assertEqual(plan["selection"]["release_year"], 2025)
         with self.assertRaisesRegex(ValueError, "exactly one PEP vintage"):
-            build_pep_bulk_plan("test", selected + [resource("census.population_estimates", "vintage:2024", "National, state, and county totals")])
+            build_pep_bulk_plan(
+                "test",
+                selected
+                + [
+                    resource(
+                        "census.population_estimates",
+                        "vintage:2010-2020",
+                        "National, state, and county totals",
+                    )
+                ],
+            )
+
+    def test_pep_plan_uses_the_correct_filename_casing_per_vintage_series(self) -> None:
+        current = build_pep_bulk_plan(
+            "test",
+            [
+                resource(
+                    "census.population_estimates",
+                    "vintage:2020-2025",
+                    "National, state, and county totals",
+                )
+            ],
+        )
+        legacy = build_pep_bulk_plan(
+            "test",
+            [
+                resource(
+                    "census.population_estimates",
+                    "vintage:2010-2020",
+                    "National, state, and county totals",
+                )
+            ],
+        )
+        self.assertTrue(
+            current["artifacts"][0]["url"].endswith("NST-EST2025-ALLDATA.csv")
+        )
+        self.assertTrue(
+            legacy["artifacts"][0]["url"].endswith("nst-est2020-alldata.csv")
+        )
 
     def test_dhc_plan_includes_official_table_matrix(self) -> None:
-        plan = build_dhc_bulk_plan("test", [resource("census.decennial", "dhc:2020:national", "Complete DHC national archive")])
-        self.assertEqual([item["artifact_key"] for item in plan["artifacts"]], ["dhc-2020-national", "dhc-2020-table-matrix"])
+        plan = build_dhc_bulk_plan(
+            "test",
+            [
+                resource(
+                    "census.decennial",
+                    "dhc:2020:national",
+                    "Complete DHC national archive",
+                )
+            ],
+        )
+        self.assertEqual(
+            [item["artifact_key"] for item in plan["artifacts"]],
+            ["dhc-2020-national", "dhc-2020-table-matrix"],
+        )
 
     def test_tiger_plan_requires_exact_package(self) -> None:
-        selected = [resource("census.tiger", "national:2020:core-boundaries", "National core boundary layers")]
+        selected = [
+            resource(
+                "census.tiger",
+                "national:2020:core-boundaries",
+                "National core boundary layers",
+            )
+        ]
         self.assertEqual(len(build_tiger_bulk_plan("test", selected)["artifacts"]), 4)
         with self.assertRaisesRegex(ValueError, "exactly"):
             build_tiger_bulk_plan("test", [])
 
+    def test_tiger_plan_uses_the_requested_vintage_not_2020(self) -> None:
+        selected = [
+            resource(
+                "census.tiger",
+                "national:2023:core-boundaries",
+                "National core boundary layers",
+            )
+        ]
+        plan = build_tiger_bulk_plan("test", selected)
+        self.assertEqual(plan["selection"]["boundary_vintage"], 2023)
+        self.assertTrue(
+            all("TIGER2023" in artifact["url"] for artifact in plan["artifacts"])
+        )
+
 
 class TestBulkLifecycle(unittest.TestCase):
-    def test_approval_requires_successful_preview_and_records_explicit_scope(self) -> None:
+    def test_approval_requires_successful_preview_and_records_explicit_scope(
+        self,
+    ) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "plan.yaml"
-            path.write_text(yaml.safe_dump({"state": "draft", "artifacts": [{"artifact_key": "x"}], "storage": {}}))
+            path.write_text(
+                yaml.safe_dump(
+                    {
+                        "state": "draft",
+                        "artifacts": [{"artifact_key": "x"}],
+                        "storage": {},
+                    }
+                )
+            )
             with self.assertRaisesRegex(ValueError, "No preflight"):
                 approve_plan(path, {"geography_levels": ["county"]})
             path.with_suffix(".preview.json").write_text(json.dumps({"approved": True}))
             result = approve_plan(path, {"geography_levels": ["county"]})
             self.assertEqual(result["state"], "approved")
-            self.assertEqual(result["canonical_load_scope"], {"geography_levels": ["county"]})
+            self.assertEqual(
+                result["canonical_load_scope"], {"geography_levels": ["county"]}
+            )
             self.assertEqual(result["storage"]["state"], "previewed")
 
     def test_lifecycle_transition_cannot_skip_or_repeat_a_phase(self) -> None:
@@ -108,7 +229,9 @@ class TestBulkLifecycle(unittest.TestCase):
             path.write_text(yaml.safe_dump({"state": "downloaded"}))
             with self.assertRaisesRegex(ValueError, "must be 'staged'"):
                 advance_plan(path, "staged", "loaded", "load", {})
-            result = advance_plan(path, "downloaded", "staged", "staging", {"row_count": 2})
+            result = advance_plan(
+                path, "downloaded", "staged", "staging", {"row_count": 2}
+            )
             self.assertEqual(result["state"], "staged")
             self.assertEqual(result["staging"]["row_count"], 2)
 
@@ -131,7 +254,9 @@ class TestCensusScopesAndMatrix(unittest.TestCase):
         self.assertIsNone(acs_geo_id("1400000US06037101100"))
         self.assertIsNone(acs_geo_id("0500000US0603"))
 
-    def test_acs_numeric_cells_preserve_values_and_null_unavailable_markers(self) -> None:
+    def test_acs_numeric_cells_preserve_values_and_null_unavailable_markers(
+        self,
+    ) -> None:
         self.assertEqual(acs_numeric("123.45"), __import__("decimal").Decimal("123.45"))
         for value in (None, "", "N", ".", "-666666666", "-999999999"):
             self.assertIsNone(acs_numeric(value))
@@ -140,10 +265,14 @@ class TestCensusScopesAndMatrix(unittest.TestCase):
 
     def test_dhc_matrix_preserves_column_offsets_for_skipped_tables(self) -> None:
         import openpyxl
+
         with TemporaryDirectory() as directory:
             path = Path(directory) / "matrix.xlsx"
-            book = openpyxl.Workbook(); sheet = book.active; sheet.title = "DHC Table Matrix"
-            sheet.append(["title"] * 4); sheet.append(["headers"] * 4)
+            book = openpyxl.Workbook()
+            sheet = book.active
+            sheet.title = "DHC Table Matrix"
+            sheet.append(["title"] * 4)
+            sheet.append(["headers"] * 4)
             sheet.append([None, "P1", "P0010001", 5])
             sheet.append([None, "P1", "P0010002", 5])
             sheet.append([None, "H1", "H0010001", 5])

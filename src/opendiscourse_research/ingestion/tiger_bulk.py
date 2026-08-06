@@ -13,13 +13,23 @@ import yaml
 from ..capacity import GiB, remote_size, storage_preview
 from ..config import settings
 
-BASE = "https://www2.census.gov/geo/tiger/TIGER2020"
-LAYERS = (
-    "STATE/tl_2020_us_state.zip",
-    "COUNTY/tl_2020_us_county.zip",
-    "CBSA/tl_2020_us_cbsa.zip",
-    "ZCTA520/tl_2020_us_zcta520.zip",
+# Core layers confirmed present with this exact filename pattern for every
+# vintage checked (2016, 2020, 2023): TIGER{year}/{DIR}/tl_{year}_us_{layer}.zip.
+# Tract/block-group/block layers are deliberately not included here -- their
+# archives are much larger and organized per-state rather than one national
+# file, a distinct addition rather than a parametrization of this one.
+LAYER_DIRS = (
+    ("STATE", "state"),
+    ("COUNTY", "county"),
+    ("CBSA", "cbsa"),
+    ("ZCTA520", "zcta520"),
 )
+
+
+def tiger_layers(year: int) -> tuple[str, ...]:
+    return tuple(
+        f"{directory}/tl_{year}_us_{layer}.zip" for directory, layer in LAYER_DIRS
+    )
 
 
 def _root() -> Path:
@@ -28,27 +38,40 @@ def _root() -> Path:
     return root
 
 
+def _boundary_vintage(resource: dict[str, Any]) -> int | None:
+    if resource.get("dataset_id") != "census.tiger":
+        return None
+    parts = str(resource.get("resource_key", "")).split(":")
+    if len(parts) != 3 or parts[0] != "national" or parts[2] != "core-boundaries":
+        return None
+    try:
+        return int(parts[1])
+    except ValueError:
+        return None
+
+
 def build_tiger_bulk_plan(
     basket_name: str, resources: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    """Create a review-only plan for national 2020 TIGER core boundaries."""
-    if (
-        len(resources) != 1
-        or resources[0].get("dataset_id") != "census.tiger"
-        or resources[0].get("resource_key") != "national:2020:core-boundaries"
-    ):
+    """Create a review-only plan for one vintage's national TIGER core boundaries."""
+    years = sorted(
+        {year for resource in resources if (year := _boundary_vintage(resource))}
+    )
+    if len(years) != 1:
         raise ValueError(
-            "Select exactly the 2020 TIGER/Line national core boundary package."
+            "Select exactly one vintage's national TIGER core boundary package."
         )
+    year = years[0]
+    base = f"https://www2.census.gov/geo/tiger/TIGER{year}"
     artifacts = [
         {
-            "artifact_key": f"tiger-2020-{path.split('/')[-1][:-4]}",
+            "artifact_key": f"tiger-{year}-{path.split('/')[-1][:-4]}",
             "kind": path.split("/")[0].lower(),
-            "url": f"{BASE}/{path}",
+            "url": f"{base}/{path}",
             "filename": path.split("/")[-1],
-            "boundary_vintage": 2020,
+            "boundary_vintage": year,
         }
-        for path in LAYERS
+        for path in tiger_layers(year)
     ]
     return {
         "version": 1,
@@ -59,7 +82,7 @@ def build_tiger_bulk_plan(
         "created_at": datetime.now(UTC).isoformat(),
         "basket": basket_name,
         "selection": {
-            "boundary_vintage": 2020,
+            "boundary_vintage": year,
             "package": "national_core_boundaries",
             "layers": [item["kind"] for item in artifacts],
         },
@@ -72,7 +95,7 @@ def build_tiger_bulk_plan(
             "reserve_gib": 100,
         },
         "provenance": {
-            "source_page": BASE + "/",
+            "source_page": base + "/",
             "note": "Each ZIP remains immutable. A spatial loader must record boundary vintage and artifact lineage in core.geography_boundary.",
         },
     }

@@ -38,11 +38,11 @@ def stage_pep(plan: dict[str, Any], update: Callable[[str], None] | None = None)
     """Stage source-shaped PEP CSV rows, retaining each artifact and row ordinal."""
     if plan.get("state") != "downloaded":
         raise ValueError("PEP plan must be downloaded before staging")
-    year = int(plan["selection"]["vintage"])
+    series = plan["selection"]["vintage"]
     requested = _scope(plan)
     artifacts = [
-        ("state", f"pep-{year}-state-totals"),
-        ("county", f"pep-{year}-county-totals"),
+        ("state", f"pep-{series}-state-totals"),
+        ("county", f"pep-{series}-county-totals"),
     ]
     total = 0
     with connect() as conn:
@@ -105,7 +105,7 @@ def load_pep(plan: dict[str, Any], update: Callable[[str], None] | None = None) 
     """Promote staged PEP annual estimates without co-mingling release vintages."""
     if plan.get("state") != "staged":
         raise ValueError("PEP plan must be staged before canonical loading")
-    vintage = int(plan["selection"]["vintage"])
+    release_vintage = int(plan["selection"]["release_year"])
     levels = list(_scope(plan))
     if update:
         update("Creating PEP geographies")
@@ -140,7 +140,7 @@ def load_pep(plan: dict[str, Any], update: Callable[[str], None] | None = None) 
           FROM estimates JOIN core.geography geography ON geography.geography_type = estimates.geography_level
             AND geography.geoid = CASE estimates.geography_level WHEN 'county' THEN lpad(estimates.raw->>'STATE', 2, '0') || lpad(estimates.raw->>'COUNTY', 3, '0') WHEN 'state' THEN lpad(estimates.raw->>'STATE', 2, '0') ELSE 'us' END
           ON CONFLICT (source_artifact_id, source_member, source_ordinal, estimate_year) DO UPDATE SET population = EXCLUDED.population""",
-            (levels, vintage),
+            (levels, release_vintage),
         )
         total = cur.rowcount
         conn.commit()

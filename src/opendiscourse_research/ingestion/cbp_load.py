@@ -13,7 +13,21 @@ from psycopg.types.json import Jsonb
 
 from ..db import connect
 
-MEMBERS = {"us": "cbp23us.txt", "state": "cbp23st.txt", "county": "cbp23co.txt"}
+LEVELS = ("us", "state", "county")
+
+
+def _level_suffix(level: str) -> str:
+    return "co" if level == "county" else "st" if level == "state" else "us"
+
+
+def _member_name(year: int, level: str) -> str:
+    """Return the .txt member name inside that year's ZIP for one geography level."""
+    return f"cbp{year % 100:02d}{_level_suffix(level)}.txt"
+
+
+def _artifact_key(year: int, level: str) -> str:
+    """Match cbp_bulk.py's artifact_key: f"cbp-{year}-{filename stem}"."""
+    return f"cbp-{year}-cbp{year % 100:02d}{_level_suffix(level)}"
 
 
 def _artifact(conn: Any, key: str) -> dict[str, Any]:
@@ -30,7 +44,7 @@ def _artifact(conn: Any, key: str) -> dict[str, Any]:
 
 def _scope(plan: dict[str, Any]) -> set[str]:
     levels = set(plan.get("canonical_load_scope", {}).get("geography_levels", []))
-    unknown = levels - set(MEMBERS)
+    unknown = levels - set(LEVELS)
     if unknown:
         raise ValueError(f"Unsupported CBP geography levels: {sorted(unknown)}")
     if not levels:
@@ -46,11 +60,8 @@ def stage_cbp(plan: dict[str, Any], update: Callable[[str], None] | None = None)
     total = 0
     with connect() as conn:
         for level in sorted(_scope(plan)):
-            artifact = _artifact(
-                conn,
-                f"cbp-{year}-cbp23{'co' if level == 'county' else 'st' if level == 'state' else 'us'}",
-            )
-            member = MEMBERS[level]
+            artifact = _artifact(conn, _artifact_key(year, level))
+            member = _member_name(year, level)
             if update:
                 update(f"Staging CBP {level} rows")
             with (

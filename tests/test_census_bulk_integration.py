@@ -3,29 +3,32 @@
 Run only against a disposable database:
 ``OPENDISCOURSE_TEST_DATABASE_URL=... uv run --extra ingest python -m unittest tests.test_census_bulk_integration``.
 """
+
 from __future__ import annotations
 
 import csv
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 from zipfile import ZipFile
 
-from opendiscourse_research.config import settings
 from opendiscourse_research.catalog import sync_inventory
+from opendiscourse_research.config import settings
 from opendiscourse_research.db import apply_migrations, connect
+from opendiscourse_research.ingestion.acs_load import load_acs_bulk, stage_acs_bulk
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion.cbp_load import load_cbp, stage_cbp
-from opendiscourse_research.ingestion.acs_load import load_acs_bulk, stage_acs_bulk
 from opendiscourse_research.ingestion.dhc_load import load_dhc, stage_dhc
 from opendiscourse_research.ingestion.pep_load import load_pep, stage_pep
 from opendiscourse_research.ingestion.tiger_load import load_tiger, stage_tiger
 
-
 TEST_DATABASE_URL = __import__("os").environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
 
 
-@unittest.skipUnless(TEST_DATABASE_URL, "Set OPENDISCOURSE_TEST_DATABASE_URL to run database integration tests")
+@unittest.skipUnless(
+    TEST_DATABASE_URL,
+    "Set OPENDISCOURSE_TEST_DATABASE_URL to run database integration tests",
+)
 class TestCensusBulkDatabaseIntegration(unittest.TestCase):
     """Use generated source artifacts only; never call Census during tests."""
 
@@ -47,25 +50,67 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
         self.temp.cleanup()
 
     def _register(self, dataset_id: str, key: str, path: Path) -> None:
-        register_local(ArtifactSpec(dataset_id, key, "https://example.test/" + path.name, path.name), path)
+        register_local(
+            ArtifactSpec(
+                dataset_id, key, "https://example.test/" + path.name, path.name
+            ),
+            path,
+        )
 
     def _remove_artifact(self, key: str) -> None:
         with connect() as conn, conn.cursor() as cur:
-            cur.execute("SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s", (key,))
+            cur.execute(
+                "SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s", (key,)
+            )
             row = cur.fetchone()
             if row:
-                cur.execute("DELETE FROM fact.business_pattern WHERE source_artifact_id=%s", (row["artifact_id"],))
-                cur.execute("DELETE FROM fact.acs_bulk_estimate WHERE source_artifact_id=%s", (row["artifact_id"],))
-                cur.execute("DELETE FROM fact.population_estimate WHERE source_artifact_id=%s", (row["artifact_id"],))
-                cur.execute("DELETE FROM fact.decennial_dhc_value WHERE source_artifact_id=%s", (row["artifact_id"],))
-                cur.execute("DELETE FROM core.geography_boundary WHERE source_artifact_id=%s", (row["artifact_id"],))
-                cur.execute("DELETE FROM stage.cbp_row WHERE artifact_id=%s", (row["artifact_id"],))
-                cur.execute("DELETE FROM stage.acs_bulk_row WHERE artifact_id=%s", (row["artifact_id"],))
-                cur.execute("DELETE FROM stage.pep_row WHERE artifact_id=%s", (row["artifact_id"],))
-                cur.execute("DELETE FROM stage.dhc_geo_row WHERE artifact_id=%s", (row["artifact_id"],))
-                cur.execute("DELETE FROM stage.tiger_feature WHERE artifact_id=%s", (row["artifact_id"],))
-                cur.execute("DELETE FROM ingest.artifact WHERE artifact_id=%s", (row["artifact_id"],))
-            cur.execute("DELETE FROM core.geography WHERE geography_type='state' AND geoid='99'")
+                cur.execute(
+                    "DELETE FROM fact.business_pattern WHERE source_artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+                cur.execute(
+                    "DELETE FROM fact.acs_bulk_estimate WHERE source_artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+                cur.execute(
+                    "DELETE FROM fact.population_estimate WHERE source_artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+                cur.execute(
+                    "DELETE FROM fact.decennial_dhc_value WHERE source_artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+                cur.execute(
+                    "DELETE FROM core.geography_boundary WHERE source_artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+                cur.execute(
+                    "DELETE FROM stage.cbp_row WHERE artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+                cur.execute(
+                    "DELETE FROM stage.acs_bulk_row WHERE artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+                cur.execute(
+                    "DELETE FROM stage.pep_row WHERE artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+                cur.execute(
+                    "DELETE FROM stage.dhc_geo_row WHERE artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+                cur.execute(
+                    "DELETE FROM stage.tiger_feature WHERE artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+                cur.execute(
+                    "DELETE FROM ingest.artifact WHERE artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+            cur.execute(
+                "DELETE FROM core.geography WHERE geography_type='state' AND geoid='99'"
+            )
             conn.commit()
 
     def test_cbp_generated_zip_stages_and_loads_idempotently(self) -> None:
@@ -74,15 +119,25 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
 
         path = Path(self.temp.name) / "cbp.zip"
         with ZipFile(path, "w") as archive:
-            archive.writestr("cbp23st.txt", "fipstate,naics,lfo,est,emp,qp1,ap,emp_nf,qp1_nf,ap_nf\n99,00,,10,20,30,40,,,,\n")
+            archive.writestr(
+                "cbp23st.txt",
+                "fipstate,naics,lfo,est,emp,qp1,ap,emp_nf,qp1_nf,ap_nf\n99,00,,10,20,30,40,,,,\n",
+            )
         self._register("census.business_patterns", key, path)
-        plan = {"state": "downloaded", "selection": {"release_year": 2023}, "canonical_load_scope": {"geography_levels": ["state"]}}
+        plan = {
+            "state": "downloaded",
+            "selection": {"release_year": 2023},
+            "canonical_load_scope": {"geography_levels": ["state"]},
+        }
         self.assertEqual(stage_cbp(plan), 1)
         plan["state"] = "staged"
         self.assertEqual(load_cbp(plan), 1)
         load_cbp(plan)
         with connect() as conn, conn.cursor() as cur:
-            cur.execute("SELECT count(*) FROM fact.business_pattern WHERE source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s)", (key,))
+            cur.execute(
+                "SELECT count(*) FROM fact.business_pattern WHERE source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s)",
+                (key,),
+            )
             self.assertEqual(cur.fetchone()["count"], 1)
         self._remove_artifact(key)
 
@@ -100,7 +155,14 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
         plan = {
             "state": "downloaded",
             "canonical_load_scope": {"geography_types": ["county", "state"]},
-            "artifacts": [{"artifact_key": key, "kind": "detailed_table", "release_year": 2024, "table_id": "B25001"}],
+            "artifacts": [
+                {
+                    "artifact_key": key,
+                    "kind": "detailed_table",
+                    "release_year": 2024,
+                    "table_id": "B25001",
+                }
+            ],
         }
         self.assertEqual(stage_acs_bulk(plan), 2)
         plan["state"] = "staged"
@@ -117,39 +179,103 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
             self.assertEqual(
                 cur.fetchall(),
                 [
-                    {"geoid": "99", "field_id": "B25001_E001", "measure": "estimate", "value": __import__("decimal").Decimal("200")},
-                    {"geoid": "99", "field_id": "B25001_E002", "measure": "estimate", "value": None},
-                    {"geoid": "99", "field_id": "B25001_M001", "measure": "margin_of_error", "value": __import__("decimal").Decimal("9")},
-                    {"geoid": "99", "field_id": "B25001_M002", "measure": "margin_of_error", "value": __import__("decimal").Decimal("4")},
-                    {"geoid": "99001", "field_id": "B25001_E001", "measure": "estimate", "value": __import__("decimal").Decimal("100")},
-                    {"geoid": "99001", "field_id": "B25001_E002", "measure": "estimate", "value": None},
-                    {"geoid": "99001", "field_id": "B25001_M001", "measure": "margin_of_error", "value": __import__("decimal").Decimal("7")},
-                    {"geoid": "99001", "field_id": "B25001_M002", "measure": "margin_of_error", "value": None},
+                    {
+                        "geoid": "99",
+                        "field_id": "B25001_E001",
+                        "measure": "estimate",
+                        "value": __import__("decimal").Decimal("200"),
+                    },
+                    {
+                        "geoid": "99",
+                        "field_id": "B25001_E002",
+                        "measure": "estimate",
+                        "value": None,
+                    },
+                    {
+                        "geoid": "99",
+                        "field_id": "B25001_M001",
+                        "measure": "margin_of_error",
+                        "value": __import__("decimal").Decimal("9"),
+                    },
+                    {
+                        "geoid": "99",
+                        "field_id": "B25001_M002",
+                        "measure": "margin_of_error",
+                        "value": __import__("decimal").Decimal("4"),
+                    },
+                    {
+                        "geoid": "99001",
+                        "field_id": "B25001_E001",
+                        "measure": "estimate",
+                        "value": __import__("decimal").Decimal("100"),
+                    },
+                    {
+                        "geoid": "99001",
+                        "field_id": "B25001_E002",
+                        "measure": "estimate",
+                        "value": None,
+                    },
+                    {
+                        "geoid": "99001",
+                        "field_id": "B25001_M001",
+                        "measure": "margin_of_error",
+                        "value": __import__("decimal").Decimal("7"),
+                    },
+                    {
+                        "geoid": "99001",
+                        "field_id": "B25001_M002",
+                        "measure": "margin_of_error",
+                        "value": None,
+                    },
                 ],
             )
         self._remove_artifact(key)
 
     def test_pep_generated_csv_stages_and_loads_all_vintage_years(self) -> None:
-        key = "pep-2025-state-totals"
+        key = "pep-2020-2025-state-totals"
         self._remove_artifact(key)
         path = Path(self.temp.name) / "pep.csv"
         with path.open("w", newline="") as output:
-            writer = csv.DictWriter(output, fieldnames=["SUMLEV", "STATE", "NAME", *[f"POPESTIMATE{year}" for year in range(2020, 2026)]])
-            writer.writeheader(); writer.writerow({"SUMLEV": "040", "STATE": "99", "NAME": "Integration State", **{f"POPESTIMATE{year}": str(year) for year in range(2020, 2026)}})
+            writer = csv.DictWriter(
+                output,
+                fieldnames=[
+                    "SUMLEV",
+                    "STATE",
+                    "NAME",
+                    *[f"POPESTIMATE{year}" for year in range(2020, 2026)],
+                ],
+            )
+            writer.writeheader()
+            writer.writerow(
+                {
+                    "SUMLEV": "040",
+                    "STATE": "99",
+                    "NAME": "Integration State",
+                    **{f"POPESTIMATE{year}": str(year) for year in range(2020, 2026)},
+                }
+            )
         self._register("census.population_estimates", key, path)
-        plan = {"state": "downloaded", "selection": {"vintage": 2025}, "canonical_load_scope": {"geography_levels": ["state"]}}
+        plan = {
+            "state": "downloaded",
+            "selection": {"vintage": "2020-2025", "release_year": 2025},
+            "canonical_load_scope": {"geography_levels": ["state"]},
+        }
         self.assertEqual(stage_pep(plan), 1)
         plan["state"] = "staged"
         self.assertEqual(load_pep(plan), 6)
         load_pep(plan)
         with connect() as conn, conn.cursor() as cur:
-            cur.execute("SELECT count(*) FROM fact.population_estimate WHERE source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s)", (key,))
+            cur.execute(
+                "SELECT count(*) FROM fact.population_estimate WHERE source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s)",
+                (key,),
+            )
             self.assertEqual(cur.fetchone()["count"], 6)
         self._remove_artifact(key)
 
     def test_dhc_generated_geo_segments_and_matrix_load_idempotently(self) -> None:
         archive_key, matrix_key = "dhc-2020-national", "dhc-2020-table-matrix"
-        self._remove_artifact(archive_key); self._remove_artifact(matrix_key)
+        self._remove_artifact(archive_key)
+        self._remove_artifact(matrix_key)
         archive_path = Path(self.temp.name) / "dhc.zip"
         geo = ["DHCST", "ZZ", "040", "00", "00", "000", "00", "0000001", "0400000US99"]
         segment_1 = ["DHCST", "ZZ", "000", "01", "0000001", "17"]
@@ -160,21 +286,36 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
             archive.writestr("us000052020.dhc", "|".join(segment_5) + "\n")
         matrix_path = Path(self.temp.name) / "matrix.xlsx"
         import openpyxl
-        book = openpyxl.Workbook(); sheet = book.active; sheet.title = "DHC Table Matrix"
-        sheet.append(["title"] * 4); sheet.append(["headers"] * 4)
-        sheet.append([None, "H1", "H0010001", 1]); sheet.append([None, "P1", "P0010001", 5])
+
+        book = openpyxl.Workbook()
+        sheet = book.active
+        sheet.title = "DHC Table Matrix"
+        sheet.append(["title"] * 4)
+        sheet.append(["headers"] * 4)
+        sheet.append([None, "H1", "H0010001", 1])
+        sheet.append([None, "P1", "P0010001", 5])
         book.save(matrix_path)
         self._register("census.decennial", archive_key, archive_path)
         self._register("census.decennial", matrix_key, matrix_path)
-        plan = {"state": "downloaded", "canonical_load_scope": {"summary_levels": ["040"], "tables": ["H1", "P1"]}}
+        plan = {
+            "state": "downloaded",
+            "canonical_load_scope": {"summary_levels": ["040"], "tables": ["H1", "P1"]},
+        }
         self.assertEqual(stage_dhc(plan), 1)
         plan["state"] = "staged"
         self.assertEqual(load_dhc(plan), 2)
         load_dhc(plan)
         with connect() as conn, conn.cursor() as cur:
-            cur.execute("SELECT table_id,value FROM fact.decennial_dhc_value WHERE source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s) ORDER BY table_id", (archive_key,))
-            self.assertEqual(cur.fetchall(), [{"table_id": "H1", "value": 17}, {"table_id": "P1", "value": 23}])
-        self._remove_artifact(archive_key); self._remove_artifact(matrix_key)
+            cur.execute(
+                "SELECT table_id,value FROM fact.decennial_dhc_value WHERE source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s) ORDER BY table_id",
+                (archive_key,),
+            )
+            self.assertEqual(
+                cur.fetchall(),
+                [{"table_id": "H1", "value": 17}, {"table_id": "P1", "value": 23}],
+            )
+        self._remove_artifact(archive_key)
+        self._remove_artifact(matrix_key)
 
     def test_tiger_generated_shapefile_stages_and_loads_idempotently(self) -> None:
         try:
@@ -185,19 +326,31 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
         key = "integration-tiger-state"
         self._remove_artifact(key)
         source = Path(self.temp.name) / "state.shp"
-        frame = geopandas.GeoDataFrame({"GEOID": ["99"], "NAME": ["Integration State"], "STATEFP": ["99"]}, geometry=[Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])], crs="EPSG:4269")
+        frame = geopandas.GeoDataFrame(
+            {"GEOID": ["99"], "NAME": ["Integration State"], "STATEFP": ["99"]},
+            geometry=[Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])],
+            crs="EPSG:4269",
+        )
         frame.to_file(source, driver="ESRI Shapefile")
         archive_path = Path(self.temp.name) / "state.zip"
         with ZipFile(archive_path, "w") as archive:
             for member in source.parent.glob("state.*"):
                 archive.write(member, member.name)
         self._register("census.tiger", key, archive_path)
-        plan = {"state": "downloaded", "selection": {"boundary_vintage": 2020}, "canonical_load_scope": {"layers": ["state"]}, "artifacts": [{"artifact_key": key, "kind": "state"}]}
+        plan = {
+            "state": "downloaded",
+            "selection": {"boundary_vintage": 2020},
+            "canonical_load_scope": {"layers": ["state"]},
+            "artifacts": [{"artifact_key": key, "kind": "state"}],
+        }
         self.assertEqual(stage_tiger(plan), 1)
         plan["state"] = "staged"
         self.assertEqual(load_tiger(plan), 1)
         load_tiger(plan)
         with connect() as conn, conn.cursor() as cur:
-            cur.execute("SELECT count(*) FROM core.geography_boundary boundary JOIN core.geography geography USING (geography_id) WHERE geography.geography_type='state' AND geography.geoid='99' AND boundary.boundary_vintage=2020 AND boundary.source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s)", (key,))
+            cur.execute(
+                "SELECT count(*) FROM core.geography_boundary boundary JOIN core.geography geography USING (geography_id) WHERE geography.geography_type='state' AND geography.geoid='99' AND boundary.boundary_vintage=2020 AND boundary.source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s)",
+                (key,),
+            )
             self.assertEqual(cur.fetchone()["count"], 1)
         self._remove_artifact(key)
