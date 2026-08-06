@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import shutil
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from .config import settings
@@ -27,15 +27,24 @@ def _report_path(contract_id: str) -> Path:
 
 def validate_openstates_vote_contract(contract: dict[str, Any]) -> None:
     """Reject contracts that cannot safely describe a snapshot vote refresh."""
-    if contract.get("provider") != "openstates" or contract.get("kind") != "snapshot_incremental":
+    if (
+        contract.get("provider") != "openstates"
+        or contract.get("kind") != "snapshot_incremental"
+    ):
         raise ValueError("contract must be an OpenStates snapshot_incremental contract")
     selection = contract.get("selection") or {}
     if selection.get("entities") != ["voteevent", "personvote"]:
         raise ValueError("contract must select voteevent and personvote")
-    if not all(isinstance(value, int) and value > 0 for value in selection.get("congresses", [])):
+    if not all(
+        isinstance(value, int) and value > 0
+        for value in selection.get("congresses", [])
+    ):
         raise ValueError("contract must name one or more positive Congress numbers")
     cursor = contract.get("cursor") or {}
-    if cursor.get("strategy") != "ocd_vote_event_keyset" or cursor.get("key") != "ocd_id":
+    if (
+        cursor.get("strategy") != "ocd_vote_event_keyset"
+        or cursor.get("key") != "ocd_id"
+    ):
         raise ValueError("contract must use the ocd_id keyset cursor")
     if not (contract.get("validation") or {}).get("dry_run_required"):
         raise ValueError("contract must require a dry run")
@@ -70,9 +79,11 @@ def build_openstates_vote_dry_run(
     return {
         "schema": 1,
         "kind": "openstates_vote_refresh_dry_run",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "contract": contract["id"],
-        "state": "ready_for_review" if readiness["source_access_approved"] else "approval_required",
+        "state": "ready_for_review"
+        if readiness["source_access_approved"]
+        else "approval_required",
         "readiness": readiness,
         "snapshot": {
             "source": contract["provenance"]["source"],
@@ -89,7 +100,8 @@ def build_openstates_vote_dry_run(
         "storage": {
             "available_bytes": free_bytes,
             "reserve_gib": contract["storage"]["reserve_gib"],
-            "sufficient_reserve": free_bytes >= contract["storage"]["reserve_gib"] * 1024**3,
+            "sufficient_reserve": free_bytes
+            >= contract["storage"]["reserve_gib"] * 1024**3,
         },
         "no_writes": {
             "provider": True,
@@ -109,7 +121,9 @@ def build_openstates_vote_dry_run(
     }
 
 
-def dry_run_openstates_vote_refresh(contract_id: str = "openstatesvotes") -> dict[str, Any]:
+def dry_run_openstates_vote_refresh(
+    contract_id: str = "openstatesvotes",
+) -> dict[str, Any]:
     """Inspect the provisioned source snapshot under a read-only transaction."""
     contract = get_contract(contract_id)
     validate_openstates_vote_contract(contract)
@@ -124,7 +138,9 @@ def dry_run_openstates_vote_refresh(contract_id: str = "openstatesvotes") -> dic
     target = _report_path(contract_id)
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix(".json.tmp")
-    temporary.write_text(json.dumps(result, indent=2, sort_keys=True, default=str) + "\n")
+    temporary.write_text(
+        json.dumps(result, indent=2, sort_keys=True, default=str) + "\n"
+    )
     temporary.replace(target)
     result["report"] = str(target)
     return result

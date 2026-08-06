@@ -1,10 +1,12 @@
 """LOGRECNO-aware staging and table-scoped canonical loading for 2020 DHC."""
+
 from __future__ import annotations
 
 import csv
 import io
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from zipfile import ZipFile
 
 from psycopg.types.json import Jsonb
@@ -16,7 +18,10 @@ PREFIX_FIELDS = 5  # FILEID, STUSAB, CHARITER, CIFSN, LOGRECNO
 
 def _artifact(conn: Any, key: str) -> dict[str, Any]:
     with conn.cursor() as cur:
-        cur.execute("SELECT artifact_id, local_path FROM ingest.artifact WHERE artifact_key=%s AND status IN ('downloaded','skipped')", (key,))
+        cur.execute(
+            "SELECT artifact_id, local_path FROM ingest.artifact WHERE artifact_key=%s AND status IN ('downloaded','skipped')",
+            (key,),
+        )
         row = cur.fetchone()
     if row is None:
         raise ValueError(f"Required DHC artifact {key!r} has not been downloaded")
@@ -37,7 +42,9 @@ def _matrix(path: Path, requested: set[str]) -> dict[int, list[tuple[str, str, i
         import openpyxl
     except ImportError as exc:
         raise RuntimeError("DHC loading requires `uv sync --extra ingest`") from exc
-    sheet = openpyxl.load_workbook(path, read_only=True, data_only=True)["DHC Table Matrix"]
+    sheet = openpyxl.load_workbook(path, read_only=True, data_only=True)[
+        "DHC Table Matrix"
+    ]
     result: dict[int, list[tuple[str, str, int]]] = {}
     counters: dict[int, int] = {}
     current = ""
@@ -52,10 +59,14 @@ def _matrix(path: Path, requested: set[str]) -> dict[int, list[tuple[str, str, i
         ordinal = counters.get(segment_number, PREFIX_FIELDS)
         counters[segment_number] = ordinal + 1
         if current in requested:
-            result.setdefault(segment_number, []).append((current, str(variable).strip(), ordinal))
+            result.setdefault(segment_number, []).append(
+                (current, str(variable).strip(), ordinal)
+            )
             found.add(current)
     if missing := requested - found:
-        raise ValueError(f"DHC table IDs not found in official table matrix: {sorted(missing)}")
+        raise ValueError(
+            f"DHC table IDs not found in official table matrix: {sorted(missing)}"
+        )
     return result
 
 
@@ -68,23 +79,44 @@ def stage_dhc(plan: dict[str, Any], update: Callable[[str], None] | None = None)
     with connect() as conn:
         artifact = _artifact(conn, "dhc-2020-national")
         with ZipFile(Path(artifact["local_path"])) as archive:
-            for member in (name for name in archive.namelist() if "geo2020.dhc" in name.lower()):
+            for member in (
+                name for name in archive.namelist() if "geo2020.dhc" in name.lower()
+            ):
                 if update:
                     update(f"Staging DHC GEO: {member}")
                 rows = []
                 with archive.open(member) as binary:
-                    reader = csv.reader(io.TextIOWrapper(binary, encoding="latin-1"), delimiter="|")
+                    reader = csv.reader(
+                        io.TextIOWrapper(binary, encoding="latin-1"), delimiter="|"
+                    )
                     for ordinal, fields in enumerate(reader, start=1):
                         if len(fields) < 9 or fields[2] not in levels:
                             continue
-                        rows.append((artifact["artifact_id"], member, ordinal, fields[7], fields[2], fields[8], Jsonb({"fields": fields})))
+                        rows.append(
+                            (
+                                artifact["artifact_id"],
+                                member,
+                                ordinal,
+                                fields[7],
+                                fields[2],
+                                fields[8],
+                                Jsonb({"fields": fields}),
+                            )
+                        )
                         if len(rows) == 2_000:
                             with conn.cursor() as cur:
-                                cur.executemany("INSERT INTO stage.dhc_geo_row (artifact_id,source_member,source_ordinal,logrecno,sumlev,geoid,raw) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING", rows)
-                            total += len(rows); rows = []
+                                cur.executemany(
+                                    "INSERT INTO stage.dhc_geo_row (artifact_id,source_member,source_ordinal,logrecno,sumlev,geoid,raw) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                                    rows,
+                                )
+                            total += len(rows)
+                            rows = []
                 if rows:
                     with conn.cursor() as cur:
-                        cur.executemany("INSERT INTO stage.dhc_geo_row (artifact_id,source_member,source_ordinal,logrecno,sumlev,geoid,raw) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING", rows)
+                        cur.executemany(
+                            "INSERT INTO stage.dhc_geo_row (artifact_id,source_member,source_ordinal,logrecno,sumlev,geoid,raw) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                            rows,
+                        )
                     total += len(rows)
                 conn.commit()
     return total
@@ -101,39 +133,80 @@ def load_dhc(plan: dict[str, Any], update: Callable[[str], None] | None = None) 
         matrix = _artifact(conn, "dhc-2020-table-matrix")
         segments = _matrix(Path(matrix["local_path"]), tables)
         with conn.cursor() as cur:
-            cur.execute("""INSERT INTO core.geography (geography_type,geoid,state_fips,county_fips)
+            cur.execute(
+                """INSERT INTO core.geography (geography_type,geoid,state_fips,county_fips)
               SELECT DISTINCT CASE sumlev WHEN '040' THEN 'state' WHEN '050' THEN 'county' WHEN '140' THEN 'tract' ELSE 'census_'||sumlev END,
                 geoid, substring(geoid from 'US([0-9]{2})'), substring(geoid from 'US[0-9]{2}([0-9]{3})')
               FROM stage.dhc_geo_row WHERE artifact_id=%s AND sumlev=ANY(%s)
-              ON CONFLICT (geography_type,geoid) DO NOTHING""", (artifact["artifact_id"], list(levels)))
-            cur.execute("SELECT logrecno,sumlev,geoid FROM stage.dhc_geo_row WHERE artifact_id=%s AND sumlev=ANY(%s)", (artifact["artifact_id"], list(levels)))
+              ON CONFLICT (geography_type,geoid) DO NOTHING""",
+                (artifact["artifact_id"], list(levels)),
+            )
+            cur.execute(
+                "SELECT logrecno,sumlev,geoid FROM stage.dhc_geo_row WHERE artifact_id=%s AND sumlev=ANY(%s)",
+                (artifact["artifact_id"], list(levels)),
+            )
             geography = {row["logrecno"]: row for row in cur.fetchall()}
             cur.execute("SELECT geography_id,geography_type,geoid FROM core.geography")
-            ids = {(row["geography_type"], row["geoid"]): row["geography_id"] for row in cur.fetchall()}
+            ids = {
+                (row["geography_type"], row["geoid"]): row["geography_id"]
+                for row in cur.fetchall()
+            }
         with ZipFile(Path(artifact["local_path"])) as archive:
             for segment, variables in segments.items():
                 suffix = f"{segment:04d}2020.dhc"
-                for member in (name for name in archive.namelist() if name.lower().endswith(suffix)):
+                for member in (
+                    name for name in archive.namelist() if name.lower().endswith(suffix)
+                ):
                     if update:
                         update(f"Loading DHC segment {segment}: {member}")
                     rows = []
                     with archive.open(member) as binary:
-                        reader = csv.reader(io.TextIOWrapper(binary, encoding="latin-1"), delimiter="|")
+                        reader = csv.reader(
+                            io.TextIOWrapper(binary, encoding="latin-1"), delimiter="|"
+                        )
                         for ordinal, fields in enumerate(reader, start=1):
-                            if len(fields) <= PREFIX_FIELDS or (geo := geography.get(fields[4])) is None:
+                            if (
+                                len(fields) <= PREFIX_FIELDS
+                                or (geo := geography.get(fields[4])) is None
+                            ):
                                 continue
-                            kind = {"040": "state", "050": "county", "140": "tract"}.get(geo["sumlev"], "census_" + geo["sumlev"])
+                            kind = {
+                                "040": "state",
+                                "050": "county",
+                                "140": "tract",
+                            }.get(geo["sumlev"], "census_" + geo["sumlev"])
                             geography_id = ids[(kind, geo["geoid"])]
                             for table, variable, index in variables:
-                                if index < len(fields) and fields[index].lstrip("-").isdigit():
-                                    rows.append((2020, geography_id, table, variable, int(fields[index]), artifact["artifact_id"], member, ordinal))
+                                if (
+                                    index < len(fields)
+                                    and fields[index].lstrip("-").isdigit()
+                                ):
+                                    rows.append(
+                                        (
+                                            2020,
+                                            geography_id,
+                                            table,
+                                            variable,
+                                            int(fields[index]),
+                                            artifact["artifact_id"],
+                                            member,
+                                            ordinal,
+                                        )
+                                    )
                             if len(rows) >= 5_000:
                                 with conn.cursor() as cur:
-                                    cur.executemany("INSERT INTO fact.decennial_dhc_value (release_year,geography_id,table_id,variable_id,value,source_artifact_id,source_member,source_ordinal) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING", rows)
-                                total += len(rows); rows = []
+                                    cur.executemany(
+                                        "INSERT INTO fact.decennial_dhc_value (release_year,geography_id,table_id,variable_id,value,source_artifact_id,source_member,source_ordinal) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                                        rows,
+                                    )
+                                total += len(rows)
+                                rows = []
                     if rows:
                         with conn.cursor() as cur:
-                            cur.executemany("INSERT INTO fact.decennial_dhc_value (release_year,geography_id,table_id,variable_id,value,source_artifact_id,source_member,source_ordinal) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING", rows)
+                            cur.executemany(
+                                "INSERT INTO fact.decennial_dhc_value (release_year,geography_id,table_id,variable_id,value,source_artifact_id,source_member,source_ordinal) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                                rows,
+                            )
                         total += len(rows)
                     conn.commit()
     return total

@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from hashlib import sha256
 import json
-from pathlib import Path
 import re
 import shutil
 import subprocess
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime
+from hashlib import sha256
+from pathlib import Path
+from typing import Any
 
 import yaml
 
 from .config import settings
-
 
 REQUIRED_VOTE_TABLES = {
     "public.opencivicdata_legislativesession",
@@ -44,19 +44,30 @@ def load_snapshot_manifest(path: Path) -> dict[str, Any]:
     if missing:
         raise ValueError(f"snapshot manifest missing: {', '.join(missing)}")
     if payload["schema"] != 1 or payload["provider"] != "openstates":
-        raise ValueError("snapshot manifest must identify schema 1 and provider openstates")
+        raise ValueError(
+            "snapshot manifest must identify schema 1 and provider openstates"
+        )
     if payload["dataset"] != "openstates.dump":
         raise ValueError("snapshot manifest must target openstates.dump")
     if not isinstance(payload["artifact_key"], str) or not payload["artifact_key"]:
         raise ValueError("snapshot manifest requires an artifact_key")
-    if not isinstance(payload["remote_url"], str) or not payload["remote_url"].startswith("https://"):
+    if not isinstance(payload["remote_url"], str) or not payload[
+        "remote_url"
+    ].startswith("https://"):
         raise ValueError("snapshot manifest requires an HTTPS remote_url")
-    if not isinstance(payload["local_path"], str) or not Path(payload["local_path"]).is_absolute():
+    if (
+        not isinstance(payload["local_path"], str)
+        or not Path(payload["local_path"]).is_absolute()
+    ):
         raise ValueError("snapshot manifest requires an absolute local_path")
     if not isinstance(payload["bytes"], int) or payload["bytes"] < 1:
         raise ValueError("snapshot manifest bytes must be a positive integer")
-    if not isinstance(payload["checksum_sha256"], str) or not _SHA256.fullmatch(payload["checksum_sha256"]):
-        raise ValueError("snapshot manifest checksum_sha256 must be a lowercase SHA-256")
+    if not isinstance(payload["checksum_sha256"], str) or not _SHA256.fullmatch(
+        payload["checksum_sha256"]
+    ):
+        raise ValueError(
+            "snapshot manifest checksum_sha256 must be a lowercase SHA-256"
+        )
     expected = payload["expected_tables"]
     if not isinstance(expected, list) or not REQUIRED_VOTE_TABLES.issubset(expected):
         raise ValueError("snapshot manifest must require the OpenStates vote tables")
@@ -171,11 +182,13 @@ def validate_snapshot_artifact(
     tables = table_lister(artifact)
     missing = sorted(set(manifest["expected_tables"]) - tables)
     if missing:
-        raise ValueError(f"snapshot archive is missing required tables: {', '.join(missing)}")
+        raise ValueError(
+            f"snapshot archive is missing required tables: {', '.join(missing)}"
+        )
     result = {
         "schema": 1,
         "kind": "openstates_snapshot_validation",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "manifest": str(manifest_path.resolve()),
         "artifact_key": manifest["artifact_key"],
         "local_path": str(artifact.resolve()),

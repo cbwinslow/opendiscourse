@@ -1,20 +1,29 @@
 """County Business Patterns bulk-package planning utilities."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import yaml
 
 from ..capacity import GiB, remote_size, storage_preview
 from ..config import settings
 
-
 CBP_2023_FILES = (
-    "cbp23us.zip", "cbp23st.zip", "cbp23pr_ia_st.zip", "cbp23csa.zip", "cbp23msa.zip",
-    "cbp23co.zip", "cbp23pr_ia_co.zip", "zbp23totals.zip", "zbp23detail.zip", "cbp23cd.xlsx",
+    "cbp23us.zip",
+    "cbp23st.zip",
+    "cbp23pr_ia_st.zip",
+    "cbp23csa.zip",
+    "cbp23msa.zip",
+    "cbp23co.zip",
+    "cbp23pr_ia_co.zip",
+    "zbp23totals.zip",
+    "zbp23detail.zip",
+    "cbp23cd.xlsx",
 )
 
 
@@ -25,7 +34,10 @@ def _root() -> Path:
 
 
 def _package_year(resource: dict[str, Any]) -> int | None:
-    if resource.get("dataset_id") != "census.business_patterns" or resource.get("resource_type") != "Complete CSV bundle":
+    if (
+        resource.get("dataset_id") != "census.business_patterns"
+        or resource.get("resource_type") != "Complete CSV bundle"
+    ):
         return None
     try:
         prefix, year = str(resource["resource_key"]).split(":", 1)
@@ -34,17 +46,59 @@ def _package_year(resource: dict[str, Any]) -> int | None:
         return None
 
 
-def build_cbp_bulk_plan(basket_name: str, resources: list[dict[str, Any]]) -> dict[str, Any]:
+def build_cbp_bulk_plan(
+    basket_name: str, resources: list[dict[str, Any]]
+) -> dict[str, Any]:
     """Create a disabled plan for an official complete CBP annual release."""
-    years = sorted({year for resource in resources if (year := _package_year(resource))})
+    years = sorted(
+        {year for resource in resources if (year := _package_year(resource))}
+    )
     if not years:
-        raise ValueError("Select a CBP complete CSV bundle before creating a bulk plan.")
+        raise ValueError(
+            "Select a CBP complete CSV bundle before creating a bulk plan."
+        )
     if len(years) != 1:
-        raise ValueError("Create one CBP plan per release year so revision and schema evidence remain clear.")
+        raise ValueError(
+            "Create one CBP plan per release year so revision and schema evidence remain clear."
+        )
     year = years[0]
     base = f"https://www2.census.gov/programs-surveys/cbp/datasets/{year}"
-    artifacts = [{"artifact_key": f"cbp-{year}-{name.rsplit('.', 1)[0]}", "kind": "source_data", "url": f"{base}/{name}", "filename": name, "release_year": year} for name in CBP_2023_FILES]
-    return {"version": 1, "state": "draft", "provider": "census", "dataset": "census.business_patterns", "format": "CBP CSV-in-ZIP", "created_at": datetime.now(timezone.utc).isoformat(), "basket": basket_name, "selection": {"release_year": year, "package": "complete_csv_bundle"}, "canonical_load_scope": "not approved; choose geography and NAICS filters before enabling a load", "artifacts": artifacts, "storage": {"state": "unpreviewed", "stage_multiplier": 1.0, "database_multiplier": 1.5, "reserve_gib": 100}, "provenance": {"source_page": f"https://www.census.gov/data/datasets/{year}/econ/cbp/{year}-cbp.html", "note": "Files preserve published CBP geography and industry source schemas before canonical loading."}, "next": ["Run cbp-bulk-preview to record exact sizes.", "Review files and canonical geography/NAICS scope before approval."]}
+    artifacts = [
+        {
+            "artifact_key": f"cbp-{year}-{name.rsplit('.', 1)[0]}",
+            "kind": "source_data",
+            "url": f"{base}/{name}",
+            "filename": name,
+            "release_year": year,
+        }
+        for name in CBP_2023_FILES
+    ]
+    return {
+        "version": 1,
+        "state": "draft",
+        "provider": "census",
+        "dataset": "census.business_patterns",
+        "format": "CBP CSV-in-ZIP",
+        "created_at": datetime.now(UTC).isoformat(),
+        "basket": basket_name,
+        "selection": {"release_year": year, "package": "complete_csv_bundle"},
+        "canonical_load_scope": "not approved; choose geography and NAICS filters before enabling a load",
+        "artifacts": artifacts,
+        "storage": {
+            "state": "unpreviewed",
+            "stage_multiplier": 1.0,
+            "database_multiplier": 1.5,
+            "reserve_gib": 100,
+        },
+        "provenance": {
+            "source_page": f"https://www.census.gov/data/datasets/{year}/econ/cbp/{year}-cbp.html",
+            "note": "Files preserve published CBP geography and industry source schemas before canonical loading.",
+        },
+        "next": [
+            "Run cbp-bulk-preview to record exact sizes.",
+            "Review files and canonical geography/NAICS scope before approval.",
+        ],
+    }
 
 
 def write_cbp_bulk_plan(basket_name: str, resources: list[dict[str, Any]]) -> Path:
@@ -56,7 +110,9 @@ def write_cbp_bulk_plan(basket_name: str, resources: list[dict[str, Any]]) -> Pa
     return path
 
 
-def preview_cbp_bulk_plan(path: Path, update: Callable[[str], None] | None = None) -> dict[str, Any]:
+def preview_cbp_bulk_plan(
+    path: Path, update: Callable[[str], None] | None = None
+) -> dict[str, Any]:
     """Measure every CBP artifact without downloading content."""
     plan = yaml.safe_load(path.read_text()) or {}
     if plan.get("format") != "CBP CSV-in-ZIP":
@@ -64,11 +120,24 @@ def preview_cbp_bulk_plan(path: Path, update: Callable[[str], None] | None = Non
     artifacts = plan.get("artifacts", [])
     objects = []
     for artifact in artifacts:
-        if update: update(f"Sizing {artifact['artifact_key']}")
+        if update:
+            update(f"Sizing {artifact['artifact_key']}")
         objects.append(remote_size(artifact["url"]))
     storage = plan["storage"]
-    report = storage_preview(objects, stage_multiplier=float(storage["stage_multiplier"]), database_multiplier=float(storage["database_multiplier"]), reserve_bytes=int(storage["reserve_gib"]) * GiB)
-    report.update({"state": "preview", "plan": str(path), "artifact_count": len(artifacts), "generated_at": datetime.now(timezone.utc).isoformat()})
+    report = storage_preview(
+        objects,
+        stage_multiplier=float(storage["stage_multiplier"]),
+        database_multiplier=float(storage["database_multiplier"]),
+        reserve_bytes=int(storage["reserve_gib"]) * GiB,
+    )
+    report.update(
+        {
+            "state": "preview",
+            "plan": str(path),
+            "artifact_count": len(artifacts),
+            "generated_at": datetime.now(UTC).isoformat(),
+        }
+    )
     output = path.with_suffix(".preview.json")
     output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     report["report"] = str(output)

@@ -1,23 +1,27 @@
 """Staging and canonical loading for approved County Business Patterns artifacts."""
+
 from __future__ import annotations
 
 import csv
 import io
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from zipfile import ZipFile
 
 from psycopg.types.json import Jsonb
 
 from ..db import connect
 
-
 MEMBERS = {"us": "cbp23us.txt", "state": "cbp23st.txt", "county": "cbp23co.txt"}
 
 
 def _artifact(conn: Any, key: str) -> dict[str, Any]:
     with conn.cursor() as cur:
-        cur.execute("SELECT artifact_id, local_path FROM ingest.artifact WHERE artifact_key = %s AND status IN ('downloaded', 'skipped')", (key,))
+        cur.execute(
+            "SELECT artifact_id, local_path FROM ingest.artifact WHERE artifact_key = %s AND status IN ('downloaded', 'skipped')",
+            (key,),
+        )
         row = cur.fetchone()
     if row is None:
         raise ValueError(f"Required CBP artifact {key!r} has not been downloaded")
@@ -42,21 +46,39 @@ def stage_cbp(plan: dict[str, Any], update: Callable[[str], None] | None = None)
     total = 0
     with connect() as conn:
         for level in sorted(_scope(plan)):
-            artifact = _artifact(conn, f"cbp-{year}-cbp23{'co' if level == 'county' else 'st' if level == 'state' else 'us'}")
+            artifact = _artifact(
+                conn,
+                f"cbp-{year}-cbp23{'co' if level == 'county' else 'st' if level == 'state' else 'us'}",
+            )
             member = MEMBERS[level]
-            if update: update(f"Staging CBP {level} rows")
-            with ZipFile(Path(artifact["local_path"])) as archive, archive.open(member) as binary:
-                reader = csv.DictReader(io.TextIOWrapper(binary, encoding="utf-8-sig", newline=""))
+            if update:
+                update(f"Staging CBP {level} rows")
+            with (
+                ZipFile(Path(artifact["local_path"])) as archive,
+                archive.open(member) as binary,
+            ):
+                reader = csv.DictReader(
+                    io.TextIOWrapper(binary, encoding="utf-8-sig", newline="")
+                )
                 rows = []
                 for ordinal, row in enumerate(reader, start=1):
-                    rows.append((artifact["artifact_id"], member, ordinal, level, Jsonb(row)))
+                    rows.append(
+                        (artifact["artifact_id"], member, ordinal, level, Jsonb(row))
+                    )
                     if len(rows) == 2_000:
                         with conn.cursor() as cur:
-                            cur.executemany("INSERT INTO stage.cbp_row (artifact_id, source_member, source_ordinal, geography_level, raw) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING", rows)
-                        total += len(rows); rows = []
+                            cur.executemany(
+                                "INSERT INTO stage.cbp_row (artifact_id, source_member, source_ordinal, geography_level, raw) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                                rows,
+                            )
+                        total += len(rows)
+                        rows = []
                 if rows:
                     with conn.cursor() as cur:
-                        cur.executemany("INSERT INTO stage.cbp_row (artifact_id, source_member, source_ordinal, geography_level, raw) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING", rows)
+                        cur.executemany(
+                            "INSERT INTO stage.cbp_row (artifact_id, source_member, source_ordinal, geography_level, raw) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                            rows,
+                        )
                     total += len(rows)
             conn.commit()
     return total
@@ -68,9 +90,11 @@ def load_cbp(plan: dict[str, Any], update: Callable[[str], None] | None = None) 
         raise ValueError("CBP plan must be staged before canonical loading")
     year = int(plan["selection"]["release_year"])
     levels = list(_scope(plan))
-    if update: update("Creating CBP geographies")
+    if update:
+        update("Creating CBP geographies")
     with connect() as conn, conn.cursor() as cur:
-        cur.execute("""WITH source AS (
+        cur.execute(
+            """WITH source AS (
               SELECT geography_level, raw FROM stage.cbp_row WHERE geography_level = ANY(%s)
             ), geographies AS (
               SELECT DISTINCT CASE geography_level WHEN 'county' THEN 'county' WHEN 'state' THEN 'state' ELSE 'nation' END AS geography_type,
@@ -79,9 +103,13 @@ def load_cbp(plan: dict[str, Any], update: Callable[[str], None] | None = None) 
                 CASE WHEN geography_level = 'county' THEN raw->>'fipscty' END AS county_fips FROM source
             ) INSERT INTO core.geography (geography_type, geoid, state_fips, county_fips)
             SELECT geography_type, geoid, state_fips, county_fips FROM geographies
-            ON CONFLICT (geography_type, geoid) DO UPDATE SET state_fips = COALESCE(core.geography.state_fips, EXCLUDED.state_fips), county_fips = COALESCE(core.geography.county_fips, EXCLUDED.county_fips)""", (levels,))
-        if update: update("Promoting staged CBP rows to canonical facts")
-        cur.execute("""WITH source AS (
+            ON CONFLICT (geography_type, geoid) DO UPDATE SET state_fips = COALESCE(core.geography.state_fips, EXCLUDED.state_fips), county_fips = COALESCE(core.geography.county_fips, EXCLUDED.county_fips)""",
+            (levels,),
+        )
+        if update:
+            update("Promoting staged CBP rows to canonical facts")
+        cur.execute(
+            """WITH source AS (
               SELECT artifact_id, source_member, source_ordinal, geography_level, raw FROM stage.cbp_row WHERE geography_level = ANY(%s)
             ) INSERT INTO fact.business_pattern
               (release_year, geography_id, naics, legal_form, establishments, employment, first_quarter_payroll, annual_payroll, flags, source_artifact_id, source_member, source_ordinal)
@@ -95,7 +123,9 @@ def load_cbp(plan: dict[str, Any], update: Callable[[str], None] | None = None) 
             FROM source JOIN core.geography geography ON geography.geography_type = CASE source.geography_level WHEN 'county' THEN 'county' WHEN 'state' THEN 'state' ELSE 'nation' END
               AND geography.geoid = CASE source.geography_level WHEN 'county' THEN (source.raw->>'fipstate') || (source.raw->>'fipscty') WHEN 'state' THEN source.raw->>'fipstate' ELSE 'us' END
             ON CONFLICT (source_artifact_id, source_member, source_ordinal) DO UPDATE SET establishments = EXCLUDED.establishments,
-              employment = EXCLUDED.employment, first_quarter_payroll = EXCLUDED.first_quarter_payroll, annual_payroll = EXCLUDED.annual_payroll, flags = EXCLUDED.flags""", (levels, year))
+              employment = EXCLUDED.employment, first_quarter_payroll = EXCLUDED.first_quarter_payroll, annual_payroll = EXCLUDED.annual_payroll, flags = EXCLUDED.flags""",
+            (levels, year),
+        )
         total = cur.rowcount
         conn.commit()
     return total

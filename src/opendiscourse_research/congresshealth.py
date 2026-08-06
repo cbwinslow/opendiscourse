@@ -1,9 +1,10 @@
 """Read-only operational health reporting for congressional ingestion."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from pathlib import Path
 import json
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from .config import settings
@@ -50,7 +51,9 @@ def is_recovered_run(run: dict[str, Any]) -> bool:
 
 def has_identity_attention(health: dict[str, Any]) -> bool:
     """Return whether unresolved identity evidence requires operator review."""
-    return bool(health.get("unresolved_sponsorships") or health.get("unresolved_voters"))
+    return bool(
+        health.get("unresolved_sponsorships") or health.get("unresolved_voters")
+    )
 
 
 def congressional_health() -> dict[str, Any]:
@@ -61,33 +64,44 @@ def congressional_health() -> dict[str, Any]:
     meta_root = Path(settings.data_root).expanduser().resolve().parent / "meta"
     validation_path = meta_root / "validate" / "billstatus" / "latest.json"
     reconciliation_path = meta_root / "reconcile" / "billstatus" / "119.json"
-    validation = json.loads(validation_path.read_text()) if validation_path.is_file() else None
+    validation = (
+        json.loads(validation_path.read_text()) if validation_path.is_file() else None
+    )
     reconciliation = (
-        json.loads(reconciliation_path.read_text()) if reconciliation_path.is_file() else None
+        json.loads(reconciliation_path.read_text())
+        if reconciliation_path.is_file()
+        else None
     )
     result: dict[str, Any] = {
         "schema": 1,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "coverage": {
             "bills": {
                 "118": "complete",
-                "119": billstatus_coverage(validation, reconciliation, health["latest_runs"]),
+                "119": billstatus_coverage(
+                    validation, reconciliation, health["latest_runs"]
+                ),
             },
-            "people": {"federal": "complete" if health["unresolved_sponsorships"] == 0 else "partial"},
+            "people": {
+                "federal": "complete"
+                if health["unresolved_sponsorships"] == 0
+                else "partial"
+            },
             "organizations": {"federal": "complete"},
             "votes": {"118": "complete", "119": "partial"},
         },
         "canonical": health,
-        "vote_reconciliation": {"118": reconcile_openstates_votes(118), "119": reconcile_openstates_votes(119)},
+        "vote_reconciliation": {
+            "118": reconcile_openstates_votes(118),
+            "119": reconcile_openstates_votes(119),
+        },
     }
     result["stale_runs"] = [
         run for run in health["latest_runs"] if run["status"] == "running"
     ]
     failed_runs = [run for run in health["latest_runs"] if run["status"] == "failed"]
     result["recovered_runs"] = [run for run in failed_runs if is_recovered_run(run)]
-    result["failed_runs"] = [
-        run for run in failed_runs if not is_recovered_run(run)
-    ]
+    result["failed_runs"] = [run for run in failed_runs if not is_recovered_run(run)]
     result["identity_exceptions"] = {
         "unresolved_sponsorships": health["unresolved_sponsorships"],
         "unresolved_voters": health["unresolved_voters"],
@@ -96,7 +110,9 @@ def congressional_health() -> dict[str, Any]:
         "failed"
         if result["failed_runs"]
         else "attention"
-        if result["stale_runs"] or result["recovered_runs"] or has_identity_attention(health)
+        if result["stale_runs"]
+        or result["recovered_runs"]
+        or has_identity_attention(health)
         else "healthy"
     )
     target = meta_root / "health" / "congressional.json"
@@ -106,7 +122,9 @@ def congressional_health() -> dict[str, Any]:
     return result
 
 
-def recover_stale_congressional_runs(older_than: str = "6 hours") -> list[dict[str, Any]]:
+def recover_stale_congressional_runs(
+    older_than: str = "6 hours",
+) -> list[dict[str, Any]]:
     """Mark long-abandoned congressional runs failed with explicit recovery evidence."""
     with connect() as conn, conn.cursor() as cur:
         cur.execute(_query("fail_stale_runs"), {"older_than": older_than})

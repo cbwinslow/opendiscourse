@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from ..config import settings
+from ..repositories.legislation import (
+    resolve_bill_sponsorship_people,
+    upsert_congress_person,
+)
 from .base import IngestionRun, client, json_response
-from ..repositories.legislation import resolve_bill_sponsorship_people, upsert_congress_person
 
 
 def _upsert_bill(cur, bill: dict, payload_id: str) -> None:
@@ -19,9 +22,16 @@ def _upsert_bill(cur, bill: dict, payload_id: str) -> None:
              latest_action_date = EXCLUDED.latest_action_date, latest_action = EXCLUDED.latest_action,
              metadata = core.bill.metadata || EXCLUDED.metadata
            RETURNING bill_id""",
-        (congress, bill_type, bill_number, bill.get("title"), bill.get("introducedDate"),
-         latest.get("actionDate"), latest.get("text"),
-         '{"source":"congress.gov"}'),
+        (
+            congress,
+            bill_type,
+            bill_number,
+            bill.get("title"),
+            bill.get("introducedDate"),
+            latest.get("actionDate"),
+            latest.get("text"),
+            '{"source":"congress.gov"}',
+        ),
     )
 
 
@@ -29,8 +39,16 @@ def ingest_bill(congress: int, bill_type: str, bill_number: int) -> int:
     if not settings.congress_api_key:
         raise ValueError("CONGRESS_API_KEY is required for Congress.gov ingestion")
     path = f"https://api.congress.gov/v3/bill/{congress}/{bill_type}/{bill_number}"
-    with client() as http, IngestionRun("congress.legislation", {"congress": congress, "bill_type": bill_type, "bill_number": bill_number}) as run:
-        response = http.get(path, params={"api_key": settings.congress_api_key, "format": "json"})
+    with (
+        client() as http,
+        IngestionRun(
+            "congress.legislation",
+            {"congress": congress, "bill_type": bill_type, "bill_number": bill_number},
+        ) as run,
+    ):
+        response = http.get(
+            path, params={"api_key": settings.congress_api_key, "format": "json"}
+        )
         payload = json_response(response)
         payload_id = run.store_payload(response, payload)
         bill = payload["bill"]
@@ -46,8 +64,15 @@ def ingest_member(bioguide_id: str) -> int:
     if not settings.congress_api_key:
         raise ValueError("CONGRESS_API_KEY is required for Congress.gov ingestion")
     url = f"https://api.congress.gov/v3/member/{bioguide_id}"
-    with client() as http, IngestionRun("congress.legislation", {"bioguide_id": bioguide_id}, mode="backfill") as run:
-        response = http.get(url, params={"api_key": settings.congress_api_key, "format": "json"})
+    with (
+        client() as http,
+        IngestionRun(
+            "congress.legislation", {"bioguide_id": bioguide_id}, mode="backfill"
+        ) as run,
+    ):
+        response = http.get(
+            url, params={"api_key": settings.congress_api_key, "format": "json"}
+        )
         payload = json_response(response)
         run.store_payload(response, payload)
         member = payload["member"]
@@ -57,7 +82,9 @@ def ingest_member(bioguide_id: str) -> int:
         return run.record_count
 
 
-def ingest_bills(congress: int, max_records: int = 250, *, offset: int = 0, mode: str = "backfill") -> int:
+def ingest_bills(
+    congress: int, max_records: int = 250, *, offset: int = 0, mode: str = "backfill"
+) -> int:
     """Ingest bounded Congress.gov bill collection pages.
 
     This endpoint is deliberately bounded so historical loading remains an
@@ -69,10 +96,26 @@ def ingest_bills(congress: int, max_records: int = 250, *, offset: int = 0, mode
     if max_records < 1 or offset < 0:
         raise ValueError("max_records must be positive and offset cannot be negative")
     url = f"https://api.congress.gov/v3/bill/{congress}"
-    with client() as http, IngestionRun("congress.legislation", {"congress": congress, "max_records": max_records}, mode=mode) as run:
+    with (
+        client() as http,
+        IngestionRun(
+            "congress.legislation",
+            {"congress": congress, "max_records": max_records},
+            mode=mode,
+        ) as run,
+    ):
         while run.record_count < max_records:
             limit = min(250, max_records - run.record_count)
-            response = http.get(url, params={"api_key": settings.congress_api_key, "format": "json", "limit": limit, "offset": offset, "sort": "updateDate+desc"})
+            response = http.get(
+                url,
+                params={
+                    "api_key": settings.congress_api_key,
+                    "format": "json",
+                    "limit": limit,
+                    "offset": offset,
+                    "sort": "updateDate+desc",
+                },
+            )
             payload = json_response(response)
             payload_id = run.store_payload(response, payload)
             bills = payload.get("bills", [])

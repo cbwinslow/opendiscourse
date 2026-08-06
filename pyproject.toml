@@ -27,8 +27,29 @@ browser = ["textual>=0.85,<1"]
 [project.scripts]
 research-db = "opendiscourse_research.cli:app"
 
+[dependency-groups]
+dev = ["ruff>=0.15,<1"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+
+[tool.ruff.lint]
+# TRY004 wants TypeError for shape checks; this project deliberately raises
+# ValueError for malformed external data and contracts (provider payloads,
+# YAML contracts), matching the tests written against that contract.
+ignore = ["TRY004"]
+
+[tool.ruff.lint.per-file-ignores]
+# Typer's documented idiom is `param: T = typer.Option(...)` in the
+# function signature itself.
+"src/opendiscourse_research/cli.py" = ["B008"]
+# Textual TUI: BINDINGS is the framework's own mutable class-attribute
+# idiom, and action handlers deliberately catch broad exceptions to
+# surface an actionable status message instead of crashing the app.
+"src/opendiscourse_research/browser.py" = ["RUF012", "BLE001"]
+# Treasury par-yield-curve dates are calendar dates with no timezone
+# concept; the naive datetime is immediately narrowed with `.date()`.
+"src/opendiscourse_research/ingestion/treasury.py" = ["DTZ007"]

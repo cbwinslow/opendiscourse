@@ -1,15 +1,15 @@
 """Census Data API catalog provider adapter."""
+
 from __future__ import annotations
 
-from hashlib import sha256
 import json
+from hashlib import sha256
 from typing import Any
 
 from psycopg.types.json import Jsonb
 
 from ..db import connect
 from ..ingestion.base import IngestionRun, client, json_response
-
 
 CATALOG_URL = "https://api.census.gov/data.json"
 ACS_TABLE_BASED_YEARS = (2021, 2022, 2023, 2024)
@@ -33,7 +33,9 @@ def _endpoint(item: dict[str, Any]) -> str | None:
 def _offering_type(item: dict[str, Any]) -> str:
     """Classify an offering into a browser facet from its official API path."""
     path = "/".join(str(part).casefold() for part in item.get("c_dataset", []))
-    description = " ".join(str(item.get(key) or "") for key in ("identifier", "title", "description")).casefold()
+    description = " ".join(
+        str(item.get(key) or "") for key in ("identifier", "title", "description")
+    ).casefold()
     if path.startswith("acs5") or "/acs5" in path:
         return "ACS 5-Year"
     if path.startswith("acs1") or "/acs1" in path:
@@ -51,7 +53,10 @@ def _offering_type(item: dict[str, Any]) -> str:
 
 def sync_catalog() -> dict[str, int | str]:
     """Index every published Census API offering without fetching observations."""
-    with client() as http, IngestionRun("census.api_catalog", {"action": "catalog"}, mode="plan") as run:
+    with (
+        client() as http,
+        IngestionRun("census.api_catalog", {"action": "catalog"}, mode="plan") as run,
+    ):
         response = http.get(CATALOG_URL)
         payload = json_response(response)
         payload_id = run.store_payload(response, payload)
@@ -71,12 +76,18 @@ def sync_catalog() -> dict[str, int | str]:
                 except (TypeError, ValueError):
                     release_year = None
                 metadata = {
-                    "identifier": item.get("identifier"), "endpoint": endpoint,
-                    "dataset_path": item.get("c_dataset"), "available": item.get("c_isAvailable"),
-                    "aggregate": item.get("c_isAggregate"), "cube": item.get("c_isCube"),
-                    "temporal": item.get("temporal"), "keywords": item.get("keyword", []),
-                    "variables_url": item.get("c_variablesLink"), "groups_url": item.get("c_groupsLink"),
-                    "geography_url": item.get("c_geographyLink"), "source_payload_id": payload_id,
+                    "identifier": item.get("identifier"),
+                    "endpoint": endpoint,
+                    "dataset_path": item.get("c_dataset"),
+                    "available": item.get("c_isAvailable"),
+                    "aggregate": item.get("c_isAggregate"),
+                    "cube": item.get("c_isCube"),
+                    "temporal": item.get("temporal"),
+                    "keywords": item.get("keyword", []),
+                    "variables_url": item.get("c_variablesLink"),
+                    "groups_url": item.get("c_groupsLink"),
+                    "geography_url": item.get("c_geographyLink"),
+                    "source_payload_id": payload_id,
                 }
                 cur.execute(
                     """INSERT INTO catalog.resource
@@ -86,7 +97,14 @@ def sync_catalog() -> dict[str, int | str]:
                          resource_type = EXCLUDED.resource_type, title = EXCLUDED.title,
                          summary = EXCLUDED.summary, release_year = EXCLUDED.release_year,
                          metadata = EXCLUDED.metadata, updated_at = now()""",
-                    (key, _offering_type(item), str(item.get("title") or key), item.get("description"), release_year, Jsonb(metadata)),
+                    (
+                        key,
+                        _offering_type(item),
+                        str(item.get("title") or key),
+                        item.get("description"),
+                        release_year,
+                        Jsonb(metadata),
+                    ),
                 )
                 run.record_count += 1
             cur.execute(
@@ -94,7 +112,16 @@ def sync_catalog() -> dict[str, int | str]:
                    VALUES ('census.api_catalog', %s, %s, %s)
                    ON CONFLICT (dataset_id, checksum_sha256) DO UPDATE SET metadata = EXCLUDED.metadata
                    RETURNING snapshot_id""",
-                (CATALOG_URL, sha256(canonical).hexdigest(), Jsonb({"kind": "census_data_api_catalog", "offerings": run.record_count})),
+                (
+                    CATALOG_URL,
+                    sha256(canonical).hexdigest(),
+                    Jsonb(
+                        {
+                            "kind": "census_data_api_catalog",
+                            "offerings": run.record_count,
+                        }
+                    ),
+                ),
             )
             snapshot_id = cur.fetchone()["snapshot_id"]
             cur.execute(
@@ -121,9 +148,18 @@ def sync_acs_bulk_packages() -> int:
                      summary = EXCLUDED.summary, release_year = EXCLUDED.release_year,
                      metadata = EXCLUDED.metadata, updated_at = now()""",
                 (
-                    f"full:{year}", f"{year} ACS 5-Year — full Detailed Tables summary file",
+                    f"full:{year}",
+                    f"{year} ACS 5-Year — full Detailed Tables summary file",
                     "One official bulk package containing every Detailed Table, estimates, margins of error, and published geography for this ACS 5-year release.",
-                    year, Jsonb({"package": "full_summary_file", "url": f"{base}/data/5YRData/5YRData.zip", "geography_url": f"{base}/documentation/Geos{year}5YR.txt", "table_shells_url": f"{base}/documentation/ACS{year}5YR_Table_Shells.txt"}),
+                    year,
+                    Jsonb(
+                        {
+                            "package": "full_summary_file",
+                            "url": f"{base}/data/5YRData/5YRData.zip",
+                            "geography_url": f"{base}/documentation/Geos{year}5YR.txt",
+                            "table_shells_url": f"{base}/documentation/ACS{year}5YR_Table_Shells.txt",
+                        }
+                    ),
                 ),
             )
         conn.commit()
@@ -133,13 +169,19 @@ def sync_acs_bulk_packages() -> int:
 def sync_cbp_bulk_packages() -> int:
     """Publish the official complete CBP annual bundle as one browser choice."""
     with connect() as conn, conn.cursor() as cur:
-        cur.execute("""INSERT INTO catalog.resource
+        cur.execute(
+            """INSERT INTO catalog.resource
             (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
             VALUES ('census.business_patterns', 'full:2023', 'Complete CSV bundle', %s, %s, 2023, %s)
             ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type = EXCLUDED.resource_type,
               title = EXCLUDED.title, summary = EXCLUDED.summary, release_year = EXCLUDED.release_year,
               metadata = EXCLUDED.metadata, updated_at = now()""",
-            ("2023 County Business Patterns — complete CSV bundle", "Official U.S., state, county, metro, ZIP, and congressional-district CBP files for one annual release.", Jsonb({"package": "complete_csv_bundle", "source_page": CBP_2023_URL})))
+            (
+                "2023 County Business Patterns — complete CSV bundle",
+                "Official U.S., state, county, metro, ZIP, and congressional-district CBP files for one annual release.",
+                Jsonb({"package": "complete_csv_bundle", "source_page": CBP_2023_URL}),
+            ),
+        )
         conn.commit()
     return 1
 
@@ -147,9 +189,16 @@ def sync_cbp_bulk_packages() -> int:
 def sync_pep_bulk_packages() -> int:
     """Publish the latest complete PEP vintage as one no-mixing package."""
     with connect() as conn, conn.cursor() as cur:
-        cur.execute("""INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
+        cur.execute(
+            """INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
           VALUES ('census.population_estimates', 'vintage:2025', 'National, state, and county totals', %s, %s, 2025, %s)
-          ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""", ("2025 Population Estimates — national, state, and county totals", "Complete 2025 PEP vintage for national/state/county totals. Never combine it with another vintage.", Jsonb({"package": "national_state_county_totals", "vintage": 2025})))
+          ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""",
+            (
+                "2025 Population Estimates — national, state, and county totals",
+                "Complete 2025 PEP vintage for national/state/county totals. Never combine it with another vintage.",
+                Jsonb({"package": "national_state_county_totals", "vintage": 2025}),
+            ),
+        )
         conn.commit()
     return 1
 
@@ -157,9 +206,16 @@ def sync_pep_bulk_packages() -> int:
 def sync_dhc_bulk_packages() -> int:
     """Publish the one complete 2020 DHC archive without disguising segments as tables."""
     with connect() as conn, conn.cursor() as cur:
-        cur.execute("""INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
+        cur.execute(
+            """INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
           VALUES ('census.decennial', 'dhc:2020:national', 'Complete DHC national archive', %s, %s, 2020, %s)
-          ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""", ("2020 Decennial DHC — complete national archive", "Official 2020 Demographic and Housing Characteristics archive. Geographic headers and segmented records remain source-shaped until an explicit LOGRECNO-aware loader is approved.", Jsonb({"package": "complete_national_dhc", "url": DHC_2020_URL})))
+          ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""",
+            (
+                "2020 Decennial DHC — complete national archive",
+                "Official 2020 Demographic and Housing Characteristics archive. Geographic headers and segmented records remain source-shaped until an explicit LOGRECNO-aware loader is approved.",
+                Jsonb({"package": "complete_national_dhc", "url": DHC_2020_URL}),
+            ),
+        )
         conn.commit()
     return 1
 
@@ -167,8 +223,20 @@ def sync_dhc_bulk_packages() -> int:
 def sync_tiger_bulk_packages() -> int:
     """Publish a small, complete national boundary package for one TIGER vintage."""
     with connect() as conn, conn.cursor() as cur:
-        cur.execute("""INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
+        cur.execute(
+            """INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
           VALUES ('census.tiger', 'national:2020:core-boundaries', 'National core boundary layers', %s, %s, 2020, %s)
-          ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""", ("2020 TIGER/Line — national core boundary layers", "Official nationwide state, county, CBSA, and ZCTA boundary archives. State-partitioned tract, block-group, and block layers stay separate to keep package sizes and scope clear.", Jsonb({"package": "national_core_boundaries", "base_url": "https://www2.census.gov/geo/tiger/TIGER2020"})))
+          ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""",
+            (
+                "2020 TIGER/Line — national core boundary layers",
+                "Official nationwide state, county, CBSA, and ZCTA boundary archives. State-partitioned tract, block-group, and block layers stay separate to keep package sizes and scope clear.",
+                Jsonb(
+                    {
+                        "package": "national_core_boundaries",
+                        "base_url": "https://www2.census.gov/geo/tiger/TIGER2020",
+                    }
+                ),
+            ),
+        )
         conn.commit()
     return 1

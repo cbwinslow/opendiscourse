@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import json
 from contextlib import AbstractContextManager
 from hashlib import sha256
-import json
-from typing import Any
+from typing import Any, Self
 
 import httpx
 
@@ -24,7 +24,7 @@ class IngestionRun(AbstractContextManager):
         """Record that this run completed against intentionally incomplete coverage."""
         self.status_override = "partial"
 
-    def __enter__(self) -> "IngestionRun":
+    def __enter__(self) -> Self:
         self.conn = connect()
         with self.conn.cursor() as cur:
             cur.execute(

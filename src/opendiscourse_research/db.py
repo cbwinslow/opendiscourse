@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 import psycopg
 from psycopg.rows import dict_row
 

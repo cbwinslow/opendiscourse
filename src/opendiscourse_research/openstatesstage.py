@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import re
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import psycopg
@@ -15,7 +15,6 @@ from psycopg.rows import dict_row
 from .config import settings
 from .openstatessnapshot import REQUIRED_VOTE_TABLES
 
-
 _DATABASE_NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 _REQUIRED_CONGRESSES = {"118", "119"}
 
@@ -23,7 +22,9 @@ _REQUIRED_CONGRESSES = {"118", "119"}
 def stage_connection(database: str) -> psycopg.Connection:
     """Open a local peer-authenticated connection to a validated stage database."""
     if not _DATABASE_NAME.fullmatch(database):
-        raise ValueError("stage database name must be lowercase letters, digits, and underscores")
+        raise ValueError(
+            "stage database name must be lowercase letters, digits, and underscores"
+        )
     parameters = conninfo_to_dict(settings.database_url)
     parameters["dbname"] = database
     return psycopg.connect(**parameters, row_factory=dict_row)
@@ -48,7 +49,7 @@ def build_stage_validation(
     return {
         "schema": 1,
         "kind": "openstates_stage_validation",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "database": database,
         "read_only": True,
         "table_count": len(tables),
@@ -116,7 +117,9 @@ def validate_openstates_stage(database: str) -> dict[str, Any]:
     )
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix(".json.tmp")
-    temporary.write_text(json.dumps(result, indent=2, sort_keys=True, default=str) + "\n")
+    temporary.write_text(
+        json.dumps(result, indent=2, sort_keys=True, default=str) + "\n"
+    )
     temporary.replace(target)
     result["report"] = str(target)
     return result

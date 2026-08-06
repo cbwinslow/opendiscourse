@@ -1,16 +1,17 @@
 """Artifact-linked county/state loading for ACS table-based summary files."""
+
 from __future__ import annotations
 
 import csv
+import re
+from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-import re
-from typing import Any, Callable
+from typing import Any
 
 from psycopg.types.json import Jsonb
 
 from ..db import connect
-
 
 SUMMARY_LEVELS = {"040": "state", "050": "county"}
 FIELD_PATTERN = re.compile(r"_(E|M)[0-9]+$")
@@ -24,7 +25,9 @@ def _scope(plan: dict[str, Any]) -> set[str]:
     scope = set(plan.get("canonical_load_scope", {}).get("geography_types", []))
     unknown = scope - set(SUMMARY_LEVELS.values())
     if unknown or not scope:
-        raise ValueError(f"Choose supported ACS geography types {sorted(SUMMARY_LEVELS.values())}; got {sorted(unknown)}")
+        raise ValueError(
+            f"Choose supported ACS geography types {sorted(SUMMARY_LEVELS.values())}; got {sorted(unknown)}"
+        )
     return scope
 
 
@@ -41,7 +44,11 @@ def _artifact(conn: Any, dataset_id: str, key: str) -> dict[str, Any]:
 
 
 def _table_artifacts(plan: dict[str, Any]) -> list[dict[str, Any]]:
-    artifacts = [item for item in plan.get("artifacts", []) if item.get("kind") == "detailed_table"]
+    artifacts = [
+        item
+        for item in plan.get("artifacts", [])
+        if item.get("kind") == "detailed_table"
+    ]
     if not artifacts:
         raise ValueError(
             "ACS canonical loading currently supports selected Detailed Table artifacts, not full release packages"
@@ -73,7 +80,9 @@ def _numeric(value: Any) -> Decimal | None:
         raise ValueError(f"Invalid ACS numeric value {value!r}") from exc
 
 
-def stage_acs_bulk(plan: dict[str, Any], update: Callable[[str], None] | None = None) -> int:
+def stage_acs_bulk(
+    plan: dict[str, Any], update: Callable[[str], None] | None = None
+) -> int:
     """Stage approved table rows for explicitly selected state/county geographies."""
     if plan.get("state") != "downloaded":
         raise ValueError("ACS plan must be downloaded before staging")
@@ -86,26 +95,48 @@ def stage_acs_bulk(plan: dict[str, Any], update: Callable[[str], None] | None = 
             if update:
                 update(f"Staging ACS {item['table_id']}")
             rows = []
-            with Path(artifact["local_path"]).open(encoding="utf-8-sig", newline="") as source:
-                for ordinal, row in enumerate(csv.DictReader(source, delimiter="|"), start=1):
+            with Path(artifact["local_path"]).open(
+                encoding="utf-8-sig", newline=""
+            ) as source:
+                for ordinal, row in enumerate(
+                    csv.DictReader(source, delimiter="|"), start=1
+                ):
                     parsed = _geo_id(str(row.get("GEO_ID", "")))
                     if parsed is None or parsed[0] not in scope:
                         continue
-                    rows.append((artifact["artifact_id"], ordinal, int(item["release_year"]), str(item["table_id"]), parsed[0], parsed[1], Jsonb(row)))
+                    rows.append(
+                        (
+                            artifact["artifact_id"],
+                            ordinal,
+                            int(item["release_year"]),
+                            str(item["table_id"]),
+                            parsed[0],
+                            parsed[1],
+                            Jsonb(row),
+                        )
+                    )
                     if len(rows) == 2_000:
                         with conn.cursor() as cur:
-                            cur.executemany("INSERT INTO stage.acs_bulk_row (artifact_id,source_ordinal,release_year,table_id,geography_type,geoid,raw) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING", rows)
+                            cur.executemany(
+                                "INSERT INTO stage.acs_bulk_row (artifact_id,source_ordinal,release_year,table_id,geography_type,geoid,raw) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                                rows,
+                            )
                         total += len(rows)
                         rows = []
             if rows:
                 with conn.cursor() as cur:
-                    cur.executemany("INSERT INTO stage.acs_bulk_row (artifact_id,source_ordinal,release_year,table_id,geography_type,geoid,raw) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING", rows)
+                    cur.executemany(
+                        "INSERT INTO stage.acs_bulk_row (artifact_id,source_ordinal,release_year,table_id,geography_type,geoid,raw) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                        rows,
+                    )
                 total += len(rows)
             conn.commit()
     return total
 
 
-def load_acs_bulk(plan: dict[str, Any], update: Callable[[str], None] | None = None) -> int:
+def load_acs_bulk(
+    plan: dict[str, Any], update: Callable[[str], None] | None = None
+) -> int:
     """Promote staged ACS estimates/MOEs to typed artifact-linked facts."""
     if plan.get("state") != "staged":
         raise ValueError("ACS plan must be staged before canonical loading")
@@ -119,12 +150,18 @@ def load_acs_bulk(plan: dict[str, Any], update: Callable[[str], None] | None = N
             _artifact(conn, dataset_id, str(item["artifact_key"]))["artifact_id"]
             for item in _table_artifacts(plan)
         ]
-        cur.execute("""INSERT INTO core.geography (geography_type,geoid,state_fips,county_fips)
+        cur.execute(
+            """INSERT INTO core.geography (geography_type,geoid,state_fips,county_fips)
           SELECT DISTINCT geography_type, geoid, substring(geoid from '^([0-9]{2})'), CASE WHEN geography_type='county' THEN substring(geoid from '^[0-9]{2}([0-9]{3})') END
           FROM stage.acs_bulk_row WHERE artifact_id=ANY(%s) AND geography_type=ANY(%s)
-          ON CONFLICT (geography_type,geoid) DO NOTHING""", (artifact_ids, scope))
+          ON CONFLICT (geography_type,geoid) DO NOTHING""",
+            (artifact_ids, scope),
+        )
         cur.execute("SELECT geography_id,geography_type,geoid FROM core.geography")
-        geographies = {(row["geography_type"], row["geoid"]): row["geography_id"] for row in cur.fetchall()}
+        geographies = {
+            (row["geography_type"], row["geoid"]): row["geography_id"]
+            for row in cur.fetchall()
+        }
         cur.execute(
             "SELECT artifact_id,source_ordinal,release_year,table_id,geography_type,geoid,raw FROM stage.acs_bulk_row WHERE artifact_id=ANY(%s) AND geography_type=ANY(%s)",
             (artifact_ids, scope),
@@ -138,13 +175,30 @@ def load_acs_bulk(plan: dict[str, Any], update: Callable[[str], None] | None = N
                 if field_id == "GEO_ID" or match is None:
                     continue
                 measure = "estimate" if match.group(1) == "E" else "margin_of_error"
-                rows.append((source["release_year"], geography_id, source["table_id"], field_id, measure, _numeric(value), source["artifact_id"], source["source_ordinal"]))
+                rows.append(
+                    (
+                        source["release_year"],
+                        geography_id,
+                        source["table_id"],
+                        field_id,
+                        measure,
+                        _numeric(value),
+                        source["artifact_id"],
+                        source["source_ordinal"],
+                    )
+                )
                 if len(rows) == 2_000:
-                    cur.executemany("INSERT INTO fact.acs_bulk_estimate (release_year,geography_id,table_id,field_id,measure,value,source_artifact_id,source_ordinal) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING", rows)
+                    cur.executemany(
+                        "INSERT INTO fact.acs_bulk_estimate (release_year,geography_id,table_id,field_id,measure,value,source_artifact_id,source_ordinal) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                        rows,
+                    )
                     total += len(rows)
                     rows = []
         if rows:
-            cur.executemany("INSERT INTO fact.acs_bulk_estimate (release_year,geography_id,table_id,field_id,measure,value,source_artifact_id,source_ordinal) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING", rows)
+            cur.executemany(
+                "INSERT INTO fact.acs_bulk_estimate (release_year,geography_id,table_id,field_id,measure,value,source_artifact_id,source_ordinal) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                rows,
+            )
             total += len(rows)
         conn.commit()
     return total

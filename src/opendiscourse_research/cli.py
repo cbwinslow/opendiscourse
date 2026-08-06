@@ -1,35 +1,61 @@
 from __future__ import annotations
 
-from pathlib import Path
 import json
 import subprocess
+from pathlib import Path
+
 import psycopg
 import typer
 import yaml
 
-from .capacity import GiB, remote_size, storage_preview
-from .catalog import sync_inventory, validate_inventory
+from .audit import audit_leg
 from .browser import (
     basket as catalog_basket,
+)
+from .browser import (
     draft as catalog_draft,
-    ensure_acs,
+)
+from .browser import (
     facets as catalog_facets,
+)
+from .browser import (
     launch as launch_browser,
+)
+from .browser import (
     search as catalog_search,
+)
+from .browser import (
     sync_acs,
 )
+from .capacity import GiB, remote_size, storage_preview
+from .catalog import sync_inventory, validate_inventory
+from .censushealth import census_health
+from .congresshealth import congressional_health, recover_stale_congressional_runs
 from .contracts import load_contracts, validate_contracts
 from .db import apply_migrations
+from .feedback import (
+    progress as render_progress,
+)
+from .feedback import (
+    spinner as render_spinner,
+)
+from .feedback import (
+    timed as render_timed,
+)
+from .govbackfill import backfill_billstatus_missing
+from .govplan import plan_billstatus_backfill
+from .identityexceptions import unresolved_congressional_identities
 from .ingestion.acs_bulk import preview_acs5_bulk_plan, write_acs5_bulk_plan
 from .ingestion.acs_load import load_acs_bulk, stage_acs_bulk
+from .ingestion.bulk import (
+    ArtifactSpec,
+    advance_plan,
+    approve_plan,
+    download_plan,
+    register_local,
+)
 from .ingestion.cbp_bulk import preview_cbp_bulk_plan, write_cbp_bulk_plan
 from .ingestion.cbp_load import load_cbp, stage_cbp
-from .ingestion.dhc_bulk import preview_dhc_bulk_plan, write_dhc_bulk_plan
-from .ingestion.dhc_load import load_dhc, stage_dhc
-from .ingestion.pep_bulk import preview_pep_bulk_plan, write_pep_bulk_plan
-from .ingestion.pep_load import load_pep, stage_pep
-from .ingestion.tiger_bulk import preview_tiger_bulk_plan, write_tiger_bulk_plan
-from .ingestion.tiger_load import load_tiger, stage_tiger
 from .ingestion.census import (
     STATE_FIPS,
     bootstrap_housing,
@@ -41,36 +67,31 @@ from .ingestion.census import (
     search_acs_tables,
 )
 from .ingestion.congress import ingest_bill
-from .ingestion.bulk import ArtifactSpec, advance_plan, approve_plan, download_plan, register_local
+from .ingestion.dhc_bulk import preview_dhc_bulk_plan, write_dhc_bulk_plan
+from .ingestion.dhc_load import load_dhc, stage_dhc
 from .ingestion.fred import ingest_manifest, ingest_series
 from .ingestion.openstates import download_monthly_dump
+from .ingestion.pep_bulk import preview_pep_bulk_plan, write_pep_bulk_plan
+from .ingestion.pep_load import load_pep, stage_pep
+from .ingestion.tiger_bulk import preview_tiger_bulk_plan, write_tiger_bulk_plan
+from .ingestion.tiger_load import load_tiger, stage_tiger
 from .ingestion.treasury import ingest_yield_curve
-from .plans import due_plans, load_plans, run_plan
-from .progress import load_progress, validate_progress
-from .registry import status as registry_status, sync as registry_sync
-from .feedback import (
-    progress as render_progress,
-    spinner as render_spinner,
-    timed as render_timed,
-)
-from .audit import audit_leg
-from .legvalidate import validate_billstatus
-from .govplan import plan_billstatus_backfill
-from .govbackfill import backfill_billstatus_missing
-from .legreconcile import reconcile_billstatus
 from .legload import load_billstatus
-from .congresshealth import congressional_health, recover_stale_congressional_runs
-from .censushealth import census_health
-from .votereconcile import reconcile_openstates_votes
+from .legreconcile import reconcile_billstatus
+from .legvalidate import validate_billstatus
+from .openstatesrefresh import dry_run_openstates_vote_refresh
+from .openstatessnapshot import validate_snapshot_artifact, write_snapshot_manifest
+from .openstatesstage import validate_openstates_stage
 from .peopleload import (
     load_openstates_federal_organizations,
     load_openstates_federal_people,
     load_openstates_votes,
 )
-from .openstatesrefresh import dry_run_openstates_vote_refresh
-from .openstatessnapshot import validate_snapshot_artifact, write_snapshot_manifest
-from .openstatesstage import validate_openstates_stage
-from .identityexceptions import unresolved_congressional_identities
+from .plans import due_plans, load_plans, run_plan
+from .progress import load_progress, validate_progress
+from .registry import status as registry_status
+from .registry import sync as registry_sync
+from .votereconcile import reconcile_openstates_votes
 
 app = typer.Typer(help="Research database setup and ingestion commands.")
 ingest_app = typer.Typer(help="Provider ingestion commands.")
@@ -585,7 +606,9 @@ def validate_openstates_stage_command(
 @app.command("congress-health")
 def congress_health_command() -> None:
     """Write one read-only source-aware congressional ingestion health report."""
-    typer.echo(json.dumps(congressional_health(), indent=2, sort_keys=True, default=str))
+    typer.echo(
+        json.dumps(congressional_health(), indent=2, sort_keys=True, default=str)
+    )
 
 
 @app.command("census-health")
@@ -610,7 +633,9 @@ def recover_stale_congress_runs_command(
     older_than: str = typer.Option("6 hours", help="PostgreSQL interval threshold."),
 ) -> None:
     """Mark abandoned congressional runs failed with an explicit recovery reason."""
-    typer.echo(json.dumps(recover_stale_congressional_runs(older_than), indent=2, default=str))
+    typer.echo(
+        json.dumps(recover_stale_congressional_runs(older_than), indent=2, default=str)
+    )
 
 
 @catalog_app.command("browse", hidden=True)
@@ -742,17 +767,27 @@ def acs_bulk_preview(
 @ingest_app.command("acs-bulk-approve")
 def acs_bulk_approve(
     plan: Path = typer.Option(..., exists=True, dir_okay=False),
-    geography: list[str] = typer.Option(..., help="Canonical geography types to load; repeat this option."),
+    geography: list[str] = typer.Option(
+        ..., help="Canonical geography types to load; repeat this option."
+    ),
 ) -> None:
     """Approve a previewed ACS plan with an explicit canonical geography scope."""
-    typer.echo(json.dumps(approve_plan(plan, {"geography_types": geography}), indent=2, sort_keys=True))
+    typer.echo(
+        json.dumps(
+            approve_plan(plan, {"geography_types": geography}), indent=2, sort_keys=True
+        )
+    )
 
 
 @ingest_app.command("acs-bulk-download")
-def acs_bulk_download(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def acs_bulk_download(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+) -> None:
     """Resumably download an approved ACS plan and register immutable artifacts."""
     payload = yaml.safe_load(plan.read_text()) or {}
-    with render_progress("Downloading ACS bulk artifacts", len(payload.get("artifacts", []))) as update:
+    with render_progress(
+        "Downloading ACS bulk artifacts", len(payload.get("artifacts", []))
+    ) as update:
         result = download_plan(plan, update)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
@@ -805,8 +840,12 @@ def cbp_bulk_preview(
 @ingest_app.command("cbp-bulk-approve")
 def cbp_bulk_approve(
     plan: Path = typer.Option(..., exists=True, dir_okay=False),
-    geography: list[str] = typer.Option(..., help="Canonical geography levels to load; repeat this option."),
-    naics_prefix: list[str] = typer.Option([], help="Optional NAICS prefixes to retain; repeat this option."),
+    geography: list[str] = typer.Option(
+        ..., help="Canonical geography levels to load; repeat this option."
+    ),
+    naics_prefix: list[str] = typer.Option(
+        [], help="Optional NAICS prefixes to retain; repeat this option."
+    ),
 ) -> None:
     """Approve a previewed CBP plan with explicit geography and industry scope."""
     scope = {"geography_levels": geography, "naics_prefixes": naics_prefix or ["all"]}
@@ -814,10 +853,14 @@ def cbp_bulk_approve(
 
 
 @ingest_app.command("cbp-bulk-download")
-def cbp_bulk_download(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def cbp_bulk_download(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+) -> None:
     """Resumably download an approved CBP plan and register immutable artifacts."""
     payload = yaml.safe_load(plan.read_text()) or {}
-    with render_progress("Downloading CBP bulk artifacts", len(payload.get("artifacts", []))) as update:
+    with render_progress(
+        "Downloading CBP bulk artifacts", len(payload.get("artifacts", []))
+    ) as update:
         result = download_plan(plan, update)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
@@ -845,31 +888,54 @@ def cbp_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -
 
 
 @ingest_app.command("pep-bulk-plan")
-def pep_bulk_plan(basket: str = typer.Option("default", help="Catalog selection containing one PEP release vintage.")) -> None:
+def pep_bulk_plan(
+    basket: str = typer.Option(
+        "default", help="Catalog selection containing one PEP release vintage."
+    ),
+) -> None:
     """Write a disabled Population Estimates Program vintage plan."""
     typer.echo(write_pep_bulk_plan(basket, catalog_basket(basket)))
 
 
 @ingest_app.command("pep-bulk-preview")
-def pep_bulk_preview(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def pep_bulk_preview(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+) -> None:
     """Measure every planned PEP artifact; never download its contents."""
     payload = yaml.safe_load(plan.read_text()) or {}
-    with render_progress("Measuring PEP bulk artifacts", len(payload.get("artifacts", []))) as update:
+    with render_progress(
+        "Measuring PEP bulk artifacts", len(payload.get("artifacts", []))
+    ) as update:
         report = preview_pep_bulk_plan(plan, update)
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 
 @ingest_app.command("pep-bulk-approve")
-def pep_bulk_approve(plan: Path = typer.Option(..., exists=True, dir_okay=False), geography: list[str] = typer.Option(..., help="Canonical geography levels to load; repeat this option.")) -> None:
+def pep_bulk_approve(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    geography: list[str] = typer.Option(
+        ..., help="Canonical geography levels to load; repeat this option."
+    ),
+) -> None:
     """Approve a previewed PEP vintage with an explicit geography scope."""
-    typer.echo(json.dumps(approve_plan(plan, {"geography_levels": geography}), indent=2, sort_keys=True))
+    typer.echo(
+        json.dumps(
+            approve_plan(plan, {"geography_levels": geography}),
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
 
 @ingest_app.command("pep-bulk-download")
-def pep_bulk_download(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def pep_bulk_download(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+) -> None:
     """Resumably download an approved PEP plan and register immutable artifacts."""
     payload = yaml.safe_load(plan.read_text()) or {}
-    with render_progress("Downloading PEP bulk artifacts", len(payload.get("artifacts", []))) as update:
+    with render_progress(
+        "Downloading PEP bulk artifacts", len(payload.get("artifacts", []))
+    ) as update:
         result = download_plan(plan, update)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
@@ -877,7 +943,8 @@ def pep_bulk_download(plan: Path = typer.Option(..., exists=True, dir_okay=False
 @ingest_app.command("pep-bulk-stage")
 def pep_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
     """Stage approved PEP source rows without altering canonical estimates."""
-    apply_migrations(); payload = yaml.safe_load(plan.read_text()) or {}
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
     with render_spinner("Staging PEP source rows") as update:
         count = stage_pep(payload, update)
     advance_plan(plan, "downloaded", "staged", "staging", {"row_count": count})
@@ -887,7 +954,8 @@ def pep_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) 
 @ingest_app.command("pep-bulk-load")
 def pep_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
     """Load staged PEP rows into artifact-linked canonical population estimates."""
-    apply_migrations(); payload = yaml.safe_load(plan.read_text()) or {}
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
     with render_spinner("Loading PEP population estimates") as update:
         count = load_pep(payload, update)
     advance_plan(plan, "staged", "loaded", "load", {"fact_count": count})
@@ -895,38 +963,63 @@ def pep_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -
 
 
 @ingest_app.command("dhc-bulk-plan")
-def dhc_bulk_plan(basket: str = typer.Option("default", help="Catalog selection containing the complete 2020 DHC archive.")) -> None:
+def dhc_bulk_plan(
+    basket: str = typer.Option(
+        "default", help="Catalog selection containing the complete 2020 DHC archive."
+    ),
+) -> None:
     """Write a disabled 2020 Decennial DHC archive plan."""
     typer.echo(write_dhc_bulk_plan(basket, catalog_basket(basket)))
 
 
 @ingest_app.command("dhc-bulk-preview")
-def dhc_bulk_preview(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def dhc_bulk_preview(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+) -> None:
     """Measure the DHC archive; never download its contents."""
     payload = yaml.safe_load(plan.read_text()) or {}
-    with render_progress("Measuring DHC bulk archive", len(payload.get("artifacts", []))) as update:
+    with render_progress(
+        "Measuring DHC bulk archive", len(payload.get("artifacts", []))
+    ) as update:
         report = preview_dhc_bulk_plan(plan, update)
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 
 @ingest_app.command("dhc-bulk-approve")
-def dhc_bulk_approve(plan: Path = typer.Option(..., exists=True, dir_okay=False), summary_level: list[str] = typer.Option(..., help="DHC summary levels to load; repeat."), table: list[str] = typer.Option(..., help="DHC table IDs to load; repeat.")) -> None:
+def dhc_bulk_approve(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    summary_level: list[str] = typer.Option(
+        ..., help="DHC summary levels to load; repeat."
+    ),
+    table: list[str] = typer.Option(..., help="DHC table IDs to load; repeat."),
+) -> None:
     """Approve DHC summary levels and tables before downloading the archive."""
-    typer.echo(json.dumps(approve_plan(plan, {"summary_levels": summary_level, "tables": table}), indent=2, sort_keys=True))
+    typer.echo(
+        json.dumps(
+            approve_plan(plan, {"summary_levels": summary_level, "tables": table}),
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
 
 @ingest_app.command("dhc-bulk-download")
-def dhc_bulk_download(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def dhc_bulk_download(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+) -> None:
     """Resumably download approved DHC artifacts and register checksums."""
     payload = yaml.safe_load(plan.read_text()) or {}
-    with render_progress("Downloading DHC bulk artifacts", len(payload.get("artifacts", []))) as update:
+    with render_progress(
+        "Downloading DHC bulk artifacts", len(payload.get("artifacts", []))
+    ) as update:
         typer.echo(json.dumps(download_plan(plan, update), indent=2, sort_keys=True))
 
 
 @ingest_app.command("dhc-bulk-stage")
 def dhc_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
     """Stage selected DHC GEO records without changing canonical facts."""
-    apply_migrations(); payload = yaml.safe_load(plan.read_text()) or {}
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
     with render_spinner("Staging DHC GEO records") as update:
         count = stage_dhc(payload, update)
     advance_plan(plan, "downloaded", "staged", "staging", {"geo_row_count": count})
@@ -936,7 +1029,8 @@ def dhc_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) 
 @ingest_app.command("dhc-bulk-load")
 def dhc_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
     """Load approved DHC table cells with GEO/LOGRECNO and artifact lineage."""
-    apply_migrations(); payload = yaml.safe_load(plan.read_text()) or {}
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
     with render_spinner("Loading DHC table values") as update:
         count = load_dhc(payload, update)
     advance_plan(plan, "staged", "loaded", "load", {"value_count": count})
@@ -944,39 +1038,62 @@ def dhc_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -
 
 
 @ingest_app.command("tiger-bulk-plan")
-def tiger_bulk_plan(basket: str = typer.Option("default", help="Catalog selection containing the TIGER national boundary package.")) -> None:
+def tiger_bulk_plan(
+    basket: str = typer.Option(
+        "default",
+        help="Catalog selection containing the TIGER national boundary package.",
+    ),
+) -> None:
     """Write a disabled 2020 TIGER/Line national-boundary plan."""
     typer.echo(write_tiger_bulk_plan(basket, catalog_basket(basket)))
 
 
 @ingest_app.command("tiger-bulk-preview")
-def tiger_bulk_preview(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def tiger_bulk_preview(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+) -> None:
     """Measure TIGER archive sizes; never download their contents."""
     payload = yaml.safe_load(plan.read_text()) or {}
-    with render_progress("Measuring TIGER bulk archives", len(payload.get("artifacts", []))) as update:
+    with render_progress(
+        "Measuring TIGER bulk archives", len(payload.get("artifacts", []))
+    ) as update:
         report = preview_tiger_bulk_plan(plan, update)
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 
 @ingest_app.command("tiger-bulk-approve")
-def tiger_bulk_approve(plan: Path = typer.Option(..., exists=True, dir_okay=False), layer: list[str] = typer.Option(..., help="Boundary layers to load; repeat this option.")) -> None:
+def tiger_bulk_approve(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    layer: list[str] = typer.Option(
+        ..., help="Boundary layers to load; repeat this option."
+    ),
+) -> None:
     """Approve named TIGER layers for one boundary vintage."""
-    typer.echo(json.dumps(approve_plan(plan, {"layers": layer}), indent=2, sort_keys=True))
+    typer.echo(
+        json.dumps(approve_plan(plan, {"layers": layer}), indent=2, sort_keys=True)
+    )
 
 
 @ingest_app.command("tiger-bulk-download")
-def tiger_bulk_download(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def tiger_bulk_download(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+) -> None:
     """Resumably download approved TIGER artifacts and register checksums."""
     payload = yaml.safe_load(plan.read_text()) or {}
-    with render_progress("Downloading TIGER bulk archives", len(payload.get("artifacts", []))) as update:
+    with render_progress(
+        "Downloading TIGER bulk archives", len(payload.get("artifacts", []))
+    ) as update:
         result = download_plan(plan, update)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 
 @ingest_app.command("tiger-bulk-stage")
-def tiger_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def tiger_bulk_stage(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+) -> None:
     """Stage approved TIGER features without changing canonical boundaries."""
-    apply_migrations(); payload = yaml.safe_load(plan.read_text()) or {}
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
     with render_spinner("Staging TIGER source features") as update:
         count = stage_tiger(payload, update)
     advance_plan(plan, "downloaded", "staged", "staging", {"feature_count": count})
@@ -984,9 +1101,12 @@ def tiger_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)
 
 
 @ingest_app.command("tiger-bulk-load")
-def tiger_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def tiger_bulk_load(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+) -> None:
     """Load staged TIGER features into artifact-linked PostGIS boundaries."""
-    apply_migrations(); payload = yaml.safe_load(plan.read_text()) or {}
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
     with render_spinner("Loading TIGER geography boundaries") as update:
         count = load_tiger(payload, update)
     advance_plan(plan, "staged", "loaded", "load", {"boundary_count": count})

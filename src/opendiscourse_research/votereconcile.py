@@ -1,4 +1,5 @@
 """Read-only reconciliation for OpenStates congressional vote coverage."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -30,4 +31,9 @@ def reconcile_openstates_votes(congress: int) -> dict[str, Any]:
             (str(congress),),
         )
         duplicates = [dict(row) for row in cur.fetchall()]
-    return {"congress": congress, "source": source, "canonical": canonical, "duplicate_identifiers": duplicates}
+    return {
+        "congress": congress,
+        "source": source,
+        "canonical": canonical,
+        "duplicate_identifiers": duplicates,
+    }

@@ -5,7 +5,6 @@ from typing import Any
 
 import yaml
 
-
 CONTRACT_ROOT = Path(__file__).resolve().parents[2] / "inventory" / "contracts"
 
 
@@ -24,7 +23,9 @@ def load_contracts() -> list[dict[str, Any]]:
 def get_contract(contract_id: str) -> dict[str, Any]:
     matches = [item for item in load_contracts() if item.get("id") == contract_id]
     if len(matches) != 1:
-        raise ValueError(f"Expected one contract named {contract_id!r}, found {len(matches)}")
+        raise ValueError(
+            f"Expected one contract named {contract_id!r}, found {len(matches)}"
+        )
     return matches[0]
 
 
@@ -38,13 +39,20 @@ def validate_contracts() -> list[str]:
         if missing:
             errors.append(f"{label}: missing {', '.join(missing)}")
         contract_id = contract.get("id")
-        if not isinstance(contract_id, str) or not contract_id.isalnum() or contract_id.lower() != contract_id:
+        if (
+            not isinstance(contract_id, str)
+            or not contract_id.isalnum()
+            or contract_id.lower() != contract_id
+        ):
             errors.append(f"{label}: id must be a lowercase one-word identifier")
         elif contract_id in seen:
             errors.append(f"{label}: duplicate contract id")
         else:
             seen.add(contract_id)
-        if contract.get("provider") == "census" and contract.get("kind", "acs_group") == "acs_group":
+        if (
+            contract.get("provider") == "census"
+            and contract.get("kind", "acs_group") == "acs_group"
+        ):
             for key in ("endpoint", "year", "geography", "states", "groups"):
                 if key not in contract:
                     errors.append(f"{label}: Census contract missing {key}")

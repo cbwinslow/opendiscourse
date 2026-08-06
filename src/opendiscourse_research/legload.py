@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from datetime import datetime, timezone
 import hashlib
 import json
+import zipfile
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-import zipfile
 
 from .config import settings
 from .ingestion.base import IngestionRun
@@ -209,7 +209,7 @@ def load_billstatus(
     result = {
         "schema": 1,
         "kind": "billstatusload",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "congress": congress,
         "coverage": coverage,
         "allow_partial": allow_partial,

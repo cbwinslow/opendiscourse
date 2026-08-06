@@ -1,15 +1,15 @@
 """Conservative preflight checks for all bulk acquisition workflows."""
+
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from pathlib import Path
 import re
 import shutil
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass
+from pathlib import Path
 
 from .config import settings
 from .ingestion.base import client
-
 
 MiB = 1024 * 1024
 GiB = 1024 * MiB
@@ -81,6 +81,8 @@ def storage_preview(
         "free_after_bytes": free_after,
         "unknown_urls": unknown,
         "approved": not unknown and free_after >= 0,
-        "reason": "sizes unavailable" if unknown else ("enough capacity" if free_after >= 0 else "insufficient capacity"),
+        "reason": "sizes unavailable"
+        if unknown
+        else ("enough capacity" if free_after >= 0 else "insufficient capacity"),
         "objects": [asdict(item) for item in items],
     }

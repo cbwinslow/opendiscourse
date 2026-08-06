@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from collections import Counter
+from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
 
 from psycopg.types.json import Jsonb
 
 from ..db import connect
-
 
 _QUERY_ROOT = Path(__file__).resolve().parents[3] / "sql" / "query" / "legislation"
 
@@ -40,7 +39,9 @@ def openstates_vote_snapshot_counts(
     identifiers = [str(congress) for congress in congresses]
     result = {identifier: {"congress": int(identifier)} for identifier in identifiers}
     with conn.cursor() as cur:
-        cur.execute(_query("openstates_vote_snapshot_counts"), {"congresses": identifiers})
+        cur.execute(
+            _query("openstates_vote_snapshot_counts"), {"congresses": identifiers}
+        )
         for row in cur.fetchall():
             result[row["congress"]].update(dict(row))
         for congress in identifiers:
@@ -264,13 +265,16 @@ def upsert_congress_person(member: dict[str, Any], conn: Any) -> str:
         raise ValueError("Congress.gov member is missing bioguideId")
     full_name = member.get("directOrderName") or member.get("name") or bioguide_id
     with conn.cursor() as cur:
-        cur.execute(_query("upsert_person_by_bioguide"), {
-            "bioguide_id": bioguide_id,
-            "full_name": full_name,
-            "given_name": member.get("firstName"),
-            "family_name": member.get("lastName"),
-            "metadata": Jsonb({"congress_gov_member": member}),
-        })
+        cur.execute(
+            _query("upsert_person_by_bioguide"),
+            {
+                "bioguide_id": bioguide_id,
+                "full_name": full_name,
+                "given_name": member.get("firstName"),
+                "family_name": member.get("lastName"),
+                "metadata": Jsonb({"congress_gov_member": member}),
+            },
+        )
         row = cur.fetchone()
         assert row is not None
         return str(row["person_id"])
@@ -302,27 +306,79 @@ def sync_openstates_federal_organizations(conn: Any) -> int:
     return len(organizations)
 
 
-def load_openstates_votes(congress: int, limit: int, artifact_id: str, conn: Any, after_ocd_id: str | None = None) -> dict[str, Any]:
+def load_openstates_votes(
+    congress: int,
+    limit: int,
+    artifact_id: str,
+    conn: Any,
+    after_ocd_id: str | None = None,
+) -> dict[str, Any]:
     """Load a bounded OpenStates congressional vote batch using stable OCD keys."""
-    counts: dict[str, Any] = {"roll_calls": 0, "member_votes": 0, "unresolved_people": 0, "unresolved_voter_ids": [], "last_ocd_id": after_ocd_id}
+    counts: dict[str, Any] = {
+        "roll_calls": 0,
+        "member_votes": 0,
+        "unresolved_people": 0,
+        "unresolved_voter_ids": [],
+        "last_ocd_id": after_ocd_id,
+    }
     with conn.cursor() as cur:
-        cur.execute(_query("openstates_vote_events"), {"congress": str(congress), "limit": limit, "after_ocd_id": after_ocd_id})
+        cur.execute(
+            _query("openstates_vote_events"),
+            {"congress": str(congress), "limit": limit, "after_ocd_id": after_ocd_id},
+        )
         for vote in cur.fetchall():
             counts["last_ocd_id"] = vote["ocd_id"]
-            cur.execute(_query("find_organization_by_identifier"), {"namespace": "ocd", "external_id": vote["organization_id"]})
+            cur.execute(
+                _query("find_organization_by_identifier"),
+                {"namespace": "ocd", "external_id": vote["organization_id"]},
+            )
             organization = cur.fetchone()
-            cur.execute(_query("upsert_openstates_roll_call"), {"congress": str(congress), "chamber": "house" if "lower" in vote["identifier"] else "senate", "external_id": vote["identifier"], "occurred_at": vote["start_date"], "question": vote["motion_text"], "result": vote["result"], "metadata": Jsonb({"source": "openstates", "ocd_id": vote["ocd_id"], "source_bill_ocd_id": vote["bill_id"]}), "ocd_id": vote["ocd_id"], "organization_id": organization["organization_id"] if organization else None})
+            cur.execute(
+                _query("upsert_openstates_roll_call"),
+                {
+                    "congress": str(congress),
+                    "chamber": "house" if "lower" in vote["identifier"] else "senate",
+                    "external_id": vote["identifier"],
+                    "occurred_at": vote["start_date"],
+                    "question": vote["motion_text"],
+                    "result": vote["result"],
+                    "metadata": Jsonb(
+                        {
+                            "source": "openstates",
+                            "ocd_id": vote["ocd_id"],
+                            "source_bill_ocd_id": vote["bill_id"],
+                        }
+                    ),
+                    "ocd_id": vote["ocd_id"],
+                    "organization_id": organization["organization_id"]
+                    if organization
+                    else None,
+                },
+            )
             roll_call = cur.fetchone()
             counts["roll_calls"] += 1
-            cur.execute(_query("openstates_person_votes"), {"vote_ocd_id": vote["ocd_id"]})
+            cur.execute(
+                _query("openstates_person_votes"), {"vote_ocd_id": vote["ocd_id"]}
+            )
             for position in cur.fetchall():
-                cur.execute(_query("find_person_by_identifier"), {"namespace": "ocd", "external_id": position["voter_id"]})
+                cur.execute(
+                    _query("find_person_by_identifier"),
+                    {"namespace": "ocd", "external_id": position["voter_id"]},
+                )
                 person = cur.fetchone()
                 if not person:
                     counts["unresolved_people"] += 1
                     counts["unresolved_voter_ids"].append(position["voter_id"])
                     continue
-                cur.execute(_query("upsert_member_vote"), {"roll_call_id": roll_call["roll_call_id"], "person_id": person["person_id"], "position": position["option"], "source_artifact_id": artifact_id})
+                cur.execute(
+                    _query("upsert_member_vote"),
+                    {
+                        "roll_call_id": roll_call["roll_call_id"],
+                        "person_id": person["person_id"],
+                        "position": position["option"],
+                        "source_artifact_id": artifact_id,
+                    },
+                )
                 counts["member_votes"] += 1
     return counts
 

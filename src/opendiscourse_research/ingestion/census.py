@@ -1,30 +1,39 @@
 from __future__ import annotations
 
+import json
+import re
 from datetime import date
 from io import BytesIO
-import json
 from pathlib import Path
-import re
 from typing import Any
 
-from openpyxl import load_workbook
 import yaml
+from openpyxl import load_workbook
 
 from ..capacity import remote_size, storage_preview
-from ..contracts import get_contract
 from ..config import settings
+from ..contracts import get_contract
 from .base import IngestionRun, client, json_response
 from .bulk import ArtifactSpec, data_root, download
 
 
-def ingest_acs(year: int, state: str, variables: list[str], dataset: str = "acs/acs5") -> int:
+def ingest_acs(
+    year: int, state: str, variables: list[str], dataset: str = "acs/acs5"
+) -> int:
     if not settings.census_api_key:
-        raise ValueError("CENSUS_API_KEY is required for Census ingestion; add it to .env")
+        raise ValueError(
+            "CENSUS_API_KEY is required for Census ingestion; add it to .env"
+        )
     get = ["NAME", *[v for v in variables if v != "NAME"]]
     params = {"get": ",".join(get), "for": "county:*", "in": f"state:{state}"}
     params["key"] = settings.census_api_key
     url = f"https://api.census.gov/data/{year}/{dataset}"
-    with client() as http, IngestionRun("census.acs_5", {"year": year, "state": state, "variables": get}) as run:
+    with (
+        client() as http,
+        IngestionRun(
+            "census.acs_5", {"year": year, "state": state, "variables": get}
+        ) as run,
+    ):
         response = http.get(url, params=params)
         payload = json_response(response)
         payload_id = run.store_payload(response, payload)
@@ -53,14 +62,75 @@ def ingest_acs(year: int, state: str, variables: list[str], dataset: str = "acs/
                            VALUES ('census.acs_5', %s, %s, make_date(%s, 1, 1), make_date(%s, 1, 1), %s, %s, %s)
                            ON CONFLICT (dataset_id, field_id, geography_id, period_start, period_end, vintage_date)
                            DO UPDATE SET value_numeric = EXCLUDED.value_numeric, value_text = EXCLUDED.value_text, source_payload_id = EXCLUDED.source_payload_id""",
-                        (field_id, geography_id, year, year, value, record[field_id], payload_id),
+                        (
+                            field_id,
+                            geography_id,
+                            year,
+                            year,
+                            value,
+                            record[field_id],
+                            payload_id,
+                        ),
                     )
                     run.record_count += 1
             run.conn.commit()
         return run.record_count
 
 
-STATE_FIPS = ("01", "02", "04", "05", "06", "08", "09", "10", "11", "12", "13", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "44", "45", "46", "47", "48", "49", "50", "51", "53", "54", "55", "56", "72")
+STATE_FIPS = (
+    "01",
+    "02",
+    "04",
+    "05",
+    "06",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20",
+    "21",
+    "22",
+    "23",
+    "24",
+    "25",
+    "26",
+    "27",
+    "28",
+    "29",
+    "30",
+    "31",
+    "32",
+    "33",
+    "34",
+    "35",
+    "36",
+    "37",
+    "38",
+    "39",
+    "40",
+    "41",
+    "42",
+    "44",
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50",
+    "51",
+    "53",
+    "54",
+    "55",
+    "56",
+    "72",
+)
 
 
 def _acs_table_list_url(year: int) -> str:
@@ -95,20 +165,38 @@ def discover_acs_tables(year: int) -> dict[str, Any]:
         filename=f"{year}_DataProductList.xlsx",
         period_start=date(year, 1, 1),
         period_end=date(year, 12, 31),
-        metadata={"kind": "acs_table_list", "year": year, "admission": "official_metadata"},
+        metadata={
+            "kind": "acs_table_list",
+            "year": year,
+            "admission": "official_metadata",
+        },
     )
-    with IngestionRun("census.acs_5", {"action": "discover", "year": year, "artifact": spec.artifact_key}, mode="plan") as run:
+    with IngestionRun(
+        "census.acs_5",
+        {"action": "discover", "year": year, "artifact": spec.artifact_key},
+        mode="plan",
+    ) as run:
         path = download(spec)
-        book = load_workbook(filename=BytesIO(path.read_bytes()), read_only=True, data_only=True)
+        book = load_workbook(
+            filename=BytesIO(path.read_bytes()), read_only=True, data_only=True
+        )
         sheet = book.active
         rows = sheet.iter_rows(values_only=True)
-        headers = [str(value).strip() if value is not None else "" for value in next(rows)]
+        headers = [
+            str(value).strip() if value is not None else "" for value in next(rows)
+        ]
         table_col = _column(headers, "table id", "tableid")
         title_col = _column(headers, "table title", "tabletitle")
         universe_col = _column(headers, "table universe", "tableuniverse")
         product_col = _column(headers, "data product type", "dataproducttype")
-        one_year_col = _column(headers, "1-year geography restrictions\n(with summary levels in parentheses)")
-        five_year_col = _column(headers, "5-year geography restrictions\n(with summary levels in parentheses)")
+        one_year_col = _column(
+            headers,
+            "1-year geography restrictions\n(with summary levels in parentheses)",
+        )
+        five_year_col = _column(
+            headers,
+            "5-year geography restrictions\n(with summary levels in parentheses)",
+        )
         if table_col is None or title_col is None:
             raise ValueError(f"Unexpected ACS table-list columns: {headers}")
         tables: list[dict[str, str]] = []
@@ -117,17 +205,48 @@ def discover_acs_tables(year: int) -> dict[str, Any]:
             if not isinstance(table_id, str) or not table_id.strip():
                 continue
             title = row[title_col] if title_col < len(row) and row[title_col] else ""
-            universe = row[universe_col] if universe_col is not None and universe_col < len(row) and row[universe_col] else ""
-            product = row[product_col] if product_col is not None and product_col < len(row) and row[product_col] else ""
-            one_year = row[one_year_col] if one_year_col is not None and one_year_col < len(row) and row[one_year_col] else ""
-            five_year = row[five_year_col] if five_year_col is not None and five_year_col < len(row) and row[five_year_col] else ""
-            tables.append({
-                "id": table_id.strip(), "title": str(title).strip(), "universe": str(universe).strip(),
-                "product": str(product).strip(), "one_year": str(one_year).strip(), "five_year": str(five_year).strip(),
-            })
+            universe = (
+                row[universe_col]
+                if universe_col is not None
+                and universe_col < len(row)
+                and row[universe_col]
+                else ""
+            )
+            product = (
+                row[product_col]
+                if product_col is not None
+                and product_col < len(row)
+                and row[product_col]
+                else ""
+            )
+            one_year = (
+                row[one_year_col]
+                if one_year_col is not None
+                and one_year_col < len(row)
+                and row[one_year_col]
+                else ""
+            )
+            five_year = (
+                row[five_year_col]
+                if five_year_col is not None
+                and five_year_col < len(row)
+                and row[five_year_col]
+                else ""
+            )
+            tables.append(
+                {
+                    "id": table_id.strip(),
+                    "title": str(title).strip(),
+                    "universe": str(universe).strip(),
+                    "product": str(product).strip(),
+                    "one_year": str(one_year).strip(),
+                    "five_year": str(five_year).strip(),
+                }
+            )
         book.close()
         housing = [
-            table for table in tables
+            table
+            for table in tables
             if re.match(r"^(B25|C25|S25)", table["id"], flags=re.IGNORECASE)
             or table["id"].upper() == "DP04"
             or "housing" in table["title"].casefold()
@@ -157,21 +276,42 @@ def discover_acs_tables(year: int) -> dict[str, Any]:
     }
 
 
-def search_acs_tables(year: int, text: str, product: str | None = None, limit: int = 50) -> dict[str, Any]:
+def search_acs_tables(
+    year: int, text: str, product: str | None = None, limit: int = 50
+) -> dict[str, Any]:
     """Search the local official ACS catalog using IDs, titles, and universes."""
     manifest_path = data_root().parent / "meta" / "acs" / str(year) / "tables.json"
     if not manifest_path.is_file():
-        raise FileNotFoundError(f"No ACS manifest for {year}; run census-discover first")
+        raise FileNotFoundError(
+            f"No ACS manifest for {year}; run census-discover first"
+        )
     terms = [term.casefold() for term in text.split() if term]
     product_filter = product.casefold() if product else None
     tables = json.loads(manifest_path.read_text())["tables"]
     matches = [
-        table for table in tables
-        if all(term in " ".join(str(table.get(key, "")) for key in ("id", "title", "universe", "product")).casefold() for term in terms)
-        and (product_filter is None or product_filter in table.get("product", "").casefold())
+        table
+        for table in tables
+        if all(
+            term
+            in " ".join(
+                str(table.get(key, ""))
+                for key in ("id", "title", "universe", "product")
+            ).casefold()
+            for term in terms
+        )
+        and (
+            product_filter is None
+            or product_filter in table.get("product", "").casefold()
+        )
     ]
     matches.sort(key=lambda table: table["id"])
-    return {"year": year, "query": text, "match_count": len(matches), "results": matches[:limit], "truncated": len(matches) > limit}
+    return {
+        "year": year,
+        "query": text,
+        "match_count": len(matches),
+        "results": matches[:limit],
+        "truncated": len(matches) > limit,
+    }
 
 
 def _acs_group_endpoint(product: str) -> str:
@@ -184,26 +324,62 @@ def _acs_group_endpoint(product: str) -> str:
     raise ValueError(f"No Census group-metadata endpoint is configured for {product!r}")
 
 
-def describe_acs_table(year: int, table_id: str, include_annotations: bool = False) -> dict[str, Any]:
+def describe_acs_table(
+    year: int, table_id: str, include_annotations: bool = False
+) -> dict[str, Any]:
     """Retrieve and record field-level metadata for one locally cataloged table."""
     catalog = search_acs_tables(year, table_id, limit=10_000)["results"]
-    match = next((table for table in catalog if table["id"].casefold() == table_id.casefold()), None)
+    match = next(
+        (table for table in catalog if table["id"].casefold() == table_id.casefold()),
+        None,
+    )
     if match is None:
         raise ValueError(f"{table_id!r} is not in the {year} ACS table-list manifest")
     endpoint = _acs_group_endpoint(match["product"])
-    with client() as http, IngestionRun("census.acs_5", {"action": "describe", "year": year, "table": match["id"], "endpoint": endpoint}, mode="plan") as run:
-        response = http.get(f"https://api.census.gov/data/{year}/{endpoint}/groups/{match['id']}.json")
+    with (
+        client() as http,
+        IngestionRun(
+            "census.acs_5",
+            {
+                "action": "describe",
+                "year": year,
+                "table": match["id"],
+                "endpoint": endpoint,
+            },
+            mode="plan",
+        ) as run,
+    ):
+        response = http.get(
+            f"https://api.census.gov/data/{year}/{endpoint}/groups/{match['id']}.json"
+        )
         payload = json_response(response)
         payload_id = run.store_payload(response, payload)
         available = [
-            {"id": field_id, "label": metadata.get("label"), "concept": metadata.get("concept"), "type": metadata.get("predicateType")}
+            {
+                "id": field_id,
+                "label": metadata.get("label"),
+                "concept": metadata.get("concept"),
+                "type": metadata.get("predicateType"),
+            }
             for field_id, metadata in payload.get("variables", {}).items()
             if field_id not in {"NAME", "GEO_ID"}
         ]
-        fields = available if include_annotations else [field for field in available if not field["id"].endswith(("EA", "MA"))]
+        fields = (
+            available
+            if include_annotations
+            else [
+                field for field in available if not field["id"].endswith(("EA", "MA"))
+            ]
+        )
         fields.sort(key=lambda field: field["id"])
         run.record_count = len(fields)
-    return {"table": match, "field_count": len(fields), "available_field_count": len(available), "fields": fields, "payload_id": payload_id}
+    return {
+        "table": match,
+        "field_count": len(fields),
+        "available_field_count": len(available),
+        "fields": fields,
+        "payload_id": payload_id,
+    }
 
 
 def review_bulk_contract(contract_id: str) -> dict[str, Any]:
@@ -214,7 +390,9 @@ def review_bulk_contract(contract_id: str) -> dict[str, Any]:
     year = contract["year"]
     manifest_path = data_root().parent / "meta" / "acs" / str(year) / "tables.json"
     if not manifest_path.is_file():
-        raise FileNotFoundError(f"No ACS manifest for {year}; run census-discover first")
+        raise FileNotFoundError(
+            f"No ACS manifest for {year}; run census-discover first"
+        )
     manifest = json.loads(manifest_path.read_text())
     selection = contract["selection"]
     prefixes = tuple(item.upper() for item in selection.get("include_prefixes", []))
@@ -222,14 +400,25 @@ def review_bulk_contract(contract_id: str) -> dict[str, Any]:
     add_ids = {item.upper() for item in selection.get("add_ids", [])}
     exclude_ids = {item.upper() for item in selection.get("exclude_ids", [])}
     terms = [item.casefold() for item in selection.get("include_title_terms", [])]
-    product_types = {"detailed_5": "Detailed Table", "profile_5": "Data Profile", "subject_5": "Subject Tables"}
+    product_types = {
+        "detailed_5": "Detailed Table",
+        "profile_5": "Data Profile",
+        "subject_5": "Subject Tables",
+    }
     accepted_products = tuple(product_types[item] for item in contract["products"])
     selected = []
     for table in manifest["tables"]:
         table_id = table["id"].upper()
         title = table["title"].casefold()
-        included = table_id.startswith(prefixes) or table_id in include_ids or table_id in add_ids or any(term in title for term in terms)
-        included = included and any(table.get("product", "").startswith(kind) for kind in accepted_products)
+        included = (
+            table_id.startswith(prefixes)
+            or table_id in include_ids
+            or table_id in add_ids
+            or any(term in title for term in terms)
+        )
+        included = included and any(
+            table.get("product", "").startswith(kind) for kind in accepted_products
+        )
         if included and table_id not in exclude_ids:
             selected.append(table)
     selected.sort(key=lambda table: table["id"])
@@ -260,20 +449,33 @@ def plan_contract(contract_id: str) -> dict[str, Any]:
     endpoint = contract["endpoint"].strip("/")
     suffix = contract.get("estimate_suffix", "E")
     groups: list[dict[str, Any]] = []
-    with client() as http, IngestionRun(contract["dataset"], {"contract": contract_id, "action": "plan", "year": contract["year"]}, mode="plan") as run:
+    with (
+        client() as http,
+        IngestionRun(
+            contract["dataset"],
+            {"contract": contract_id, "action": "plan", "year": contract["year"]},
+            mode="plan",
+        ) as run,
+    ):
         for group_id in contract["groups"]:
-            response = http.get(f"https://api.census.gov/data/{contract['year']}/{endpoint}/groups/{group_id}.json")
+            response = http.get(
+                f"https://api.census.gov/data/{contract['year']}/{endpoint}/groups/{group_id}.json"
+            )
             payload = json_response(response)
             payload_id = run.store_payload(response, payload)
             variables = payload.get("variables", {})
-            selected = sorted(key for key in variables if key != "NAME" and key.endswith(suffix))
-            groups.append({
-                "id": group_id,
-                "title": payload.get("description") or payload.get("title"),
-                "variables": len(selected),
-                "sample": selected[:5],
-                "payload_id": payload_id,
-            })
+            selected = sorted(
+                key for key in variables if key != "NAME" and key.endswith(suffix)
+            )
+            groups.append(
+                {
+                    "id": group_id,
+                    "title": payload.get("description") or payload.get("title"),
+                    "variables": len(selected),
+                    "sample": selected[:5],
+                    "payload_id": payload_id,
+                }
+            )
         variable_count = sum(group["variables"] for group in groups)
         requests = len(contract["states"]) * ((variable_count + 44) // 45)
         run.record_count = len(groups)
@@ -293,15 +495,30 @@ def plan_contract(contract_id: str) -> dict[str, Any]:
 def bootstrap_housing(year: int, states: list[str]) -> int:
     """Load curated ACS housing table groups in API-safe variable batches."""
     if not settings.census_api_key:
-        raise ValueError("CENSUS_API_KEY is required for Census ingestion; add it to .env")
-    manifest = yaml.safe_load((Path(__file__).resolve().parents[3] / "inventory" / "acs_housing_groups.yaml").read_text())
+        raise ValueError(
+            "CENSUS_API_KEY is required for Census ingestion; add it to .env"
+        )
+    manifest = yaml.safe_load(
+        (
+            Path(__file__).resolve().parents[3]
+            / "inventory"
+            / "acs_housing_groups.yaml"
+        ).read_text()
+    )
     total = 0
     with client() as http:
         for group in manifest["groups"]:
-            response = http.get(f"https://api.census.gov/data/{year}/acs/acs5/groups/{group}.json", params={"key": settings.census_api_key})
+            response = http.get(
+                f"https://api.census.gov/data/{year}/acs/acs5/groups/{group}.json",
+                params={"key": settings.census_api_key},
+            )
             metadata = json_response(response)
-            variables = sorted(variable_id for variable_id in metadata["variables"] if variable_id.endswith("E"))
+            variables = sorted(
+                variable_id
+                for variable_id in metadata["variables"]
+                if variable_id.endswith("E")
+            )
             for start in range(0, len(variables), 45):
                 for state in states:
-                    total += ingest_acs(year, state, variables[start:start + 45])
+                    total += ingest_acs(year, state, variables[start : start + 45])
     return total

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 import yaml
 from psycopg.types.json import Jsonb
 
@@ -24,10 +25,20 @@ def validate_inventory() -> list[str]:
             errors.append("provider requires id and name")
         for dataset in provider.get("datasets", []):
             dataset_id = dataset.get("id")
-            required = ("id", "title", "access", "client", "grain", "identifiers", "cadence")
+            required = (
+                "id",
+                "title",
+                "access",
+                "client",
+                "grain",
+                "identifiers",
+                "cadence",
+            )
             missing = [key for key in required if not dataset.get(key)]
             if missing:
-                errors.append(f"{dataset_id or '<unknown>'}: missing {', '.join(missing)}")
+                errors.append(
+                    f"{dataset_id or '<unknown>'}: missing {', '.join(missing)}"
+                )
             if dataset_id in ids:
                 errors.append(f"duplicate dataset id: {dataset_id}")
             ids.add(dataset_id)
@@ -45,7 +56,12 @@ def sync_inventory() -> None:
                 (provider["id"], provider["name"], provider.get("base_url")),
             )
             for dataset in provider["datasets"]:
-                metadata = {k: v for k, v in dataset.items() if k not in {"id", "title", "access", "grain", "cadence", "priority"}}
+                metadata = {
+                    k: v
+                    for k, v in dataset.items()
+                    if k
+                    not in {"id", "title", "access", "grain", "cadence", "priority"}
+                }
                 cur.execute(
                     """INSERT INTO catalog.dataset
                        (dataset_id, provider_id, title, access_method, grain_description, refresh_cadence, priority, metadata)
@@ -54,7 +70,12 @@ def sync_inventory() -> None:
                          title = EXCLUDED.title, access_method = EXCLUDED.access_method,
                          grain_description = EXCLUDED.grain_description, refresh_cadence = EXCLUDED.refresh_cadence,
                          priority = EXCLUDED.priority, metadata = EXCLUDED.metadata, updated_at = now()""",
-                    {**dataset, "provider_id": provider["id"], "priority": dataset.get("priority"), "metadata": Jsonb(metadata)},
+                    {
+                        **dataset,
+                        "provider_id": provider["id"],
+                        "priority": dataset.get("priority"),
+                        "metadata": Jsonb(metadata),
+                    },
                 )
         conn.commit()
     sync_plans()

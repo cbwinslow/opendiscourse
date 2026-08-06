@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -11,13 +11,15 @@ from .config import settings
 from .ingestion.base import IngestionRun
 from .repositories.legislation import (
     get_resume_cursor,
-    load_openstates_votes as persist_openstates_votes,
-    register_artifact,
     record_vote_identity_exceptions,
+    register_artifact,
     resolve_bill_sponsorship_people,
     save_resume_cursor,
     sync_openstates_federal_organizations,
     sync_openstates_federal_people,
+)
+from .repositories.legislation import (
+    load_openstates_votes as persist_openstates_votes,
 )
 
 
@@ -41,18 +43,30 @@ def load_openstates_votes(
     }
     with IngestionRun("openstates.legislation", parameters, mode="backfill") as run:
         assert run.conn is not None
-        artifact = register_artifact("openstates.legislation", "openstates_source://opencivicdata_voteevent", "openstates_source.opencivicdata_voteevent", f"federal-votes-{congress}", status="loaded", metadata={"congress": congress}, conn=run.conn)
+        artifact = register_artifact(
+            "openstates.legislation",
+            "openstates_source://opencivicdata_voteevent",
+            "openstates_source.opencivicdata_voteevent",
+            f"federal-votes-{congress}",
+            status="loaded",
+            metadata={"congress": congress},
+            conn=run.conn,
+        )
         counts = {"roll_calls": 0, "member_votes": 0, "unresolved_people": 0}
         checkpoint = get_resume_cursor("openstates.legislation", cursor_key, run.conn)
         cursor = (
-            (checkpoint or {}).get("cursor", {}).get("last_ocd_id")
-            if resume
-            else None
+            (checkpoint or {}).get("cursor", {}).get("last_ocd_id") if resume else None
         )
         resumed_from = cursor
         remaining, pages, state = limit, 0, "paused"
         while remaining:
-            page = persist_openstates_votes(congress, min(page_size, remaining), str(artifact["artifact_id"]), run.conn, cursor)
+            page = persist_openstates_votes(
+                congress,
+                min(page_size, remaining),
+                str(artifact["artifact_id"]),
+                run.conn,
+                cursor,
+            )
             if not page["roll_calls"]:
                 state = "complete"
                 break
@@ -119,7 +133,7 @@ def load_openstates_federal_people() -> dict[str, Any]:
     result = {
         "schema": 1,
         "kind": "openstates_people_load",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         **counts,
         "next": "Enrich people from Congress.gov without replacing OpenStates baseline identities.",
     }
@@ -154,5 +168,5 @@ def load_openstates_federal_organizations() -> dict[str, Any]:
         "schema": 1,
         "kind": "openstates_organizations_load",
         "organizations": organizations,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
     }
