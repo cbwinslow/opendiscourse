@@ -215,6 +215,70 @@ def sync_fred(refresh: bool = False) -> dict[str, Any]:
     }
 
 
+def _bls_manifest() -> tuple[Path, list[dict[str, Any]]]:
+    path = Path(__file__).resolve().parents[2] / "inventory" / "core_bls_series.yaml"
+    return path, yaml.safe_load(path.read_text())["series"]
+
+
+def sync_bls() -> dict[str, Any]:
+    """Publish the deliberate BLS series allow-list to the local catalog.
+
+    Unlike FRED, BLS has no separate lightweight per-series metadata
+    endpoint to enrich from, so this registers the manifest's own
+    label/category/priority directly -- the manifest is the catalog's
+    authoritative selection boundary here too. No observation data is
+    acquired.
+    """
+    path, series = _bls_manifest()
+    with connect() as conn, conn.cursor() as cur:
+        for entry in series:
+            metadata = {
+                "series_id": entry["series_id"],
+                "category": entry["category"],
+                "priority": entry["priority"],
+                "notes": entry.get("notes"),
+            }
+            cur.execute(
+                """INSERT INTO catalog.resource
+                   (dataset_id, resource_key, resource_type, title, summary, metadata)
+                   VALUES (%(dataset)s, %(key)s, %(type)s, %(title)s, %(summary)s, %(metadata)s)
+                   ON CONFLICT (dataset_id, resource_key) DO UPDATE SET
+                     resource_type = EXCLUDED.resource_type, title = EXCLUDED.title,
+                     summary = EXCLUDED.summary, metadata = EXCLUDED.metadata, updated_at = now()""",
+                {
+                    "dataset": entry["dataset"],
+                    "key": entry["series_id"],
+                    "type": entry["category"],
+                    "title": entry["label"],
+                    "summary": entry.get("notes") or entry["label"],
+                    "metadata": Jsonb(metadata),
+                },
+            )
+        checksum = sha256(path.read_bytes()).hexdigest()
+        for dataset_id in {entry["dataset"] for entry in series}:
+            cur.execute(
+                """INSERT INTO catalog.snapshot (dataset_id, source_url, checksum_sha256, metadata)
+                   VALUES (%s, %s, %s, %s)
+                   ON CONFLICT (dataset_id, checksum_sha256) DO UPDATE SET metadata = EXCLUDED.metadata
+                   RETURNING snapshot_id""",
+                (
+                    dataset_id,
+                    "https://api.bls.gov/publicAPI/v2/timeseries/data/",
+                    checksum,
+                    Jsonb({"kind": "curated_series_manifest", "path": str(path)}),
+                ),
+            )
+            snapshot_id = cur.fetchone()["snapshot_id"]
+            cur.execute(
+                """INSERT INTO catalog.snapshot_resource (snapshot_id, resource_id)
+                   SELECT %s, resource_id FROM catalog.resource WHERE dataset_id = %s
+                   ON CONFLICT DO NOTHING""",
+                (snapshot_id, dataset_id),
+            )
+        conn.commit()
+    return {"resources": len(series), "state": "synced"}
+
+
 def _fred_get(endpoint: str, **params: Any) -> dict[str, Any]:
     if not settings.fred_api_key:
         raise ValueError("FRED_API_KEY is required for full FRED catalog discovery")

@@ -6,7 +6,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from .browser import ensure_acs, preview_fred_full, sync_fred, sync_fred_full
+from .browser import ensure_acs, preview_fred_full, sync_bls, sync_fred, sync_fred_full
 from .db import connect
 from .providers.census import (
     sync_acs_bulk_packages,
@@ -34,7 +34,7 @@ def sync(
 ) -> dict[str, Any]:
     """Synchronize implemented metadata adapters; never acquire bulk data."""
     results: dict[str, Any] = {}
-    requested = sources or {"acs", "census", "fred", "congress"}
+    requested = sources or {"acs", "census", "fred", "congress", "bls"}
     if "census" in requested:
         with connect() as conn, conn.cursor() as cur:
             cur.execute(
@@ -90,6 +90,15 @@ def sync(
             )
     if "congress" in requested:
         results["congress"] = sync_congress()
+    if "bls" in requested:
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM catalog.snapshot WHERE dataset_id = 'bls.cpi' LIMIT 1"
+            )
+            bls_ready = cur.fetchone() is not None
+        results["bls"] = (
+            sync_bls() if refresh or not bls_ready else {"state": "current"}
+        )
     return {"at": datetime.now(UTC).isoformat(), "results": results}
 
 

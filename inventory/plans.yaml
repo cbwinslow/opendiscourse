@@ -37,3 +37,11 @@ plans:
       congress: 119
       max_records: 250
     notes: Re-reads the most recently updated bills in the active Congress; historical backfills use an explicit CLI command.
+  - id: blscore
+    dataset: bls.cpi
+    handler: bls_core
+    cadence: weekly
+    enabled: true
+    parameters:
+      max_priority: 1
+    notes: Curated CPI and LAUS baseline (touches both bls.cpi and bls.laus); never attempt all BLS series.

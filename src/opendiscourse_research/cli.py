@@ -47,6 +47,8 @@ from .govplan import plan_billstatus_backfill
 from .identityexceptions import unresolved_congressional_identities
 from .ingestion.acs_bulk import preview_acs5_bulk_plan, write_acs5_bulk_plan
 from .ingestion.acs_load import load_acs_bulk, stage_acs_bulk
+from .ingestion.bls import ingest_manifest as ingest_bls_manifest
+from .ingestion.bls import ingest_series as ingest_bls_series
 from .ingestion.bulk import (
     ArtifactSpec,
     advance_plan,
@@ -1157,6 +1159,14 @@ def fred(series_id: str = typer.Option(...)) -> None:
     typer.echo(f"Ingested {ingest_series(series_id)} FRED observations.")
 
 
+@ingest_app.command("bls")
+def bls(
+    dataset_id: str = typer.Option(..., help="e.g. bls.cpi or bls.laus"),
+    series_id: str = typer.Option(...),
+) -> None:
+    typer.echo(f"Ingested {ingest_bls_series(dataset_id, series_id)} BLS observations.")
+
+
 @ingest_app.command("congress-bill")
 def congress_bill(
     congress: int = typer.Option(...),
@@ -1244,6 +1254,20 @@ def fred_core(
     results = ingest_manifest(category=category, priority=max_priority)
     typer.echo(
         f"Ingested {len(results)} FRED series and {sum(results.values())} observations."
+    )
+
+
+@bootstrap_app.command("bls-core")
+def bls_core(
+    category: str | None = typer.Option(
+        None, help="One manifest category, e.g. inflation or labor."
+    ),
+    max_priority: int = typer.Option(1, min=1, max=3),
+) -> None:
+    """Backfill curated BLS CPI and LAUS series."""
+    results = ingest_bls_manifest(category=category, priority=max_priority)
+    typer.echo(
+        f"Ingested {len(results)} BLS series and {sum(results.values())} observations."
     )
 
 

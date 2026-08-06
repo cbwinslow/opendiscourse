@@ -10,12 +10,19 @@ import yaml
 from psycopg.types.json import Jsonb
 
 from .db import connect
+from .ingestion.bls import ingest_manifest as ingest_bls_manifest
 from .ingestion.census import bootstrap_housing
 from .ingestion.congress import ingest_bills
 from .ingestion.fred import ingest_manifest
 
 ROOT = Path(__file__).resolve().parents[2]
-HANDLERS = {"fred_core", "acs_housing", "congress_bills", "census_metadata"}
+HANDLERS = {
+    "fred_core",
+    "acs_housing",
+    "congress_bills",
+    "census_metadata",
+    "bls_core",
+}
 
 
 def load_plans() -> list[dict[str, Any]]:
@@ -103,6 +110,8 @@ def run_plan(plan_id: str) -> int:
             for value in result["results"]["census"].values()
             if isinstance(value, int)
         )
+    elif plan["handler"] == "bls_core":
+        count = sum(ingest_bls_manifest(priority=args.get("max_priority", 1)).values())
     else:
         raise AssertionError(f"Handler validation missed {plan['handler']!r}")
     with connect() as conn, conn.cursor() as cur:
