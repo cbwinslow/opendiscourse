@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import re
 from datetime import date
@@ -9,6 +10,7 @@ from typing import Any
 
 import yaml
 from openpyxl import load_workbook
+from psycopg.types.json import Jsonb
 
 from ..capacity import remote_size, storage_preview
 from ..config import settings
@@ -274,6 +276,86 @@ def discover_acs_tables(year: int) -> dict[str, Any]:
         "manifest": str(output),
         "next": "Review housing_candidates, copy approved IDs into a contract, then create a bulk file and storage plan.",
     }
+
+
+def load_acs_field_catalog(year: int) -> int:
+    """Download this release's official Table Shells and populate catalog.dataset_field.
+
+    catalog.dataset_field exists in the schema but has no other writer
+    anywhere in this codebase; without it, a loaded field_id like
+    B19013_E001 is meaningless without cross-referencing Census
+    documentation by hand. The shells file lists every table's every
+    variable with a human-readable label/title/universe; one shell line
+    becomes two dataset_field rows (the _E estimate and _M margin-of-error
+    variants actually used in fact.acs_bulk_estimate.field_id).
+    """
+    base = f"https://www2.census.gov/programs-surveys/acs/summary_file/{year}/table-based-SF"
+    url = f"{base}/documentation/ACS{year}5YR_Table_Shells.txt"
+    preview = storage_preview([remote_size(url)])
+    if not preview["approved"]:
+        raise ValueError(f"Table shells preflight failed: {preview['reason']}")
+    spec = ArtifactSpec(
+        dataset_id="census.acs_5_bulk",
+        artifact_key=f"acs5-{year}-table-shells",
+        url=url,
+        filename=f"ACS{year}5YR_Table_Shells.txt",
+        period_start=date(year, 1, 1),
+        period_end=date(year, 12, 31),
+        metadata={"kind": "table_shells", "year": year},
+    )
+    with IngestionRun(
+        "census.acs_5_bulk",
+        {"action": "field_catalog", "year": year, "artifact": spec.artifact_key},
+        mode="plan",
+    ) as run:
+        path = download(spec)
+        valid_from = date(year, 1, 1)
+        rows: list[tuple[Any, ...]] = []
+        with path.open(encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle, delimiter="|")
+            for record in reader:
+                unique_id = (record.get("Unique ID") or "").strip()
+                table_id, sep, number = unique_id.partition("_")
+                if not sep or not table_id or not number:
+                    continue
+                label = (record.get("Label") or "").strip()
+                title = (record.get("Title") or "").strip()
+                universe = (record.get("Universe") or "").strip()
+                data_type = (record.get("Type") or "").strip()
+                description = f"{title} -- {universe}" if universe else title
+                metadata = {
+                    "table_id": table_id,
+                    "title": title,
+                    "universe": universe,
+                    "line": (record.get("Line") or "").strip(),
+                    "indent": (record.get("Indent") or "").strip(),
+                }
+                for measure in ("E", "M"):
+                    rows.append(
+                        (
+                            "census.acs_5_bulk",
+                            f"{table_id}_{measure}{number}",
+                            label,
+                            data_type,
+                            description,
+                            valid_from,
+                            Jsonb(metadata),
+                        )
+                    )
+        with run.conn.cursor() as cur:
+            for start in range(0, len(rows), 2_000):
+                cur.executemany(
+                    """INSERT INTO catalog.dataset_field
+                       (dataset_id, field_id, label, data_type, description, valid_from, metadata)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (dataset_id, field_id, valid_from) DO UPDATE SET
+                         label = EXCLUDED.label, data_type = EXCLUDED.data_type,
+                         description = EXCLUDED.description, metadata = EXCLUDED.metadata""",
+                    rows[start : start + 2_000],
+                )
+        run.conn.commit()
+        run.record_count = len(rows)
+    return run.record_count
 
 
 def search_acs_tables(

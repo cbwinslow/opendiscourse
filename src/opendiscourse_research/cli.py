@@ -64,6 +64,7 @@ from .ingestion.census import (
     describe_acs_table,
     discover_acs_tables,
     ingest_acs,
+    load_acs_field_catalog,
     plan_contract,
     review_bulk_contract,
     search_acs_tables,
@@ -736,6 +737,16 @@ def census_discover(
 ) -> None:
     """Catalog ACS table metadata and housing candidates; no ACS data is fetched."""
     typer.echo(json.dumps(discover_acs_tables(year), indent=2, sort_keys=True))
+
+
+@ingest_app.command("census-field-catalog")
+def census_field_catalog(
+    year: int = typer.Option(
+        ..., min=2021, help="ACS table-based release year to document."
+    ),
+) -> None:
+    """Populate catalog.dataset_field with every table's field labels; no ACS data is fetched."""
+    typer.echo(f"Registered {load_acs_field_catalog(year)} dataset_field rows.")
 
 
 @ingest_app.command("census-review")
