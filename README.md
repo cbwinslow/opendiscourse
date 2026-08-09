@@ -5,12 +5,17 @@ economics, markets, crime, elections, and public-policy research.
 
 ## Quick start
 
+New to this repo? Start with `docs/getting-started.md` for a Docker-based
+walkthrough that gets a database running in minutes; see `CONTRIBUTING.md`
+for how to run tests and propose changes. The steps below are the full
+bare-metal setup this project runs in production.
+
 ```bash
 cp .env.example .env
 python -m venv .venv && source .venv/bin/activate
 pip install -e '.[analytics,spatial,ingest]'
 research-db init-db
-research-db sync
+research-db sync   # contacts census/fred/congress; add their API keys to .env first
 research-db status
 research-db browse
 ```
@@ -19,9 +24,10 @@ No provider is contacted by `init-db`. Each ingestion run records the provider,
 dataset, request parameters, source URL, response checksum, and raw payload so
 typed facts can always be traced back to their source.
 
-Set `OD_LAKE_ROOT` and `DATA_ROOT` in `.env` before starting Docker. The
-provided defaults use the large workspace partition for both raw artifacts and
-Postgres; see `docs/lake.md` before admitting existing data-lake files.
+`OD_LAKE_ROOT` and `DATA_ROOT` default to a `./data-lake` folder inside this
+checkout, which is enough for a first run. Point them at real spacious,
+backed-up storage for a real deployment; see `docs/lake.md` before admitting
+existing data-lake files.
 
 The primary runtime is bare-metal PostgreSQL 17 on port 5434, using local peer
 authentication and the `odspace` tablespace on the large workspace partition.

@@ -28,3 +28,14 @@ class TestDocsCrossLinks(unittest.TestCase):
     def test_contributing_links_to_adding_a_provider(self) -> None:
         text = (REPO_ROOT / "CONTRIBUTING.md").read_text()
         self.assertIn("docs/adding-a-provider.md", text)
+
+    def test_readme_points_new_contributors_at_getting_started(self) -> None:
+        text = (REPO_ROOT / "README.md").read_text()
+        self.assertIn("docs/getting-started.md", text)
+        self.assertIn("CONTRIBUTING.md", text)
+
+    def test_adding_a_provider_explains_wiring_and_links_back(self) -> None:
+        text = (REPO_ROOT / "docs" / "adding-a-provider.md").read_text()
+        self.assertIn("registry.py", text)
+        self.assertIn("docs/getting-started.md", text)
+        self.assertIn("CONTRIBUTING.md", text)

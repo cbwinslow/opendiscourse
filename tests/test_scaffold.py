@@ -38,6 +38,16 @@ class TestNewProvider(unittest.TestCase):
             with self.assertRaisesRegex(ScaffoldError, "already exists"):
                 new_provider("fec", root)
 
+    def test_rejects_existing_test_file(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _make_fake_repo(root)
+            (root / "tests" / "test_fec_bulk_provider.py").write_text(
+                "# already here\n"
+            )
+            with self.assertRaisesRegex(ScaffoldError, "Test file already exists"):
+                new_provider("fec_bulk", root)
+
     def test_rejects_existing_sources_yaml_id(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
