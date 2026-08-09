@@ -19,3 +19,12 @@ class TestDocsCrossLinks(unittest.TestCase):
         text = (REPO_ROOT / "CONTRIBUTING.md").read_text()
         self.assertIn("docs/getting-started.md", text)
         self.assertIn("AGENTS.md", text)
+
+    def test_adding_a_provider_exists_and_names_the_scaffold_command(self) -> None:
+        text = (REPO_ROOT / "docs" / "adding-a-provider.md").read_text()
+        self.assertIn("research-db new-provider", text)
+        self.assertIn("fred.py", text)
+
+    def test_contributing_links_to_adding_a_provider(self) -> None:
+        text = (REPO_ROOT / "CONTRIBUTING.md").read_text()
+        self.assertIn("docs/adding-a-provider.md", text)
