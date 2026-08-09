@@ -89,9 +89,9 @@ from .peopleload import (
 )
 from .plans import due_plans, load_plans, run_plan
 from .progress import load_progress, validate_progress
-from .scaffold import ScaffoldError, new_provider
 from .registry import status as registry_status
 from .registry import sync as registry_sync
+from .scaffold import ScaffoldError, new_provider
 from .votereconcile import reconcile_openstates_votes
 
 app = typer.Typer(help="Research database setup and ingestion commands.")
