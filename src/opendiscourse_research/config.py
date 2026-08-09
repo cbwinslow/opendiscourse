@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     congress_api_key: str | None = None
     # Raw artifacts belong on the large workspace partition, not alongside the
     # application checkout or Docker's default root-disk volume.
-    data_root: str = "/home/cbwinslow/workspace/data-lake/opendiscourse/raw"
+    data_root: str = "./data-lake/opendiscourse/raw"
 
 
 settings = Settings()
