@@ -89,6 +89,7 @@ from .peopleload import (
 )
 from .plans import due_plans, load_plans, run_plan
 from .progress import load_progress, validate_progress
+from .scaffold import ScaffoldError, new_provider
 from .registry import status as registry_status
 from .registry import sync as registry_sync
 from .votereconcile import reconcile_openstates_votes
@@ -115,6 +116,23 @@ def init_db() -> None:
     apply_migrations()
     sync_inventory()
     typer.echo("Database initialized and source inventory synchronized.")
+
+
+@app.command("new-provider")
+def new_provider_command(
+    name: str = typer.Argument(
+        ..., help="New provider id in lowercase snake_case, e.g. fec_bulk."
+    ),
+) -> None:
+    """Scaffold a new provider module, test stub, and sources.yaml entry."""
+    repo_root = Path(__file__).resolve().parents[2]
+    try:
+        created = new_provider(name, repo_root)
+    except ScaffoldError as exc:
+        raise typer.BadParameter(str(exc)) from None
+    for label, path in created.items():
+        typer.echo(f"{label}: {path}")
+    typer.echo("Next: fill in the TODOs, then read docs/adding-a-provider.md.")
 
 
 @app.command("catalog-check", hidden=True)
