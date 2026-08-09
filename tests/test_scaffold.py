@@ -45,6 +45,21 @@ class TestNewProvider(unittest.TestCase):
             with self.assertRaisesRegex(ScaffoldError, "already has an entry"):
                 new_provider("fred", root)
 
+    def test_handles_null_providers_in_sources_yaml(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # Create repo structure but with null providers in sources.yaml
+            (root / "src" / "opendiscourse_research" / "providers").mkdir(parents=True)
+            (root / "tests").mkdir(parents=True)
+            (root / "inventory").mkdir(parents=True)
+            (root / "inventory" / "sources.yaml").write_text("version: 1\nproviders:\n")
+            # Should not raise TypeError, should succeed (no collision)
+            created = new_provider("test_provider", root)
+            # Verify files were created
+            self.assertTrue(created["provider"].exists())
+            self.assertTrue(created["test"].exists())
+            self.assertTrue(created["sources_yaml"].exists())
+
     def test_creates_provider_test_and_sources_yaml_stub(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)

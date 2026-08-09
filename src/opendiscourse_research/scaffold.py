@@ -99,7 +99,7 @@ def new_provider(name: str, repo_root: Path) -> dict[str, Path]:
 
     sources_yaml_path = repo_root / "inventory" / "sources.yaml"
     existing = yaml.safe_load(sources_yaml_path.read_text()) or {}
-    if any(p.get("id") == name for p in existing.get("providers", [])):
+    if any(p.get("id") == name for p in existing.get("providers") or []):
         raise ScaffoldError(f"{name!r} already has an entry in inventory/sources.yaml")
 
     test_path = repo_root / "tests" / f"test_{name}_provider.py"
