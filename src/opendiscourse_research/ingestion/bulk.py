@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from hashlib import sha256
@@ -94,6 +95,25 @@ def download(
             http.stream("GET", spec.url, headers=headers) as response,
         ):
             response.raise_for_status()
+            content_type = response.headers.get("content-type", "")
+            if content_type.startswith(
+                "text/html"
+            ) and not spec.filename.lower().endswith((".html", ".htm")):
+                # Confirmed live (2026-08-07): a WAF in front of Census's
+                # www2.census.gov occasionally answers a plain-data request
+                # with HTTP 200 and an HTML "Request Rejected" page instead
+                # of a real 404 or the actual file -- raise_for_status()
+                # doesn't catch this since 200 isn't an error status. 13 ACS
+                # Detailed Table files were silently accepted this way
+                # across this session before this check existed (staged to
+                # zero rows each, so no bad data reached a fact table, but
+                # the artifact was wrongly marked "downloaded" and the real
+                # table stayed missing). Treat it as a failed download so
+                # the normal retry/resume path handles it instead.
+                raise ValueError(
+                    f"{spec.url} returned HTML content-type for a non-HTML artifact "
+                    f"({spec.filename}) -- likely a WAF rejection page, not real data"
+                )
             if existing and response.status_code != 206:
                 existing, mode = 0, "wb"
             with partial.open(mode) as output:
@@ -165,9 +185,16 @@ def approve_plan(path: Path, scope: dict[str, Any]) -> dict[str, Any]:
 
 
 def download_plan(
-    path: Path, update: Callable[[str], None] | None = None
+    path: Path, update: Callable[[str], None] | None = None, *, workers: int = 1
 ) -> dict[str, Any]:
-    """Download every approved plan artifact resumably and register checksums."""
+    """Download every approved plan artifact resumably and register checksums.
+
+    ``workers`` > 1 downloads artifacts concurrently on a thread pool (this
+    is network I/O, not CPU work, so threads -- not processes -- are the
+    right tool). Each artifact still goes through the same `download()`
+    call, including its own checksum/status bookkeeping, so partial
+    progress under concurrency is exactly as resumable as the serial path.
+    """
     plan = yaml.safe_load(path.read_text()) or {}
     if plan.get("state") != "approved":
         raise ValueError(
@@ -179,8 +206,15 @@ def download_plan(
     artifacts = plan.get("artifacts", [])
     if not artifacts:
         raise ValueError("Plan contains no artifacts")
-    downloaded: list[str] = []
-    for artifact in artifacts:
+
+    def _download_one(artifact: dict[str, Any]) -> tuple[str, str | None, str | None]:
+        """Download one artifact, returning (artifact_key, path, error).
+
+        Never raises -- a single artifact's transient failure (e.g. the WAF
+        rejection page some Census hosts occasionally serve under load,
+        which ``download()`` now detects and rejects) must not abort every
+        other artifact's download in the same plan.
+        """
         key, url, filename = (
             artifact.get("artifact_key"),
             artifact.get("url"),
@@ -203,7 +237,23 @@ def download_plan(
                 "release_year": year,
             },
         )
-        downloaded.append(str(download(spec)))
+        try:
+            return (key, str(download(spec)), None)
+        except Exception as exc:  # noqa: BLE001 -- reported, not swallowed
+            return (key, None, str(exc))
+
+    if workers <= 1:
+        results = [_download_one(artifact) for artifact in artifacts]
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            results = list(pool.map(_download_one, artifacts))
+    downloaded = [path_ for _, path_, error in results if error is None]
+    failed = {key: error for key, _, error in results if error is not None}
+    if failed:
+        raise RuntimeError(
+            f"{len(failed)} of {len(artifacts)} artifacts failed to download "
+            f"(succeeded ones are saved and will be skipped on retry): {failed}"
+        )
     plan["state"] = "downloaded"
     plan["download"] = {
         "completed_at": datetime.now(UTC).isoformat(),

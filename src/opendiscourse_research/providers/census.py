@@ -13,7 +13,9 @@ from ..ingestion.base import IngestionRun, client, json_response
 
 CATALOG_URL = "https://api.census.gov/data.json"
 ACS_TABLE_BASED_YEARS = (2021, 2022, 2023, 2024)
-CBP_2023_URL = "https://www.census.gov/data/datasets/2023/econ/cbp/2023-cbp.html"
+# Verified directly against the real Census directory listings.
+CBP_YEARS = tuple(range(2009, 2024))
+TIGER_YEARS = tuple(range(2016, 2026))
 DHC_2020_URL = "https://www2.census.gov/programs-surveys/decennial/2020/data/demographic-and-housing-characteristics-file/National/us2020.dhc.zip"
 
 
@@ -167,40 +169,67 @@ def sync_acs_bulk_packages() -> int:
 
 
 def sync_cbp_bulk_packages() -> int:
-    """Publish the official complete CBP annual bundle as one browser choice."""
+    """Publish one official complete CBP annual bundle per available release year."""
     with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """INSERT INTO catalog.resource
-            (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
-            VALUES ('census.business_patterns', 'full:2023', 'Complete CSV bundle', %s, %s, 2023, %s)
-            ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type = EXCLUDED.resource_type,
-              title = EXCLUDED.title, summary = EXCLUDED.summary, release_year = EXCLUDED.release_year,
-              metadata = EXCLUDED.metadata, updated_at = now()""",
-            (
-                "2023 County Business Patterns — complete CSV bundle",
-                "Official U.S., state, county, metro, ZIP, and congressional-district CBP files for one annual release.",
-                Jsonb({"package": "complete_csv_bundle", "source_page": CBP_2023_URL}),
-            ),
-        )
+        for year in CBP_YEARS:
+            cur.execute(
+                """INSERT INTO catalog.resource
+                (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
+                VALUES ('census.business_patterns', %s, 'Complete CSV bundle', %s, %s, %s, %s)
+                ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type = EXCLUDED.resource_type,
+                  title = EXCLUDED.title, summary = EXCLUDED.summary, release_year = EXCLUDED.release_year,
+                  metadata = EXCLUDED.metadata, updated_at = now()""",
+                (
+                    f"full:{year}",
+                    f"{year} County Business Patterns — complete CSV bundle",
+                    "Official U.S., state, and county CBP/ZBP files for one annual release.",
+                    year,
+                    Jsonb(
+                        {
+                            "package": "complete_csv_bundle",
+                            "source_page": f"https://www.census.gov/data/datasets/{year}/econ/cbp/{year}-cbp.html",
+                        }
+                    ),
+                ),
+            )
         conn.commit()
-    return 1
+    return len(CBP_YEARS)
+
+
+PEP_VINTAGE_SERIES = {
+    "2020-2025": 2025,
+    "2010-2020": 2020,
+}
 
 
 def sync_pep_bulk_packages() -> int:
-    """Publish the latest complete PEP vintage as one no-mixing package."""
+    """Publish one complete, no-mixing PEP package per available vintage series.
+
+    The pre-fix resource_key format ("vintage:2025") is left registered but
+    orphaned rather than deleted -- it may already be referenced by a saved
+    basket selection, and the current parser
+    (ingestion/pep_bulk.py::_series) simply won't match it, so selecting it
+    fails clearly ("select exactly one PEP vintage") rather than silently
+    doing the wrong thing.
+    """
     with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
-          VALUES ('census.population_estimates', 'vintage:2025', 'National, state, and county totals', %s, %s, 2025, %s)
-          ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""",
-            (
-                "2025 Population Estimates — national, state, and county totals",
-                "Complete 2025 PEP vintage for national/state/county totals. Never combine it with another vintage.",
-                Jsonb({"package": "national_state_county_totals", "vintage": 2025}),
-            ),
-        )
+        for series, end_year in PEP_VINTAGE_SERIES.items():
+            cur.execute(
+                """INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
+              VALUES ('census.population_estimates', %s, 'National, state, and county totals', %s, %s, %s, %s)
+              ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""",
+                (
+                    f"vintage:{series}",
+                    f"{series} Population Estimates — national, state, and county totals",
+                    f"Complete {series} PEP vintage series for national/state/county totals. Never combine it with another vintage.",
+                    end_year,
+                    Jsonb(
+                        {"package": "national_state_county_totals", "vintage": series}
+                    ),
+                ),
+            )
         conn.commit()
-    return 1
+    return len(PEP_VINTAGE_SERIES)
 
 
 def sync_dhc_bulk_packages() -> int:
@@ -221,22 +250,25 @@ def sync_dhc_bulk_packages() -> int:
 
 
 def sync_tiger_bulk_packages() -> int:
-    """Publish a small, complete national boundary package for one TIGER vintage."""
+    """Publish a small, complete national boundary package per available TIGER vintage."""
     with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
-          VALUES ('census.tiger', 'national:2020:core-boundaries', 'National core boundary layers', %s, %s, 2020, %s)
+        for year in TIGER_YEARS:
+            cur.execute(
+                """INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
+          VALUES ('census.tiger', %s, 'National core boundary layers', %s, %s, %s, %s)
           ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type=EXCLUDED.resource_type, title=EXCLUDED.title, summary=EXCLUDED.summary, release_year=EXCLUDED.release_year, metadata=EXCLUDED.metadata, updated_at=now()""",
-            (
-                "2020 TIGER/Line — national core boundary layers",
-                "Official nationwide state, county, CBSA, and ZCTA boundary archives. State-partitioned tract, block-group, and block layers stay separate to keep package sizes and scope clear.",
-                Jsonb(
-                    {
-                        "package": "national_core_boundaries",
-                        "base_url": "https://www2.census.gov/geo/tiger/TIGER2020",
-                    }
+                (
+                    f"national:{year}:core-boundaries",
+                    f"{year} TIGER/Line — national core boundary layers",
+                    "Official nationwide state, county, CBSA, and ZCTA boundary archives. State-partitioned tract, block-group, and block layers stay separate to keep package sizes and scope clear.",
+                    year,
+                    Jsonb(
+                        {
+                            "package": "national_core_boundaries",
+                            "base_url": f"https://www2.census.gov/geo/tiger/TIGER{year}",
+                        }
+                    ),
                 ),
-            ),
-        )
+            )
         conn.commit()
-    return 1
+    return len(TIGER_YEARS)

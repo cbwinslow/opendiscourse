@@ -1,0 +1,104 @@
+version: 1
+description: >-
+  Disabled FEC bulk campaign-finance contract. Covers the FEC's official
+  pre-aggregated per-cycle files (individual contributions, committee-to-
+  committee/candidate transfers, operating expenditures, other
+  transactions) at /mnt/storage/data-lake/government/fec_bulk_data --
+  50 archives (~19.7 GiB) already downloaded, matching the official
+  https://www.fec.gov/files/bulk-downloads/{cycle}/{family}{yy}.zip
+  mirror byte-for-byte where checked (pas224.zip). This is a different
+  product from per-filing .fec raw filings: no street addresses, but the
+  right grain for district-level contribution/spending joins.
+contracts:
+  - id: fecpas2
+    provider: elections
+    dataset: fec.campaign_finance
+    kind: fec_bulk
+    target: stage.fec_row
+    cadence: historical_backfill
+    enabled: false
+    approval: pending_review
+    selection:
+      family: pas2
+      cycles: [2000, 2002, 2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020, 2022, 2024]
+      scope: committee_to_committee_and_candidate_transfers
+    storage:
+      stage_multiplier: 1.0
+      database_multiplier: 1.5
+      reserve_gib: 100
+    notes: >-
+      Pilot family: smallest of the four (~8-29 MiB/cycle), proves the
+      register-then-stage pattern before the much larger indiv family
+      (5+ GiB for recent cycles). 22-column schema stable across all 13
+      cycles (verified by field count against live samples). Staging
+      loader implemented in ingestion/fec_bulk.py; only stage.fec_row is
+      populated -- no fact-table transform yet (committee/candidate
+      identity resolution is a separate, reviewed decision).
+  - id: fecindiv
+    provider: elections
+    dataset: fec.campaign_finance
+    kind: fec_bulk
+    target: stage.fec_row
+    cadence: historical_backfill
+    enabled: false
+    approval: pending_review
+    selection:
+      family: indiv
+      cycles: [2000, 2002, 2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020, 2022, 2024]
+      scope: individual_contributions
+    storage:
+      stage_multiplier: 1.0
+      database_multiplier: 1.5
+      reserve_gib: 100
+    notes: >-
+      Largest family (2024 cycle alone is 4.2 GiB compressed, 11 GB
+      uncompressed itcont.txt) and the marquee payoff dataset. Deliberately
+      not enabled until the pas2 pilot has run end-to-end and the checksum
+      mismatch policy below has been exercised against a real drifted file.
+  - id: fecoth
+    provider: elections
+    dataset: fec.campaign_finance
+    kind: fec_bulk
+    target: stage.fec_row
+    cadence: historical_backfill
+    enabled: false
+    approval: pending_review
+    selection:
+      family: oth
+      cycles: [2000, 2002, 2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020, 2022, 2024]
+      scope: other_committee_to_committee_transactions
+    storage:
+      stage_multiplier: 1.0
+      database_multiplier: 1.5
+      reserve_gib: 100
+  - id: fecoppexp
+    provider: elections
+    dataset: fec.campaign_finance
+    kind: fec_bulk
+    target: stage.fec_row
+    cadence: historical_backfill
+    enabled: false
+    approval: pending_review
+    selection:
+      family: oppexp
+      cycles: [2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020, 2022, 2024]
+      scope: operating_expenditures
+    storage:
+      stage_multiplier: 1.0
+      database_multiplier: 1.5
+      reserve_gib: 100
+    notes: >-
+      25 named columns; a trailing delimiter in every row otherwise splits
+      into a spurious 26th empty field -- handled in parse_row, not by
+      redefining the schema.
+
+mismatch_policy: >-
+  FEC amends filings after initial publication, so a legacy download of a
+  recent cycle can legitimately differ from today's published file. Sizes
+  matched exactly for pas224.zip (24,683,218 bytes, checked 2026-08-07).
+  Decision: do not gate registration on a live re-check. Record the local
+  file's own checksum at registration time as the artifact's provenance (as
+  register_local always does); treat any future observed mismatch against a
+  freshly fetched copy as a superseded snapshot, not a corrupt file, and
+  register the newer copy under a distinct artifact_key
+  (fec-{family}-{cycle}-{as_of}) rather than overwriting history.

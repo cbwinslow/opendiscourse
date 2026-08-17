@@ -13,7 +13,10 @@ import yaml
 from ..capacity import GiB, remote_size, storage_preview
 from ..config import settings
 
-TABLE_BASED_FIRST_YEAR = 2022
+# 2021 was previously excluded from the per-table path as unverified (only
+# 2022-2024 had been checked); confirmed live that 2021's individual .dat
+# files exist at the identical URL pattern, so both constants now agree.
+TABLE_BASED_FIRST_YEAR = 2021
 BULK_PACKAGE_FIRST_YEAR = 2021
 
 

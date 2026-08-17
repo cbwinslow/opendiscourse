@@ -13,6 +13,23 @@ import yaml
 from ..capacity import GiB, remote_size, storage_preview
 from ..config import settings
 
+# Each PEP vintage series has its own base path and filename casing
+# convention -- confirmed directly against the live Census directory
+# listings rather than assumed (2020-2025 uses NST-EST/uppercase and
+# ALLDATA/uppercase; 2010-2020 uses nst-est/lowercase and alldata/lowercase).
+# Only add a series here after checking its real files; a wrong guess would
+# silently 404 rather than fetch the wrong data, but still fail confusingly.
+VINTAGE_SERIES: dict[str, dict[str, str]] = {
+    "2020-2025": {
+        "state_file": "NST-EST{year}-ALLDATA.csv",
+        "county_file": "co-est{year}-alldata.csv",
+    },
+    "2010-2020": {
+        "state_file": "nst-est{year}-alldata.csv",
+        "county_file": "co-est{year}-alldata.csv",
+    },
+}
+
 
 def _root() -> Path:
     root = Path(settings.data_root).resolve().parent / "meta" / "bulk-plans"
@@ -20,43 +37,46 @@ def _root() -> Path:
     return root
 
 
-def _year(resource: dict[str, Any]) -> int | None:
+def _series(resource: dict[str, Any]) -> str | None:
     if (
         resource.get("dataset_id") != "census.population_estimates"
         or resource.get("resource_type") != "National, state, and county totals"
     ):
         return None
-    try:
-        prefix, year = str(resource["resource_key"]).split(":", 1)
-        return int(year) if prefix == "vintage" else None
-    except (KeyError, ValueError):
-        return None
+    prefix, _, series = str(resource.get("resource_key", "")).partition(":")
+    return series if prefix == "vintage" and series in VINTAGE_SERIES else None
 
 
 def build_pep_bulk_plan(
     basket_name: str, resources: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    """Create a disabled plan for one PEP vintage without mixing revisions."""
-    years = sorted({year for resource in resources if (year := _year(resource))})
-    if len(years) != 1:
+    """Create a disabled plan for one PEP vintage series without mixing revisions."""
+    series_set = sorted(
+        {series for resource in resources if (series := _series(resource))}
+    )
+    if len(series_set) != 1:
         raise ValueError(
             "Select exactly one PEP vintage package; vintages must not be co-mingled."
         )
-    year = years[0]
-    base = f"https://www2.census.gov/programs-surveys/popest/datasets/2020-{year}"
+    series = series_set[0]
+    year = int(series.split("-")[1])
+    files = VINTAGE_SERIES[series]
+    base = f"https://www2.census.gov/programs-surveys/popest/datasets/{series}"
+    state_file = files["state_file"].format(year=year)
+    county_file = files["county_file"].format(year=year)
     artifacts = [
         {
-            "artifact_key": f"pep-{year}-state-totals",
+            "artifact_key": f"pep-{series}-state-totals",
             "kind": "state_totals",
-            "url": f"{base}/state/totals/NST-EST{year}-ALLDATA.csv",
-            "filename": f"NST-EST{year}-ALLDATA.csv",
+            "url": f"{base}/state/totals/{state_file}",
+            "filename": state_file,
             "release_year": year,
         },
         {
-            "artifact_key": f"pep-{year}-county-totals",
+            "artifact_key": f"pep-{series}-county-totals",
             "kind": "county_totals",
-            "url": f"{base}/counties/totals/co-est{year}-alldata.csv",
-            "filename": f"co-est{year}-alldata.csv",
+            "url": f"{base}/counties/totals/{county_file}",
+            "filename": county_file,
             "release_year": year,
         },
     ]
@@ -68,7 +88,11 @@ def build_pep_bulk_plan(
         "format": "PEP CSV vintage",
         "created_at": datetime.now(UTC).isoformat(),
         "basket": basket_name,
-        "selection": {"vintage": year, "package": "national_state_county_totals"},
+        "selection": {
+            "vintage": series,
+            "release_year": year,
+            "package": "national_state_county_totals",
+        },
         "canonical_load_scope": "not approved; choose geography filters before enabling a load",
         "artifacts": artifacts,
         "storage": {

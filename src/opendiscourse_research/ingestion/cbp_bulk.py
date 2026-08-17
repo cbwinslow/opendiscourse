@@ -13,18 +13,29 @@ import yaml
 from ..capacity import GiB, remote_size, storage_preview
 from ..config import settings
 
-CBP_2023_FILES = (
-    "cbp23us.zip",
-    "cbp23st.zip",
-    "cbp23pr_ia_st.zip",
-    "cbp23csa.zip",
-    "cbp23msa.zip",
-    "cbp23co.zip",
-    "cbp23pr_ia_co.zip",
-    "zbp23totals.zip",
-    "zbp23detail.zip",
-    "cbp23cd.xlsx",
-)
+
+def cbp_files(year: int) -> tuple[str, ...]:
+    """Return this year's CBP filenames, using Census's 2-digit-year convention.
+
+    Only the subset confirmed present across the full available range
+    (verified directly against the 2009, 2015, and 2023 directory
+    listings) -- optional extras like congressional-district (`cd`) and
+    combined-statistical-area (`csa`) bundles are published for some years
+    only, and `cd` even changes file extension (.zip vs .xlsx) between
+    them, so they are deliberately left out of this reliable core set
+    rather than guessed per year.
+    """
+    yy = f"{year % 100:02d}"
+    return (
+        f"cbp{yy}us.zip",
+        f"cbp{yy}st.zip",
+        f"cbp{yy}pr_ia_st.zip",
+        f"cbp{yy}msa.zip",
+        f"cbp{yy}co.zip",
+        f"cbp{yy}pr_ia_co.zip",
+        f"zbp{yy}totals.zip",
+        f"zbp{yy}detail.zip",
+    )
 
 
 def _root() -> Path:
@@ -71,7 +82,7 @@ def build_cbp_bulk_plan(
             "filename": name,
             "release_year": year,
         }
-        for name in CBP_2023_FILES
+        for name in cbp_files(year)
     ]
     return {
         "version": 1,

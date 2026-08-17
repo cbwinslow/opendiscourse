@@ -10,3 +10,7 @@ build/
 data/
 data-lake/
 logs/
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml

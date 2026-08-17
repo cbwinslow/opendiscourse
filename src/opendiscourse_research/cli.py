@@ -46,7 +46,14 @@ from .govbackfill import backfill_billstatus_missing
 from .govplan import plan_billstatus_backfill
 from .identityexceptions import unresolved_congressional_identities
 from .ingestion.acs_bulk import preview_acs5_bulk_plan, write_acs5_bulk_plan
-from .ingestion.acs_load import load_acs_bulk, stage_acs_bulk
+from .ingestion.acs_load import (
+    load_acs_bulk,
+    load_acs_bulk_parallel,
+    stage_acs_bulk,
+    stage_acs_bulk_parallel,
+)
+from .ingestion.bls import ingest_manifest as ingest_bls_manifest
+from .ingestion.bls import ingest_series as ingest_bls_series
 from .ingestion.bulk import (
     ArtifactSpec,
     advance_plan,
@@ -62,6 +69,7 @@ from .ingestion.census import (
     describe_acs_table,
     discover_acs_tables,
     ingest_acs,
+    load_acs_field_catalog,
     plan_contract,
     review_bulk_contract,
     search_acs_tables,
@@ -69,6 +77,7 @@ from .ingestion.census import (
 from .ingestion.congress import ingest_bill
 from .ingestion.dhc_bulk import preview_dhc_bulk_plan, write_dhc_bulk_plan
 from .ingestion.dhc_load import load_dhc, stage_dhc
+from .ingestion.fec_bulk import preview_family, register_family, stage_family
 from .ingestion.fred import ingest_manifest, ingest_series
 from .ingestion.openstates import download_monthly_dump
 from .ingestion.pep_bulk import preview_pep_bulk_plan, write_pep_bulk_plan
@@ -706,8 +715,19 @@ def plan_due(
         for plan in plans:
             typer.echo(plan["id"])
         return
+    # One plan's failure must not prevent the rest of the due batch from
+    # running -- a systemd timer invoking this daily should not have every
+    # later plan silently skipped because an earlier one hit a transient
+    # provider error.
+    failed_plans: list[str] = []
     for plan in plans:
-        typer.echo(f"{plan['id']}: {run_plan(plan['id'])} records")
+        try:
+            typer.echo(f"{plan['id']}: {run_plan(plan['id'])} records")
+        except Exception as exc:  # noqa: BLE001 -- one bad plan must not abort the batch
+            failed_plans.append(plan["id"])
+            typer.echo(f"{plan['id']}: FAILED ({exc})")
+    if failed_plans:
+        raise typer.Exit(1)
 
 
 @ingest_app.command("census-acs")
@@ -741,6 +761,16 @@ def census_discover(
 ) -> None:
     """Catalog ACS table metadata and housing candidates; no ACS data is fetched."""
     typer.echo(json.dumps(discover_acs_tables(year), indent=2, sort_keys=True))
+
+
+@ingest_app.command("census-field-catalog")
+def census_field_catalog(
+    year: int = typer.Option(
+        ..., min=2021, help="ACS table-based release year to document."
+    ),
+) -> None:
+    """Populate catalog.dataset_field with every table's field labels; no ACS data is fetched."""
+    typer.echo(f"Registered {load_acs_field_catalog(year)} dataset_field rows.")
 
 
 @ingest_app.command("census-review")
@@ -800,34 +830,57 @@ def acs_bulk_approve(
 @ingest_app.command("acs-bulk-download")
 def acs_bulk_download(
     plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    workers: int = typer.Option(
+        1,
+        min=1,
+        help="Concurrent downloads (thread pool; each artifact is a separate file).",
+    ),
 ) -> None:
     """Resumably download an approved ACS plan and register immutable artifacts."""
     payload = yaml.safe_load(plan.read_text()) or {}
     with render_progress(
         "Downloading ACS bulk artifacts", len(payload.get("artifacts", []))
     ) as update:
-        result = download_plan(plan, update)
+        result = download_plan(plan, update, workers=workers)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 
 @ingest_app.command("acs-bulk-stage")
-def acs_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def acs_bulk_stage(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    workers: int = typer.Option(
+        1, min=1, help="Concurrent worker processes, partitioned by Detailed Table."
+    ),
+) -> None:
     """Stage selected ACS Detailed Table rows without altering canonical facts."""
     apply_migrations()
     payload = yaml.safe_load(plan.read_text()) or {}
     with render_spinner("Staging ACS Detailed Table rows") as update:
-        count = stage_acs_bulk(payload, update)
+        count = (
+            stage_acs_bulk(payload, update)
+            if workers <= 1
+            else stage_acs_bulk_parallel(payload, workers, update)
+        )
     advance_plan(plan, "downloaded", "staged", "staging", {"row_count": count})
     typer.echo(f"Staged {count} ACS source rows.")
 
 
 @ingest_app.command("acs-bulk-load")
-def acs_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def acs_bulk_load(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    workers: int = typer.Option(
+        1, min=1, help="Concurrent worker processes, partitioned by Detailed Table."
+    ),
+) -> None:
     """Load staged ACS rows into artifact-linked estimates and margins of error."""
     apply_migrations()
     payload = yaml.safe_load(plan.read_text()) or {}
     with render_spinner("Loading ACS estimates and margins of error") as update:
-        count = load_acs_bulk(payload, update)
+        count = (
+            load_acs_bulk(payload, update)
+            if workers <= 1
+            else load_acs_bulk_parallel(payload, workers, update)
+        )
     advance_plan(plan, "staged", "loaded", "load", {"fact_count": count})
     typer.echo(f"Loaded {count} ACS estimates and margins of error.")
 
@@ -903,6 +956,37 @@ def cbp_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -
         count = load_cbp(payload, update)
     advance_plan(plan, "staged", "loaded", "load", {"fact_count": count})
     typer.echo(f"Loaded {count} CBP business facts.")
+
+
+@ingest_app.command("fec-bulk-preview", hidden=True)
+def fec_bulk_preview_command(
+    family: str = typer.Option(..., help="indiv, oth, pas2, or oppexp."),
+) -> None:
+    """Run the capacity gate against one FEC bulk family's local legacy archives."""
+    typer.echo(
+        json.dumps(preview_family(family), indent=2, sort_keys=True, default=str)
+    )
+
+
+@ingest_app.command("fec-bulk-register", hidden=True)
+def fec_bulk_register_command(
+    family: str = typer.Option(..., help="indiv, oth, pas2, or oppexp."),
+) -> None:
+    """Checksum and register every local cycle archive for one FEC bulk family."""
+    with render_spinner(f"Registering FEC {family} archives") as update:
+        keys = register_family(family, update=update)
+    typer.echo(f"Registered {len(keys)} FEC {family} artifacts: {', '.join(keys)}")
+
+
+@ingest_app.command("fec-bulk-stage", hidden=True)
+def fec_bulk_stage_command(
+    family: str = typer.Option(..., help="indiv, oth, pas2, or oppexp."),
+) -> None:
+    """Stage every registered FEC bulk archive for one family into stage.fec_row."""
+    apply_migrations()
+    with render_spinner(f"Staging FEC {family} rows") as update:
+        count = stage_family(family, update)
+    typer.echo(f"Staged {count} FEC {family} rows.")
 
 
 @ingest_app.command("pep-bulk-plan")
@@ -1175,6 +1259,14 @@ def fred(series_id: str = typer.Option(...)) -> None:
     typer.echo(f"Ingested {ingest_series(series_id)} FRED observations.")
 
 
+@ingest_app.command("bls")
+def bls(
+    dataset_id: str = typer.Option(..., help="e.g. bls.cpi or bls.laus"),
+    series_id: str = typer.Option(...),
+) -> None:
+    typer.echo(f"Ingested {ingest_bls_series(dataset_id, series_id)} BLS observations.")
+
+
 @ingest_app.command("congress-bill")
 def congress_bill(
     congress: int = typer.Option(...),
@@ -1259,10 +1351,36 @@ def fred_core(
     max_priority: int = typer.Option(1, min=1, max=3),
 ) -> None:
     """Backfill curated FRED macro, rate, market, commodity, and FX series."""
-    results = ingest_manifest(category=category, priority=max_priority)
+    with render_spinner("Backfilling curated FRED series") as update:
+        successes, failures = ingest_manifest(
+            category=category, priority=max_priority, report=update
+        )
     typer.echo(
-        f"Ingested {len(results)} FRED series and {sum(results.values())} observations."
+        f"Ingested {len(successes)} FRED series and {sum(successes.values())} observations."
     )
+    if failures:
+        typer.echo(f"{len(failures)} series failed: {', '.join(failures)}")
+        raise typer.Exit(1)
+
+
+@bootstrap_app.command("bls-core")
+def bls_core(
+    category: str | None = typer.Option(
+        None, help="One manifest category, e.g. inflation or labor."
+    ),
+    max_priority: int = typer.Option(1, min=1, max=3),
+) -> None:
+    """Backfill curated BLS CPI and LAUS series."""
+    with render_spinner("Backfilling curated BLS series") as update:
+        successes, failures = ingest_bls_manifest(
+            category=category, priority=max_priority, report=update
+        )
+    typer.echo(
+        f"Ingested {len(successes)} BLS series and {sum(successes.values())} observations."
+    )
+    if failures:
+        typer.echo(f"{len(failures)} series failed: {', '.join(failures)}")
+        raise typer.Exit(1)
 
 
 @bootstrap_app.command("acs-housing")

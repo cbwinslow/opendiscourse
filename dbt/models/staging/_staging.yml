@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: stg_bills
+    columns:
+      - name: bill_id
+        tests: [not_null, unique]
+  - name: stg_roll_calls
+    columns:
+      - name: roll_call_id
+        tests: [not_null, unique]
+  - name: stg_member_votes
+    columns:
+      - name: roll_call_id
+        tests: [not_null]
+      - name: position
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["yes", "no", "not voting", "other"]
+  - name: stg_geography
+    columns:
+      - name: geography_id
+        tests: [not_null, unique]
+  - name: stg_measurements
+    columns:
+      - name: measurement_id
+        tests: [not_null, unique]

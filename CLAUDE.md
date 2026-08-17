@@ -75,6 +75,11 @@ provider -> fetch -> raw object -> parse -> typed tables -> research views
 | fact | Narrow analytical observations | measurements, votes, awards, crime, election results |
 | mart | Purpose-built research views | bill timelines, member records, place-year panels |
 
+The `mart` layer is built with dbt (`dbt/`, schema created by
+`sql/023_mart_schema.sql`) rather than hand-written SQL views — see
+`docs/mart.md` for the engine caveats (experimental Postgres adapter, TCP
+auth) before running it.
+
 Within ingestion, four further stages are kept intentionally separate
 (`docs/framework.md`): `raw` (checksummed files) -> `ingest` (tracked run +
 params + cursor) -> `stage` (replaceable provider-shaped rows — the only

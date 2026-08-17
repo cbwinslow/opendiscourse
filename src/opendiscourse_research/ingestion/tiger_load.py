@@ -14,6 +14,12 @@ LAYER_INFO = {
     "state": ("state", "GEOID", "NAME", "STATEFP", None),
     "county": ("county", "GEOID", "NAME", "STATEFP", "COUNTYFP"),
     "cbsa": ("cbsa", "GEOID", "NAME", None, None),
+    # ZCTA boundaries are redefined each decennial census, and Census
+    # vintage-suffixes the shapefile's own attribute column names to match
+    # (confirmed live via the 2019 file's DBF header: GEOID10/ZCTA5CE10, not
+    # GEOID/ZCTA5CE) -- both vintages load into the same "zcta" geography
+    # type/table, just from differently-named source columns.
+    "zcta510": ("zcta", "GEOID10", "ZCTA5CE10", None, None),
     "zcta520": ("zcta", "GEOID20", "ZCTA5CE20", None, None),
 }
 
@@ -123,20 +129,34 @@ def load_tiger(
     if update:
         update("Creating TIGER geographies and boundaries")
     with connect() as conn, conn.cursor() as cur:
+        # Scoped to this plan's own artifacts -- without this, the query pulled
+        # from every vintage ever staged into stage.tiger_feature (this table
+        # has no per-plan partition). Confirmed live: once a second vintage
+        # (2016) was staged alongside the first (2020), CBSA delineations
+        # renamed between them (e.g. "Atlanta-Sandy Springs-Alpharetta, GA" ->
+        # "...-Roswell, GA") produced two rows for the same (geography_type,
+        # geoid) in one INSERT's SELECT DISTINCT, which Postgres rejects for
+        # ON CONFLICT DO UPDATE ("cannot affect row a second time") -- this
+        # was latent and never triggered while only one vintage existed.
+        artifact_ids = [
+            _artifact(conn, item["artifact_key"])["artifact_id"]
+            for item in plan["artifacts"]
+            if str(item["kind"]) in layers
+        ]
         cur.execute(
             """INSERT INTO core.geography (geography_type, geoid, name, state_fips, county_fips)
-          SELECT DISTINCT CASE layer WHEN 'zcta520' THEN 'zcta' ELSE layer END, geoid, name, state_fips, county_fips
-          FROM stage.tiger_feature WHERE layer = ANY(%s)
+          SELECT DISTINCT CASE WHEN layer IN ('zcta510', 'zcta520') THEN 'zcta' ELSE layer END, geoid, name, state_fips, county_fips
+          FROM stage.tiger_feature WHERE layer = ANY(%s) AND artifact_id = ANY(%s)
           ON CONFLICT (geography_type, geoid) DO UPDATE SET name=EXCLUDED.name, state_fips=EXCLUDED.state_fips, county_fips=EXCLUDED.county_fips""",
-            (layers,),
+            (layers, artifact_ids),
         )
         cur.execute(
             """INSERT INTO core.geography_boundary (geography_id, boundary_vintage, geom, source_artifact_id)
           SELECT geography.geography_id, %s, feature.geom, feature.artifact_id
-          FROM stage.tiger_feature feature JOIN core.geography geography ON geography.geography_type = CASE feature.layer WHEN 'zcta520' THEN 'zcta' ELSE feature.layer END AND geography.geoid = feature.geoid
-          WHERE feature.layer = ANY(%s)
+          FROM stage.tiger_feature feature JOIN core.geography geography ON geography.geography_type = CASE WHEN feature.layer IN ('zcta510', 'zcta520') THEN 'zcta' ELSE feature.layer END AND geography.geoid = feature.geoid
+          WHERE feature.layer = ANY(%s) AND feature.artifact_id = ANY(%s)
           ON CONFLICT (geography_id, boundary_vintage) DO UPDATE SET geom=EXCLUDED.geom, source_artifact_id=EXCLUDED.source_artifact_id""",
-            (vintage, layers),
+            (vintage, layers, artifact_ids),
         )
         total = cur.rowcount
         conn.commit()

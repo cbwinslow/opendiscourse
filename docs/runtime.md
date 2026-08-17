@@ -21,6 +21,11 @@ DSN is `postgresql:///opendiscourse?port=5434`; it avoids credentials in the
 repository and must remain local-only unless a separate service role/TLS plan
 is created.
 
+The role also has a password set, used only by the `dbt/` mart-layer project
+over TCP loopback (`127.0.0.1:5434`) — its Postgres adapter cannot use a Unix
+socket. This does not change the primary peer-auth path above; see
+`docs/mart.md` for why and how it's kept out of the repository.
+
 ## OpenStates
 
 The OpenStates source schema is a provider implementation schema (including

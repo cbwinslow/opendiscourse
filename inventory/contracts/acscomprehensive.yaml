@@ -1,0 +1,60 @@
+version: 1
+description: >-
+  Retroactive registration of the comprehensive ACS 5-year Detailed Table
+  selection actually driving the loaded 2021-2024 data. Unlike acshousing.yaml,
+  this selection is too broad (~600-615 tables/year) to express as a static
+  include/exclude ID list, so the executable rule lives in code
+  (`relevant_acs_tables()` in `src/opendiscourse_research/ingestion/census.py`)
+  rather than in this file's `selection` block. This entry exists so the
+  scope is reviewable in Git per the project's registration workflow, even
+  though `research-db ingest census-review` cannot resolve it directly.
+contracts:
+  - id: acscomprehensive
+    provider: census
+    dataset: census.acs_5_bulk
+    kind: acs_relevance_filter
+    products: [detailed_5]
+    target: fact.acs_bulk_estimate
+    cadence: annual
+    enabled: true
+    approval: approved
+    selection:
+      generator: opendiscourse_research.ingestion.census.relevant_acs_tables
+      rule: >-
+        Keep every published ACS 5-year Detailed Table (product == "Detailed
+        Table") except: quality/allocation-flag families (B98, B99 --
+        counts of imputed cells, not estimates), C-prefix "collapsed"
+        duplicates of an already-included B-table, and race/ethnicity
+        iteration variants of an already-included base table (regex
+        ^B\d{5}[A-Z]{1,2}$, e.g. B01001A..I -- redundant since B02/B03
+        already carry race/ethnicity). Everything else is included by
+        default, including the full B25 housing family and the narrow
+        administrative families (B10, B13, B26, B29) that an earlier,
+        narrower pass had excluded.
+      decision_date: "2026-08-07"
+      decision_by: user, via explicit selection among three proposed scopes
+        ("broaden to ~700-900 tables/year" was chosen over "everything
+        including flags/duplicates/iterations" and "housing-only addition")
+      applies_to_years: [2021, 2022, 2023, 2024]
+      approximate_table_count_per_year: "600-615 (varies slightly by year as
+        Census adds/retires tables between releases)"
+    storage:
+      stage_multiplier: 1.0
+      database_multiplier: 1.5
+      reserve_gib: 100
+    notes: >-
+      Regenerate the exact per-year table list with
+      `relevant_acs_tables(year)`; it reads that year's discovered
+      `meta/acs/<year>/tables.json` manifest, so the resolved ID list is
+      reproducible but not hand-maintained here. Plans are built as
+      `acs5-relevant<year>.yaml` (the original narrower load, kept for
+      lineage) plus `acs5-comprehensive-delta<year>.yaml` (the net-new
+      tables added under this contract) rather than one combined plan, so
+      the already-loaded artifacts are never re-downloaded or re-staged.
+      A handful of Detailed Tables report no reliable size from Census's
+      server (dominated by the B24 industry-by-occupation and B27 health-
+      insurance wide cross-tab families); `census.py`'s
+      `ACS_SIZE_PROBE_UNRESOLVABLE` documents the confirmed-unresolvable
+      set per year -- retry preview at least once before treating a table
+      as unresolvable, since the set consistently converges to the same
+      small core after a transient initial spike.
