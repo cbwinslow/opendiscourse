@@ -13,23 +13,48 @@ import yaml
 from ..capacity import GiB, remote_size, storage_preview
 from ..config import settings
 
-# Core layers confirmed present with this exact filename pattern for every
-# vintage checked (2016, 2020, 2023): TIGER{year}/{DIR}/tl_{year}_us_{layer}.zip.
-# Tract/block-group/block layers are deliberately not included here -- their
-# archives are much larger and organized per-state rather than one national
-# file, a distinct addition rather than a parametrization of this one.
+# Core layers confirmed present with this exact filename pattern:
+# TIGER{year}/{DIR}/tl_{year}_us_{layer}.zip. Tract/block-group/block layers
+# are deliberately not included here -- their archives are much larger and
+# organized per-state rather than one national file, a distinct addition
+# rather than a parametrization of this one.
 LAYER_DIRS = (
     ("STATE", "state"),
     ("COUNTY", "county"),
     ("CBSA", "cbsa"),
-    ("ZCTA520", "zcta520"),
 )
+
+# ZCTA boundaries are redefined each decennial census, and Census renames
+# both the directory and filename suffix to match -- confirmed live: the
+# 2010-vintage `ZCTA5/..._zcta510.zip` 404s starting TIGER2021, while the
+# 2020-vintage `ZCTA520/..._zcta520.zip` 404s before TIGER2020 (both exist
+# in the 2020 transition year). A single hardcoded ZCTA520 directory (the
+# original Phase 1 fix) silently 404s for every year before 2020.
+_ZCTA_CUTOVER_YEAR = 2020
+
+
+def _zcta_layer(year: int) -> str:
+    if year < _ZCTA_CUTOVER_YEAR:
+        return f"ZCTA5/tl_{year}_us_zcta510.zip"
+    return f"ZCTA520/tl_{year}_us_zcta520.zip"
+
+
+# Confirmed live: Census did not publish a national CBSA delineation file
+# under TIGER2022 -- every filename tried under TIGER2022/CBSA/ 404s, and
+# the directory listing has no CBSA entry for that year at all. A genuine
+# one-year publishing gap, not a naming guess; extend this if a future
+# vintage turns out to have a similar gap in a different layer.
+_MISSING_LAYERS: dict[int, frozenset[str]] = {2022: frozenset({"cbsa"})}
 
 
 def tiger_layers(year: int) -> tuple[str, ...]:
-    return tuple(
-        f"{directory}/tl_{year}_us_{layer}.zip" for directory, layer in LAYER_DIRS
+    missing = _MISSING_LAYERS.get(year, frozenset())
+    core = tuple(
+        f"{directory}/tl_{year}_us_{layer}.zip"
+        for directory, layer in LAYER_DIRS
+        if layer not in missing
     )
+    return core + (_zcta_layer(year),)
 
 
 def _root() -> Path:
@@ -66,7 +91,13 @@ def build_tiger_bulk_plan(
     artifacts = [
         {
             "artifact_key": f"tiger-{year}-{path.split('/')[-1][:-4]}",
-            "kind": path.split("/")[0].lower(),
+            # Derived from the filename's own layer suffix (e.g.
+            # "tl_2019_us_zcta510.zip" -> "zcta510"), not the directory name
+            # -- the ZCTA directory ("ZCTA5") and its vintage-suffixed layer
+            # kind ("zcta510") deliberately differ, since tiger_load.py's
+            # LAYER_INFO is keyed by the vintage-suffixed kind (its shapefile
+            # attribute columns are vintage-suffixed too: GEOID10/GEOID20).
+            "kind": path.split("/")[-1].removesuffix(".zip").split("_us_", 1)[1],
             "url": f"{base}/{path}",
             "filename": path.split("/")[-1],
             "boundary_vintage": year,

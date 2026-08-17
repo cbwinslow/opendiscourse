@@ -191,6 +191,15 @@ def discover_acs_tables(year: int) -> dict[str, Any]:
         title_col = _column(headers, "table title", "tabletitle")
         universe_col = _column(headers, "table universe", "tableuniverse")
         product_col = _column(headers, "data product type", "dataproducttype")
+        # The "Year" column is the actual 1-year/5-year *availability* signal
+        # ("1", "5", or "1,5") -- confirmed live (2026-08-07) that every one
+        # of this session's "unresolvable size" ACS Detailed Tables (32 of
+        # 33) is simply a table this column marks 1-year-only, which the
+        # table-based 5-year Summary File never publishes at all (a clean
+        # 404, not a server stall). This is a *different* signal from the
+        # geography-restriction columns below, which describe additional
+        # exclusions *within* whichever years a table is already published.
+        year_col = _column(headers, "year")
         one_year_col = _column(
             headers,
             "1-year geography restrictions\n(with summary levels in parentheses)",
@@ -199,7 +208,7 @@ def discover_acs_tables(year: int) -> dict[str, Any]:
             headers,
             "5-year geography restrictions\n(with summary levels in parentheses)",
         )
-        if table_col is None or title_col is None:
+        if table_col is None or title_col is None or year_col is None:
             raise ValueError(f"Unexpected ACS table-list columns: {headers}")
         tables: list[dict[str, str]] = []
         for row in rows:
@@ -219,6 +228,11 @@ def discover_acs_tables(year: int) -> dict[str, Any]:
                 if product_col is not None
                 and product_col < len(row)
                 and row[product_col]
+                else ""
+            )
+            table_year = (
+                str(row[year_col]).strip()
+                if year_col < len(row) and row[year_col]
                 else ""
             )
             one_year = (
@@ -241,8 +255,9 @@ def discover_acs_tables(year: int) -> dict[str, Any]:
                     "title": str(title).strip(),
                     "universe": str(universe).strip(),
                     "product": str(product).strip(),
-                    "one_year": str(one_year).strip(),
-                    "five_year": str(five_year).strip(),
+                    "year": table_year,
+                    "one_year_geo_restriction": str(one_year).strip(),
+                    "five_year_geo_restriction": str(five_year).strip(),
                 }
             )
         book.close()
@@ -398,29 +413,74 @@ def search_acs_tables(
 
 # Quality-measure/allocation-flag tables carry no substantive data.
 _ACS_EXCLUDE_PREFIX = ("B98", "B99")
-# Narrow/administrative subject families: grandparents-as-caregivers,
-# fertility, group quarters, and misc B29 -- low relevance to
-# demographics/crime/economics research.
-_ACS_EXCLUDE_FAMILY = ("B10", "B13", "B26", "B29")
-# Same base table repeated once per population subgroup (e.g. B01001A..I =
-# "Sex by Age" x9 race/ethnicity groups); race/ethnicity itself is already
-# captured by the dedicated B02/B03 tables, so the iterations are dropped
-# rather than every subject family being multiplied ~9x.
-_ACS_ITERATION = re.compile(r"^B\d{5}[A-Z]{1,2}$")
+# Race/ethnicity-iterated variants of a base table (e.g. B01001A..I = "Sex
+# by Age" x9 race/ethnicity groups) were excluded through 2026-08-07 on the
+# claim that they add "zero new information beyond B02/B03" -- that claim
+# was wrong and has been retracted: iterations are genuine cross-tabulations
+# (e.g. B19013A-I is median household income BY race, B25003A-I is tenure
+# BY race) not recoverable from the marginal B02/B03 tables, matching how
+# NHGIS itself treats these as first-class "breakdowns" rather than
+# redundant. No longer excluded by default -- see relevant_acs_tables().
+
+# Confirmed live (2026-08-07): every table this session found "unresolvable"
+# via a size probe -- except B08009 -- is simply a table the official
+# DataProductList.xlsx (downloaded per-year by discover_acs_tables(), see
+# the "year" manifest field) marks 1-year-only. The table-based 5-year
+# Summary File never publishes 1-year-only tables at all (a clean 404, not
+# a server stall or a probing bug), and B25142/B25143 in particular don't
+# even exist in earlier years' manifests -- Census introduced those table
+# IDs starting with the 2024 release. relevant_acs_tables() now excludes
+# 1-year-only tables directly via that "year" field, so this dict no
+# longer needs the ~30 previously-hand-maintained IDs per year.
+#
+# B08009 (2024 only) is the one genuine exception: the xlsx marks it
+# "1,5" (nominally published at 5-year), yet a direct curl returns a
+# real Census-branded 404 page, not a WAF artifact and not a timeout --
+# Census's own catalog appears to be wrong about this one table. Keep
+# this dict for exactly this kind of case: a table relevant_acs_tables()
+# would otherwise select but that a size probe still can't resolve.
+#
+# Separately (not covered by this dict, since it isn't a per-year/per-table
+# constant): a scan of every downloaded 2021-2024 file found 13 that are
+# an HTML "Request Rejected" WAF page instead of real data, staged to zero
+# rows so no bad data reached fact.acs_bulk_estimate -- but 12 of the 13
+# ARE genuinely 5-year-available tables (only B18121 is explained by the
+# 1-year-only issue above) and are missing from the loaded dataset purely
+# because of a download-layer reliability gap (likely rate-limiting from
+# this session's request volume). Those need a straightforward re-download,
+# not a filter change -- see docs/census-bulk-roadmap.md.
+ACS_SIZE_PROBE_UNRESOLVABLE: dict[int, frozenset[str]] = {
+    2024: frozenset({"B08009"}),
+}
 
 
-def relevant_acs_tables(year: int, include_housing_detail: bool = False) -> list[str]:
+def relevant_acs_tables(year: int, include_housing_detail: bool = True) -> list[str]:
     """Return a reviewable, regenerable relevance-filtered ACS Detailed Table list.
 
-    Excludes: quality/allocation-flag tables, all C-prefix "collapsed"
-    tables (a less-detailed duplicate of the corresponding B-table, which
-    is already included), narrow administrative families, and
-    race/ethnicity-iterated repeats of an already-included base table.
-    B25 (housing) is excluded by default since the 14 tables in
-    inventory/acs_housing_groups.yaml already cover it deliberately;
-    pass include_housing_detail=True to add the remaining B25 tables too.
-    Validated against the real 2024 manifest: 552 of 1,451 Detailed
-    Tables survive (fewer if include_housing_detail is left off).
+    Excludes only what carries no additional information beyond what's
+    already selected: quality/allocation-flag tables (B98/B99, counts of
+    imputed cells rather than estimates) and C-prefix "collapsed" tables
+    (a strictly less-detailed duplicate of the corresponding B-table,
+    which is already included). Everything else -- including the full B25
+    housing family, the narrow administrative families (B10/B13/B26/B29)
+    that were excluded in an earlier, narrower pass, and race/ethnicity
+    iteration tables (e.g. B01001A..I, B19013A..I) that were also
+    excluded in an earlier pass on a since-retracted "adds zero new
+    information" claim -- is included by default per an explicit
+    "comprehensive coverage" decision (2026-08-07): pass
+    include_housing_detail=False to fall back to excluding B25 if a
+    narrower housing scope is ever wanted again.
+
+    Also excludes tables the manifest's ``year`` field marks 1-year-only
+    (no "5" in a comma-separated "1"/"5"/"1,5" value) -- confirmed live
+    (2026-08-07) that this is the true explanation for every "unresolvable
+    size" table found this session except one (B08009): the table-based
+    5-year Summary File never publishes 1-year-only tables at all, so
+    they 404 rather than the size probe finding anything. Manifests
+    generated before this field existed have an empty ``year`` string for
+    every table, which this treats as "unknown, don't exclude" to avoid
+    silently dropping tables from a stale manifest -- rerun
+    ``census-discover`` to get real per-table year availability.
     """
     manifest_path = data_root().parent / "meta" / "acs" / str(year) / "tables.json"
     if not manifest_path.is_file():
@@ -437,11 +497,10 @@ def relevant_acs_tables(year: int, include_housing_detail: bool = False) -> list
             continue
         if table_id[:3] in _ACS_EXCLUDE_PREFIX:
             continue
-        if table_id[:3] in _ACS_EXCLUDE_FAMILY:
-            continue
         if not include_housing_detail and table_id[:3] == "B25":
             continue
-        if _ACS_ITERATION.match(table_id):
+        year_field = table.get("year", "")
+        if year_field and "5" not in year_field.split(","):
             continue
         selected.append(table_id)
     return sorted(selected)

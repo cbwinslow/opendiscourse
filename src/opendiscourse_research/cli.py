@@ -46,7 +46,12 @@ from .govbackfill import backfill_billstatus_missing
 from .govplan import plan_billstatus_backfill
 from .identityexceptions import unresolved_congressional_identities
 from .ingestion.acs_bulk import preview_acs5_bulk_plan, write_acs5_bulk_plan
-from .ingestion.acs_load import load_acs_bulk, stage_acs_bulk
+from .ingestion.acs_load import (
+    load_acs_bulk,
+    load_acs_bulk_parallel,
+    stage_acs_bulk,
+    stage_acs_bulk_parallel,
+)
 from .ingestion.bls import ingest_manifest as ingest_bls_manifest
 from .ingestion.bls import ingest_series as ingest_bls_series
 from .ingestion.bulk import (
@@ -72,6 +77,7 @@ from .ingestion.census import (
 from .ingestion.congress import ingest_bill
 from .ingestion.dhc_bulk import preview_dhc_bulk_plan, write_dhc_bulk_plan
 from .ingestion.dhc_load import load_dhc, stage_dhc
+from .ingestion.fec_bulk import preview_family, register_family, stage_family
 from .ingestion.fred import ingest_manifest, ingest_series
 from .ingestion.openstates import download_monthly_dump
 from .ingestion.pep_bulk import preview_pep_bulk_plan, write_pep_bulk_plan
@@ -806,34 +812,57 @@ def acs_bulk_approve(
 @ingest_app.command("acs-bulk-download")
 def acs_bulk_download(
     plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    workers: int = typer.Option(
+        1,
+        min=1,
+        help="Concurrent downloads (thread pool; each artifact is a separate file).",
+    ),
 ) -> None:
     """Resumably download an approved ACS plan and register immutable artifacts."""
     payload = yaml.safe_load(plan.read_text()) or {}
     with render_progress(
         "Downloading ACS bulk artifacts", len(payload.get("artifacts", []))
     ) as update:
-        result = download_plan(plan, update)
+        result = download_plan(plan, update, workers=workers)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 
 @ingest_app.command("acs-bulk-stage")
-def acs_bulk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def acs_bulk_stage(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    workers: int = typer.Option(
+        1, min=1, help="Concurrent worker processes, partitioned by Detailed Table."
+    ),
+) -> None:
     """Stage selected ACS Detailed Table rows without altering canonical facts."""
     apply_migrations()
     payload = yaml.safe_load(plan.read_text()) or {}
     with render_spinner("Staging ACS Detailed Table rows") as update:
-        count = stage_acs_bulk(payload, update)
+        count = (
+            stage_acs_bulk(payload, update)
+            if workers <= 1
+            else stage_acs_bulk_parallel(payload, workers, update)
+        )
     advance_plan(plan, "downloaded", "staged", "staging", {"row_count": count})
     typer.echo(f"Staged {count} ACS source rows.")
 
 
 @ingest_app.command("acs-bulk-load")
-def acs_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+def acs_bulk_load(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    workers: int = typer.Option(
+        1, min=1, help="Concurrent worker processes, partitioned by Detailed Table."
+    ),
+) -> None:
     """Load staged ACS rows into artifact-linked estimates and margins of error."""
     apply_migrations()
     payload = yaml.safe_load(plan.read_text()) or {}
     with render_spinner("Loading ACS estimates and margins of error") as update:
-        count = load_acs_bulk(payload, update)
+        count = (
+            load_acs_bulk(payload, update)
+            if workers <= 1
+            else load_acs_bulk_parallel(payload, workers, update)
+        )
     advance_plan(plan, "staged", "loaded", "load", {"fact_count": count})
     typer.echo(f"Loaded {count} ACS estimates and margins of error.")
 
@@ -909,6 +938,37 @@ def cbp_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -
         count = load_cbp(payload, update)
     advance_plan(plan, "staged", "loaded", "load", {"fact_count": count})
     typer.echo(f"Loaded {count} CBP business facts.")
+
+
+@ingest_app.command("fec-bulk-preview", hidden=True)
+def fec_bulk_preview_command(
+    family: str = typer.Option(..., help="indiv, oth, pas2, or oppexp."),
+) -> None:
+    """Run the capacity gate against one FEC bulk family's local legacy archives."""
+    typer.echo(
+        json.dumps(preview_family(family), indent=2, sort_keys=True, default=str)
+    )
+
+
+@ingest_app.command("fec-bulk-register", hidden=True)
+def fec_bulk_register_command(
+    family: str = typer.Option(..., help="indiv, oth, pas2, or oppexp."),
+) -> None:
+    """Checksum and register every local cycle archive for one FEC bulk family."""
+    with render_spinner(f"Registering FEC {family} archives") as update:
+        keys = register_family(family, update=update)
+    typer.echo(f"Registered {len(keys)} FEC {family} artifacts: {', '.join(keys)}")
+
+
+@ingest_app.command("fec-bulk-stage", hidden=True)
+def fec_bulk_stage_command(
+    family: str = typer.Option(..., help="indiv, oth, pas2, or oppexp."),
+) -> None:
+    """Stage every registered FEC bulk archive for one family into stage.fec_row."""
+    apply_migrations()
+    with render_spinner(f"Staging FEC {family} rows") as update:
+        count = stage_family(family, update)
+    typer.echo(f"Staged {count} FEC {family} rows.")
 
 
 @ingest_app.command("pep-bulk-plan")

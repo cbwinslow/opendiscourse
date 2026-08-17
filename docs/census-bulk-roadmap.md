@@ -34,18 +34,23 @@ tables, and analytical tables remain separately owned and queryable.
 ## Package families and order
 
 1. **ACS 5-year Summary File — reviewed Detailed Table packages** (state/county
-   loader implemented): the browser offers `Housing Core` as seven reviewed
-   Detailed Tables. It stages source rows and loads estimates/MOEs with artifact
-   lineage. Complete release packages remain preview/download-only until their
+   loader implemented, now loaded comprehensively across 2021-2024 -- see
+   "Comprehensive ACS scope" below): the browser offers `Housing Core` as
+   seven reviewed Detailed Tables, and `research-db ingest acs-bulk-plan`
+   plus `relevant_acs_tables()` cover the full ~600-615 table/year scope. It
+   stages source rows and loads estimates/MOEs with artifact lineage.
+   Complete release packages remain preview/download-only until their
    distinct archive parser and scope contract are reviewed.
-2. **County Business Patterns (CBP)** (loaded and verified for 2023): one current-year bundle with
-   county, state, U.S., CBSA/MSA, ZIP, and reference artifacts. The source is
+2. **County Business Patterns (CBP)** (loaded and verified for every
+   published year, 2009-2023, one plan per release year): county, state,
+   U.S., CBSA/MSA, ZIP, and reference artifacts per year. The source is
    CSV-in-ZIP and maps naturally to a typed business-statistics fact table.
-3. **Population Estimates Program (PEP)** (loaded and verified for 2025): one package per published vintage.
-   Do not mix vintages; raw CSV releases are revised annually and retain
-   `release_vintage` on every canonical estimate. The normal package contains
-   national, state, and county totals; it does not imply that every PEP product
-   has been loaded.
+3. **Population Estimates Program (PEP)** (loaded and verified for both
+   published vintage series, 2010-2020 and 2020-2025): one package per
+   published vintage. Do not mix vintages; raw CSV releases are revised
+   annually and retain `release_vintage` on every canonical estimate. The
+   normal package contains national, state, and county totals; it does not
+   imply that every PEP product has been loaded.
 4. **2020 Decennial DHC** (loaded and verified for a deliberate analytical
    scope): product-specific package selection. The complete national archive is
    2.29 GB compressed. GEO records and selected numbered segments join through
@@ -53,12 +58,99 @@ tables, and analytical tables remain separately owned and queryable.
    columns. The verified state/county H1 and P1 load contains 22,758
    artifact-linked values; additional DHC tables or summary levels require an
    explicit new approval rather than silently expanding the canonical scope.
-5. **TIGER/Line** (loaded and verified for 2020 national core layers):
+5. **TIGER/Line** (loaded and verified across vintages 2016-2025):
    geography layer packages by vintage. These load into spatial staging and
-   `core.geography_boundary`, never measurement facts. The verified core load
-   contains 38,020 artifact-linked boundaries: state, county, CBSA, and ZCTA.
-   Tract, block-group, and block packages remain deliberately separate, rather
-   than hidden inside a monolithic national download.
+   `core.geography_boundary`, never measurement facts. State/county/CBSA/ZCTA
+   are covered for every vintage in range except TIGER2022, which Census
+   never published a CBSA file for; ZCTA switches from the 2010-vintage
+   naming/columns (`GEOID10`/`ZCTA5CE10`) to the 2020-vintage ones
+   (`GEOID20`/`ZCTA5CE20`) starting with the 2020 release, and both vintages
+   coexist that one transition year. Tract, block-group, and block packages
+   remain deliberately separate, rather than hidden inside a monolithic
+   national download.
+
+## Comprehensive ACS scope (2026-08-07)
+
+The original ACS Detailed Table selection excluded four narrow
+administrative families (`B10`, `B13`, `B26`, `B29`) and, by default, the
+entire `B25` housing family, on top of the always-excluded quality/flag
+tables (`B98`/`B99`), collapsed `C`-prefix duplicates, and race/ethnicity
+iteration variants (`^B\d{5}[A-Z]{1,2}$`). Given three concrete scope
+options, an explicit decision was made to broaden the default to include
+every Detailed Table except that fixed exclusion set — roughly 600-615
+tables/year rather than ~410. `relevant_acs_tables(year)` in
+`ingestion/census.py` implements this and is deliberately regenerable: it
+reads that year's discovered `meta/acs/<year>/tables.json` manifest rather
+than hand-listing table IDs, so a future year's release resolves the
+equivalent expanded selection automatically. The exact rule, decision date,
+and rationale are also registered in
+`inventory/contracts/acscomprehensive.yaml` per this project's normal
+source-registration workflow, even though the selection is too broad to
+express as that file's static include/exclude ID list (the executable rule
+lives in code; the contract file documents and points at it).
+
+Because the original narrower load (2021/2022/2024 fully loaded, 2023
+loading as of this writing) had already downloaded, staged, and loaded
+~380-387 tables/year, expanding to the comprehensive scope was done as an
+incremental **delta**, not a rebuild: `acs5-comprehensive-delta<year>.yaml`
+plans contain only the net-new ~221-228 tables/year the original load
+didn't already cover, built by diffing `relevant_acs_tables(year)` against
+each year's already-loaded table list. This avoids re-downloading,
+re-staging, or re-loading anything already present -- both `download()`
+(skips existing files) and stage/load (`ON CONFLICT DO NOTHING`) are
+idempotent, but there is no reason to pay their I/O cost twice when the
+delta is known in advance.
+
+A handful of Detailed Tables consistently return no reliable size from
+Census's server (a HEAD, Range GET, and plain GET all fail to return
+headers within a reasonable window) -- dominated by the `B24`
+industry-by-occupation and `B27` health-insurance wide cross-tab families,
+plus a fluctuating handful of others. This is a genuine, real server
+behavior, not a probing bug: retrying the preview at least once (sometimes
+twice) reliably resolves most of an initial spike, and the confirmed-
+unresolvable set converges to the same small core (~29-30 tables) every
+year despite very different initial unknown-size counts (2021 saw 30, 2022
+saw 87 → 29, 2023 saw 60 → 29, 2024 saw 100 → 29). `ACS_SIZE_PROBE_UNRESOLVABLE`
+in `ingestion/census.py` documents the confirmed set per year; extend it
+only after a genuine retry, never on the first unknown-size result, and
+never force-approve a plan with unresolved sizes.
+
+## Repeatable refresh
+
+`ops/census-bulk-refresh.sh <prefix> <plan-file> [--geography TYPES] [--workers N]`
+drives one plan idempotently through
+`preview -> approve -> download -> stage -> load -> census-health`,
+reading the plan's own `state:` field and skipping whatever stages it has
+already passed -- safe to re-run against a plan at any point (an
+interrupted download, an already-loaded plan, a plan stuck mid-stage after
+an earlier failure). `<prefix>` is one of `acs-bulk`, `cbp-bulk`,
+`pep-bulk`, or `tiger-bulk`, matching each dataset's CLI command prefix.
+`--workers` only takes effect for `acs-bulk` (the only loader with a
+parallel/`ProcessPoolExecutor` path as of this session); it is silently a
+no-op for the others.
+
+For ACS plans specifically, the script also implements the retry-then-
+exclude discipline described above: on an unapproved preview it retries
+once, then checks whatever remains unresolved against
+`ACS_SIZE_PROBE_UNRESOLVABLE` for that plan's release year. If every
+remaining unresolved table is already documented there, it rebuilds the
+plan without them and re-previews. If a genuinely new, undocumented
+unresolved table appears, the script stops and asks for manual review
+rather than ever force-approving an unknown size.
+
+```bash
+ops/census-bulk-refresh.sh acs-bulk meta/bulk-plans/acs5-comprehensive-delta2024.yaml --workers 6
+ops/census-bulk-refresh.sh cbp-bulk meta/bulk-plans/cbp-cbp2015.yaml
+```
+
+Concurrency note: ACS-on-ACS runs across different years are safe to run
+in parallel (its `core.geography` upsert is `ON CONFLICT DO NOTHING` and
+scoped to each plan's own artifact IDs), but avoid overlapping a TIGER or
+CBP load with anything else writing `core.geography` -- both loaders write
+that shared table too, and two lock-contention incidents this session were
+traced to exactly that kind of overlap combined with (now-fixed) missing
+artifact scoping. When several plans must run back-to-back, prefer running
+them one at a time rather than backgrounding all of them simultaneously.
 
 ## ACS Housing Core checkpoint
 

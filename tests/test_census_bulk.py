@@ -19,6 +19,7 @@ from opendiscourse_research.ingestion.acs_bulk import (
 from opendiscourse_research.ingestion.acs_load import _geo_id as acs_geo_id
 from opendiscourse_research.ingestion.acs_load import _numeric as acs_numeric
 from opendiscourse_research.ingestion.acs_load import _scope as acs_scope
+from opendiscourse_research.ingestion.acs_load import _table_id_partitions
 from opendiscourse_research.ingestion.bulk import advance_plan, approve_plan
 from opendiscourse_research.ingestion.cbp_bulk import build_cbp_bulk_plan
 from opendiscourse_research.ingestion.census import relevant_acs_tables
@@ -27,7 +28,10 @@ from opendiscourse_research.ingestion.dhc_load import _matrix
 from opendiscourse_research.ingestion.dhc_load import _scope as dhc_scope
 from opendiscourse_research.ingestion.pep_bulk import build_pep_bulk_plan
 from opendiscourse_research.ingestion.pep_load import _scope as pep_scope
-from opendiscourse_research.ingestion.tiger_bulk import build_tiger_bulk_plan
+from opendiscourse_research.ingestion.tiger_bulk import (
+    build_tiger_bulk_plan,
+    tiger_layers,
+)
 from opendiscourse_research.ingestion.tiger_load import _scope as tiger_scope
 
 
@@ -184,39 +188,62 @@ class TestCensusBulkPlans(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "exactly"):
             build_tiger_bulk_plan("test", [])
 
-    def test_relevant_acs_tables_excludes_flags_collapsed_and_iterations(self) -> None:
+    def test_relevant_acs_tables_excludes_flags_collapsed_and_one_year_only(
+        self,
+    ) -> None:
         manifest = {
             "tables": [
-                {"id": "B01001", "product": "Detailed Table"},  # base -- kept
+                {
+                    "id": "B01001",
+                    "product": "Detailed Table",
+                    "year": "1,5",
+                },  # base -- kept
                 {
                     "id": "B01001A",
                     "product": "Detailed Table",
-                },  # race iteration -- dropped
+                    "year": "1,5",
+                },  # race iteration -- kept (genuine cross-tab, not redundant)
                 {
                     "id": "C01001",
                     "product": "Detailed Table",
-                },  # collapsed dup -- dropped
+                    "year": "1,5",
+                },  # collapsed dup -- dropped (redundant with the B-table)
                 {
                     "id": "B98001",
                     "product": "Detailed Table",
-                },  # quality measure -- dropped
+                    "year": "1,5",
+                },  # quality measure -- dropped (no substantive data)
                 {
                     "id": "B99001",
                     "product": "Detailed Table",
-                },  # allocation flag -- dropped
+                    "year": "1,5",
+                },  # allocation flag -- dropped (no substantive data)
                 {
                     "id": "B13002",
                     "product": "Detailed Table",
-                },  # narrow family -- dropped
+                    "year": "1,5",
+                },  # narrow family -- kept (comprehensive-coverage decision)
                 {
                     "id": "B25001",
                     "product": "Detailed Table",
-                },  # housing -- dropped by default
+                    "year": "1,5",
+                },  # housing -- kept by default (comprehensive-coverage decision)
                 {
                     "id": "S0101",
                     "product": "Subject Tables for Specific Topics",
+                    "year": "1,5",
                 },  # wrong product -- dropped
-                {"id": "B19013", "product": "Detailed Table"},  # base -- kept
+                {"id": "B19013", "product": "Detailed Table", "year": "1,5"},
+                {
+                    "id": "B25142",
+                    "product": "Detailed Table",
+                    "year": "1",
+                },  # 1-year only -- dropped (never published at 5-year)
+                {
+                    "id": "B21007",
+                    "product": "Detailed Table",
+                    "year": "",
+                },  # blank year (pre-fix manifest) -- kept, unknown != excluded
             ]
         }
         with TemporaryDirectory() as directory:
@@ -229,11 +256,80 @@ class TestCensusBulkPlans(unittest.TestCase):
                 "opendiscourse_research.ingestion.census.data_root",
                 return_value=Path(directory) / "raw",
             ):
-                self.assertEqual(relevant_acs_tables(2099), ["B01001", "B19013"])
+                self.assertEqual(
+                    relevant_acs_tables(2099),
+                    [
+                        "B01001",
+                        "B01001A",
+                        "B13002",
+                        "B19013",
+                        "B21007",
+                        "B25001",
+                    ],
+                )
+                self.assertEqual(
+                    relevant_acs_tables(2099, include_housing_detail=False),
+                    ["B01001", "B01001A", "B13002", "B19013", "B21007"],
+                )
                 self.assertEqual(
                     relevant_acs_tables(2099, include_housing_detail=True),
-                    ["B01001", "B19013", "B25001"],
+                    [
+                        "B01001",
+                        "B01001A",
+                        "B13002",
+                        "B19013",
+                        "B21007",
+                        "B25001",
+                    ],
                 )
+
+    def test_tiger_zcta_layer_switches_directory_and_suffix_at_the_2020_cutover(
+        self,
+    ) -> None:
+        # Confirmed live: ZCTA5/..._zcta510.zip (2010-vintage boundaries) 404s
+        # from TIGER2021 on; ZCTA520/..._zcta520.zip (2020-vintage) 404s before
+        # TIGER2020. A single hardcoded directory silently 404s outside its range.
+        self.assertIn("ZCTA5/tl_2019_us_zcta510.zip", tiger_layers(2019))
+        self.assertIn("ZCTA520/tl_2020_us_zcta520.zip", tiger_layers(2020))
+        self.assertIn("ZCTA520/tl_2023_us_zcta520.zip", tiger_layers(2023))
+
+    def test_tiger_artifact_kind_is_vintage_suffixed_not_directory_derived(
+        self,
+    ) -> None:
+        # tiger_load.py's LAYER_INFO is keyed by the vintage-suffixed kind
+        # (zcta510/zcta520), not the ZCTA5/ZCTA520 directory name -- deriving
+        # `kind` from the directory would silently produce "zcta5" for
+        # pre-2020 vintages, an unrecognized layer that _scope() would reject.
+        plan = build_tiger_bulk_plan(
+            "test",
+            [
+                resource(
+                    "census.tiger",
+                    "national:2019:core-boundaries",
+                    "National core boundary layers",
+                )
+            ],
+        )
+        kinds = {artifact["kind"] for artifact in plan["artifacts"]}
+        self.assertIn("zcta510", kinds)
+        self.assertNotIn("zcta5", kinds)
+
+    def test_tiger_2022_plan_omits_the_unpublished_cbsa_layer(self) -> None:
+        # Confirmed live: Census never published a national CBSA
+        # delineation file under TIGER2022 -- every filename tried 404s.
+        plan = build_tiger_bulk_plan(
+            "test",
+            [
+                resource(
+                    "census.tiger",
+                    "national:2022:core-boundaries",
+                    "National core boundary layers",
+                )
+            ],
+        )
+        kinds = {artifact["kind"] for artifact in plan["artifacts"]}
+        self.assertNotIn("cbsa", kinds)
+        self.assertEqual(len(plan["artifacts"]), 3)
 
     def test_tiger_plan_uses_the_requested_vintage_not_2020(self) -> None:
         selected = [
@@ -305,6 +401,32 @@ class TestCensusScopesAndMatrix(unittest.TestCase):
         self.assertIsNone(acs_geo_id("0100000US"))
         self.assertIsNone(acs_geo_id("1400000US06037101100"))
         self.assertIsNone(acs_geo_id("0500000US0603"))
+
+    def test_acs_table_partitions_are_disjoint_and_cover_every_table(self) -> None:
+        plan = {
+            "artifacts": [
+                {"kind": "detailed_table", "table_id": table_id}
+                for table_id in ("B01001", "B02001", "B08128", "B19013", "B25001")
+            ]
+        }
+        partitions = _table_id_partitions(plan, workers=3)
+        self.assertEqual(len(partitions), 3)
+        covered = set().union(*partitions)
+        self.assertEqual(covered, {"B01001", "B02001", "B08128", "B19013", "B25001"})
+        for left in partitions:
+            for right in partitions:
+                if left is not right:
+                    self.assertFalse(left & right)
+
+    def test_acs_table_partitions_never_exceed_the_table_count(self) -> None:
+        plan = {
+            "artifacts": [
+                {"kind": "detailed_table", "table_id": table_id}
+                for table_id in ("B01001", "B02001")
+            ]
+        }
+        partitions = _table_id_partitions(plan, workers=8)
+        self.assertEqual(len(partitions), 2)
 
     def test_acs_numeric_cells_preserve_values_and_null_unavailable_markers(
         self,

@@ -354,3 +354,70 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
             )
             self.assertEqual(cur.fetchone()["count"], 1)
         self._remove_artifact(key)
+
+    def test_tiger_load_scopes_geography_to_its_own_plan_across_vintages(
+        self,
+    ) -> None:
+        # Confirmed live (2016 vs. 2020): the same CBSA geoid can be renamed
+        # between TIGER vintages (e.g. a metro area's title component
+        # changes). Before this was fixed, load_tiger's geography upsert
+        # pulled from every vintage ever staged into stage.tiger_feature
+        # (no per-plan scoping), so a second vintage with a renamed geoid
+        # crashed with "ON CONFLICT DO UPDATE cannot affect row a second
+        # time" instead of loading cleanly.
+        try:
+            import geopandas
+            from shapely.geometry import Polygon
+        except ImportError:
+            self.skipTest("TIGER integration requires the spatial extra")
+
+        def _cbsa_archive(name: str, path: Path) -> Path:
+            shp = path / "cbsa.shp"
+            geopandas.GeoDataFrame(
+                {"GEOID": ["99999"], "NAME": [name]},
+                geometry=[Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])],
+                crs="EPSG:4269",
+            ).to_file(shp, driver="ESRI Shapefile")
+            archive_path = path / "cbsa.zip"
+            with ZipFile(archive_path, "w") as archive:
+                for member in shp.parent.glob("cbsa.*"):
+                    archive.write(member, member.name)
+            return archive_path
+
+        old_key, new_key = "integration-tiger-cbsa-old", "integration-tiger-cbsa-new"
+        self._remove_artifact(old_key)
+        self._remove_artifact(new_key)
+        old_dir = Path(self.temp.name) / "old"
+        new_dir = Path(self.temp.name) / "new"
+        old_dir.mkdir()
+        new_dir.mkdir()
+        self._register(
+            "census.tiger", old_key, _cbsa_archive("Old Metro Name, ST", old_dir)
+        )
+        self._register(
+            "census.tiger", new_key, _cbsa_archive("New Metro Name, ST", new_dir)
+        )
+        old_plan = {
+            "state": "downloaded",
+            "selection": {"boundary_vintage": 2016},
+            "canonical_load_scope": {"layers": ["cbsa"]},
+            "artifacts": [{"artifact_key": old_key, "kind": "cbsa"}],
+        }
+        new_plan = {
+            "state": "downloaded",
+            "selection": {"boundary_vintage": 2020},
+            "canonical_load_scope": {"layers": ["cbsa"]},
+            "artifacts": [{"artifact_key": new_key, "kind": "cbsa"}],
+        }
+        self.assertEqual(stage_tiger(old_plan), 1)
+        self.assertEqual(stage_tiger(new_plan), 1)
+        old_plan["state"] = new_plan["state"] = "staged"
+        self.assertEqual(load_tiger(old_plan), 1)
+        self.assertEqual(load_tiger(new_plan), 1)
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT count(*) FROM core.geography_boundary boundary JOIN core.geography geography USING (geography_id) WHERE geography.geography_type='cbsa' AND geography.geoid='99999'"
+            )
+            self.assertEqual(cur.fetchone()["count"], 2)
+        self._remove_artifact(old_key)
+        self._remove_artifact(new_key)

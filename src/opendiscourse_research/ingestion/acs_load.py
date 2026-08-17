@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import re
 from collections.abc import Callable
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -81,9 +82,17 @@ def _numeric(value: Any) -> Decimal | None:
 
 
 def stage_acs_bulk(
-    plan: dict[str, Any], update: Callable[[str], None] | None = None
+    plan: dict[str, Any],
+    update: Callable[[str], None] | None = None,
+    *,
+    table_ids: frozenset[str] | None = None,
 ) -> int:
-    """Stage approved table rows for explicitly selected state/county geographies."""
+    """Stage approved table rows for explicitly selected state/county geographies.
+
+    ``table_ids`` restricts staging to a subset of the plan's Detailed
+    Tables -- the partitioning hook `stage_acs_bulk_parallel` uses to run
+    several disjoint table subsets as separate worker processes.
+    """
     if plan.get("state") != "downloaded":
         raise ValueError("ACS plan must be downloaded before staging")
     dataset_id = str(plan.get("dataset", "census.acs_5_bulk"))
@@ -91,6 +100,8 @@ def stage_acs_bulk(
     total = 0
     with connect() as conn:
         for item in _table_artifacts(plan):
+            if table_ids is not None and str(item["table_id"]) not in table_ids:
+                continue
             artifact = _artifact(conn, dataset_id, str(item["artifact_key"]))
             if update:
                 update(f"Staging ACS {item['table_id']}")
@@ -135,9 +146,17 @@ def stage_acs_bulk(
 
 
 def load_acs_bulk(
-    plan: dict[str, Any], update: Callable[[str], None] | None = None
+    plan: dict[str, Any],
+    update: Callable[[str], None] | None = None,
+    *,
+    table_ids: frozenset[str] | None = None,
 ) -> int:
-    """Promote staged ACS estimates/MOEs to typed artifact-linked facts."""
+    """Promote staged ACS estimates/MOEs to typed artifact-linked facts.
+
+    ``table_ids`` restricts loading to a subset of the plan's Detailed
+    Tables -- the partitioning hook `load_acs_bulk_parallel` uses to run
+    several disjoint table subsets as separate worker processes.
+    """
     if plan.get("state") != "staged":
         raise ValueError("ACS plan must be staged before canonical loading")
     dataset_id = str(plan.get("dataset", "census.acs_5_bulk"))
@@ -149,7 +168,10 @@ def load_acs_bulk(
         artifact_ids = [
             _artifact(conn, dataset_id, str(item["artifact_key"]))["artifact_id"]
             for item in _table_artifacts(plan)
+            if table_ids is None or str(item["table_id"]) in table_ids
         ]
+        if not artifact_ids:
+            return 0
         cur.execute(
             """INSERT INTO core.geography (geography_type,geoid,state_fips,county_fips)
           SELECT DISTINCT geography_type, geoid, substring(geoid from '^([0-9]{2})'), CASE WHEN geography_type='county' THEN substring(geoid from '^[0-9]{2}([0-9]{3})') END
@@ -194,6 +216,7 @@ def load_acs_bulk(
                     )
                     total += len(rows)
                     rows = []
+                    conn.commit()
         if rows:
             cur.executemany(
                 "INSERT INTO fact.acs_bulk_estimate (release_year,geography_id,table_id,field_id,measure,value,source_artifact_id,source_ordinal) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
@@ -201,4 +224,62 @@ def load_acs_bulk(
             )
             total += len(rows)
         conn.commit()
+    return total
+
+
+def _table_id_partitions(plan: dict[str, Any], workers: int) -> list[frozenset[str]]:
+    """Split a plan's Detailed Table IDs into disjoint worker subsets.
+
+    Partitioning by table_id (rather than by geography or row range) keeps
+    each worker's SQL scoped to its own artifact_ids, so concurrent workers
+    never contend for the same fact rows -- only the small, idempotent
+    core.geography upsert is shared, which is safe under ON CONFLICT DO
+    NOTHING.
+    """
+    table_ids = sorted({str(item["table_id"]) for item in _table_artifacts(plan)})
+    workers = max(1, min(workers, len(table_ids)))
+    return [
+        frozenset(table_ids[worker::workers])
+        for worker in range(workers)
+        if table_ids[worker::workers]
+    ]
+
+
+def _stage_worker(plan: dict[str, Any], table_ids: frozenset[str]) -> int:
+    return stage_acs_bulk(plan, table_ids=table_ids)
+
+
+def stage_acs_bulk_parallel(
+    plan: dict[str, Any], workers: int, update: Callable[[str], None] | None = None
+) -> int:
+    """Stage a plan's Detailed Tables across several worker processes."""
+    partitions = _table_id_partitions(plan, workers)
+    total = 0
+    with ProcessPoolExecutor(max_workers=len(partitions)) as pool:
+        futures = [pool.submit(_stage_worker, plan, part) for part in partitions]
+        for future in as_completed(futures):
+            total += future.result()
+            if update:
+                update(
+                    f"Staged {total} ACS source rows across {len(partitions)} workers"
+                )
+    return total
+
+
+def _load_worker(plan: dict[str, Any], table_ids: frozenset[str]) -> int:
+    return load_acs_bulk(plan, table_ids=table_ids)
+
+
+def load_acs_bulk_parallel(
+    plan: dict[str, Any], workers: int, update: Callable[[str], None] | None = None
+) -> int:
+    """Load a plan's Detailed Tables across several worker processes."""
+    partitions = _table_id_partitions(plan, workers)
+    total = 0
+    with ProcessPoolExecutor(max_workers=len(partitions)) as pool:
+        futures = [pool.submit(_load_worker, plan, part) for part in partitions]
+        for future in as_completed(futures):
+            total += future.result()
+            if update:
+                update(f"Loaded {total} ACS estimates across {len(partitions)} workers")
     return total
