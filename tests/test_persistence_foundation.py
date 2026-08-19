@@ -84,6 +84,7 @@ from opendiscourse_research.models.ingest import (
     resume_cursor_table,
     run_table,
 )
+from opendiscourse_research.openstatesstage import publish_openstates_compatibility_views
 from opendiscourse_research.plans import due_plans, load_plans
 from opendiscourse_research.registry import status as registry_status
 from opendiscourse_research.repositories.catalog import (
@@ -1050,6 +1051,69 @@ def test_billstatus_graph_caller_transaction_path_is_idempotent(
         assert active_session.execute(
             select(bill.c.title).where(bill.c.bill_id == bill_id)
         ).scalar_one() == "Raw transaction BILLSTATUS graph"
+
+
+def test_openstates_compatibility_view_publisher_uses_real_postgres(
+    catalog_database: None,
+) -> None:
+    """The FDW compatibility publisher creates queryable views on PostgreSQL."""
+    with engine().connect() as connection:
+        source_schema_exists = connection.execute(
+            text("SELECT to_regnamespace('openstates_source') IS NOT NULL")
+        ).scalar_one()
+    if source_schema_exists:
+        pytest.skip("requires an isolated database without a provisioned OpenStates FDW")
+
+    with engine().begin() as connection:
+        connection.execute(text("CREATE SCHEMA openstates_source"))
+        connection.execute(
+            text(
+                "CREATE TABLE openstates_source.opencivicdata_person ("
+                "id text PRIMARY KEY, name text, given_name text, family_name text, "
+                "current_jurisdiction_id text, extras jsonb NOT NULL DEFAULT '{}'::jsonb)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE openstates_source.opencivicdata_jurisdiction ("
+                "id text PRIMARY KEY)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE openstates_source.opencivicdata_legislativesession ("
+                "id text PRIMARY KEY, identifier text, jurisdiction_id text)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE openstates_source.opencivicdata_bill ("
+                "id text PRIMARY KEY, legislative_session_id text, identifier text, title text, "
+                "classification text[], subject text[], first_action_date text, "
+                "latest_action_date text, latest_action_description text, "
+                "extras jsonb NOT NULL DEFAULT '{}'::jsonb)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO openstates_source.opencivicdata_person "
+                "(id, name, given_name, family_name, current_jurisdiction_id) "
+                "VALUES ('ocd-person/test', 'Test Person', 'Test', 'Person', 'us')"
+            )
+        )
+    try:
+        publish_openstates_compatibility_views()
+        with engine().connect() as connection:
+            assert connection.execute(text("SELECT to_regclass('leg.person')")).scalar_one() == "leg.person"
+            assert connection.execute(text("SELECT to_regclass('leg.bill')")).scalar_one() == "leg.bill"
+            assert connection.execute(
+                text("SELECT source_system FROM leg.person WHERE entity_id='ocd-person/test'")
+            ).scalar_one() == "openstates"
+    finally:
+        with engine().begin() as connection:
+            connection.execute(text("DROP VIEW IF EXISTS leg.person"))
+            connection.execute(text("DROP VIEW IF EXISTS leg.bill"))
+            connection.execute(text("DROP SCHEMA openstates_source CASCADE"))
 
 
 def test_congress_api_bill_upsert_uses_typed_canonical_mapping(
