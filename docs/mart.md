@@ -25,16 +25,21 @@ Postgres adapter has two rough edges worth knowing before you run it:
    (`src/opendiscourse_research/db.py`) uses peer auth over that socket with
    no password, per `docs/runtime.md` — but dbt needs TCP loopback instead.
 
-   `pg_hba.conf` already allows `host all all 127.0.0.1/32 scram-sha-256`
-   for this cluster, so the only change needed was giving the `cbwinslow`
-   role a password:
+   The checked-in profile defaults to the Docker Compose database. For the
+   bare-metal cluster, `pg_hba.conf` already allows
+   `host all all 127.0.0.1/32 scram-sha-256`; give the `cbwinslow` role a
+   password and override the profile variables:
    ```sql
    ALTER ROLE cbwinslow WITH PASSWORD '...';
    ```
-   `dbt/profiles.yml` connects via `127.0.0.1:5434` with that password
-   pulled from the `DBT_PG_PASSWORD` env var (never written into the
-   profile itself). Add it to `.env` (see `.env.example`) and `source` it,
-   or export it directly — dbt does not read `.env` files on its own.
+   ```bash
+   export DBT_PG_HOST=127.0.0.1 DBT_PG_PORT=5434
+   export DBT_PG_USER=cbwinslow DBT_PG_DBNAME=opendiscourse
+   export DBT_PG_PASSWORD='...'
+   ```
+
+   `dbt` does not read `.env` files on its own, so source or export these
+   variables before running it.
 
 If a future `dbt-fusion` release adds stable, non-experimental Postgres
 support (or Unix-socket support), both workarounds above can be dropped:
@@ -53,6 +58,10 @@ set -a; source .env; set +a   # provides DBT_PG_PASSWORD
 dbt debug --project-dir dbt --profiles-dir dbt   # connection check
 dbt build --project-dir dbt --profiles-dir dbt   # run models + tests
 ```
+
+For Docker Compose, `.env.example`'s defaults already match the checked-in
+profile, so the commands above work unmodified once you've sourced `.env`.
+Only override `DBT_PG_PASSWORD` if you chose a different `POSTGRES_PASSWORD`.
 
 ## What's in it
 
