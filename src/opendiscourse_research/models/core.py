@@ -514,3 +514,46 @@ fact_population_estimate = Table(
 def population_estimate_table():
     """Return the Alembic-adopted PEP population-estimate fact table."""
     return fact_population_estimate
+
+
+fact_business_pattern = Table(
+    "business_pattern",
+    SQLModel.metadata,
+    Column(
+        "business_pattern_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column("release_year", Integer, nullable=False),
+    Column(
+        "geography_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.geography.geography_id"),
+        nullable=False,
+    ),
+    Column("naics", Text, nullable=False),
+    Column("legal_form", Text, nullable=False, server_default=text("''")),
+    Column("establishments", BigInteger),
+    Column("employment", BigInteger),
+    Column("first_quarter_payroll", Numeric),
+    Column("annual_payroll", Numeric),
+    Column("flags", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("source_member", Text, nullable=False),
+    Column("source_ordinal", BigInteger, nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    UniqueConstraint("source_artifact_id", "source_member", "source_ordinal"),
+    Index("business_pattern_lookup_idx", "release_year", "geography_id", "naics"),
+    schema="fact",
+)
+
+
+def business_pattern_table():
+    """Return the Alembic-adopted CBP business-pattern fact table."""
+    return fact_business_pattern
