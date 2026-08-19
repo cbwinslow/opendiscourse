@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import settings
+from .db import connect
 from .ingestion.base import IngestionRun
 from .repositories.legislation import (
     get_resume_cursor,
@@ -41,8 +42,10 @@ def load_openstates_votes(
         "resume": resume,
         "role": "vote_backfill",
     }
-    with IngestionRun("openstates.legislation", parameters, mode="backfill") as run:
-        assert run.conn is not None
+    with (
+        IngestionRun("openstates.legislation", parameters, mode="backfill") as run,
+        connect() as conn,
+    ):
         artifact = register_artifact(
             "openstates.legislation",
             "openstates_source://opencivicdata_voteevent",
@@ -50,10 +53,10 @@ def load_openstates_votes(
             f"federal-votes-{congress}",
             status="loaded",
             metadata={"congress": congress},
-            conn=run.conn,
+            conn=conn,
         )
         counts = {"roll_calls": 0, "member_votes": 0, "unresolved_people": 0}
-        checkpoint = get_resume_cursor("openstates.legislation", cursor_key, run.conn)
+        checkpoint = get_resume_cursor("openstates.legislation", cursor_key, conn)
         cursor = (
             (checkpoint or {}).get("cursor", {}).get("last_ocd_id") if resume else None
         )
@@ -64,7 +67,7 @@ def load_openstates_votes(
                 congress,
                 min(page_size, remaining),
                 str(artifact["artifact_id"]),
-                run.conn,
+                conn,
                 cursor,
             )
             if not page["roll_calls"]:
@@ -80,7 +83,7 @@ def load_openstates_votes(
                 str(artifact["artifact_id"]),
                 str(run.run_id),
                 page.get("unresolved_voter_ids", []),
-                run.conn,
+                conn,
             )
             run.record_count = counts["roll_calls"]
             save_resume_cursor(
@@ -90,9 +93,9 @@ def load_openstates_votes(
                 str(artifact["artifact_id"]),
                 str(run.run_id),
                 "running",
-                run.conn,
+                conn,
             )
-            run.conn.commit()
+            conn.commit()
         save_resume_cursor(
             "openstates.legislation",
             cursor_key,
@@ -100,11 +103,11 @@ def load_openstates_votes(
             str(artifact["artifact_id"]),
             str(run.run_id),
             state,
-            run.conn,
+            conn,
         )
         if congress >= 119:
             run.mark_partial()
-        run.conn.commit()
+        conn.commit()
     return {
         **counts,
         "pages": pages,
@@ -123,12 +126,14 @@ def load_openstates_federal_people() -> dict[str, Any]:
         "jurisdiction": "ocd-jurisdiction/country:us/government",
         "role": "canonical_baseline",
     }
-    with IngestionRun("openstates.legislation", parameters, mode="backfill") as run:
-        assert run.conn is not None
-        counts = sync_openstates_federal_people(run.conn)
-        counts["sponsorship_links_resolved"] = resolve_bill_sponsorship_people(run.conn)
+    with (
+        IngestionRun("openstates.legislation", parameters, mode="backfill") as run,
+        connect() as conn,
+    ):
+        counts = sync_openstates_federal_people(conn)
+        counts["sponsorship_links_resolved"] = resolve_bill_sponsorship_people(conn)
         run.record_count = counts["people"]
-        run.conn.commit()
+        conn.commit()
 
     result = {
         "schema": 1,
@@ -151,19 +156,21 @@ def load_openstates_federal_people() -> dict[str, Any]:
 
 def load_openstates_federal_organizations() -> dict[str, Any]:
     """Load baseline federal organizations and stable OCD identifiers."""
-    with IngestionRun(
-        "openstates.legislation",
-        {
-            "source": "openstates_source.opencivicdata_organization",
-            "jurisdiction": "ocd-jurisdiction/country:us/government",
-            "role": "canonical_baseline",
-        },
-        mode="backfill",
-    ) as run:
-        assert run.conn is not None
-        organizations = sync_openstates_federal_organizations(run.conn)
+    with (
+        IngestionRun(
+            "openstates.legislation",
+            {
+                "source": "openstates_source.opencivicdata_organization",
+                "jurisdiction": "ocd-jurisdiction/country:us/government",
+                "role": "canonical_baseline",
+            },
+            mode="backfill",
+        ) as run,
+        connect() as conn,
+    ):
+        organizations = sync_openstates_federal_organizations(conn)
         run.record_count = organizations
-        run.conn.commit()
+        conn.commit()
     return {
         "schema": 1,
         "kind": "openstates_organizations_load",

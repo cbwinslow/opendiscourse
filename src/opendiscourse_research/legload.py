@@ -66,7 +66,6 @@ def load_billstatus(
     with IngestionRun(
         "congress.govinfo_billstatus", parameters, mode="backfill"
     ) as run:
-        assert run.conn is not None
         for group_index, group in enumerate(groups, start=1):
             if limit is not None and total_processed >= limit:
                 break
@@ -82,9 +81,7 @@ def load_billstatus(
             file_size = archive_path.stat().st_size
 
             artifact_key = f"BILLSTATUS-{congress}-{bill_type}.zip"
-            existing = get_artifact(
-                "congress.govinfo_billstatus", artifact_key, conn=run.conn
-            )
+            existing = get_artifact("congress.govinfo_billstatus", artifact_key)
             artifact_is_complete = (
                 existing is not None
                 and existing["status"] == "loaded"
@@ -117,7 +114,6 @@ def load_billstatus(
                     "coverage": group.get("coverage", "complete"),
                     "run_id": str(run.run_id),
                 },
-                conn=run.conn,
             )
             artifact_id = (
                 str(artifact["artifact_id"])
@@ -133,7 +129,6 @@ def load_billstatus(
                     "coverage": group.get("coverage", "complete"),
                     "bill_type": bill_type,
                 },
-                conn=run.conn,
             )
 
             group_processed = 0
@@ -144,7 +139,7 @@ def load_billstatus(
                     member for member in archive.namelist() if member.endswith(".xml")
                 ]
                 completed_members = (
-                    loaded_artifact_members(artifact_id, conn=run.conn)
+                    loaded_artifact_members(artifact_id)
                     if artifact_id
                     else set()
                 )
@@ -162,13 +157,10 @@ def load_billstatus(
                         legislative_session_id=session_id,
                         source_artifact_id=artifact_id,
                         source_member=member,
-                        conn=run.conn,
                     )
                     total_processed += 1
                     group_processed += 1
                     run.record_count += 1
-                    if total_processed % batch_size == 0:
-                        run.conn.commit()
                     if report:
                         report(
                             f"Loading BILLSTATUS ({group_index}/{len(groups)}): "
@@ -188,9 +180,7 @@ def load_billstatus(
                         "run_id": str(run.run_id),
                         "loaded_members": len(members),
                     },
-                    conn=run.conn,
                 )
-            run.conn.commit()
             total_skipped += group_skipped
             by_type.append(
                 {

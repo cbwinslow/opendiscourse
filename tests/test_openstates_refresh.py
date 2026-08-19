@@ -192,11 +192,13 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
 
     def test_vote_loader_resumes_from_committed_checkpoint(self) -> None:
         run = MagicMock()
-        run.conn = MagicMock()
         run.run_id = "run-119"
         run.__enter__.return_value = run
+        connection = MagicMock()
+        connection.__enter__.return_value = connection
         with (
             patch("opendiscourse_research.peopleload.IngestionRun", return_value=run),
+            patch("opendiscourse_research.peopleload.connect", return_value=connection),
             patch(
                 "opendiscourse_research.peopleload.register_artifact",
                 return_value={"artifact_id": "artifact-119"},

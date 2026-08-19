@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
+from zipfile import ZipFile
 
 from opendiscourse_research.ingestion.base import IngestionRun
+from opendiscourse_research.legload import load_billstatus
 from opendiscourse_research.repositories.legislation import (
     ensure_us_legislative_session,
     loaded_artifact_members,
@@ -215,6 +219,55 @@ class TestLegislationPersistence(unittest.TestCase):
             raise RuntimeError("expected")
 
         self.assertEqual(active_session.execute.call_count, 2)
+
+    def test_billstatus_loader_uses_connection_free_repository_paths(self) -> None:
+        """BILLSTATUS loading no longer relies on the retired IngestionRun.conn."""
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            archive_path = root / "BILLSTATUS-118-hr.zip"
+            with ZipFile(archive_path, "w") as archive:
+                archive.writestr("BILLSTATUS-118hr1.xml", b"<billStatus />")
+            run = MagicMock()
+            run.run_id = "run-118"
+            run.record_count = 0
+            run.__enter__.return_value = run
+            with (
+                patch("opendiscourse_research.legload.IngestionRun", return_value=run),
+                patch(
+                    "opendiscourse_research.legload.billstatus_groups",
+                    return_value=[
+                        {
+                            "bill_type": "hr",
+                            "archive": str(archive_path),
+                            "coverage": "complete",
+                        }
+                    ],
+                ),
+                patch("opendiscourse_research.legload._output_path", return_value=root),
+                patch("opendiscourse_research.legload.get_artifact", return_value=None),
+                patch(
+                    "opendiscourse_research.legload.register_artifact",
+                    return_value={"artifact_id": "artifact-118"},
+                ),
+                patch(
+                    "opendiscourse_research.legload.ensure_us_legislative_session",
+                    return_value="session-118",
+                ),
+                patch(
+                    "opendiscourse_research.legload.loaded_artifact_members",
+                    return_value=set(),
+                ),
+                patch(
+                    "opendiscourse_research.legload.parse_billstatus_xml",
+                    return_value={"congress": 118, "bill_type": "hr", "bill_number": "1"},
+                ),
+                patch("opendiscourse_research.legload.save_billstatus_bill") as save_bill,
+            ):
+                result = load_billstatus(118)
+
+        self.assertEqual(result["processed"], 1)
+        self.assertEqual(run.record_count, 1)
+        self.assertNotIn("conn", save_bill.call_args.kwargs)
 
     def test_openstates_people_sync_preserves_identifier_conflicts(self) -> None:
         mock_conn = MagicMock()
