@@ -24,6 +24,7 @@ Alembic-adopted.
 `fact.population_estimate` is also Alembic-adopted.
 `fact.business_pattern` is also Alembic-adopted.
 `fact.acs_bulk_estimate` is also Alembic-adopted.
+`fact.decennial_dhc_value` is also Alembic-adopted.
 
 The Alembic baseline and adoption revisions are markers over the legacy-seeded
 schemas. The real PostGIS regression suite verifies both downgrade to `base`
@@ -64,6 +65,8 @@ and re-upgrade to the adopted revision without changing legacy tables.
   and release/year/geography/NAICS lookup.
 - Alembic-adopted ACS bulk estimates, including measure validation, immutable
   artifact-row identity, and release/geography/table/field lookup.
+- Alembic-adopted decennial DHC values, including immutable artifact/member
+  provenance and release/geography/table/variable lookup.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan

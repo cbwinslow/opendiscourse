@@ -605,3 +605,49 @@ fact_acs_bulk_estimate = Table(
 def acs_bulk_estimate_table():
     """Return the Alembic-adopted ACS bulk-estimate fact table."""
     return fact_acs_bulk_estimate
+
+
+fact_decennial_dhc_value = Table(
+    "decennial_dhc_value",
+    SQLModel.metadata,
+    Column(
+        "dhc_value_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column("release_year", Integer, nullable=False),
+    Column(
+        "geography_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.geography.geography_id"),
+        nullable=False,
+    ),
+    Column("table_id", Text, nullable=False),
+    Column("variable_id", Text, nullable=False),
+    Column("value", BigInteger),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("source_member", Text, nullable=False),
+    Column("source_ordinal", BigInteger, nullable=False),
+    UniqueConstraint(
+        "source_artifact_id", "source_member", "source_ordinal", "variable_id"
+    ),
+    Index(
+        "dhc_value_lookup_idx",
+        "release_year",
+        "geography_id",
+        "table_id",
+        "variable_id",
+    ),
+    schema="fact",
+)
+
+
+def decennial_dhc_value_table():
+    """Return the Alembic-adopted decennial DHC value fact table."""
+    return fact_decennial_dhc_value
