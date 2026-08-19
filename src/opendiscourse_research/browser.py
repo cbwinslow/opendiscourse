@@ -10,13 +10,23 @@ from typing import Any
 
 import yaml
 from psycopg.types.json import Jsonb
-from sqlalchemy import String, cast, func, or_, select
+from sqlalchemy import String, cast, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import insert
 
 from .config import settings
 from .db import connect, session
 from .ingestion.base import client, json_response
-from .models.catalog import Basket, BasketItem, Dataset, Provider, Resource, ResourceField
+from .models.catalog import (
+    Basket,
+    BasketItem,
+    CatalogSnapshot,
+    Dataset,
+    Provider,
+    Resource,
+    ResourceField,
+    SnapshotResource,
+    artifact_table,
+)
 from .providers.fred import search as search_fred
 from .repositories.catalog import resource_ids
 
@@ -39,61 +49,74 @@ def _acs_manifest(year: int) -> Path:
 def sync_acs(year: int) -> int:
     """Promote a discovered ACS table list into the reusable SQL catalog."""
     manifest = json.loads(_acs_manifest(year).read_text())
-    with connect() as conn, conn.cursor() as cur:
+    resource_table = Resource.__table__
+    snapshot_table = CatalogSnapshot.__table__
+    with session() as active_session:
         for table in manifest["tables"]:
-            cur.execute(
-                """INSERT INTO catalog.resource
-                   (dataset_id, resource_key, resource_type, title, summary, universe, release_year, metadata)
-                   VALUES ('census.acs_5', %(key)s, %(type)s, %(title)s, %(summary)s, %(universe)s, %(year)s, %(metadata)s)
-                   ON CONFLICT (dataset_id, resource_key) DO UPDATE SET
-                     resource_type = EXCLUDED.resource_type, title = EXCLUDED.title,
-                     summary = EXCLUDED.summary, universe = EXCLUDED.universe,
-                     release_year = EXCLUDED.release_year, metadata = EXCLUDED.metadata, updated_at = now()""",
-                {
-                    "key": f"{year}:{table['id']}",
-                    "type": table.get("product") or "ACS table",
-                    "title": table["title"],
-                    "summary": table["title"],
-                    "universe": table.get("universe"),
-                    "year": year,
-                    "metadata": Jsonb(
-                        {
-                            "table_id": table["id"],
-                            "one_year": table.get("one_year"),
-                            "five_year": table.get("five_year"),
-                        }
-                    ),
+            statement = insert(resource_table).values(
+                dataset_id="census.acs_5",
+                resource_key=f"{year}:{table['id']}",
+                resource_type=table.get("product") or "ACS table",
+                title=table["title"],
+                summary=table["title"],
+                universe=table.get("universe"),
+                release_year=year,
+                metadata={
+                    "table_id": table["id"],
+                    "one_year": table.get("one_year"),
+                    "five_year": table.get("five_year"),
                 },
             )
-        cur.execute(
-            """SELECT artifact_id, remote_url, checksum_sha256
-               FROM ingest.artifact WHERE dataset_id = 'census.acs_5' AND artifact_key = %s""",
-            (f"tables-{year}",),
-        )
-        artifact = cur.fetchone()
+            excluded = statement.excluded
+            active_session.execute(
+                statement.on_conflict_do_update(
+                    index_elements=(resource_table.c.dataset_id, resource_table.c.resource_key),
+                    set_={
+                        "resource_type": excluded.resource_type,
+                        "title": excluded.title,
+                        "summary": excluded.summary,
+                        "universe": excluded.universe,
+                        "release_year": excluded.release_year,
+                        "metadata": excluded.metadata,
+                        "updated_at": func.now(),
+                    },
+                )
+            )
+        artifact = active_session.execute(
+            select(
+                artifact_table().c.artifact_id,
+                artifact_table().c.remote_url,
+                artifact_table().c.checksum_sha256,
+            ).where(
+                artifact_table().c.dataset_id == "census.acs_5",
+                artifact_table().c.artifact_key == f"tables-{year}",
+            )
+        ).mappings().first()
         if artifact is None or artifact["checksum_sha256"] is None:
             raise ValueError(f"ACS table-list artifact for {year} is not registered")
-        cur.execute(
-            """INSERT INTO catalog.snapshot (dataset_id, source_url, checksum_sha256, artifact_id, metadata)
-               VALUES ('census.acs_5', %s, %s, %s, %s)
-               ON CONFLICT (dataset_id, checksum_sha256) DO UPDATE SET artifact_id = EXCLUDED.artifact_id
-               RETURNING snapshot_id""",
-            (
-                artifact["remote_url"],
-                artifact["checksum_sha256"],
-                artifact["artifact_id"],
-                Jsonb({"year": year, "kind": "acs_table_list"}),
-            ),
+        snapshot_statement = insert(snapshot_table).values(
+            dataset_id="census.acs_5",
+            source_url=artifact["remote_url"],
+            checksum_sha256=artifact["checksum_sha256"],
+            artifact_id=artifact["artifact_id"],
+            metadata={"year": year, "kind": "acs_table_list"},
         )
-        snapshot_id = cur.fetchone()["snapshot_id"]
-        cur.execute(
-            """INSERT INTO catalog.snapshot_resource (snapshot_id, resource_id)
-               SELECT %s, resource_id FROM catalog.resource
-               WHERE dataset_id = 'census.acs_5' AND release_year = %s
-               ON CONFLICT DO NOTHING""",
-            (snapshot_id, year),
+        snapshot_id = active_session.execute(
+            snapshot_statement.on_conflict_do_update(
+                index_elements=(snapshot_table.c.dataset_id, snapshot_table.c.checksum_sha256),
+                set_={"artifact_id": snapshot_statement.excluded.artifact_id},
+            ).returning(snapshot_table.c.snapshot_id)
+        ).scalar_one()
+        active_session.execute(
+            insert(SnapshotResource.__table__)
+            .from_select(
+                ("snapshot_id", "resource_id"),
+                select(literal(snapshot_id), Resource.resource_id).where(
+                    Resource.dataset_id == "census.acs_5", Resource.release_year == year
+                ),
+            )
+            .on_conflict_do_nothing()
         )
-        conn.commit()
     return len(manifest["tables"])
 
 

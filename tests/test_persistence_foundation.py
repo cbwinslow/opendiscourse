@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 from sqlalchemy import select, text
 
-from opendiscourse_research.browser import basket, get_resource, search, toggle, upsert_fields
+from opendiscourse_research.browser import basket, get_resource, search, sync_acs, toggle, upsert_fields
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
 from opendiscourse_research.db import _engine, apply_migrations, engine, session
-from opendiscourse_research.models.catalog import Resource
+from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
+from opendiscourse_research.models.catalog import CatalogSnapshot, Resource, SnapshotResource
 from opendiscourse_research.repositories.catalog import (
     cache_fred_records,
     delete_resources_prefix,
@@ -92,6 +94,8 @@ def test_resource_upserts_are_idempotent_and_search_indexes_are_usable(
     """Use real PostgreSQL upserts and plans rather than mocking SQLAlchemy."""
     key = "test:persistence-foundation"
     delete_resources_prefix("fred.series", "test:")
+
+
     upsert_resource(
         "fred.series",
         key,
@@ -166,3 +170,57 @@ def test_resource_upserts_are_idempotent_and_search_indexes_are_usable(
     assert "resource_title_trgm_idx" in trigram_plan
     assert "resource_fts_idx" in fts_plan
     delete_resources_prefix("fred.series", "test:")
+
+
+def test_acs_sync_preserves_artifact_backed_snapshot_provenance(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """ACS promotion is idempotent and retains its immutable discovery artifact."""
+    original_data_root = settings.data_root
+    settings.data_root = tmp_path / "data"
+    try:
+        manifest_path = tmp_path / "meta" / "acs" / "2030" / "tables.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest_path.write_text(
+            '{"tables": [{"id": "B01001", "title": "Sex by Age", "product": "detailed", '
+            '"universe": "Total population", "one_year": true, "five_year": true}]}'
+        )
+        register_local(
+            ArtifactSpec(
+                dataset_id="census.acs_5",
+                artifact_key="tables-2030",
+                url="https://example.test/acs/2030/tables.json",
+                filename="tables-2030.json",
+            ),
+            manifest_path,
+        )
+
+        assert sync_acs(2030) == 1
+        assert sync_acs(2030) == 1
+
+        with session() as active_session:
+            resource = active_session.scalar(
+                select(Resource).where(
+                    Resource.dataset_id == "census.acs_5", Resource.resource_key == "2030:B01001"
+                )
+            )
+            snapshot = active_session.scalar(
+                select(CatalogSnapshot).where(
+                    CatalogSnapshot.dataset_id == "census.acs_5",
+                    CatalogSnapshot.metadata_["year"].astext == "2030",
+                )
+            )
+            assert snapshot is not None
+            memberships = list(
+                active_session.scalars(
+                    select(SnapshotResource).where(SnapshotResource.snapshot_id == snapshot.snapshot_id)
+                )
+            )
+
+        assert resource is not None
+        assert resource.metadata_["table_id"] == "B01001"
+        assert snapshot.artifact_id is not None
+        assert len(memberships) == 1
+        assert memberships[0].resource_id == resource.resource_id
+    finally:
+        settings.data_root = original_data_root
