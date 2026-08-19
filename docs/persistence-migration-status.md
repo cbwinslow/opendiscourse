@@ -41,6 +41,8 @@ and re-upgrade to the adopted revision without changing legacy catalog tables.
   with its existing per-page transaction boundary.
 - Congress.gov member upserts and connection-free sponsorship resolution use
   typed person, identifier, and sponsorship mappings.
+- Treasury yield-curve ingestion upserts canonical measurements through the
+  shared typed measurement mapping while preserving per-date commits.
 
 Every migrated database behavior has real PostgreSQL/PostGIS coverage in
 `tests/test_persistence_foundation.py`; ORM behavior is not mocked there.

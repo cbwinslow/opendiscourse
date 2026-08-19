@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 from datetime import datetime
 
+from sqlalchemy.dialects.postgresql import insert
+
+from ..db import session
+from ..models.core import measurement_table
 from .base import IngestionRun, client
 
 # The HTML TextView page only ever renders the current ~2 years of data for
@@ -55,10 +58,11 @@ def ingest_yield_curve(
             "year": year,
         }
         payload_id = run.store_payload(response, payload)
+        measurement = measurement_table()
         for row in data_rows:
             record = dict(zip(headers, row, strict=True))
             observed = datetime.strptime(record.pop("Date"), "%m/%d/%Y").date()
-            with run.conn.cursor() as cur:
+            with session() as active_session:
                 for tenor, raw in record.items():
                     if raw in {"", "N/A"}:
                         continue
@@ -66,20 +70,34 @@ def ingest_yield_curve(
                         value = float(raw)
                     except ValueError:
                         continue
-                    cur.execute(
-                        """INSERT INTO fact.measurement (dataset_id, field_id, period_start, vintage_date, value_numeric, unit, flags, source_payload_id)
-                           VALUES ('treasury.yield_curve', %s, %s, %s, %s, 'percent', %s, %s)
-                           ON CONFLICT (dataset_id, field_id, geography_id, period_start, period_end, vintage_date)
-                           DO UPDATE SET value_numeric = EXCLUDED.value_numeric, flags = EXCLUDED.flags, source_payload_id = EXCLUDED.source_payload_id""",
-                        (
-                            tenor,
-                            observed,
-                            observed,
-                            value,
-                            json.dumps({"curve_type": curve_type}),
-                            payload_id,
-                        ),
+                    statement = insert(measurement).values(
+                        dataset_id="treasury.yield_curve",
+                        field_id=tenor,
+                        geography_id=None,
+                        period_start=observed,
+                        period_end=None,
+                        vintage_date=observed,
+                        value_numeric=value,
+                        unit="percent",
+                        flags={"curve_type": curve_type},
+                        source_payload_id=payload_id,
+                    )
+                    active_session.execute(
+                        statement.on_conflict_do_update(
+                            index_elements=(
+                                measurement.c.dataset_id,
+                                measurement.c.field_id,
+                                measurement.c.geography_id,
+                                measurement.c.period_start,
+                                measurement.c.period_end,
+                                measurement.c.vintage_date,
+                            ),
+                            set_={
+                                "value_numeric": statement.excluded.value_numeric,
+                                "flags": statement.excluded.flags,
+                                "source_payload_id": statement.excluded.source_payload_id,
+                            },
+                        )
                     )
                     run.record_count += 1
-            run.conn.commit()
         return run.record_count

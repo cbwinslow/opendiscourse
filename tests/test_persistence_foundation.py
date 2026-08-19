@@ -35,6 +35,7 @@ from opendiscourse_research.ingestion import census as census_ingestion
 from opendiscourse_research.ingestion import bls as bls_ingestion
 from opendiscourse_research.ingestion import congress as congress_ingestion
 from opendiscourse_research.ingestion import fred as fred_ingestion
+from opendiscourse_research.ingestion import treasury as treasury_ingestion
 from opendiscourse_research.ingestion.base import IngestionRun
 from opendiscourse_research.identityexceptions import unresolved_congressional_identities
 from opendiscourse_research.ingestion.tiger_load import _artifact as tiger_artifact
@@ -950,6 +951,49 @@ def test_congress_member_and_sponsorship_resolution_use_typed_mappings(
 
     assert str(linked_person) == person_id
     assert stored_name == "Taylor Test"
+
+
+def test_treasury_yield_curve_uses_typed_measurement_upserts(
+    catalog_database: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Treasury observations replace matching values and preserve raw-payload lineage."""
+    csv_body = "Date,1 Mo,2 Mo,3 Mo\n01/02/2033,1.25,N/A,bad\n"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={"content-type": "text/csv"}, text=csv_body)
+
+    monkeypatch.setattr(
+        treasury_ingestion,
+        "client",
+        lambda: httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert treasury_ingestion.ingest_yield_curve(2033) == 1
+    assert treasury_ingestion.ingest_yield_curve(2033) == 1
+
+    measurement = measurement_table()
+    with session() as active_session:
+        rows = list(
+            active_session.execute(
+                select(
+                    measurement.c.field_id,
+                    measurement.c.value_numeric,
+                    measurement.c.unit,
+                    measurement.c.flags,
+                    measurement.c.source_payload_id,
+                ).where(
+                    measurement.c.dataset_id == "treasury.yield_curve",
+                    measurement.c.period_start == datetime(2033, 1, 2).date(),
+                )
+            ).mappings()
+        )
+
+    assert len(rows) == 1
+    assert rows[0]["field_id"] == "1 Mo"
+    assert rows[0]["value_numeric"] == 1.25
+    assert rows[0]["unit"] == "percent"
+    assert rows[0]["flags"] == {"curve_type": "daily_treasury_yield_curve"}
+    assert rows[0]["source_payload_id"] is not None
 
 
 def test_legislative_session_default_path_uses_typed_core_mappings(
