@@ -36,6 +36,7 @@ from opendiscourse_research.ingestion.base import IngestionRun
 from opendiscourse_research.ingestion.tiger_load import _artifact as tiger_artifact
 from opendiscourse_research.ingestion.acs_load import _artifact as acs_artifact
 from opendiscourse_research.ingestion.cbp_load import _artifact as cbp_artifact
+from opendiscourse_research.ingestion.dhc_load import _artifact as dhc_artifact
 from opendiscourse_research.models.catalog import (
     CatalogSnapshot,
     DatasetField,
@@ -535,6 +536,27 @@ def test_tiger_artifact_lookup_uses_typed_immutable_evidence(
     )
 
     artifact = tiger_artifact("test-tiger-typed-artifact")
+    assert artifact["artifact_id"]
+    assert artifact["local_path"] == str(source.resolve())
+
+
+def test_dhc_artifact_lookup_uses_typed_immutable_evidence(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """DHC loading resolves registered immutable archive evidence through the shared mapping."""
+    source = tmp_path / "dhc.zip"
+    source.write_bytes(b"test dhc artifact")
+    register_local(
+        ArtifactSpec(
+            dataset_id="census.decennial",
+            artifact_key="test-dhc-typed-artifact",
+            url="https://example.test/dhc.zip",
+            filename="dhc.zip",
+        ),
+        source,
+    )
+
+    artifact = dhc_artifact("test-dhc-typed-artifact")
     assert artifact["artifact_id"]
     assert artifact["local_path"] == str(source.resolve())
 

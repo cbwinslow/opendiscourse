@@ -10,22 +10,27 @@ from typing import Any
 from zipfile import ZipFile
 
 from psycopg.types.json import Jsonb
+from sqlalchemy import select
 
-from ..db import connect
+from ..db import connect, session
+from ..models.catalog import artifact_table
 
 PREFIX_FIELDS = 5  # FILEID, STUSAB, CHARITER, CIFSN, LOGRECNO
 
 
-def _artifact(conn: Any, key: str) -> dict[str, Any]:
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT artifact_id, local_path FROM ingest.artifact WHERE artifact_key=%s AND status IN ('downloaded','skipped')",
-            (key,),
-        )
-        row = cur.fetchone()
+def _artifact(key: str) -> dict[str, Any]:
+    """Return a downloaded DHC artifact through immutable typed evidence storage."""
+    table = artifact_table()
+    with session() as active_session:
+        row = active_session.execute(
+            select(table.c.artifact_id, table.c.local_path).where(
+                table.c.artifact_key == key,
+                table.c.status.in_(("downloaded", "skipped")),
+            )
+        ).mappings().first()
     if row is None:
         raise ValueError(f"Required DHC artifact {key!r} has not been downloaded")
-    return row
+    return dict(row)
 
 
 def _scope(plan: dict[str, Any]) -> tuple[set[str], set[str]]:
@@ -77,7 +82,7 @@ def stage_dhc(plan: dict[str, Any], update: Callable[[str], None] | None = None)
     levels, _ = _scope(plan)
     total = 0
     with connect() as conn:
-        artifact = _artifact(conn, "dhc-2020-national")
+        artifact = _artifact("dhc-2020-national")
         with ZipFile(Path(artifact["local_path"])) as archive:
             for member in (
                 name for name in archive.namelist() if "geo2020.dhc" in name.lower()
@@ -129,8 +134,8 @@ def load_dhc(plan: dict[str, Any], update: Callable[[str], None] | None = None) 
     levels, tables = _scope(plan)
     total = 0
     with connect() as conn:
-        artifact = _artifact(conn, "dhc-2020-national")
-        matrix = _artifact(conn, "dhc-2020-table-matrix")
+        artifact = _artifact("dhc-2020-national")
+        matrix = _artifact("dhc-2020-table-matrix")
         segments = _matrix(Path(matrix["local_path"]), tables)
         with conn.cursor() as cur:
             cur.execute(
