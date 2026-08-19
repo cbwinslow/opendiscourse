@@ -6,14 +6,15 @@ See `docs/getting-started.md` for the fastest path to a running database.
 
 ## Running tests
 
-Tests use `unittest`, not `pytest`, and CI runs them against a real
-`postgis/postgis:17-3.5` service container (`.github/workflows/test.yml`):
+Tests use `pytest`, which also collects the existing `unittest.TestCase`
+tests unchanged. CI runs them against a real `postgis/postgis:17-3.5` service
+container (`.github/workflows/test.yml`):
 
 ```bash
-uv run --extra ingest --extra spatial python -m unittest discover -s tests -v
+uv run --extra ingest --extra spatial pytest
 
 # Single file / class / test
-uv run python -m unittest tests.test_govbackfill -v
+uv run pytest tests/test_govbackfill.py
 ```
 
 Tests that touch a real database are skipped automatically unless

@@ -36,15 +36,16 @@ Run everything through `uv` if available (`uv run research-db ...`,
 
 ### Tests
 
-CI (`.github/workflows/test.yml`) runs `unittest`, not `pytest`, against a
-real `postgis/postgis:17-3.5` service container:
+CI (`.github/workflows/test.yml`) runs `pytest` against a real
+`postgis/postgis:17-3.5` service container. Pytest also collects the existing
+`unittest.TestCase` tests unchanged:
 
 ```bash
-uv run --extra ingest --extra spatial python -m unittest discover -s tests -v
+uv run --extra ingest --extra spatial pytest
 
 # Single file / class / test
-uv run python -m unittest tests.test_govbackfill -v
-uv run python -m unittest tests.test_legislation_persistence.TestLegislationPersistence.test_parse_billstatus_xml -v
+uv run pytest tests/test_govbackfill.py
+uv run pytest tests/test_legislation_persistence.py::TestLegislationPersistence::test_parse_billstatus_xml
 ```
 
 Tests that touch a real database are skipped unless
