@@ -7,16 +7,16 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from psycopg.types.json import Jsonb
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
-from .db import connect, session
+from .db import session
 from .ingestion.bls import ingest_manifest as ingest_bls_manifest
 from .ingestion.census import bootstrap_housing
 from .ingestion.congress import ingest_bills
 from .ingestion.fred import ingest_manifest
 from .models.catalog import Plan
+from .models.ingest import cursor_table
 
 ROOT = Path(__file__).resolve().parents[2]
 HANDLERS = {
@@ -131,22 +131,22 @@ def run_plan(plan_id: str) -> int:
         count = sum(successes.values())
     else:
         raise AssertionError(f"Handler validation missed {plan['handler']!r}")
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """INSERT INTO ingest.cursor (plan_id, cursor) VALUES (%s, %s)
-               ON CONFLICT (plan_id) DO UPDATE SET cursor = EXCLUDED.cursor, updated_at = now()""",
-            (
-                plan_id,
-                Jsonb(
-                    {
-                        "last_count": count,
-                        "completed_at": datetime.now(UTC).isoformat(),
-                        "failures": failures or None,
-                    }
-                ),
-            ),
+    table = cursor_table()
+    statement = insert(table).values(
+        plan_id=plan_id,
+        cursor={
+            "last_count": count,
+            "completed_at": datetime.now(UTC).isoformat(),
+            "failures": failures or None,
+        },
+    )
+    with session() as active_session:
+        active_session.execute(
+            statement.on_conflict_do_update(
+                index_elements=(table.c.plan_id,),
+                set_={"cursor": statement.excluded.cursor, "updated_at": func.now()},
+            )
         )
-        conn.commit()
     if failures:
         # The cursor above still records this run so a scheduled retry
         # doesn't immediately repeat the series that already succeeded;
@@ -168,9 +168,14 @@ def due_plans(now: datetime | None = None) -> list[dict[str, Any]]:
         "monthly": timedelta(days=31),
         "annual": timedelta(days=365),
     }
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute("SELECT plan_id, updated_at FROM ingest.cursor")
-        completed = {row["plan_id"]: row["updated_at"] for row in cur.fetchall()}
+    table = cursor_table()
+    with session() as active_session:
+        completed = {
+            row["plan_id"]: row["updated_at"]
+            for row in active_session.execute(
+                select(table.c.plan_id, table.c.updated_at)
+            ).mappings()
+        }
     return [
         plan
         for plan in load_plans()

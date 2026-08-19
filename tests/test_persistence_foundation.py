@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
 import pytest
 from sqlalchemy import select, text
+from sqlalchemy.dialects.postgresql import insert
 
 from opendiscourse_research.browser import (
     basket,
@@ -26,6 +28,8 @@ from opendiscourse_research.db import _engine, apply_migrations, engine, session
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion import census as census_ingestion
 from opendiscourse_research.models.catalog import CatalogSnapshot, DatasetField, Resource, SnapshotResource
+from opendiscourse_research.models.ingest import cursor_table
+from opendiscourse_research.plans import due_plans, load_plans
 from opendiscourse_research.repositories.catalog import (
     cache_fred_records,
     claim_discovery,
@@ -373,3 +377,21 @@ def test_catalog_discovery_claims_are_resumable_and_exclusive(
     assert saved is not None
     assert saved["state"] == "running"
     assert saved["cursor"] == {"offset": 10}
+
+
+def test_due_plans_reads_typed_ingestion_cursors(catalog_database: None) -> None:
+    """Plan scheduling reads legacy ingestion cursors through the typed table reference."""
+    plan = load_plans()[0]
+    table = cursor_table()
+    statement = insert(table).values(
+        plan_id=plan["id"], cursor={"last_count": 1}, updated_at=datetime(2000, 1, 1, tzinfo=UTC)
+    )
+    with session() as active_session:
+        active_session.execute(
+            statement.on_conflict_do_update(
+                index_elements=(table.c.plan_id,),
+                set_={"cursor": statement.excluded.cursor, "updated_at": statement.excluded.updated_at},
+            )
+        )
+
+    assert plan in due_plans(datetime(2030, 1, 1, tzinfo=UTC))
