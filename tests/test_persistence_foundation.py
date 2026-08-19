@@ -28,7 +28,13 @@ from opendiscourse_research.db import _engine, apply_migrations, engine, session
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion import census as census_ingestion
 from opendiscourse_research.ingestion.base import IngestionRun
-from opendiscourse_research.models.catalog import CatalogSnapshot, DatasetField, Resource, SnapshotResource
+from opendiscourse_research.models.catalog import (
+    CatalogSnapshot,
+    DatasetField,
+    Resource,
+    SnapshotResource,
+    artifact_table,
+)
 from opendiscourse_research.models.ingest import cursor_table, raw_payload_table, run_table
 from opendiscourse_research.plans import due_plans, load_plans
 from opendiscourse_research.registry import status as registry_status
@@ -220,6 +226,17 @@ def test_acs_sync_preserves_artifact_backed_snapshot_provenance(
         assert sync_acs(2030) == 1
 
         with session() as active_session:
+            artifact = active_session.execute(
+                select(
+                    artifact_table().c.status,
+                    artifact_table().c.local_path,
+                    artifact_table().c.checksum_sha256,
+                    artifact_table().c.metadata,
+                ).where(
+                    artifact_table().c.dataset_id == "census.acs_5",
+                    artifact_table().c.artifact_key == "tables-2030",
+                )
+            ).mappings().one()
             resource = active_session.scalar(
                 select(Resource).where(
                     Resource.dataset_id == "census.acs_5", Resource.resource_key == "2030:B01001"
@@ -239,6 +256,10 @@ def test_acs_sync_preserves_artifact_backed_snapshot_provenance(
             )
 
         assert resource is not None
+        assert artifact["status"] == "downloaded"
+        assert artifact["local_path"] == str(manifest_path.resolve())
+        assert artifact["checksum_sha256"]
+        assert artifact["metadata"] == {}
         assert resource.metadata_["table_id"] == "B01001"
         assert snapshot.artifact_id is not None
         assert len(memberships) == 1
