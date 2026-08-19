@@ -1,5 +1,6 @@
 """Regression coverage for the Alembic-owned catalog SQLModel mappings."""
 
+from opendiscourse_research import models
 from opendiscourse_research.models.catalog import (
     Basket,
     BasketItem,
@@ -52,3 +53,15 @@ def test_catalog_models_preserve_catalog_constraints_and_indexes() -> None:
     )
     assert "basket_state_check" in basket_constraints
     assert "resource_search_idx" in {index.name for index in Resource.__table__.indexes}
+
+
+def test_public_models_module_exposes_typed_persistence_boundaries() -> None:
+    """Callers can use new mappings without importing private implementation modules."""
+    assert models.Plan is Plan
+    assert models.Discovery is Discovery
+    assert models.geography_table().fullname == "core.geography"
+    assert models.measurement_table().fullname == "fact.measurement"
+    assert models.geography_boundary_table().fullname == "core.geography_boundary"
+    assert models.run_table().fullname == "ingest.run"
+    assert models.raw_payload_table().fullname == "ingest.raw_payload"
+    assert models.cursor_table().fullname == "ingest.cursor"
