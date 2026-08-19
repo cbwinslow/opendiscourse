@@ -4,11 +4,25 @@ from __future__ import annotations
 
 from typing import Any
 
-from .db import connect
+from sqlalchemy import func, select
+
+from .db import connect, session
+from .models.core import roll_call_table
 
 
 def reconcile_openstates_votes(congress: int) -> dict[str, Any]:
     """Compare source vote-event identities with canonical roll-call coverage."""
+    roll_call = roll_call_table()
+    with session() as active_session:
+        canonical = {
+            "canonical_roll_calls": int(
+                active_session.execute(
+                    select(func.count()).select_from(roll_call).where(
+                        roll_call.c.legislative_session == str(congress)
+                    )
+                ).scalar_one()
+            )
+        }
     with connect() as conn, conn.cursor() as cur:
         cur.execute(
             """SELECT count(*) AS source_events, count(DISTINCT v.identifier) AS source_keys
@@ -18,11 +32,6 @@ def reconcile_openstates_votes(congress: int) -> dict[str, Any]:
             (str(congress),),
         )
         source = dict(cur.fetchone())
-        cur.execute(
-            "SELECT count(*) AS canonical_roll_calls FROM core.roll_call WHERE legislative_session = %s",
-            (str(congress),),
-        )
-        canonical = dict(cur.fetchone())
         cur.execute(
             """SELECT v.identifier, count(*) AS source_events
             FROM openstates_source.opencivicdata_voteevent v
