@@ -45,7 +45,9 @@ from opendiscourse_research.ingestion import bls as bls_ingestion
 from opendiscourse_research.ingestion import congress as congress_ingestion
 from opendiscourse_research.ingestion import fred as fred_ingestion
 from opendiscourse_research.ingestion import treasury as treasury_ingestion
+from opendiscourse_research.ingestion.acs_load import load_acs_bulk, stage_acs_bulk
 from opendiscourse_research.ingestion.base import IngestionRun
+from opendiscourse_research.ingestion.cbp_load import load_cbp, stage_cbp
 from opendiscourse_research.identityexceptions import unresolved_congressional_identities
 from opendiscourse_research.ingestion.tiger_load import _artifact as tiger_artifact
 from opendiscourse_research.ingestion.acs_load import _artifact as acs_artifact
@@ -54,6 +56,7 @@ from opendiscourse_research.ingestion.dhc_load import _artifact as dhc_artifact
 from opendiscourse_research.ingestion.pep_load import _artifact as pep_artifact
 from opendiscourse_research.ingestion.fec_bulk import _registered_artifacts as fec_artifacts
 from opendiscourse_research.ingestion.fec_bulk import stage_family as stage_fec_family
+from opendiscourse_research.ingestion.pep_load import load_pep, stage_pep
 from opendiscourse_research.models.catalog import (
     CatalogSnapshot,
     DatasetField,
@@ -1532,6 +1535,248 @@ def test_fec_raw_staging_is_idempotent(
             connection.execute(
                 text(
                     "DELETE FROM stage.fec_row WHERE artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            )
+            connection.execute(
+                text("DELETE FROM ingest.artifact WHERE artifact_key=:key"),
+                {"key": key},
+            )
+
+
+def test_acs_bulk_stage_and_promotion_are_idempotent_on_postgres(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """ACS retains its raw stage and set-promotion behavior on PostgreSQL."""
+    key = "test-acs-postgres-stage-promotion"
+    source = tmp_path / "acs.dat"
+    source.write_text(
+        "GEO_ID|B25001_E001|B25001_M001|B25001_E002|B25001_M002\n"
+        "0500000US99001|100|7|N|.\n"
+        "0400000US99|200|9|-999999999|4\n"
+    )
+    with engine().begin() as connection:
+        connection.execute(
+            text(
+                "DELETE FROM fact.acs_bulk_estimate WHERE source_artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+            ),
+            {"key": key},
+        )
+        connection.execute(
+            text(
+                "DELETE FROM stage.acs_bulk_row WHERE artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+            ),
+            {"key": key},
+        )
+        connection.execute(
+            text("DELETE FROM ingest.artifact WHERE artifact_key=:key"), {"key": key}
+        )
+    register_local(
+        ArtifactSpec(
+            dataset_id="census.acs_5_bulk",
+            artifact_key=key,
+            url="https://example.test/acs.dat",
+            filename=source.name,
+        ),
+        source,
+    )
+    plan = {
+        "state": "downloaded",
+        "canonical_load_scope": {"geography_types": ["county", "state"]},
+        "artifacts": [
+            {
+                "artifact_key": key,
+                "kind": "detailed_table",
+                "release_year": 2024,
+                "table_id": "B25001",
+            }
+        ],
+    }
+    try:
+        assert stage_acs_bulk(plan) == 2
+        plan["state"] = "staged"
+        assert load_acs_bulk(plan) == 8
+        assert load_acs_bulk(plan) == 8
+        with engine().connect() as connection:
+            assert connection.execute(
+                text(
+                    "SELECT count(*) FROM fact.acs_bulk_estimate WHERE source_artifact_id "
+                    "IN (SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            ).scalar_one() == 8
+    finally:
+        with engine().begin() as connection:
+            connection.execute(
+                text(
+                    "DELETE FROM fact.acs_bulk_estimate WHERE source_artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            )
+            connection.execute(
+                text(
+                    "DELETE FROM stage.acs_bulk_row WHERE artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            )
+            connection.execute(
+                text("DELETE FROM ingest.artifact WHERE artifact_key=:key"),
+                {"key": key},
+            )
+
+
+def test_cbp_bulk_stage_and_promotion_are_idempotent_on_postgres(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """CBP retains its raw staging and set-promotion behavior on PostgreSQL."""
+    key = "cbp-2023-cbp23st"
+    source = tmp_path / "cbp.zip"
+    with ZipFile(source, "w") as archive:
+        archive.writestr(
+            "cbp23st.txt",
+            "fipstate,naics,lfo,est,emp,qp1,ap,emp_nf,qp1_nf,ap_nf\n"
+            "99,00,,10,20,30,40,,,\n",
+        )
+    with engine().begin() as connection:
+        connection.execute(
+            text(
+                "DELETE FROM fact.business_pattern WHERE source_artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+            ),
+            {"key": key},
+        )
+        connection.execute(
+            text(
+                "DELETE FROM stage.cbp_row WHERE artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+            ),
+            {"key": key},
+        )
+        connection.execute(
+            text("DELETE FROM ingest.artifact WHERE artifact_key=:key"), {"key": key}
+        )
+    register_local(
+        ArtifactSpec(
+            dataset_id="census.business_patterns",
+            artifact_key=key,
+            url="https://example.test/cbp.zip",
+            filename=source.name,
+        ),
+        source,
+    )
+    plan = {
+        "state": "downloaded",
+        "selection": {"release_year": 2023},
+        "canonical_load_scope": {"geography_levels": ["state"]},
+    }
+    try:
+        assert stage_cbp(plan) == 1
+        plan["state"] = "staged"
+        assert load_cbp(plan) == 1
+        assert load_cbp(plan) == 1
+        with engine().connect() as connection:
+            assert connection.execute(
+                text(
+                    "SELECT count(*) FROM fact.business_pattern WHERE source_artifact_id "
+                    "IN (SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            ).scalar_one() == 1
+    finally:
+        with engine().begin() as connection:
+            connection.execute(
+                text(
+                    "DELETE FROM fact.business_pattern WHERE source_artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            )
+            connection.execute(
+                text(
+                    "DELETE FROM stage.cbp_row WHERE artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            )
+            connection.execute(
+                text("DELETE FROM ingest.artifact WHERE artifact_key=:key"),
+                {"key": key},
+            )
+
+
+def test_pep_bulk_stage_and_promotion_are_idempotent_on_postgres(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """PEP retains its raw staging and annual set-promotion behavior on PostgreSQL."""
+    key = "pep-2020-2025-state-totals"
+    source = tmp_path / "pep.csv"
+    source.write_text(
+        "SUMLEV,STATE,NAME,POPESTIMATE2020,POPESTIMATE2021,POPESTIMATE2022,"
+        "POPESTIMATE2023,POPESTIMATE2024,POPESTIMATE2025\n"
+        "040,99,Test State,2020,2021,2022,2023,2024,2025\n"
+    )
+    with engine().begin() as connection:
+        connection.execute(
+            text(
+                "DELETE FROM fact.population_estimate WHERE source_artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+            ),
+            {"key": key},
+        )
+        connection.execute(
+            text(
+                "DELETE FROM stage.pep_row WHERE artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+            ),
+            {"key": key},
+        )
+        connection.execute(
+            text("DELETE FROM ingest.artifact WHERE artifact_key=:key"), {"key": key}
+        )
+    register_local(
+        ArtifactSpec(
+            dataset_id="census.population_estimates",
+            artifact_key=key,
+            url="https://example.test/pep.csv",
+            filename=source.name,
+        ),
+        source,
+    )
+    plan = {
+        "state": "downloaded",
+        "selection": {"vintage": "2020-2025", "release_year": 2025},
+        "canonical_load_scope": {"geography_levels": ["state"]},
+    }
+    try:
+        assert stage_pep(plan) == 1
+        plan["state"] = "staged"
+        assert load_pep(plan) == 6
+        assert load_pep(plan) == 6
+        with engine().connect() as connection:
+            assert connection.execute(
+                text(
+                    "SELECT count(*) FROM fact.population_estimate WHERE source_artifact_id "
+                    "IN (SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            ).scalar_one() == 6
+    finally:
+        with engine().begin() as connection:
+            connection.execute(
+                text(
+                    "DELETE FROM fact.population_estimate WHERE source_artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            )
+            connection.execute(
+                text(
+                    "DELETE FROM stage.pep_row WHERE artifact_id IN "
                     "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
                 ),
                 {"key": key},
