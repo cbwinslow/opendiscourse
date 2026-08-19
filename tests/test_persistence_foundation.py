@@ -27,8 +27,9 @@ from opendiscourse_research.config import settings
 from opendiscourse_research.db import _engine, apply_migrations, engine, session
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion import census as census_ingestion
+from opendiscourse_research.ingestion.base import IngestionRun
 from opendiscourse_research.models.catalog import CatalogSnapshot, DatasetField, Resource, SnapshotResource
-from opendiscourse_research.models.ingest import cursor_table
+from opendiscourse_research.models.ingest import cursor_table, raw_payload_table, run_table
 from opendiscourse_research.plans import due_plans, load_plans
 from opendiscourse_research.repositories.catalog import (
     cache_fred_records,
@@ -395,3 +396,34 @@ def test_due_plans_reads_typed_ingestion_cursors(catalog_database: None) -> None
         )
 
     assert plan in due_plans(datetime(2030, 1, 1, tzinfo=UTC))
+
+
+def test_ingestion_run_persists_typed_run_and_raw_payload_evidence(
+    catalog_database: None,
+) -> None:
+    """Run bookkeeping remains provenance-rich while fact loaders retain their connection."""
+    response = httpx.Response(
+        200,
+        headers={"content-type": "application/json"},
+        json={"source": "test"},
+        request=httpx.Request("GET", "https://example.test/payload"),
+    )
+    with IngestionRun("fred.series", {"test": True}, mode="plan") as run:
+        payload_id = run.store_payload(response, {"source": "test"})
+        run.record_count = 3
+        run_id = run.run_id
+
+    with session() as active_session:
+        stored_run = active_session.execute(
+            select(run_table().c.status, run_table().c.record_count).where(
+                run_table().c.run_id == run_id
+            )
+        ).mappings().one()
+        payload = active_session.execute(
+            select(raw_payload_table().c.run_id, raw_payload_table().c.payload).where(
+                raw_payload_table().c.payload_id == payload_id
+            )
+        ).mappings().one()
+
+    assert stored_run == {"status": "succeeded", "record_count": 3}
+    assert payload == {"run_id": run_id, "payload": {"source": "test"}}

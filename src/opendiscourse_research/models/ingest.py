@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, ForeignKey, Table, Text, text
+from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Integer, Table, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PostgreSQLUUID
 from sqlmodel import SQLModel
 
@@ -29,3 +29,67 @@ if ingest_cursor is None:
 def cursor_table():
     """Return the existing ingestion cursor table without taking Alembic ownership."""
     return ingest_cursor
+
+
+ingest_run = SQLModel.metadata.tables.get("ingest.run")
+if ingest_run is None:
+    ingest_run = Table(
+        "run",
+        SQLModel.metadata,
+        Column(
+            "run_id",
+            PostgreSQLUUID(as_uuid=True),
+            primary_key=True,
+            server_default=text("gen_random_uuid()"),
+        ),
+        Column("dataset_id", Text, ForeignKey("catalog.dataset.dataset_id"), nullable=False),
+        Column("mode", Text, nullable=False),
+        Column("status", Text, nullable=False),
+        Column(
+            "started_at", DateTime(timezone=True), nullable=False, server_default=text("now()")
+        ),
+        Column("finished_at", DateTime(timezone=True)),
+        Column("parameters", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+        Column("record_count", BigInteger, nullable=False, server_default=text("0")),
+        Column("error_message", Text),
+        Column("code_version", Text),
+        schema="ingest",
+        info={"alembic_exclude": True},
+    )
+
+
+ingest_raw_payload = SQLModel.metadata.tables.get("ingest.raw_payload")
+if ingest_raw_payload is None:
+    ingest_raw_payload = Table(
+        "raw_payload",
+        SQLModel.metadata,
+        Column(
+            "payload_id",
+            PostgreSQLUUID(as_uuid=True),
+            primary_key=True,
+            server_default=text("gen_random_uuid()"),
+        ),
+        Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+        Column(
+            "source_url", Text, nullable=False
+        ),
+        Column(
+            "fetched_at", DateTime(timezone=True), nullable=False, server_default=text("now()")
+        ),
+        Column("http_status", Integer),
+        Column("content_type", Text),
+        Column("checksum_sha256", Text, nullable=False),
+        Column("payload", JSONB, nullable=False),
+        schema="ingest",
+        info={"alembic_exclude": True},
+    )
+
+
+def run_table():
+    """Return the existing ingestion run table without taking Alembic ownership."""
+    return ingest_run
+
+
+def raw_payload_table():
+    """Return immutable raw provider payload storage without taking Alembic ownership."""
+    return ingest_raw_payload
