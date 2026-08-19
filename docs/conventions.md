@@ -9,11 +9,12 @@ Legacy and not-yet-migrated schema changes belong in ordered
 `sql/NNN_name.sql` bootstrap migrations. Alembic owns `catalog.*` and adopted
 immutable/OpenStates evidence tables in `ingest.*` (runs, raw payloads,
 artifacts, resume checkpoints, identity exceptions, and plan cursors); changes
-to those tables belong in Alembic revisions after their adoption baseline.
-Reusable runtime statements belong in `sql/query/<area>/`. Python must pass
-bound parameters to those statements and must not assemble SQL with string
-interpolation. Existing inline statements are migrated incrementally whenever
-their adapter is changed; new provider work may not add inline SQL.
+to those tables, and adopted `core.geography` / `fact.measurement`, belong in
+Alembic revisions after their adoption baseline. Reusable runtime statements
+belong in `sql/query/<area>/`. Python must pass bound parameters to those
+statements and must not assemble SQL with string interpolation. Existing inline
+statements are migrated incrementally whenever their adapter is changed; new
+provider work may not add inline SQL.
 
 Every provider must declare its source URL, authentication requirement,
 rate-limit policy, pagination/cursor behavior, raw-provenance strategy, and

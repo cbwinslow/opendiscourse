@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, Table, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, Table, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID as PostgreSQLUUID
 from sqlmodel import SQLModel
 
@@ -21,7 +21,6 @@ core_geography = Table(
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     UniqueConstraint("geography_type", "geoid"),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 
@@ -45,18 +44,18 @@ fact_measurement = Table(
         "dataset_id", "field_id", "geography_id", "period_start", "period_end", "vintage_date",
         postgresql_nulls_not_distinct=True,
     ),
+    Index("measurement_lookup_idx", "dataset_id", "field_id", "period_start"),
     schema="fact",
-    info={"alembic_exclude": True},
 )
 
 
 def geography_table():
-    """Return legacy core geography storage without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical geography table."""
     return core_geography
 
 
 def measurement_table():
-    """Return legacy fact measurement storage without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical measurement table."""
     return fact_measurement
 
 

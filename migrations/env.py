@@ -8,7 +8,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from opendiscourse_research.config import settings
-from opendiscourse_research.models import catalog, ingest  # noqa: F401 - register metadata
+from opendiscourse_research.models import catalog, core, ingest  # noqa: F401 - register metadata
 from sqlmodel import SQLModel
 
 config = context.config
@@ -26,7 +26,7 @@ target_metadata = SQLModel.metadata
 def include_name(name: str | None, type_: str, parent_names: dict[str, str]) -> bool:
     """Reflect only schemas explicitly adopted by Alembic."""
     if type_ == "schema":
-        return name in {"catalog", "ingest"}
+        return name in {"catalog", "core", "fact", "ingest"}
     return True
 
 
