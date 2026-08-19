@@ -17,9 +17,11 @@ from typing import Any
 from zipfile import ZipFile
 
 from psycopg.types.json import Jsonb
+from sqlalchemy import Integer, cast, select
 
 from ..capacity import RemoteObject, storage_preview
-from ..db import connect
+from ..db import connect, session
+from ..models.catalog import artifact_table
 from .bulk import ArtifactSpec, register_local
 
 DATASET_ID = "fec.campaign_finance"
@@ -208,15 +210,22 @@ def register_family(
     return registered
 
 
-def _registered_artifacts(conn: Any, family: str) -> list[dict[str, Any]]:
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT artifact_id, local_path, metadata FROM ingest.artifact "
-            "WHERE dataset_id = %s AND metadata->>'family' = %s AND status IN ('downloaded', 'skipped') "
-            "ORDER BY (metadata->>'cycle')::int",
-            (DATASET_ID, family),
-        )
-        return cur.fetchall()
+def _registered_artifacts(family: str) -> list[dict[str, Any]]:
+    """Return registered FEC family artifacts through immutable typed evidence storage."""
+    table = artifact_table()
+    with session() as active_session:
+        return [
+            dict(row)
+            for row in active_session.execute(
+                select(table.c.artifact_id, table.c.local_path, table.c.metadata)
+                .where(
+                    table.c.dataset_id == DATASET_ID,
+                    table.c.metadata["family"].astext == family,
+                    table.c.status.in_(("downloaded", "skipped")),
+                )
+                .order_by(cast(table.c.metadata["cycle"].astext, Integer))
+            ).mappings()
+        ]
 
 
 def stage_family(family: str, update: Callable[[str], None] | None = None) -> int:
@@ -230,8 +239,8 @@ def stage_family(family: str, update: Callable[[str], None] | None = None) -> in
         )
     member = INNER_MEMBER[family]
     total = 0
+    artifacts = _registered_artifacts(family)
     with connect() as conn:
-        artifacts = _registered_artifacts(conn, family)
         if not artifacts:
             raise ValueError(
                 f"No registered FEC {family!r} artifacts; run register_family first"

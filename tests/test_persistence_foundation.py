@@ -38,6 +38,7 @@ from opendiscourse_research.ingestion.acs_load import _artifact as acs_artifact
 from opendiscourse_research.ingestion.cbp_load import _artifact as cbp_artifact
 from opendiscourse_research.ingestion.dhc_load import _artifact as dhc_artifact
 from opendiscourse_research.ingestion.pep_load import _artifact as pep_artifact
+from opendiscourse_research.ingestion.fec_bulk import _registered_artifacts as fec_artifacts
 from opendiscourse_research.models.catalog import (
     CatalogSnapshot,
     DatasetField,
@@ -539,6 +540,32 @@ def test_tiger_artifact_lookup_uses_typed_immutable_evidence(
     artifact = tiger_artifact("test-tiger-typed-artifact")
     assert artifact["artifact_id"]
     assert artifact["local_path"] == str(source.resolve())
+
+
+def test_fec_artifact_lookup_filters_and_orders_typed_metadata(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """FEC staging receives only its requested family in deterministic cycle order."""
+    source = tmp_path / "fec.zip"
+    source.write_bytes(b"test fec artifact")
+    for family, cycle in (("indiv", 2024), ("indiv", 2022), ("pas2", 2026)):
+        register_local(
+            ArtifactSpec(
+                dataset_id="fec.campaign_finance",
+                artifact_key=f"test-fec-{family}-{cycle}",
+                url=f"https://example.test/{family}-{cycle}.zip",
+                filename=f"{family}-{cycle}.zip",
+                metadata={"family": family, "cycle": cycle},
+            ),
+            source,
+        )
+
+    artifacts = [
+        artifact
+        for artifact in fec_artifacts("indiv")
+        if artifact["metadata"]["cycle"] in {2022, 2024}
+    ]
+    assert [artifact["metadata"]["cycle"] for artifact in artifacts] == [2022, 2024]
 
 
 def test_pep_artifact_lookup_uses_typed_immutable_evidence(
