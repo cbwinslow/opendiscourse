@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -289,6 +291,24 @@ def test_baseline_migration_uses_frozen_reviewable_ddl() -> None:
     assert "BASELINE_DDL" in migration_source
     assert baseline_ddl.startswith("CREATE EXTENSION IF NOT EXISTS postgis;")
     assert "CREATE TABLE core.bill" in baseline_ddl
+
+
+def test_baseline_ddl_matches_its_reviewed_fingerprint() -> None:
+    """The frozen baseline's generated DDL stays identical to its reviewed hash."""
+    repository_root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [sys.executable, "scripts/render_baseline_ddl.py", "--check"],
+        cwd=repository_root,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_alembic_check_detects_no_unmigrated_model_changes(catalog_database: None) -> None:
+    """Mapped SQLModel metadata stays synchronized with the Alembic revisions."""
+    command.check(_alembic_config())
 
 
 def test_existing_schema_without_alembic_watermark_is_adopted_safely(

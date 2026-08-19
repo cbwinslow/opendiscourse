@@ -43,5 +43,7 @@ jobs:
           enable-cache: true
       - name: Install test dependencies
         run: uv sync --locked --extra ingest --extra spatial
+      - name: Verify reviewed Alembic baseline DDL
+        run: uv run python scripts/render_baseline_ddl.py --check
       - name: Run deterministic and isolated database tests
         run: uv run --locked --extra ingest --extra spatial pytest
