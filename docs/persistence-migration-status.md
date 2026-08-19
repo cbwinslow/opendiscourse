@@ -30,6 +30,9 @@ and re-upgrade to the adopted revision without changing legacy catalog tables.
   against PostGIS.
 - Artifact resolution in ACS, CBP, DHC, PEP, TIGER, and FEC bulk loaders is
   typed and status-filtered.
+- Connection-free GovInfo BILLSTATUS graph writes use typed canonical bill,
+  identifier, action, sponsorship, committee, subject, and document mappings.
+  Supplied caller connections retain the existing atomic raw graph path.
 
 Every migrated database behavior has real PostgreSQL/PostGIS coverage in
 `tests/test_persistence_foundation.py`; ORM behavior is not mocked there.
@@ -42,8 +45,8 @@ not because their evidence boundary is unmapped:
 - Bulk staging `executemany`/COPY and set-based canonical promotions in ACS,
   CBP, DHC, PEP, TIGER, and FEC loaders.
 - The OpenStates FDW and its source-schema reconciliation queries.
-- Legislative graph writes and provenance reconciliation, pending one bounded
-  mapping slice for the related `core`/`leg` tables and their invariants.
+- Legislative graph writes and provenance reconciliation that operate on the
+  OpenStates FDW or require a supplied caller transaction.
 - Dynamic fact-table health counts, where table names are selected from the
   reviewed health family map.
 

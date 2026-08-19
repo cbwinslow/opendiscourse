@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Boolean, Column, Date, ForeignKey, Integer, Numeric, Table, Text, UniqueConstraint, text
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PostgreSQLUUID
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, Table, Text, UniqueConstraint, text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID as PostgreSQLUUID
 from sqlmodel import SQLModel
 
 
@@ -168,3 +168,172 @@ def bill_table():
 def bill_identifier_table():
     """Return legacy bill identifier storage without taking Alembic ownership."""
     return core_bill_identifier
+
+
+core_person_identifier = Table(
+    "person_identifier",
+    SQLModel.metadata,
+    Column("person_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.person.person_id"), nullable=False),
+    Column("namespace", Text, primary_key=True),
+    Column("external_id", Text, primary_key=True),
+    Column("valid_from", Date),
+    Column("valid_to", Date),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+core_person = Table(
+    "person",
+    SQLModel.metadata,
+    Column("person_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("full_name", Text, nullable=False),
+    Column("given_name", Text),
+    Column("family_name", Text),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+core_bill_action = Table(
+    "bill_action",
+    SQLModel.metadata,
+    Column("bill_action_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("bill_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.bill.bill_id"), nullable=False),
+    Column("action_date", DateTime(timezone=True)),
+    Column("description", Text, nullable=False),
+    Column("classification", ARRAY(Text)),
+    Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+    Column("source_member", Text),
+    Column("source_ordinal", Integer),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+core_bill_sponsorship = Table(
+    "bill_sponsorship",
+    SQLModel.metadata,
+    Column("bill_sponsorship_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("bill_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.bill.bill_id"), nullable=False),
+    Column("person_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.person.person_id")),
+    Column("member_namespace", Text, nullable=False, server_default=text("'bioguide'")),
+    Column("member_external_id", Text, nullable=False),
+    Column("role", Text, nullable=False),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+    Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
+    Column("source_member", Text),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+core_bill_committee = Table(
+    "bill_committee",
+    SQLModel.metadata,
+    Column("bill_committee_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("bill_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.bill.bill_id"), nullable=False),
+    Column("namespace", Text, nullable=False, server_default=text("'congress.gov.committee'")),
+    Column("external_id", Text, nullable=False),
+    Column("name", Text),
+    Column("chamber", Text),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+    Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
+    Column("source_member", Text),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+core_bill_subject = Table(
+    "bill_subject",
+    SQLModel.metadata,
+    Column("bill_subject_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("bill_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.bill.bill_id"), nullable=False),
+    Column("namespace", Text, nullable=False, server_default=text("'congress.gov.subject'")),
+    Column("external_id", Text, nullable=False),
+    Column("label", Text, nullable=False),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+    Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
+    Column("source_member", Text),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+core_document = Table(
+    "document",
+    SQLModel.metadata,
+    Column("document_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("document_type", Text, nullable=False),
+    Column("source_key", Text, nullable=False),
+    Column("title", Text),
+    Column("published_at", DateTime(timezone=True)),
+    Column("language", Text, nullable=False, server_default=text("'en'")),
+    Column("canonical_url", Text),
+    Column("checksum_sha256", Text),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
+    Column("artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    UniqueConstraint("document_type", "source_key"),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+core_bill_document = Table(
+    "bill_document",
+    SQLModel.metadata,
+    Column("bill_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.bill.bill_id"), primary_key=True),
+    Column("document_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.document.document_id"), primary_key=True),
+    Column("relation", Text, primary_key=True),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+def person_identifier_table():
+    """Return legacy person identifiers without taking Alembic ownership."""
+    return core_person_identifier
+
+
+def person_table():
+    """Return legacy canonical people without taking Alembic ownership."""
+    return core_person
+
+
+def bill_action_table():
+    """Return legacy bill actions without taking Alembic ownership."""
+    return core_bill_action
+
+
+def bill_sponsorship_table():
+    """Return legacy bill sponsorships without taking Alembic ownership."""
+    return core_bill_sponsorship
+
+
+def bill_committee_table():
+    """Return legacy bill committees without taking Alembic ownership."""
+    return core_bill_committee
+
+
+def bill_subject_table():
+    """Return legacy bill subjects without taking Alembic ownership."""
+    return core_bill_subject
+
+
+def document_table():
+    """Return legacy documents without taking Alembic ownership."""
+    return core_document
+
+
+def bill_document_table():
+    """Return legacy bill-document links without taking Alembic ownership."""
+    return core_bill_document

@@ -48,8 +48,14 @@ from opendiscourse_research.models.catalog import (
     artifact_table,
 )
 from opendiscourse_research.models.core import (
+    bill_action_table,
+    bill_committee_table,
+    bill_document_table,
     bill_identifier_table,
+    bill_sponsorship_table,
+    bill_subject_table,
     bill_table,
+    document_table,
     geography_boundary_table,
     geography_table,
     jurisdiction_table,
@@ -82,6 +88,7 @@ from opendiscourse_research.repositories.legislation import (
     record_vote_identity_exceptions,
     register_artifact,
     save_resume_cursor,
+    save_billstatus_bill,
 )
 from opendiscourse_research.providers import census
 from opendiscourse_research.providers.census import sync_acs_bulk_packages
@@ -685,6 +692,140 @@ def test_openstates_resume_and_identity_evidence_use_typed_mappings(
         },
     ]
     assert str(checkpoint_artifact) == str(artifact["artifact_id"])
+
+
+def test_billstatus_graph_default_path_uses_typed_mappings(
+    catalog_database: None,
+) -> None:
+    """BILLSTATUS graph persistence is provenance-preserving and idempotent via SQLAlchemy."""
+    artifact = register_artifact(
+        "congress.govinfo_billstatus",
+        "https://example.test/billstatus.zip",
+        "/tmp/billstatus.zip",
+        "test-billstatus-graph-artifact",
+    )
+    legislative_session_id = ensure_us_legislative_session(
+        131, source_artifact_id=str(artifact["artifact_id"])
+    )
+    bill_data = {
+        "congress": 131,
+        "bill_type": "hr",
+        "bill_number": "4242",
+        "title": "Test BILLSTATUS graph",
+        "introduced_date": "2031-01-03",
+        "latest_action_date": "2031-02-04",
+        "latest_action": "Referred to committee",
+        "identifiers": [
+            {
+                "namespace": "govinfo.package",
+                "external_id": "BILLS-131hr4242ih",
+                "source_url": "https://example.test/BILLS-131hr4242ih.xml",
+                "metadata": {"member_name": "BILLS-131hr4242ih.xml"},
+            }
+        ],
+        "actions": [
+            {
+                "action_date": "2031-02-04T00:00:00+00:00",
+                "description": "Referred to committee",
+                "classification": ["referral"],
+                "source_ordinal": 1,
+                "metadata": {"action": "first"},
+            }
+        ],
+        "sponsorships": [
+            {
+                "member_namespace": "bioguide",
+                "member_external_id": "T000001",
+                "role": "sponsor",
+                "metadata": {"sponsor": True},
+            }
+        ],
+        "committees": [
+            {
+                "external_id": "HSAG",
+                "name": "Agriculture",
+                "chamber": "lower",
+                "metadata": {"committee": True},
+            }
+        ],
+        "subjects": [
+            {
+                "external_id": "1000",
+                "label": "Agriculture",
+                "metadata": {"subject": True},
+            }
+        ],
+        "documents": [
+            {
+                "source_url": "https://example.test/BILLS-131hr4242ih.xml",
+                "title": "Introduced in House",
+                "published_at": "2031-01-03T00:00:00+00:00",
+                "version_code": "ih",
+                "metadata": {"document": True},
+            }
+        ],
+    }
+
+    bill_id = save_billstatus_bill(
+        bill_data,
+        legislative_session_id,
+        source_artifact_id=str(artifact["artifact_id"]),
+        source_member="BILLS-131hr4242ih.xml",
+    )
+    assert save_billstatus_bill(
+        bill_data,
+        legislative_session_id,
+        source_artifact_id=str(artifact["artifact_id"]),
+        source_member="BILLS-131hr4242ih.xml",
+    ) == bill_id
+
+    actions = bill_action_table()
+    committees = bill_committee_table()
+    documents = document_table()
+    links = bill_document_table()
+    identifiers = bill_identifier_table()
+    sponsorships = bill_sponsorship_table()
+    subjects = bill_subject_table()
+    with session() as active_session:
+        counts = {
+            "identifiers": active_session.execute(
+                select(func.count()).select_from(identifiers).where(identifiers.c.bill_id == bill_id)
+            ).scalar_one(),
+            "actions": active_session.execute(
+                select(func.count()).select_from(actions).where(actions.c.bill_id == bill_id)
+            ).scalar_one(),
+            "sponsorships": active_session.execute(
+                select(func.count()).select_from(sponsorships).where(sponsorships.c.bill_id == bill_id)
+            ).scalar_one(),
+            "committees": active_session.execute(
+                select(func.count()).select_from(committees).where(committees.c.bill_id == bill_id)
+            ).scalar_one(),
+            "subjects": active_session.execute(
+                select(func.count()).select_from(subjects).where(subjects.c.bill_id == bill_id)
+            ).scalar_one(),
+            "documents": active_session.execute(
+                select(func.count())
+                .select_from(links.join(documents, links.c.document_id == documents.c.document_id))
+                .where(links.c.bill_id == bill_id)
+            ).scalar_one(),
+        }
+        action_row = active_session.execute(
+            select(actions.c.description, actions.c.source_artifact_id, actions.c.metadata).where(
+                actions.c.bill_id == bill_id
+            )
+        ).mappings().one()
+
+    assert counts == {
+        "identifiers": 1,
+        "actions": 1,
+        "sponsorships": 1,
+        "committees": 1,
+        "subjects": 1,
+        "documents": 1,
+    }
+    assert action_row["description"] == "Referred to committee"
+    assert str(action_row["source_artifact_id"]) == str(artifact["artifact_id"])
+    assert action_row["metadata"] == {"action": "first"}
 
 
 def test_legislative_session_default_path_uses_typed_core_mappings(

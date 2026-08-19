@@ -13,7 +13,19 @@ from sqlalchemy.dialects.postgresql import insert
 
 from ..db import connect, session
 from ..models.catalog import artifact_table
-from ..models.core import bill_identifier_table, jurisdiction_table, legislative_session_table
+from ..models.core import (
+    bill_action_table,
+    bill_committee_table,
+    bill_document_table,
+    bill_identifier_table,
+    bill_sponsorship_table,
+    bill_subject_table,
+    bill_table,
+    document_table,
+    jurisdiction_table,
+    legislative_session_table,
+    person_identifier_table,
+)
 from ..models.ingest import identity_exception_table, resume_cursor_table
 
 _QUERY_ROOT = Path(__file__).resolve().parents[3] / "sql" / "query" / "legislation"
@@ -827,6 +839,15 @@ def save_billstatus_bill(
             "Persistence requires source_artifact_id or source_payload_id lineage"
         )
 
+    if conn is None:
+        return _save_billstatus_bill_sqlalchemy(
+            bill_data,
+            legislative_session_id,
+            source_artifact_id=source_artifact_id,
+            source_payload_id=source_payload_id,
+            source_member=source_member,
+        )
+
     def _execute(c: Any) -> str:
         with c.cursor() as cur:
             cur.execute(
@@ -970,10 +991,260 @@ def save_billstatus_bill(
 
             return bill_id
 
-    if conn is not None:
-        return _execute(conn)
+    return _execute(conn)
 
-    with connect() as active_conn:
-        res = _execute(active_conn)
-        active_conn.commit()
-        return res
+
+def _save_billstatus_bill_sqlalchemy(
+    bill_data: dict[str, Any],
+    legislative_session_id: str,
+    *,
+    source_artifact_id: str | None,
+    source_payload_id: str | None,
+    source_member: str | None,
+) -> str:
+    """Persist a BILLSTATUS graph through typed legacy mappings in one transaction."""
+    bill = bill_table()
+    identifier = bill_identifier_table()
+    action = bill_action_table()
+    sponsorship = bill_sponsorship_table()
+    committee = bill_committee_table()
+    subject = bill_subject_table()
+    person_identifier = person_identifier_table()
+    document = document_table()
+    bill_document = bill_document_table()
+
+    bill_insert = insert(bill).values(
+        jurisdiction="us",
+        legislative_session=str(bill_data["congress"]),
+        bill_type=bill_data["bill_type"],
+        bill_number=bill_data["bill_number"],
+        title=bill_data.get("title"),
+        introduced_date=bill_data.get("introduced_date"),
+        latest_action_date=bill_data.get("latest_action_date"),
+        latest_action=bill_data.get("latest_action"),
+        metadata={"source": "govinfo_billstatus"},
+        legislative_session_id=legislative_session_id,
+        ocd_id=None,
+    )
+    bill_statement = bill_insert.on_conflict_do_update(
+        index_elements=(
+            bill.c.jurisdiction,
+            bill.c.legislative_session,
+            bill.c.bill_type,
+            bill.c.bill_number,
+        ),
+        set_={
+            "title": func.coalesce(bill_insert.excluded.title, bill.c.title),
+            "introduced_date": func.coalesce(
+                bill_insert.excluded.introduced_date, bill.c.introduced_date
+            ),
+            "latest_action_date": func.coalesce(
+                bill_insert.excluded.latest_action_date, bill.c.latest_action_date
+            ),
+            "latest_action": func.coalesce(
+                bill_insert.excluded.latest_action, bill.c.latest_action
+            ),
+            "metadata": bill.c.metadata.op("||")(bill_insert.excluded.metadata),
+            "legislative_session_id": func.coalesce(
+                bill_insert.excluded.legislative_session_id, bill.c.legislative_session_id
+            ),
+            "ocd_id": func.coalesce(bill_insert.excluded.ocd_id, bill.c.ocd_id),
+        },
+    ).returning(bill.c.bill_id)
+
+    with session() as active_session:
+        bill_id = active_session.execute(bill_statement).scalar_one()
+        for item in bill_data.get("identifiers", []):
+            statement = insert(identifier).values(
+                bill_id=bill_id,
+                namespace=item["namespace"],
+                external_id=item["external_id"],
+                source_artifact_id=source_artifact_id,
+                source_payload_id=source_payload_id,
+                source_url=item.get("source_url"),
+                metadata=item.get("metadata", {}),
+            )
+            active_session.execute(
+                statement.on_conflict_do_update(
+                    index_elements=(identifier.c.namespace, identifier.c.external_id),
+                    set_={
+                        "bill_id": bill_id,
+                        "source_artifact_id": func.coalesce(
+                            statement.excluded.source_artifact_id, identifier.c.source_artifact_id
+                        ),
+                        "source_payload_id": func.coalesce(
+                            statement.excluded.source_payload_id, identifier.c.source_payload_id
+                        ),
+                        "source_url": func.coalesce(
+                            statement.excluded.source_url, identifier.c.source_url
+                        ),
+                        "metadata": identifier.c.metadata.op("||")(statement.excluded.metadata),
+                    },
+                )
+            )
+        for item in bill_data.get("actions", []):
+            member = source_member or item.get("source_member")
+            statement = insert(action).values(
+                bill_id=bill_id,
+                action_date=item.get("action_date"),
+                description=item["description"],
+                classification=item.get("classification"),
+                source_artifact_id=source_artifact_id,
+                source_payload_id=source_payload_id,
+                source_member=member,
+                source_ordinal=item.get("source_ordinal"),
+                metadata=item.get("metadata", {}),
+            )
+            active_session.execute(
+                statement.on_conflict_do_update(
+                    index_elements=(
+                        action.c.bill_id,
+                        action.c.source_artifact_id,
+                        action.c.source_member,
+                        action.c.source_ordinal,
+                    ),
+                    index_where=action.c.source_artifact_id.is_not(None),
+                    set_={
+                        "action_date": func.coalesce(statement.excluded.action_date, action.c.action_date),
+                        "description": statement.excluded.description,
+                        "classification": func.coalesce(statement.excluded.classification, action.c.classification),
+                        "source_payload_id": func.coalesce(
+                            statement.excluded.source_payload_id, action.c.source_payload_id
+                        ),
+                        "metadata": action.c.metadata.op("||")(statement.excluded.metadata),
+                    },
+                )
+            )
+        for item in bill_data.get("sponsorships", []):
+            person_id = active_session.execute(
+                select(person_identifier.c.person_id).where(
+                    person_identifier.c.namespace == item["member_namespace"],
+                    person_identifier.c.external_id == item["member_external_id"],
+                ).limit(1)
+            ).scalar_one_or_none()
+            member = source_member or item.get("source_member")
+            statement = insert(sponsorship).values(
+                bill_id=bill_id,
+                person_id=person_id,
+                member_namespace=item["member_namespace"],
+                member_external_id=item["member_external_id"],
+                role=item["role"],
+                source_artifact_id=source_artifact_id,
+                source_payload_id=source_payload_id,
+                source_member=member,
+                metadata=item.get("metadata", {}),
+            )
+            active_session.execute(
+                statement.on_conflict_do_update(
+                    index_elements=(
+                        sponsorship.c.bill_id,
+                        sponsorship.c.member_namespace,
+                        sponsorship.c.member_external_id,
+                        sponsorship.c.role,
+                        sponsorship.c.source_artifact_id,
+                        sponsorship.c.source_member,
+                    ),
+                    set_={
+                        "person_id": func.coalesce(statement.excluded.person_id, sponsorship.c.person_id),
+                        "source_payload_id": func.coalesce(
+                            statement.excluded.source_payload_id, sponsorship.c.source_payload_id
+                        ),
+                        "metadata": sponsorship.c.metadata.op("||")(statement.excluded.metadata),
+                    },
+                )
+            )
+        for item in bill_data.get("committees", []):
+            member = source_member or item.get("source_member")
+            statement = insert(committee).values(
+                bill_id=bill_id,
+                namespace=item.get("namespace", "congress.gov.committee"),
+                external_id=item["external_id"],
+                name=item.get("name"),
+                chamber=item.get("chamber"),
+                source_artifact_id=source_artifact_id,
+                source_payload_id=source_payload_id,
+                source_member=member,
+                metadata=item.get("metadata", {}),
+            )
+            active_session.execute(
+                statement.on_conflict_do_update(
+                    index_elements=(
+                        committee.c.bill_id,
+                        committee.c.namespace,
+                        committee.c.external_id,
+                        committee.c.source_artifact_id,
+                        committee.c.source_member,
+                    ),
+                    set_={
+                        "name": func.coalesce(statement.excluded.name, committee.c.name),
+                        "chamber": func.coalesce(statement.excluded.chamber, committee.c.chamber),
+                        "source_payload_id": func.coalesce(
+                            statement.excluded.source_payload_id, committee.c.source_payload_id
+                        ),
+                        "metadata": committee.c.metadata.op("||")(statement.excluded.metadata),
+                    },
+                )
+            )
+        for item in bill_data.get("subjects", []):
+            member = source_member or item.get("source_member")
+            statement = insert(subject).values(
+                bill_id=bill_id,
+                namespace=item.get("namespace", "congress.gov.subject"),
+                external_id=item["external_id"],
+                label=item["label"],
+                source_artifact_id=source_artifact_id,
+                source_payload_id=source_payload_id,
+                source_member=member,
+                metadata=item.get("metadata", {}),
+            )
+            active_session.execute(
+                statement.on_conflict_do_update(
+                    index_elements=(
+                        subject.c.bill_id,
+                        subject.c.namespace,
+                        subject.c.external_id,
+                        subject.c.source_artifact_id,
+                        subject.c.source_member,
+                    ),
+                    set_={
+                        "label": statement.excluded.label,
+                        "source_payload_id": func.coalesce(
+                            statement.excluded.source_payload_id, subject.c.source_payload_id
+                        ),
+                        "metadata": subject.c.metadata.op("||")(statement.excluded.metadata),
+                    },
+                )
+            )
+        for item in bill_data.get("documents", []):
+            statement = insert(document).values(
+                document_type="bill_text_version",
+                source_key=item["source_url"],
+                title=item.get("title"),
+                published_at=item.get("published_at"),
+                canonical_url=item["source_url"],
+                artifact_id=source_artifact_id,
+                source_payload_id=source_payload_id,
+                metadata={
+                    **item.get("metadata", {}),
+                    "version_code": item.get("version_code"),
+                    "source_member": source_member or item.get("source_member"),
+                },
+            )
+            document_id = active_session.execute(
+                statement.on_conflict_do_update(
+                    index_elements=(document.c.document_type, document.c.source_key),
+                    set_={
+                        "title": func.coalesce(statement.excluded.title, document.c.title),
+                        "published_at": func.coalesce(
+                            statement.excluded.published_at, document.c.published_at
+                        ),
+                        "metadata": document.c.metadata.op("||")(statement.excluded.metadata),
+                    },
+                ).returning(document.c.document_id)
+            ).scalar_one()
+            active_session.execute(
+                insert(bill_document)
+                .values(bill_id=bill_id, document_id=document_id, relation="text_version")
+                .on_conflict_do_nothing()
+            )
+    return str(bill_id)
