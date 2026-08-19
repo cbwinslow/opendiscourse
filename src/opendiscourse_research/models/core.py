@@ -242,8 +242,24 @@ core_bill_sponsorship = Table(
     Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
     Column("source_member", Text),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    CheckConstraint(
+        "role IN ('sponsor', 'cosponsor')", name="bill_sponsorship_role_check"
+    ),
+    CheckConstraint(
+        "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
+        name="bill_sponsorship_check",
+    ),
+    UniqueConstraint(
+        "bill_id",
+        "member_namespace",
+        "member_external_id",
+        "role",
+        "source_artifact_id",
+        "source_member",
+        postgresql_nulls_not_distinct=True,
+    ),
+    Index("bill_sponsorship_person_idx", "person_id"),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 

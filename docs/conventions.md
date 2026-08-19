@@ -13,11 +13,11 @@ to those tables, and adopted `core.geography`, `core.geography_boundary`, and
 `core.jurisdiction`, `core.legislative_session`, `core.bill`,
 `core.bill_identifier`, `core.person`, `core.person_identifier`, and
 `core.bill_action`, and `fact.measurement`, belong in Alembic revisions after
-their adoption baseline. Reusable runtime statements belong in
-`sql/query/<area>/`. Python must pass bound parameters to those statements and
-must not assemble SQL with string interpolation. Existing inline statements are
-migrated incrementally whenever their adapter is changed; new provider work may
-not add inline SQL.
+their adoption baseline. `core.bill_sponsorship` belongs there as well.
+Reusable runtime statements belong in `sql/query/<area>/`. Python must pass
+bound parameters to those statements and must not assemble SQL with string
+interpolation. Existing inline statements are migrated incrementally whenever
+their adapter is changed; new provider work may not add inline SQL.
 
 Every provider must declare its source URL, authentication requirement,
 rate-limit policy, pagination/cursor behavior, raw-provenance strategy, and
