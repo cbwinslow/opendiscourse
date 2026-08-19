@@ -73,6 +73,9 @@ research-db bootstrap treasury-curve --year 2025
 # Requires FRED_API_KEY in .env.
 research-db bootstrap fred-core
 
+# Choose a governed source and understand its current coverage before loading.
+# See docs/research-source-roadmap.md.
+
 # Build the local FRED *metadata* catalog in resumable batches. This stores
 # series descriptors only—never observations—and resumes safely after a stop.
 # Start small, then use 20-page batches for normal progress.
