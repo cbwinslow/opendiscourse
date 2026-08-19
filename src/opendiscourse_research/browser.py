@@ -696,12 +696,17 @@ def add_acs_package(name: str, release_year: int, package: str = "housing_core")
         )
     tables = acs_package_tables(package)
     keys = [f"{release_year}:{table}" for table in tables]
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            "SELECT resource_id, resource_key FROM catalog.resource WHERE dataset_id='census.acs_5' AND release_year=%s AND resource_type='Detailed Table' AND resource_key=ANY(%s)",
-            (release_year, keys),
+    with session() as active_session:
+        rows = list(
+            active_session.execute(
+                select(Resource.resource_id, Resource.resource_key).where(
+                    Resource.dataset_id == "census.acs_5",
+                    Resource.release_year == release_year,
+                    Resource.resource_type == "Detailed Table",
+                    Resource.resource_key.in_(keys),
+                )
+            ).mappings()
         )
-        rows = cur.fetchall()
     found = {row["resource_key"] for row in rows}
     missing = sorted(set(keys) - found)
     if missing:
