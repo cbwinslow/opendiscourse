@@ -84,6 +84,8 @@ reviewed baseline artifact retains its expected normalized fingerprint.
   dimension, and vector-cardinality integrity checks.
 - Alembic-adopted ACS, CBP, DHC, PEP, TIGER, and FEC staging table contracts,
   including their artifact identity keys and legacy lookup/geometry indexes.
+- Real PostgreSQL/PostGIS regressions cover retained COPY/executemany staging
+  and set-based promotion paths, including FEC source-ordinal idempotency.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan

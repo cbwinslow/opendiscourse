@@ -6,6 +6,8 @@ import os
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import patch
+from zipfile import ZipFile
 
 import httpx
 import pytest
@@ -44,6 +46,7 @@ from opendiscourse_research.ingestion.cbp_load import _artifact as cbp_artifact
 from opendiscourse_research.ingestion.dhc_load import _artifact as dhc_artifact
 from opendiscourse_research.ingestion.pep_load import _artifact as pep_artifact
 from opendiscourse_research.ingestion.fec_bulk import _registered_artifacts as fec_artifacts
+from opendiscourse_research.ingestion.fec_bulk import stage_family as stage_fec_family
 from opendiscourse_research.models.catalog import (
     CatalogSnapshot,
     DatasetField,
@@ -1324,6 +1327,83 @@ def test_fec_artifact_lookup_filters_and_orders_typed_metadata(
         if artifact["metadata"]["cycle"] in {2022, 2024}
     ]
     assert [artifact["metadata"]["cycle"] for artifact in artifacts] == [2022, 2024]
+
+
+def test_fec_raw_staging_is_idempotent(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """FEC's retained executemany path keeps source-ordinal staging idempotent."""
+    key = "test-fec-indiv-staging"
+    source = tmp_path / "indiv24.zip"
+    with ZipFile(source, "w") as archive:
+        archive.writestr("itcont.txt", "|".join(["x"] * 21) + "\n")
+
+    with engine().begin() as connection:
+        connection.execute(
+            text(
+                "DELETE FROM stage.fec_row WHERE artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+            ),
+            {"key": key},
+        )
+        connection.execute(
+            text("DELETE FROM ingest.artifact WHERE artifact_key=:key"), {"key": key}
+        )
+    register_local(
+        ArtifactSpec(
+            dataset_id="fec.campaign_finance",
+            artifact_key=key,
+            url="https://example.test/indiv24.zip",
+            filename=source.name,
+            metadata={"family": "indiv", "cycle": 2024, "admission": "test"},
+        ),
+        source,
+    )
+    try:
+        with engine().connect() as connection:
+            artifact = dict(
+                connection.execute(
+                    text(
+                        "SELECT artifact_id, local_path, metadata FROM ingest.artifact "
+                        "WHERE artifact_key=:key"
+                    ),
+                    {"key": key},
+                ).mappings().one()
+            )
+        with (
+            patch(
+                "opendiscourse_research.ingestion.fec_bulk.preview_family",
+                return_value={"approved": True},
+            ),
+            patch(
+                "opendiscourse_research.ingestion.fec_bulk._registered_artifacts",
+                return_value=[artifact],
+            ),
+        ):
+            assert stage_fec_family("indiv") == 1
+            assert stage_fec_family("indiv") == 1
+        with engine().connect() as connection:
+            staged_count = connection.execute(
+                text(
+                    "SELECT count(*) FROM stage.fec_row WHERE artifact_id "
+                    "IN (SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            ).scalar_one()
+        assert staged_count == 1
+    finally:
+        with engine().begin() as connection:
+            connection.execute(
+                text(
+                    "DELETE FROM stage.fec_row WHERE artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            )
+            connection.execute(
+                text("DELETE FROM ingest.artifact WHERE artifact_key=:key"),
+                {"key": key},
+            )
 
 
 def test_pep_artifact_lookup_uses_typed_immutable_evidence(

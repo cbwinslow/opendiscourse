@@ -1,4 +1,4 @@
-"""Opt-in database smoke tests for Census bulk stage/load idempotence.
+"""Opt-in database smoke tests for bulk stage/load idempotence.
 
 Run only against a disposable database:
 ``OPENDISCOURSE_TEST_DATABASE_URL=... uv run --extra ingest python -m unittest tests.test_census_bulk_integration``.
@@ -10,6 +10,7 @@ import csv
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 from zipfile import ZipFile
 
 from opendiscourse_research.catalog import sync_inventory
@@ -19,6 +20,7 @@ from opendiscourse_research.ingestion.acs_load import load_acs_bulk, stage_acs_b
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion.cbp_load import load_cbp, stage_cbp
 from opendiscourse_research.ingestion.dhc_load import load_dhc, stage_dhc
+from opendiscourse_research.ingestion.fec_bulk import stage_family
 from opendiscourse_research.ingestion.pep_load import load_pep, stage_pep
 from opendiscourse_research.ingestion.tiger_load import load_tiger, stage_tiger
 
@@ -29,8 +31,8 @@ TEST_DATABASE_URL = __import__("os").environ.get("OPENDISCOURSE_TEST_DATABASE_UR
     TEST_DATABASE_URL,
     "Set OPENDISCOURSE_TEST_DATABASE_URL to run database integration tests",
 )
-class TestCensusBulkDatabaseIntegration(unittest.TestCase):
-    """Use generated source artifacts only; never call Census during tests."""
+class TestBulkDatabaseIntegration(unittest.TestCase):
+    """Use generated source artifacts only; never call upstream providers in tests."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -105,6 +107,10 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
                     (row["artifact_id"],),
                 )
                 cur.execute(
+                    "DELETE FROM stage.fec_row WHERE artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+                cur.execute(
                     "DELETE FROM ingest.artifact WHERE artifact_id=%s",
                     (row["artifact_id"],),
                 )
@@ -116,7 +122,6 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
     def test_cbp_generated_zip_stages_and_loads_idempotently(self) -> None:
         key = "cbp-2023-cbp23st"
         self._remove_artifact(key)
-
         path = Path(self.temp.name) / "cbp.zip"
         with ZipFile(path, "w") as archive:
             archive.writestr(
@@ -136,6 +141,52 @@ class TestCensusBulkDatabaseIntegration(unittest.TestCase):
         with connect() as conn, conn.cursor() as cur:
             cur.execute(
                 "SELECT count(*) FROM fact.business_pattern WHERE source_artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s)",
+                (key,),
+            )
+            self.assertEqual(cur.fetchone()["count"], 1)
+        self._remove_artifact(key)
+
+    def test_fec_generated_zip_stages_idempotently(self) -> None:
+        """FEC's raw executemany staging preserves source-ordinal idempotency."""
+        key = "fec-indiv-2024-integration"
+        self._remove_artifact(key)
+        path = Path(self.temp.name) / "indiv24.zip"
+        with ZipFile(path, "w") as archive:
+            archive.writestr("itcont.txt", "|".join(["x"] * 21) + "\n")
+        register_local(
+            ArtifactSpec(
+                "fec.campaign_finance",
+                key,
+                "https://example.test/indiv24.zip",
+                path.name,
+                metadata={"family": "indiv", "cycle": 2024, "admission": "test"},
+            ),
+            path,
+        )
+
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT artifact_id, local_path, metadata FROM ingest.artifact WHERE artifact_key=%s",
+                (key,),
+            )
+            artifact = cur.fetchone()
+        with (
+            patch(
+                "opendiscourse_research.ingestion.fec_bulk.preview_family",
+                return_value={"approved": True},
+            ),
+            patch(
+                "opendiscourse_research.ingestion.fec_bulk._registered_artifacts",
+                return_value=[artifact],
+            ),
+        ):
+            self.assertEqual(stage_family("indiv"), 1)
+            self.assertEqual(stage_family("indiv"), 1)
+
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT count(*) FROM stage.fec_row "
+                "WHERE artifact_id=(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=%s)",
                 (key,),
             )
             self.assertEqual(cur.fetchone()["count"], 1)
