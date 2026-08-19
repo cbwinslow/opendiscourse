@@ -7,7 +7,8 @@
 # allowed `host all all 127.0.0.1/32 scram-sha-256`; only the role needed a
 # password (see docs/runtime.md for the auth model this adds to).
 # The defaults match compose.yaml. Override DBT_PG_* for bare-metal or a
-# shared deployment; dbt does not read .env files until the shell exports it.
+# shared deployment; dbt never reads .env files directly, so export or
+# source them into your shell first.
 opendiscourse:
   target: dev
   outputs:

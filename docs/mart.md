@@ -59,9 +59,9 @@ dbt debug --project-dir dbt --profiles-dir dbt   # connection check
 dbt build --project-dir dbt --profiles-dir dbt   # run models + tests
 ```
 
-For Docker Compose, the checked-in profile defaults already match the
-quickstart. Set only `DBT_PG_PASSWORD=change-me` (or the value chosen in
-`POSTGRES_PASSWORD`) before the same commands.
+For Docker Compose, `.env.example`'s defaults already match the checked-in
+profile, so the commands above work unmodified once you've sourced `.env`.
+Only override `DBT_PG_PASSWORD` if you chose a different `POSTGRES_PASSWORD`.
 
 ## What's in it
 
