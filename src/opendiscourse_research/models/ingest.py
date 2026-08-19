@@ -1,11 +1,23 @@
-"""Typed references to legacy-owned ingestion evidence tables."""
+"""Typed SQLAlchemy contracts for ingestion evidence tables."""
 
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, Table, Text, UniqueConstraint, text
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PostgreSQLUUID
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Table,
+    Text,
+    UniqueConstraint,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlmodel import SQLModel
-
 
 ingest_cursor = SQLModel.metadata.tables.get("ingest.cursor")
 if ingest_cursor is None:
@@ -57,7 +69,8 @@ if ingest_run is None:
         Column("error_message", Text),
         Column("code_version", Text),
         CheckConstraint(
-            "mode IN ('backfill', 'incremental', 'manual')", name="run_mode_check"
+            "mode IN ('backfill', 'incremental', 'manual', 'plan')",
+            name="run_mode_check",
         ),
         CheckConstraint(
             "status IN ('running', 'succeeded', 'failed', 'partial')",

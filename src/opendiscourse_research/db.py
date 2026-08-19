@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
-from typing import Iterator
 
 import psycopg
 from alembic import command
 from alembic.config import Config
 from psycopg.rows import dict_row
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, make_url
 from sqlmodel import Session
 
@@ -17,9 +17,6 @@ from .config import settings
 from .feedback import progress
 
 ROOT = Path(__file__).resolve().parents[2]
-CATALOG_BASELINE_REVISION = "d207df35ca10"
-
-
 def connect() -> psycopg.Connection:
     return psycopg.connect(settings.database_url, row_factory=dict_row)
 
@@ -63,21 +60,8 @@ def _alembic_config() -> Config:
 
 
 def apply_migrations() -> None:
-    """Bootstrap legacy SQL, then adopt and advance Alembic-owned schema revisions."""
-    paths = sorted((ROOT / "sql").glob("*.sql"))
-    with progress("Applying database migrations", len(paths) + 2) as advance:
-        with connect() as conn:
-            for path in paths:
-                with conn.cursor() as cur:
-                    cur.execute(path.read_text())
-                conn.commit()
-                advance(f"Applied legacy migration {path.name}")
-
+    """Upgrade the mapped database schema through Alembic."""
+    with progress("Applying database migrations", 1) as advance:
         config = _alembic_config()
-        if not inspect(engine()).has_table("alembic_version"):
-            command.stamp(config, CATALOG_BASELINE_REVISION)
-            advance("Stamped Alembic baseline")
-        else:
-            advance("Alembic baseline already stamped")
         command.upgrade(config, "head")
-        advance("Applied Alembic-owned schema revisions")
+        advance("Applied Alembic schema revisions")

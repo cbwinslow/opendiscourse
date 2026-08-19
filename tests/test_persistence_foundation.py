@@ -139,7 +139,7 @@ def catalog_database() -> Iterator[None]:
 
 
 def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
-    """Legacy bootstrap advances Alembic through adopted schema revisions."""
+    """Direct Alembic bootstrap creates adopted schemas and search indexes."""
     with engine().connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         indexes = {
@@ -169,6 +169,12 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
                 )
             )
         }
+        run_mode_constraint = connection.execute(
+            text(
+                "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+                "WHERE conrelid = 'ingest.run'::regclass AND conname = 'run_mode_check'"
+            )
+        ).scalar_one()
         extensions = {
             row[0]
             for row in connection.execute(
@@ -184,6 +190,7 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
     assert {"resource_title_trgm_idx", "resource_fts_idx"} <= indexes
     assert {"membership_person_idx", "membership_organization_idx"} <= membership_indexes
     assert "membership_check" in membership_constraints
+    assert "'plan'" in run_mode_constraint
 
 
 def test_alembic_adoptions_can_downgrade_and_reupgrade(

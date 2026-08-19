@@ -6,9 +6,10 @@ Last verified: 2026-08-19
 
 SQLModel/SQLAlchemy is the application persistence API. Alembic owns all
 application table contracts in the `catalog`, `core`, `fact`, `ingest`,
-and `stage` schemas. The existing ordered `sql/` files are retained as the
-legacy bootstrap seed while adoption revisions preserve a reversible upgrade
-history. Alembic also owns the adopted `core.geography_boundary`,
+and `stage` schemas. Alembic creates a new database directly; the ordered
+`sql/` files remain as legacy-history references while adoption revisions
+preserve a reversible upgrade history. Alembic also owns the adopted
+`core.geography_boundary`,
 `core.jurisdiction`, and
 `core.legislative_session`, `core.bill`, and `core.bill_identifier` tables.
 Alembic also owns `core.person` and `core.person_identifier`. SQLAlchemy
