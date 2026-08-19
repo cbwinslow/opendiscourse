@@ -9,7 +9,16 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select, text
 
-from opendiscourse_research.browser import basket, get_resource, search, sync_acs, toggle, upsert_fields
+from opendiscourse_research.browser import (
+    basket,
+    get_resource,
+    search,
+    sync_acs,
+    sync_bls,
+    sync_fred,
+    toggle,
+    upsert_fields,
+)
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
 from opendiscourse_research.db import _engine, apply_migrations, engine, session
@@ -224,3 +233,34 @@ def test_acs_sync_preserves_artifact_backed_snapshot_provenance(
         assert memberships[0].resource_id == resource.resource_id
     finally:
         settings.data_root = original_data_root
+
+
+def test_curated_provider_syncs_record_idempotent_catalog_snapshots(
+    catalog_database: None,
+) -> None:
+    """Curated manifests use the common SQLAlchemy resource and snapshot path."""
+    fred = sync_fred()
+    bls = sync_bls()
+    assert sync_fred() == fred
+    assert sync_bls() == bls
+
+    with session() as active_session:
+        fred_snapshot = active_session.scalar(
+            select(CatalogSnapshot).where(
+                CatalogSnapshot.dataset_id == "fred.series",
+                CatalogSnapshot.metadata_["kind"].astext == "curated_series_manifest",
+            )
+        )
+        bls_snapshots = list(
+            active_session.scalars(
+                select(CatalogSnapshot).where(
+                    CatalogSnapshot.dataset_id.in_(("bls.cpi", "bls.laus")),
+                    CatalogSnapshot.metadata_["kind"].astext == "curated_series_manifest",
+                )
+            )
+        )
+
+    assert fred["resources"] > 0
+    assert bls["resources"] > 0
+    assert fred_snapshot is not None
+    assert len(bls_snapshots) == 2

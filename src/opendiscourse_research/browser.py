@@ -9,7 +9,6 @@ from time import sleep
 from typing import Any
 
 import yaml
-from psycopg.types.json import Jsonb
 from sqlalchemy import String, cast, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import insert
 
@@ -129,6 +128,58 @@ def ensure_acs(year: int = 2024) -> int:
     return sync_acs(year)
 
 
+def _upsert_catalog_resource(active_session: Any, **values: Any) -> None:
+    """Idempotently persist one catalog resource in the caller's transaction."""
+    table = Resource.__table__
+    statement = insert(table).values(**values)
+    excluded = statement.excluded
+    active_session.execute(
+        statement.on_conflict_do_update(
+            index_elements=(table.c.dataset_id, table.c.resource_key),
+            set_={
+                "resource_type": excluded.resource_type,
+                "title": excluded.title,
+                "summary": excluded.summary,
+                "universe": excluded.universe,
+                "release_year": excluded.release_year,
+                "metadata": excluded.metadata,
+                "updated_at": func.now(),
+            },
+        )
+    )
+
+
+def _record_catalog_snapshot(
+    active_session: Any,
+    dataset_id: str,
+    source_url: str,
+    checksum_sha256: str,
+    metadata: dict[str, Any],
+) -> None:
+    """Record an idempotent catalog snapshot and the resources it represents."""
+    snapshot_table = CatalogSnapshot.__table__
+    statement = insert(snapshot_table).values(
+        dataset_id=dataset_id,
+        source_url=source_url,
+        checksum_sha256=checksum_sha256,
+        metadata=metadata,
+    )
+    snapshot_id = active_session.execute(
+        statement.on_conflict_do_update(
+            index_elements=(snapshot_table.c.dataset_id, snapshot_table.c.checksum_sha256),
+            set_={"metadata": statement.excluded.metadata},
+        ).returning(snapshot_table.c.snapshot_id)
+    ).scalar_one()
+    active_session.execute(
+        insert(SnapshotResource.__table__)
+        .from_select(
+            ("snapshot_id", "resource_id"),
+            select(literal(snapshot_id), Resource.resource_id).where(Resource.dataset_id == dataset_id),
+        )
+        .on_conflict_do_nothing()
+    )
+
+
 def _fred_manifest() -> tuple[Path, list[dict[str, Any]]]:
     path = Path(__file__).resolve().parents[2] / "inventory" / "core_fred_series.yaml"
     return path, yaml.safe_load(path.read_text())["series"]
@@ -163,7 +214,7 @@ def sync_fred(refresh: bool = False) -> dict[str, Any]:
     path, series = _fred_manifest()
     enrich = refresh and bool(settings.fred_api_key)
     issues: list[str] = []
-    with connect() as conn, conn.cursor() as cur:
+    with session() as active_session:
         for entry in series:
             remote, issue = _fred_metadata(entry["series_id"]) if enrich else ({}, None)
             if issue:
@@ -190,49 +241,23 @@ def sync_fred(refresh: bool = False) -> dict[str, Any]:
             }
             if issue:
                 metadata["provider_error"] = issue
-            cur.execute(
-                """INSERT INTO catalog.resource
-                   (dataset_id, resource_key, resource_type, title, summary, metadata)
-                   VALUES ('fred.series', %(key)s, %(type)s, %(title)s, %(summary)s, %(metadata)s)
-                   ON CONFLICT (dataset_id, resource_key) DO UPDATE SET
-                     resource_type = EXCLUDED.resource_type, title = EXCLUDED.title,
-                     summary = EXCLUDED.summary, metadata = EXCLUDED.metadata, updated_at = now()""",
-                {
-                    "key": entry["series_id"],
-                    "type": entry["category"],
-                    "title": remote.get("title", entry["label"]),
-                    "summary": remote.get(
-                        "notes", entry.get("notes") or entry["label"]
-                    ),
-                    "metadata": Jsonb(metadata),
-                },
+            _upsert_catalog_resource(
+                active_session,
+                dataset_id="fred.series",
+                resource_key=entry["series_id"],
+                resource_type=entry["category"],
+                title=remote.get("title", entry["label"]),
+                summary=remote.get("notes", entry.get("notes") or entry["label"]),
+                metadata=metadata,
             )
         checksum = sha256(path.read_bytes()).hexdigest()
-        cur.execute(
-            """INSERT INTO catalog.snapshot (dataset_id, source_url, checksum_sha256, metadata)
-               VALUES ('fred.series', %s, %s, %s)
-               ON CONFLICT (dataset_id, checksum_sha256) DO UPDATE SET metadata = EXCLUDED.metadata
-               RETURNING snapshot_id""",
-            (
-                "https://api.stlouisfed.org/fred/series",
-                checksum,
-                Jsonb(
-                    {
-                        "kind": "curated_series_manifest",
-                        "path": str(path),
-                        "enriched": enrich,
-                    }
-                ),
-            ),
+        _record_catalog_snapshot(
+            active_session,
+            "fred.series",
+            "https://api.stlouisfed.org/fred/series",
+            checksum,
+            {"kind": "curated_series_manifest", "path": str(path), "enriched": enrich},
         )
-        snapshot_id = cur.fetchone()["snapshot_id"]
-        cur.execute(
-            """INSERT INTO catalog.snapshot_resource (snapshot_id, resource_id)
-               SELECT %s, resource_id FROM catalog.resource WHERE dataset_id = 'fred.series'
-               ON CONFLICT DO NOTHING""",
-            (snapshot_id,),
-        )
-        conn.commit()
     return {
         "resources": len(series),
         "state": "synced",
@@ -256,7 +281,7 @@ def sync_bls() -> dict[str, Any]:
     acquired.
     """
     path, series = _bls_manifest()
-    with connect() as conn, conn.cursor() as cur:
+    with session() as active_session:
         for entry in series:
             metadata = {
                 "series_id": entry["series_id"],
@@ -264,44 +289,24 @@ def sync_bls() -> dict[str, Any]:
                 "priority": entry["priority"],
                 "notes": entry.get("notes"),
             }
-            cur.execute(
-                """INSERT INTO catalog.resource
-                   (dataset_id, resource_key, resource_type, title, summary, metadata)
-                   VALUES (%(dataset)s, %(key)s, %(type)s, %(title)s, %(summary)s, %(metadata)s)
-                   ON CONFLICT (dataset_id, resource_key) DO UPDATE SET
-                     resource_type = EXCLUDED.resource_type, title = EXCLUDED.title,
-                     summary = EXCLUDED.summary, metadata = EXCLUDED.metadata, updated_at = now()""",
-                {
-                    "dataset": entry["dataset"],
-                    "key": entry["series_id"],
-                    "type": entry["category"],
-                    "title": entry["label"],
-                    "summary": entry.get("notes") or entry["label"],
-                    "metadata": Jsonb(metadata),
-                },
+            _upsert_catalog_resource(
+                active_session,
+                dataset_id=entry["dataset"],
+                resource_key=entry["series_id"],
+                resource_type=entry["category"],
+                title=entry["label"],
+                summary=entry.get("notes") or entry["label"],
+                metadata=metadata,
             )
         checksum = sha256(path.read_bytes()).hexdigest()
         for dataset_id in {entry["dataset"] for entry in series}:
-            cur.execute(
-                """INSERT INTO catalog.snapshot (dataset_id, source_url, checksum_sha256, metadata)
-                   VALUES (%s, %s, %s, %s)
-                   ON CONFLICT (dataset_id, checksum_sha256) DO UPDATE SET metadata = EXCLUDED.metadata
-                   RETURNING snapshot_id""",
-                (
-                    dataset_id,
-                    "https://api.bls.gov/publicAPI/v2/timeseries/data/",
-                    checksum,
-                    Jsonb({"kind": "curated_series_manifest", "path": str(path)}),
-                ),
+            _record_catalog_snapshot(
+                active_session,
+                dataset_id,
+                "https://api.bls.gov/publicAPI/v2/timeseries/data/",
+                checksum,
+                {"kind": "curated_series_manifest", "path": str(path)},
             )
-            snapshot_id = cur.fetchone()["snapshot_id"]
-            cur.execute(
-                """INSERT INTO catalog.snapshot_resource (snapshot_id, resource_id)
-                   SELECT %s, resource_id FROM catalog.resource WHERE dataset_id = %s
-                   ON CONFLICT DO NOTHING""",
-                (snapshot_id, dataset_id),
-            )
-        conn.commit()
     return {"resources": len(series), "state": "synced"}
 
 
@@ -391,7 +396,7 @@ def sync_fred_full() -> dict[str, Any]:
             if not page or offset >= int(payload.get("count", 0)):
                 break
     canonical = json.dumps(series, sort_keys=True, separators=(",", ":")).encode()
-    with connect() as conn, conn.cursor() as cur:
+    with session() as active_session:
         for series_id, item in series.items():
             metadata = {
                 key: item.get(key)
@@ -414,45 +419,28 @@ def sync_fred_full() -> dict[str, Any]:
                     "scope": "full",
                 }
             )
-            cur.execute(
-                """INSERT INTO catalog.resource (dataset_id, resource_key, resource_type, title, summary, metadata)
-                   VALUES ('fred.series', %s, 'series', %s, %s, %s)
-                   ON CONFLICT (dataset_id, resource_key) DO UPDATE SET resource_type = EXCLUDED.resource_type,
-                     title = EXCLUDED.title, summary = EXCLUDED.summary, metadata = EXCLUDED.metadata, updated_at = now()""",
-                (
-                    series_id,
-                    item.get("title", series_id),
-                    item.get("notes"),
-                    Jsonb(metadata),
-                ),
+            _upsert_catalog_resource(
+                active_session,
+                dataset_id="fred.series",
+                resource_key=series_id,
+                resource_type="series",
+                title=item.get("title", series_id),
+                summary=item.get("notes"),
+                metadata=metadata,
             )
         checksum = sha256(canonical).hexdigest()
-        cur.execute(
-            """INSERT INTO catalog.snapshot (dataset_id, source_url, checksum_sha256, metadata)
-               VALUES ('fred.series', %s, %s, %s)
-               ON CONFLICT (dataset_id, checksum_sha256) DO UPDATE SET metadata = EXCLUDED.metadata
-               RETURNING snapshot_id""",
-            (
-                "https://api.stlouisfed.org/fred/category/series",
-                checksum,
-                Jsonb(
-                    {
-                        "kind": "full_category_catalog",
-                        "categories": len(categories),
-                        "memberships": memberships,
-                        "resources": len(series),
-                    }
-                ),
-            ),
+        _record_catalog_snapshot(
+            active_session,
+            "fred.series",
+            "https://api.stlouisfed.org/fred/category/series",
+            checksum,
+            {
+                "kind": "full_category_catalog",
+                "categories": len(categories),
+                "memberships": memberships,
+                "resources": len(series),
+            },
         )
-        snapshot_id = cur.fetchone()["snapshot_id"]
-        cur.execute(
-            """INSERT INTO catalog.snapshot_resource (snapshot_id, resource_id)
-                       SELECT %s, resource_id FROM catalog.resource WHERE dataset_id = 'fred.series'
-                       ON CONFLICT DO NOTHING""",
-            (snapshot_id,),
-        )
-        conn.commit()
     return {
         "state": "synced",
         "categories": len(categories),
