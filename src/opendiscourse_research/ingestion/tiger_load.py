@@ -7,8 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from psycopg.types.json import Jsonb
+from sqlalchemy import select
 
-from ..db import connect
+from ..db import connect, session
+from ..models.catalog import artifact_table
 
 LAYER_INFO = {
     "state": ("state", "GEOID", "NAME", "STATEFP", None),
@@ -34,16 +36,19 @@ def _scope(plan: dict[str, Any]) -> set[str]:
     return layers
 
 
-def _artifact(conn: Any, key: str) -> dict[str, Any]:
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT artifact_id, local_path FROM ingest.artifact WHERE artifact_key = %s AND status IN ('downloaded', 'skipped')",
-            (key,),
-        )
-        row = cur.fetchone()
+def _artifact(key: str) -> dict[str, Any]:
+    """Return a downloaded TIGER artifact through immutable typed evidence storage."""
+    table = artifact_table()
+    with session() as active_session:
+        row = active_session.execute(
+            select(table.c.artifact_id, table.c.local_path).where(
+                table.c.artifact_key == key,
+                table.c.status.in_(("downloaded", "skipped")),
+            )
+        ).mappings().first()
     if row is None:
         raise ValueError(f"Required TIGER artifact {key!r} has not been downloaded")
-    return row
+    return dict(row)
 
 
 def stage_tiger(
@@ -64,7 +69,7 @@ def stage_tiger(
             layer = str(item["kind"])
             if layer not in _scope(plan):
                 continue
-            artifact = _artifact(conn, item["artifact_key"])
+            artifact = _artifact(item["artifact_key"])
             if update:
                 update(f"Reading TIGER {layer} features")
             _geography_type, geoid_key, name_key, state_key, county_key = LAYER_INFO[
@@ -139,7 +144,7 @@ def load_tiger(
         # ON CONFLICT DO UPDATE ("cannot affect row a second time") -- this
         # was latent and never triggered while only one vintage existed.
         artifact_ids = [
-            _artifact(conn, item["artifact_key"])["artifact_id"]
+            _artifact(item["artifact_key"])["artifact_id"]
             for item in plan["artifacts"]
             if str(item["kind"]) in layers
         ]

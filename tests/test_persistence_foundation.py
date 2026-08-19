@@ -33,6 +33,7 @@ from opendiscourse_research.ingestion import census as census_ingestion
 from opendiscourse_research.ingestion import bls as bls_ingestion
 from opendiscourse_research.ingestion import fred as fred_ingestion
 from opendiscourse_research.ingestion.base import IngestionRun
+from opendiscourse_research.ingestion.tiger_load import _artifact as tiger_artifact
 from opendiscourse_research.models.catalog import (
     CatalogSnapshot,
     DatasetField,
@@ -513,6 +514,27 @@ def test_bls_ingestion_upserts_monthly_measurements_with_sqlalchemy(
     assert rows[0]["value_numeric"] == 2.5
     assert rows[0]["flags"] == {"source": "BLS"}
     assert rows[0]["source_payload_id"] is not None
+
+
+def test_tiger_artifact_lookup_uses_typed_immutable_evidence(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """TIGER staging resolves only registered downloaded artifacts via the shared mapping."""
+    source = tmp_path / "tiger.zip"
+    source.write_bytes(b"test tiger artifact")
+    register_local(
+        ArtifactSpec(
+            dataset_id="census.tiger",
+            artifact_key="test-tiger-typed-artifact",
+            url="https://example.test/tiger.zip",
+            filename="tiger.zip",
+        ),
+        source,
+    )
+
+    artifact = tiger_artifact("test-tiger-typed-artifact")
+    assert artifact["artifact_id"]
+    assert artifact["local_path"] == str(source.resolve())
 
 
 def test_typed_postgis_boundary_mapping_round_trips_geometry(
