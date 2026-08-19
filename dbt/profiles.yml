@@ -6,17 +6,17 @@
 # this profile uses TCP loopback + scram-sha-256 instead. pg_hba.conf already
 # allowed `host all all 127.0.0.1/32 scram-sha-256`; only the role needed a
 # password (see docs/runtime.md for the auth model this adds to).
-# Set DBT_PG_PASSWORD before running dbt (e.g. in .env, sourced into your
-# shell -- dbt does not read .env files itself).
+# The defaults match compose.yaml. Override DBT_PG_* for bare-metal or a
+# shared deployment; dbt does not read .env files until the shell exports it.
 opendiscourse:
   target: dev
   outputs:
     dev:
       type: postgres
-      host: 127.0.0.1
-      port: 5434
-      user: cbwinslow
-      password: "{{ env_var('DBT_PG_PASSWORD') }}"
-      dbname: opendiscourse
+      host: "{{ env_var('DBT_PG_HOST', '127.0.0.1') }}"
+      port: "{{ env_var('DBT_PG_PORT', '5433') | int }}"
+      user: "{{ env_var('DBT_PG_USER', 'research') }}"
+      password: "{{ env_var('DBT_PG_PASSWORD', 'change-me') }}"
+      dbname: "{{ env_var('DBT_PG_DBNAME', 'research') }}"
       schema: mart
       threads: 4
