@@ -63,7 +63,7 @@ def _alembic_config() -> Config:
 
 
 def apply_migrations() -> None:
-    """Bootstrap legacy SQL, then adopt and advance catalog Alembic revisions."""
+    """Bootstrap legacy SQL, then adopt and advance Alembic-owned schema revisions."""
     paths = sorted((ROOT / "sql").glob("*.sql"))
     with progress("Applying database migrations", len(paths) + 2) as advance:
         with connect() as conn:
@@ -76,8 +76,8 @@ def apply_migrations() -> None:
         config = _alembic_config()
         if not inspect(engine()).has_table("alembic_version"):
             command.stamp(config, CATALOG_BASELINE_REVISION)
-            advance("Stamped catalog Alembic baseline")
+            advance("Stamped Alembic baseline")
         else:
-            advance("Catalog Alembic baseline already stamped")
+            advance("Alembic baseline already stamped")
         command.upgrade(config, "head")
-        advance("Applied catalog Alembic revisions")
+        advance("Applied Alembic-owned schema revisions")

@@ -1,4 +1,4 @@
-"""Alembic environment restricted to the SQLModel-owned catalog schema."""
+"""Alembic environment for adopted SQLModel-owned schemas."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from opendiscourse_research.config import settings
-from opendiscourse_research.models import catalog  # noqa: F401 - register metadata
+from opendiscourse_research.models import catalog, ingest  # noqa: F401 - register metadata
 from sqlmodel import SQLModel
 
 config = context.config
@@ -24,9 +24,9 @@ target_metadata = SQLModel.metadata
 
 
 def include_name(name: str | None, type_: str, parent_names: dict[str, str]) -> bool:
-    """Reflect only catalog schema objects during migration autogeneration."""
+    """Reflect only schemas explicitly adopted by Alembic."""
     if type_ == "schema":
-        return name == "catalog"
+        return name in {"catalog", "ingest"}
     return True
 
 

@@ -138,8 +138,8 @@ def catalog_database() -> Iterator[None]:
             _engine.cache_clear()
 
 
-def test_catalog_baseline_and_search_indexes(catalog_database: None) -> None:
-    """Legacy bootstrap stamps Alembic and exposes the intended search indexes."""
+def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
+    """Legacy bootstrap advances Alembic through adopted schema revisions."""
     with engine().connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         indexes = {
@@ -161,15 +161,15 @@ def test_catalog_baseline_and_search_indexes(catalog_database: None) -> None:
             )
         }
 
-    assert revision == "d207df35ca10"
+    assert revision == "f5e8a3c47d12"
     assert {"pg_trgm", "unaccent"} <= extensions
     assert {"resource_title_trgm_idx", "resource_fts_idx"} <= indexes
 
 
-def test_catalog_alembic_adoption_can_downgrade_and_reupgrade(
+def test_alembic_adoptions_can_downgrade_and_reupgrade(
     catalog_database: None,
 ) -> None:
-    """Alembic's no-op adoption revision is reversible over the legacy-seeded schema."""
+    """Adoption revisions are reversible over the legacy-seeded schemas."""
     config = _alembic_config()
     command.downgrade(config, "base")
     try:
@@ -180,7 +180,7 @@ def test_catalog_alembic_adoption_can_downgrade_and_reupgrade(
         command.upgrade(config, "head")
 
     with engine().connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "d207df35ca10"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "f5e8a3c47d12"
 
 
 def test_resource_upserts_are_idempotent_and_search_indexes_are_usable(

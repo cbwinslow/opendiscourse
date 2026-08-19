@@ -5,19 +5,24 @@ Last verified: 2026-08-19
 ## Adopted stack
 
 SQLModel/SQLAlchemy is the application persistence API. Alembic owns the
-adopted `catalog` schema; the existing ordered `sql/` files remain the schema
-owner for every other schema until its bounded migration is explicitly
-approved. SQLAlchemy continues to use the project's `psycopg` driver.
+adopted `catalog` schema plus OpenStates evidence tables
+`ingest.resume_cursor` and `ingest.identity_exception`; the existing ordered
+`sql/` files remain the schema owner for every other schema until its bounded
+migration is explicitly approved. SQLAlchemy continues to use the project's
+`psycopg` driver.
 
-The `catalog` Alembic baseline is an adoption marker over the legacy-seeded
-schema. The real PostGIS regression suite verifies both downgrade to `base`
-and re-upgrade to the adopted revision without changing legacy catalog tables.
+The Alembic baseline and adoption revisions are markers over the legacy-seeded
+schemas. The real PostGIS regression suite verifies both downgrade to `base`
+and re-upgrade to the adopted revision without changing legacy tables.
 
 ## Completed typed boundaries
 
 - Alembic-owned catalog models and browser/repository/registry persistence:
   providers, datasets, fields, resources, baskets, snapshots, plans, and
   discovery leases.
+- Alembic-adopted OpenStates ingestion evidence: resume checkpoints and
+  unresolved identity exceptions, including their validation constraints and
+  lookup index.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Integer, Table, Text, text
+from sqlalchemy import BigInteger, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, Table, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PostgreSQLUUID
 from sqlmodel import SQLModel
 
@@ -105,8 +105,10 @@ ingest_resume_cursor = Table(
     Column("last_run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id")),
     Column("state", Text, nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint(
+        "state IN ('running', 'paused', 'complete')", name="resume_cursor_state_check"
+    ),
     schema="ingest",
-    info={"alembic_exclude": True},
 )
 
 
@@ -125,16 +127,21 @@ ingest_identity_exception = Table(
     Column("reference_count", Integer, nullable=False, server_default=text("1")),
     Column("first_seen_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     Column("last_seen_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("kind IN ('voter')", name="identity_exception_kind_check"),
+    CheckConstraint(
+        "reference_count > 0", name="identity_exception_reference_count_check"
+    ),
+    UniqueConstraint("run_id", "kind", "namespace", "external_id", "reason"),
+    Index("identity_exception_lookup_idx", "congress", "namespace", "external_id"),
     schema="ingest",
-    info={"alembic_exclude": True},
 )
 
 
 def resume_cursor_table():
-    """Return legacy OpenStates resume checkpoints without Alembic ownership."""
+    """Return Alembic-adopted OpenStates resume checkpoints."""
     return ingest_resume_cursor
 
 
 def identity_exception_table():
-    """Return legacy identity exceptions without taking Alembic ownership."""
+    """Return Alembic-adopted unresolved identity exceptions."""
     return ingest_identity_exception
