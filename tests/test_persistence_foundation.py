@@ -24,7 +24,8 @@ from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
 from opendiscourse_research.db import _engine, apply_migrations, engine, session
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
-from opendiscourse_research.models.catalog import CatalogSnapshot, Resource, SnapshotResource
+from opendiscourse_research.ingestion import census as census_ingestion
+from opendiscourse_research.models.catalog import CatalogSnapshot, DatasetField, Resource, SnapshotResource
 from opendiscourse_research.repositories.catalog import (
     cache_fred_records,
     delete_resources_prefix,
@@ -317,3 +318,33 @@ def test_census_api_catalog_sync_links_resources_to_the_ingested_payload(
     assert resource.release_year == 2030
     assert resource.metadata_["source_payload_id"] == repeat["payload_id"]
     assert snapshot is not None
+
+
+def test_acs_field_catalog_uses_batched_sqlalchemy_upserts(
+    catalog_database: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Official ACS shell fields retain labels and are safe to load repeatedly."""
+    shell = tmp_path / "ACS2030_Table_Shells.txt"
+    shell.write_text(
+        "Unique ID|Label|Title|Universe|Type|Line|Indent\n"
+        "B01001_001|Total:|Sex by Age|Total population|N|1|0\n"
+    )
+    monkeypatch.setattr(census_ingestion, "remote_size", lambda _: 1)
+    monkeypatch.setattr(census_ingestion, "storage_preview", lambda _: {"approved": True})
+    monkeypatch.setattr(census_ingestion, "download", lambda _: shell)
+
+    assert census_ingestion.load_acs_field_catalog(2030) == 2
+    assert census_ingestion.load_acs_field_catalog(2030) == 2
+    with session() as active_session:
+        fields = list(
+            active_session.scalars(
+                select(DatasetField).where(
+                    DatasetField.dataset_id == "census.acs_5_bulk",
+                    DatasetField.field_id.in_(("B01001_E001", "B01001_M001")),
+                )
+            )
+        )
+
+    assert len(fields) == 2
+    assert {field.label for field in fields} == {"Total:"}
+    assert {field.metadata_["table_id"] for field in fields} == {"B01001"}

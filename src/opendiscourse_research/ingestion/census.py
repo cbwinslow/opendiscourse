@@ -10,11 +10,13 @@ from typing import Any
 
 import yaml
 from openpyxl import load_workbook
-from psycopg.types.json import Jsonb
+from sqlalchemy.dialects.postgresql import insert
 
 from ..capacity import remote_size, storage_preview
 from ..config import settings
 from ..contracts import get_contract
+from ..db import session
+from ..models.catalog import DatasetField
 from .base import IngestionRun, client, json_response
 from .bulk import ArtifactSpec, data_root, download
 
@@ -325,7 +327,7 @@ def load_acs_field_catalog(year: int) -> int:
     ) as run:
         path = download(spec)
         valid_from = date(year, 1, 1)
-        rows: list[tuple[Any, ...]] = []
+        rows: list[dict[str, Any]] = []
         with path.open(encoding="utf-8-sig", newline="") as handle:
             reader = csv.DictReader(handle, delimiter="|")
             for record in reader:
@@ -347,28 +349,30 @@ def load_acs_field_catalog(year: int) -> int:
                 }
                 for measure in ("E", "M"):
                     rows.append(
-                        (
-                            "census.acs_5_bulk",
-                            f"{table_id}_{measure}{number}",
-                            label,
-                            data_type,
-                            description,
-                            valid_from,
-                            Jsonb(metadata),
-                        )
+                        {
+                            "dataset_id": "census.acs_5_bulk",
+                            "field_id": f"{table_id}_{measure}{number}",
+                            "label": label,
+                            "data_type": data_type,
+                            "description": description,
+                            "valid_from": valid_from,
+                            "metadata": metadata,
+                        }
                     )
-        with run.conn.cursor() as cur:
+        table = DatasetField.__table__
+        statement = insert(table)
+        update_statement = statement.on_conflict_do_update(
+            index_elements=(table.c.dataset_id, table.c.field_id, table.c.valid_from),
+            set_={
+                "label": statement.excluded.label,
+                "data_type": statement.excluded.data_type,
+                "description": statement.excluded.description,
+                "metadata": statement.excluded.metadata,
+            },
+        )
+        with session() as active_session:
             for start in range(0, len(rows), 2_000):
-                cur.executemany(
-                    """INSERT INTO catalog.dataset_field
-                       (dataset_id, field_id, label, data_type, description, valid_from, metadata)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s)
-                       ON CONFLICT (dataset_id, field_id, valid_from) DO UPDATE SET
-                         label = EXCLUDED.label, data_type = EXCLUDED.data_type,
-                         description = EXCLUDED.description, metadata = EXCLUDED.metadata""",
-                    rows[start : start + 2_000],
-                )
-        run.conn.commit()
+                active_session.execute(update_statement, rows[start : start + 2_000])
         run.record_count = len(rows)
     return run.record_count
 
