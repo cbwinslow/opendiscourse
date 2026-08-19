@@ -141,8 +141,8 @@ core_bill = Table(
     Column("legislative_session_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.legislative_session.legislative_session_id")),
     Column("ocd_id", Text),
     UniqueConstraint("jurisdiction", "legislative_session", "bill_type", "bill_number"),
+    Index("bill_ocd_id_idx", "ocd_id", unique=True, postgresql_where=text("ocd_id IS NOT NULL")),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 
@@ -156,18 +156,22 @@ core_bill_identifier = Table(
     Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
     Column("source_url", Text),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    CheckConstraint(
+        "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
+        name="bill_identifier_check",
+    ),
+    Index("bill_identifier_bill_idx", "bill_id"),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 
 def bill_table():
-    """Return legacy canonical bill storage without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical bill table."""
     return core_bill
 
 
 def bill_identifier_table():
-    """Return legacy bill identifier storage without taking Alembic ownership."""
+    """Return the Alembic-adopted bill-identifier provenance table."""
     return core_bill_identifier
 
 
