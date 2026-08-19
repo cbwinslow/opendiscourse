@@ -9,7 +9,7 @@ import httpx
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 
-from ..db import connect, session
+from ..db import session
 from ..models.ingest import raw_payload_table, run_table
 
 
@@ -18,7 +18,6 @@ class IngestionRun(AbstractContextManager):
         self, dataset_id: str, parameters: dict[str, Any], mode: str = "manual"
     ):
         self.dataset_id, self.parameters, self.mode = dataset_id, parameters, mode
-        self.conn = None
         self.run_id = None
         self.record_count = 0
         self.status_override: str | None = None
@@ -28,7 +27,6 @@ class IngestionRun(AbstractContextManager):
         self.status_override = "partial"
 
     def __enter__(self) -> Self:
-        self.conn = connect()
         table = run_table()
         with session() as active_session:
             self.run_id = active_session.execute(
@@ -65,10 +63,6 @@ class IngestionRun(AbstractContextManager):
 
     def __exit__(self, exc_type, exc, tb) -> None:
         status = "failed" if exc else self.status_override or "succeeded"
-        if exc:
-            self.conn.rollback()
-        else:
-            self.conn.commit()
         table = run_table()
         with session() as active_session:
             active_session.execute(
@@ -81,7 +75,6 @@ class IngestionRun(AbstractContextManager):
                     error_message=str(exc) if exc else None,
                 )
             )
-        self.conn.close()
 
 
 def client() -> httpx.Client:
