@@ -34,8 +34,7 @@ def _json_object_column() -> Column[dict[str, Any]]:
 _timestamp = DateTime(timezone=True)
 
 # ``catalog.resource`` preserves a foreign key to immutable ingest evidence.
-# The owned model slice does not map ``ingest.artifact`` yet, but SQLAlchemy
-# needs a lightweight target table to order and render that foreign key.
+# ``ingest.artifact`` is adopted by Alembic alongside catalog provenance.
 _artifact = Table(
     "artifact",
     SQLModel.metadata,
@@ -45,7 +44,7 @@ _artifact = Table(
         primary_key=True,
         server_default=text("gen_random_uuid()"),
     ),
-    Column("dataset_id", Text, nullable=False),
+    Column("dataset_id", Text, ForeignKey("catalog.dataset.dataset_id"), nullable=False),
     Column("remote_url", Text, nullable=False),
     Column("local_path", Text, nullable=False),
     Column("artifact_key", Text, nullable=False),
@@ -61,13 +60,17 @@ _artifact = Table(
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     Column("error_message", Text),
     UniqueConstraint("dataset_id", "artifact_key"),
+    CheckConstraint(
+        "status IN ('planned', 'downloading', 'downloaded', 'loaded', 'failed', 'skipped')",
+        name="artifact_status_check",
+    ),
+    Index("artifact_dataset_status_idx", "dataset_id", "status"),
     schema="ingest",
-    info={"alembic_exclude": True},
 )
 
 
 def artifact_table() -> Table:
-    """Return the read-only ingest artifact reference used by catalog provenance."""
+    """Return the Alembic-adopted immutable artifact evidence table."""
     return _artifact
 
 
