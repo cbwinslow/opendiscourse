@@ -25,6 +25,7 @@ from ..models.core import (
     jurisdiction_table,
     legislative_session_table,
     person_identifier_table,
+    person_table,
 )
 from ..models.ingest import identity_exception_table, resume_cursor_table
 
@@ -394,19 +395,68 @@ def sync_openstates_federal_people(conn: Any) -> dict[str, int]:
     return counts
 
 
-def resolve_bill_sponsorship_people(conn: Any) -> int:
+def resolve_bill_sponsorship_people(conn: Any | None = None) -> int:
     """Link unresolved bill sponsorships to canonical people by stable identifier."""
+    if conn is None:
+        sponsorship = bill_sponsorship_table()
+        identifier = person_identifier_table()
+        person_id = (
+            select(identifier.c.person_id)
+            .where(
+                identifier.c.namespace == sponsorship.c.member_namespace,
+                identifier.c.external_id == sponsorship.c.member_external_id,
+            )
+            .scalar_subquery()
+        )
+        statement = (
+            sponsorship.update()
+            .where(
+                sponsorship.c.person_id.is_(None),
+                person_id.is_not(None),
+            )
+            .values(person_id=person_id)
+            .returning(sponsorship.c.bill_sponsorship_id)
+        )
+        with session() as active_session:
+            return len(active_session.execute(statement).all())
     with conn.cursor() as cur:
         cur.execute(_query("resolve_bill_sponsorship_people"))
         return len(cur.fetchall())
 
 
-def upsert_congress_person(member: dict[str, Any], conn: Any) -> str:
+def upsert_congress_person(member: dict[str, Any], conn: Any | None = None) -> str:
     """Upsert a Congress.gov member by BioGuide ID with primary-source metadata."""
     bioguide_id = member.get("bioguideId")
     if not bioguide_id:
         raise ValueError("Congress.gov member is missing bioguideId")
     full_name = member.get("directOrderName") or member.get("name") or bioguide_id
+    if conn is None:
+        person = person_table()
+        identifier = person_identifier_table()
+        with session() as active_session:
+            person_id = active_session.execute(
+                select(identifier.c.person_id).where(
+                    identifier.c.namespace == "bioguide",
+                    identifier.c.external_id == bioguide_id,
+                )
+            ).scalar_one_or_none()
+            if person_id is None:
+                person_id = active_session.execute(
+                    insert(person)
+                    .values(
+                        full_name=full_name,
+                        given_name=member.get("firstName"),
+                        family_name=member.get("lastName"),
+                        metadata={"congress_gov_member": member},
+                    )
+                    .returning(person.c.person_id)
+                ).scalar_one()
+                active_session.execute(
+                    insert(identifier)
+                    .values(person_id=person_id, namespace="bioguide", external_id=bioguide_id)
+                    .on_conflict_do_nothing()
+                )
+            return str(person_id)
     with conn.cursor() as cur:
         cur.execute(
             _query("upsert_person_by_bioguide"),

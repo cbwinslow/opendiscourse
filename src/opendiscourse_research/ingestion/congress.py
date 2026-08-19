@@ -93,9 +93,8 @@ def ingest_member(bioguide_id: str) -> int:
         payload = json_response(response)
         run.store_payload(response, payload)
         member = payload["member"]
-        upsert_congress_person(member, run.conn)
-        run.record_count = resolve_bill_sponsorship_people(run.conn)
-        run.conn.commit()
+        upsert_congress_person(member)
+        run.record_count = resolve_bill_sponsorship_people()
         return run.record_count
 
 

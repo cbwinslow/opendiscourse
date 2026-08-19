@@ -39,6 +39,8 @@ and re-upgrade to the adopted revision without changing legacy catalog tables.
   roll-call, member-vote, exception, and run mappings.
 - Congress.gov bill API ingestion upserts canonical bills through SQLAlchemy
   with its existing per-page transaction boundary.
+- Congress.gov member upserts and connection-free sponsorship resolution use
+  typed person, identifier, and sponsorship mappings.
 
 Every migrated database behavior has real PostgreSQL/PostGIS coverage in
 `tests/test_persistence_foundation.py`; ORM behavior is not mocked there.

@@ -64,6 +64,7 @@ from opendiscourse_research.models.core import (
     jurisdiction_table,
     legislative_session_table,
     measurement_table,
+    person_table,
 )
 from opendiscourse_research.models.ingest import (
     cursor_table,
@@ -90,8 +91,10 @@ from opendiscourse_research.repositories.legislation import (
     loaded_artifact_members,
     record_vote_identity_exceptions,
     register_artifact,
+    resolve_bill_sponsorship_people,
     save_resume_cursor,
     save_billstatus_bill,
+    upsert_congress_person,
 )
 from opendiscourse_research.providers import census
 from opendiscourse_research.providers.census import sync_acs_bulk_packages
@@ -890,6 +893,63 @@ def test_congress_api_bill_upsert_uses_typed_canonical_mapping(
         "latest_action": "Referred",
         "metadata": {"source": "congress.gov"},
     }
+
+
+def test_congress_member_and_sponsorship_resolution_use_typed_mappings(
+    catalog_database: None,
+) -> None:
+    """BioGuide identity is immutable while unresolved sponsorships link to it."""
+    artifact = register_artifact(
+        "congress.govinfo_billstatus",
+        "https://example.test/member-source.zip",
+        "/tmp/member-source.zip",
+        "test-congress-member-artifact",
+    )
+    first_member = {
+        "bioguideId": "T000002",
+        "directOrderName": "Taylor Test",
+        "firstName": "Taylor",
+        "lastName": "Test",
+    }
+    person_id = upsert_congress_person(first_member)
+    assert upsert_congress_person({**first_member, "directOrderName": "Changed Name"}) == person_id
+
+    bill = bill_table()
+    sponsorship = bill_sponsorship_table()
+    people = person_table()
+    with session() as active_session:
+        bill_id = active_session.execute(
+            insert(bill)
+            .values(jurisdiction="us", legislative_session="133", bill_type="s", bill_number="8")
+            .on_conflict_do_update(
+                index_elements=(bill.c.jurisdiction, bill.c.legislative_session, bill.c.bill_type, bill.c.bill_number),
+                set_={"title": None},
+            )
+            .returning(bill.c.bill_id)
+        ).scalar_one()
+        active_session.execute(
+            insert(sponsorship).values(
+                bill_id=bill_id,
+                member_namespace="bioguide",
+                member_external_id="T000002",
+                role="sponsor",
+                source_artifact_id=artifact["artifact_id"],
+                metadata={},
+            )
+        )
+
+    assert resolve_bill_sponsorship_people() == 1
+    assert resolve_bill_sponsorship_people() == 0
+    with session() as active_session:
+        linked_person = active_session.execute(
+            select(sponsorship.c.person_id).where(sponsorship.c.bill_id == bill_id)
+        ).scalar_one()
+        stored_name = active_session.execute(
+            select(people.c.full_name).where(people.c.person_id == person_id)
+        ).scalar_one()
+
+    assert str(linked_person) == person_id
+    assert stored_name == "Taylor Test"
 
 
 def test_legislative_session_default_path_uses_typed_core_mappings(
