@@ -28,8 +28,11 @@ from opendiscourse_research.ingestion import census as census_ingestion
 from opendiscourse_research.models.catalog import CatalogSnapshot, DatasetField, Resource, SnapshotResource
 from opendiscourse_research.repositories.catalog import (
     cache_fred_records,
+    claim_discovery,
     delete_resources_prefix,
+    discovery,
     resource_ids,
+    save_discovery,
     upsert_resource,
 )
 from opendiscourse_research.providers import census
@@ -348,3 +351,25 @@ def test_acs_field_catalog_uses_batched_sqlalchemy_upserts(
     assert len(fields) == 2
     assert {field.label for field in fields} == {"Total:"}
     assert {field.metadata_["table_id"] for field in fields} == {"B01001"}
+
+
+def test_catalog_discovery_claims_are_resumable_and_exclusive(
+    catalog_database: None,
+) -> None:
+    """A discovery worker may resume after saving progress but not double-claim live work."""
+    identifier = "test-persistence-foundation-discovery"
+    assert claim_discovery(identifier, "fred.series") is not None
+    assert claim_discovery(identifier, "fred.series") is None
+    save_discovery(
+        identifier,
+        "fred.series",
+        "paused",
+        {"offset": 10},
+        {"records": 10},
+    )
+    claimed = claim_discovery(identifier, "fred.series")
+    assert claimed is not None
+    saved = discovery(identifier)
+    assert saved is not None
+    assert saved["state"] == "running"
+    assert saved["cursor"] == {"offset": 10}

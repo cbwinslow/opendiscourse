@@ -1,19 +1,15 @@
-"""Catalog persistence repository; all reusable statements are external SQL."""
+"""Catalog persistence repository."""
 
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
-from psycopg.types.json import Jsonb
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
-from ..db import connect, session
-from ..models.catalog import Resource
-
-ROOT = Path(__file__).resolve().parents[3]
+from ..db import session
+from ..models.catalog import Discovery, Resource
 
 RESOURCE_UPDATE_COLUMNS = (
     "resource_type",
@@ -40,11 +36,6 @@ def _upsert_resource(values: dict[str, Any]) -> None:
     )
     with session() as active_session:
         active_session.execute(statement)
-
-
-def _query(name: str) -> str:
-    """Read a named, version-controlled catalog query template."""
-    return (ROOT / "sql" / "query" / "catalog" / f"{name}.sql").read_text()
 
 
 def cache_fred_records(records: list[dict[str, Any]], discovery: dict[str, Any]) -> int:
@@ -144,21 +135,55 @@ def resource_ids(
 
 def discovery(discovery_id: str) -> dict[str, Any] | None:
     """Load durable state for one bounded metadata-discovery workflow."""
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(_query("get_discovery"), {"discovery_id": discovery_id})
-        return cur.fetchone()
+    with session() as active_session:
+        row = active_session.execute(
+            select(
+                Discovery.discovery_id,
+                Discovery.dataset_id,
+                Discovery.state,
+                Discovery.cursor,
+                Discovery.statistics,
+                Discovery.error_message,
+            ).where(Discovery.discovery_id == discovery_id)
+        ).mappings().first()
+    return dict(row) if row else None
 
 
 def claim_discovery(discovery_id: str, dataset_id: str) -> dict[str, Any] | None:
     """Claim one discovery job, refusing a second active worker for 15 minutes."""
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            _query("claim_discovery"),
-            {"discovery_id": discovery_id, "dataset_id": dataset_id},
-        )
-        claimed = cur.fetchone()
-        conn.commit()
-        return claimed
+    table = Discovery.__table__
+    statement = insert(table).values(
+        discovery_id=discovery_id,
+        dataset_id=dataset_id,
+        state="running",
+        cursor={},
+        statistics={},
+        started_at=func.now(),
+    )
+    with session() as active_session:
+        claimed = active_session.execute(
+            statement.on_conflict_do_update(
+                index_elements=(table.c.discovery_id,),
+                set_={
+                    "state": "running",
+                    "error_message": None,
+                    "started_at": func.coalesce(table.c.started_at, func.now()),
+                    "updated_at": func.now(),
+                },
+                where=(
+                    (table.c.state != "running")
+                    | (table.c.updated_at < func.now() - text("interval '15 minutes'"))
+                ),
+            )
+            .returning(
+                table.c.discovery_id,
+                table.c.dataset_id,
+                table.c.state,
+                table.c.cursor,
+                table.c.statistics,
+            )
+        ).mappings().first()
+    return dict(claimed) if claimed else None
 
 
 def save_discovery(
@@ -172,18 +197,29 @@ def save_discovery(
     finished_at: datetime | None = None,
 ) -> None:
     """Persist a safe resume cursor after each committed discovery batch."""
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            _query("upsert_discovery"),
-            {
-                "discovery_id": discovery_id,
-                "dataset_id": dataset_id,
-                "state": state,
-                "cursor": Jsonb(cursor),
-                "statistics": Jsonb(statistics),
-                "error_message": error_message,
-                "started_at": started_at,
-                "finished_at": finished_at,
-            },
+    table = Discovery.__table__
+    statement = insert(table).values(
+        discovery_id=discovery_id,
+        dataset_id=dataset_id,
+        state=state,
+        cursor=cursor,
+        statistics=statistics,
+        error_message=error_message,
+        started_at=started_at,
+        finished_at=finished_at,
+    )
+    with session() as active_session:
+        active_session.execute(
+            statement.on_conflict_do_update(
+                index_elements=(table.c.discovery_id,),
+                set_={
+                    "state": statement.excluded.state,
+                    "cursor": statement.excluded.cursor,
+                    "statistics": statement.excluded.statistics,
+                    "error_message": statement.excluded.error_message,
+                    "started_at": func.coalesce(table.c.started_at, statement.excluded.started_at),
+                    "finished_at": statement.excluded.finished_at,
+                    "updated_at": func.now(),
+                },
+            )
         )
-        conn.commit()

@@ -143,6 +143,41 @@ class Plan(SQLModel, table=True):
     updated_at: datetime | None = Field(
         default=None, sa_column=Column(_timestamp, nullable=False, server_default=text("now()"))
     )
+
+
+class Discovery(SQLModel, table=True):
+    """Durable resumable state for one provider metadata-discovery workflow."""
+
+    __tablename__ = "discovery"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('idle', 'running', 'paused', 'complete', 'failed')",
+            name="discovery_state_check",
+        ),
+        {"schema": "catalog"},
+    )
+
+    discovery_id: str = Field(sa_column=Column(Text, primary_key=True))
+    dataset_id: str = Field(
+        sa_column=Column(Text, ForeignKey("catalog.dataset.dataset_id"), nullable=False)
+    )
+    state: str = Field(
+        default="idle", sa_column=Column(Text, nullable=False, server_default=text("'idle'"))
+    )
+    cursor: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column("cursor", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    )
+    statistics: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column("statistics", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    )
+    error_message: str | None = Field(default=None, sa_column=Column(Text))
+    started_at: datetime | None = Field(default=None, sa_column=Column(_timestamp))
+    finished_at: datetime | None = Field(default=None, sa_column=Column(_timestamp))
+    updated_at: datetime | None = Field(
+        default=None, sa_column=Column(_timestamp, nullable=False, server_default=text("now()"))
+    )
 class Resource(SQLModel, table=True):
     """A provider-published resource available for discovery or selection."""
 
