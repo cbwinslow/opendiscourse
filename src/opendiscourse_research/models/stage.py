@@ -3,8 +3,20 @@
 from __future__ import annotations
 
 from geoalchemy2 import Geometry
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Index, Integer, SmallInteger, Table, Text, text
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PostgreSQLUUID
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    SmallInteger,
+    Table,
+    Text,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlmodel import SQLModel
 
 

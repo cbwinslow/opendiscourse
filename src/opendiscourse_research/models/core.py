@@ -19,9 +19,9 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, REAL, UUID as PostgreSQLUUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, REAL
+from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlmodel import SQLModel
-
 
 core_geography = Table(
     "geography",

@@ -4,14 +4,12 @@ Last verified: 2026-08-19
 
 ## Adopted stack
 
-SQLModel/SQLAlchemy is the application persistence API. Alembic owns the
-adopted `catalog` schema plus OpenStates evidence tables
-`ingest.run`, `ingest.raw_payload`, `ingest.resume_cursor`, and
-`ingest.identity_exception`, `ingest.artifact`, and `ingest.cursor`; the
-existing ordered `sql/` files remain the schema owner for every other schema
-except adopted `core.geography` and `fact.measurement`, until its bounded
-migration is explicitly approved. Alembic also owns the adopted
-`core.geography_boundary`, `core.jurisdiction`, and
+SQLModel/SQLAlchemy is the application persistence API. Alembic owns all
+application table contracts in the `catalog`, `core`, `fact`, `ingest`,
+and `stage` schemas. The existing ordered `sql/` files are retained as the
+legacy bootstrap seed while adoption revisions preserve a reversible upgrade
+history. Alembic also owns the adopted `core.geography_boundary`,
+`core.jurisdiction`, and
 `core.legislative_session`, `core.bill`, and `core.bill_identifier` tables.
 Alembic also owns `core.person` and `core.person_identifier`. SQLAlchemy
 continues to use the project's `psycopg` driver. `core.bill_action` is also
