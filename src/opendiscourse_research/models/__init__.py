@@ -13,7 +13,13 @@ from .catalog import (
     ResourceField,
     SnapshotResource,
 )
-from .core import geography_boundary_table, geography_table, measurement_table
+from .core import (
+    geography_boundary_table,
+    geography_table,
+    jurisdiction_table,
+    legislative_session_table,
+    measurement_table,
+)
 from .ingest import cursor_table, raw_payload_table, run_table
 
 __all__ = [
@@ -31,6 +37,8 @@ __all__ = [
     "cursor_table",
     "geography_boundary_table",
     "geography_table",
+    "jurisdiction_table",
+    "legislative_session_table",
     "measurement_table",
     "raw_payload_table",
     "run_table",

@@ -50,6 +50,8 @@ from opendiscourse_research.models.catalog import (
 from opendiscourse_research.models.core import (
     geography_boundary_table,
     geography_table,
+    jurisdiction_table,
+    legislative_session_table,
     measurement_table,
 )
 from opendiscourse_research.models.ingest import cursor_table, raw_payload_table, run_table
@@ -64,7 +66,11 @@ from opendiscourse_research.repositories.catalog import (
     save_discovery,
     upsert_resource,
 )
-from opendiscourse_research.repositories.legislation import get_artifact, register_artifact
+from opendiscourse_research.repositories.legislation import (
+    ensure_us_legislative_session,
+    get_artifact,
+    register_artifact,
+)
 from opendiscourse_research.providers import census
 from opendiscourse_research.providers.census import sync_acs_bulk_packages
 
@@ -542,6 +548,49 @@ def test_tiger_artifact_lookup_uses_typed_immutable_evidence(
     artifact = tiger_artifact("test-tiger-typed-artifact")
     assert artifact["artifact_id"]
     assert artifact["local_path"] == str(source.resolve())
+
+
+def test_legislative_session_default_path_uses_typed_core_mappings(
+    catalog_database: None,
+) -> None:
+    """US Congress sessions retain source artifact lineage through SQLAlchemy upserts."""
+    artifact = register_artifact(
+        "congress.govinfo_billstatus",
+        "https://example.test/session.zip",
+        "/tmp/session.zip",
+        "test-legislative-session-artifact",
+        metadata={"source": "test"},
+    )
+    session_id = ensure_us_legislative_session(
+        130, source_artifact_id=str(artifact["artifact_id"]), metadata={"first": True}
+    )
+    assert ensure_us_legislative_session(
+        130, source_artifact_id=str(artifact["artifact_id"]), metadata={"second": True}
+    ) == session_id
+
+    jurisdiction = jurisdiction_table()
+    legislative_session = legislative_session_table()
+    with session() as active_session:
+        jurisdiction_row = active_session.execute(
+            select(jurisdiction.c.name, jurisdiction.c.metadata).where(
+                jurisdiction.c.jurisdiction_id == "ocd-jurisdiction/country:us/government"
+            )
+        ).mappings().one()
+        session_row = active_session.execute(
+            select(
+                legislative_session.c.identifier,
+                legislative_session.c.active,
+                legislative_session.c.source_artifact_id,
+                legislative_session.c.metadata,
+            ).where(legislative_session.c.legislative_session_id == session_id)
+        ).mappings().one()
+
+    assert jurisdiction_row["name"] == "United States Congress"
+    assert jurisdiction_row["metadata"] == {"country": "us"}
+    assert session_row["identifier"] == "130"
+    assert session_row["active"] is True
+    assert str(session_row["source_artifact_id"]) == str(artifact["artifact_id"])
+    assert session_row["metadata"] == {"congress": 130, "country": "us", "first": True, "second": True}
 
 
 def test_congressional_stale_run_recovery_uses_typed_run_updates(

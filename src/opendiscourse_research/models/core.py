@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Column, Date, ForeignKey, Integer, Numeric, Table, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, Column, Date, ForeignKey, Integer, Numeric, Table, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PostgreSQLUUID
 from sqlmodel import SQLModel
 
@@ -80,3 +80,45 @@ core_geography_boundary = Table(
 def geography_boundary_table():
     """Return legacy PostGIS boundary storage without taking Alembic ownership."""
     return core_geography_boundary
+
+
+core_jurisdiction = Table(
+    "jurisdiction",
+    SQLModel.metadata,
+    Column("jurisdiction_id", Text, primary_key=True),
+    Column("name", Text, nullable=False),
+    Column("classification", Text, nullable=False),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+core_legislative_session = Table(
+    "legislative_session",
+    SQLModel.metadata,
+    Column("legislative_session_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("jurisdiction_id", Text, ForeignKey("core.jurisdiction.jurisdiction_id"), nullable=False),
+    Column("identifier", Text, nullable=False),
+    Column("name", Text),
+    Column("classification", Text),
+    Column("starts_on", Date),
+    Column("ends_on", Date),
+    Column("active", Boolean),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+    Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    UniqueConstraint("jurisdiction_id", "identifier"),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+def jurisdiction_table():
+    """Return legacy jurisdiction storage without taking Alembic ownership."""
+    return core_jurisdiction
+
+
+def legislative_session_table():
+    """Return legacy legislative-session storage without taking Alembic ownership."""
+    return core_legislative_session

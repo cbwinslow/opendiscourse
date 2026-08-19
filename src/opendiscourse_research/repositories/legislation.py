@@ -13,6 +13,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from ..db import connect, session
 from ..models.catalog import artifact_table
+from ..models.core import jurisdiction_table, legislative_session_table
 
 _QUERY_ROOT = Path(__file__).resolve().parents[3] / "sql" / "query" / "legislation"
 
@@ -478,10 +479,61 @@ def ensure_us_legislative_session(
     if conn is not None:
         return _ensure(conn)
 
-    with connect() as active_conn:
-        result = _ensure(active_conn)
-        active_conn.commit()
-        return result
+    jurisdiction = jurisdiction_table()
+    legislative_session = legislative_session_table()
+    jurisdiction_statement = insert(jurisdiction).values(
+        jurisdiction_id=jurisdiction_id,
+        name="United States Congress",
+        classification="government",
+        metadata={"country": "us"},
+    )
+    session_statement = insert(legislative_session).values(
+        jurisdiction_id=jurisdiction_id,
+        identifier=identifier,
+        name=f"{congress}th Congress",
+        classification="congress",
+        active=congress >= 119,
+        source_artifact_id=source_artifact_id,
+        source_payload_id=source_payload_id,
+        metadata=session_metadata,
+    )
+    with session() as active_session:
+        active_session.execute(
+            jurisdiction_statement.on_conflict_do_update(
+                index_elements=(jurisdiction.c.jurisdiction_id,),
+                set_={
+                    "name": jurisdiction_statement.excluded.name,
+                    "classification": jurisdiction_statement.excluded.classification,
+                    "metadata": jurisdiction.c.metadata.op("||")(
+                        jurisdiction_statement.excluded.metadata
+                    ),
+                },
+            )
+        )
+        result = active_session.execute(
+            session_statement.on_conflict_do_update(
+                index_elements=(legislative_session.c.jurisdiction_id, legislative_session.c.identifier),
+                set_={
+                    "name": func.coalesce(session_statement.excluded.name, legislative_session.c.name),
+                    "classification": func.coalesce(
+                        session_statement.excluded.classification, legislative_session.c.classification
+                    ),
+                    "active": func.coalesce(session_statement.excluded.active, legislative_session.c.active),
+                    "source_artifact_id": func.coalesce(
+                        session_statement.excluded.source_artifact_id,
+                        legislative_session.c.source_artifact_id,
+                    ),
+                    "source_payload_id": func.coalesce(
+                        session_statement.excluded.source_payload_id,
+                        legislative_session.c.source_payload_id,
+                    ),
+                    "metadata": legislative_session.c.metadata.op("||")(
+                        session_statement.excluded.metadata
+                    ),
+                },
+            ).returning(legislative_session.c.legislative_session_id)
+        ).scalar_one()
+    return str(result)
 
 
 def parse_billstatus_xml(
