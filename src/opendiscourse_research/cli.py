@@ -33,6 +33,7 @@ from .censushealth import census_health
 from .congresshealth import congressional_health, recover_stale_congressional_runs
 from .contracts import load_contracts, validate_contracts
 from .db import apply_migrations
+from .exports import available_exports, export_relation
 from .feedback import (
     progress as render_progress,
 )
@@ -117,6 +118,20 @@ app.add_typer(bootstrap_app, name="bootstrap", hidden=True)
 # Compatibility entry point for earlier scripts. The normal operator surface is
 # intentionally just `browse`, `sync`, and `status`.
 app.add_typer(catalog_app, name="catalog", hidden=True)
+
+
+@app.command("export")
+def export(
+    relation: str = typer.Argument(..., help=f"Named relation: {', '.join(available_exports())}"),
+    output: Path = typer.Option(..., "--output", "-o", help="New destination file."),
+    format_: str = typer.Option("csv", "--format", help="csv, jsonl, or parquet."),
+) -> None:
+    """Export one approved research relation without accepting arbitrary SQL."""
+    try:
+        count = export_relation(relation, output, format_)
+    except (FileExistsError, RuntimeError, ValueError) as exc:
+        raise typer.BadParameter(str(exc)) from None
+    typer.echo(f"Exported {count} {relation} rows to {output}.")
 
 
 @app.command("init-db")

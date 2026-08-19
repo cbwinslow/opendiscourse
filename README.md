@@ -69,6 +69,10 @@ research-db bootstrap openstates-dump --year 2026 --month 7
 # Treasury's full published nominal curve for a calendar year; no key required.
 research-db bootstrap treasury-curve --year 2025
 
+# Export a reviewed canonical research surface. CSV works in a base install;
+# Parquet requires `uv sync --extra analytics`.
+research-db export measurements --output ./exports/measurements.csv
+
 # Curated priority-one FRED macro, labor, rates, yield, index, commodity, and FX series.
 # Requires FRED_API_KEY in .env.
 research-db bootstrap fred-core
