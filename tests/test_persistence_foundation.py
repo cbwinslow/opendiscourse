@@ -31,7 +31,14 @@ from opendiscourse_research.censushealth import census_health
 from opendiscourse_research import congresshealth
 from opendiscourse_research.congresshealth import recover_stale_congressional_runs
 from opendiscourse_research.config import settings
-from opendiscourse_research.db import _alembic_config, _engine, apply_migrations, engine, session
+from opendiscourse_research.db import (
+    _alembic_config,
+    _engine,
+    apply_migrations,
+    connect,
+    engine,
+    session,
+)
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion import census as census_ingestion
 from opendiscourse_research.ingestion import bls as bls_ingestion
@@ -978,6 +985,71 @@ def test_billstatus_graph_default_path_uses_typed_mappings(
     assert action_row["description"] == "Referred to committee"
     assert str(action_row["source_artifact_id"]) == str(artifact["artifact_id"])
     assert action_row["metadata"] == {"action": "first"}
+
+
+def test_billstatus_graph_caller_transaction_path_is_idempotent(
+    catalog_database: None,
+) -> None:
+    """A supplied psycopg transaction remains valid for atomic graph writes."""
+    artifact = register_artifact(
+        "congress.govinfo_billstatus",
+        "https://example.test/billstatus-raw.zip",
+        "/tmp/billstatus-raw.zip",
+        "test-billstatus-raw-graph-artifact",
+    )
+    bill_data = {
+        "congress": 133,
+        "bill_type": "s",
+        "bill_number": "77",
+        "title": "Raw transaction BILLSTATUS graph",
+        "identifiers": [
+            {
+                "namespace": "govinfo.package",
+                "external_id": "BILLS-133s77is",
+                "source_url": "https://example.test/BILLS-133s77is.xml",
+                "metadata": {"member_name": "BILLS-133s77is.xml"},
+            }
+        ],
+        "actions": [],
+        "sponsorships": [],
+        "committees": [],
+        "subjects": [],
+        "documents": [],
+    }
+    with connect() as raw_connection:
+        session_id = ensure_us_legislative_session(
+            133,
+            source_artifact_id=str(artifact["artifact_id"]),
+            conn=raw_connection,
+        )
+        bill_id = save_billstatus_bill(
+            bill_data,
+            session_id,
+            source_artifact_id=str(artifact["artifact_id"]),
+            source_member="BILLS-133s77is.xml",
+            conn=raw_connection,
+        )
+        assert (
+            save_billstatus_bill(
+                bill_data,
+                session_id,
+                source_artifact_id=str(artifact["artifact_id"]),
+                source_member="BILLS-133s77is.xml",
+                conn=raw_connection,
+            )
+            == bill_id
+        )
+        raw_connection.commit()
+
+    bill = bill_table()
+    identifier = bill_identifier_table()
+    with session() as active_session:
+        assert active_session.execute(
+            select(func.count()).select_from(identifier).where(identifier.c.bill_id == bill_id)
+        ).scalar_one() == 1
+        assert active_session.execute(
+            select(bill.c.title).where(bill.c.bill_id == bill_id)
+        ).scalar_one() == "Raw transaction BILLSTATUS graph"
 
 
 def test_congress_api_bill_upsert_uses_typed_canonical_mapping(
