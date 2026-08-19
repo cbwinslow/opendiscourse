@@ -337,7 +337,6 @@ core_document = Table(
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     UniqueConstraint("document_type", "source_key"),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 
@@ -346,9 +345,8 @@ core_bill_document = Table(
     SQLModel.metadata,
     Column("bill_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.bill.bill_id"), primary_key=True),
     Column("document_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.document.document_id"), primary_key=True),
-    Column("relation", Text, primary_key=True),
+    Column("relation", Text, primary_key=True, server_default=text("'text'")),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 
