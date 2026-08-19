@@ -651,3 +651,79 @@ fact_decennial_dhc_value = Table(
 def decennial_dhc_value_table():
     """Return the Alembic-adopted decennial DHC value fact table."""
     return fact_decennial_dhc_value
+
+
+core_instrument = Table(
+    "instrument",
+    SQLModel.metadata,
+    Column(
+        "instrument_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column("instrument_type", Text, nullable=False),
+    Column("name", Text),
+    Column("currency", Text),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    schema="core",
+)
+
+
+core_instrument_symbol = Table(
+    "instrument_symbol",
+    SQLModel.metadata,
+    Column(
+        "instrument_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.instrument.instrument_id"),
+        nullable=False,
+    ),
+    Column("symbol", Text, primary_key=True),
+    Column("exchange", Text, primary_key=True, server_default=text("''")),
+    Column("valid_from", Date, primary_key=True, nullable=False),
+    Column("valid_to", Date),
+    schema="core",
+)
+
+
+fact_market_bar = Table(
+    "market_bar",
+    SQLModel.metadata,
+    Column(
+        "instrument_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.instrument.instrument_id"),
+        primary_key=True,
+    ),
+    Column("trade_date", Date, primary_key=True),
+    Column("interval", Text, primary_key=True, server_default=text("'1d'")),
+    Column("open", Numeric),
+    Column("high", Numeric),
+    Column("low", Numeric),
+    Column("close", Numeric),
+    Column("adjusted_close", Numeric),
+    Column("volume", Numeric),
+    Column(
+        "source_payload_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.raw_payload.payload_id"),
+        nullable=False,
+    ),
+    schema="fact",
+)
+
+
+def instrument_table():
+    """Return the Alembic-adopted canonical financial-instrument table."""
+    return core_instrument
+
+
+def instrument_symbol_table():
+    """Return Alembic-adopted stable instrument symbols."""
+    return core_instrument_symbol
+
+
+def market_bar_table():
+    """Return the Alembic-adopted market-bar fact table."""
+    return fact_market_bar
