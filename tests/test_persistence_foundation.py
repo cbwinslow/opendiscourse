@@ -35,6 +35,7 @@ from opendiscourse_research.ingestion import fred as fred_ingestion
 from opendiscourse_research.ingestion.base import IngestionRun
 from opendiscourse_research.ingestion.tiger_load import _artifact as tiger_artifact
 from opendiscourse_research.ingestion.acs_load import _artifact as acs_artifact
+from opendiscourse_research.ingestion.cbp_load import _artifact as cbp_artifact
 from opendiscourse_research.models.catalog import (
     CatalogSnapshot,
     DatasetField,
@@ -534,6 +535,27 @@ def test_tiger_artifact_lookup_uses_typed_immutable_evidence(
     )
 
     artifact = tiger_artifact("test-tiger-typed-artifact")
+    assert artifact["artifact_id"]
+    assert artifact["local_path"] == str(source.resolve())
+
+
+def test_cbp_artifact_lookup_uses_typed_immutable_evidence(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """CBP staging resolves registered ZIP evidence through the shared mapping."""
+    source = tmp_path / "cbp.zip"
+    source.write_bytes(b"test cbp artifact")
+    register_local(
+        ArtifactSpec(
+            dataset_id="census.business_patterns",
+            artifact_key="test-cbp-typed-artifact",
+            url="https://example.test/cbp.zip",
+            filename="cbp.zip",
+        ),
+        source,
+    )
+
+    artifact = cbp_artifact("test-cbp-typed-artifact")
     assert artifact["artifact_id"]
     assert artifact["local_path"] == str(source.resolve())
 

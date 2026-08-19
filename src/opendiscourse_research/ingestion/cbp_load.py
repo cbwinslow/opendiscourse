@@ -10,8 +10,10 @@ from typing import Any
 from zipfile import ZipFile
 
 from psycopg.types.json import Jsonb
+from sqlalchemy import select
 
-from ..db import connect
+from ..db import connect, session
+from ..models.catalog import artifact_table
 
 LEVELS = ("us", "state", "county")
 
@@ -48,16 +50,19 @@ def _resolve_member(archive: ZipFile, expected: str) -> str:
     return match
 
 
-def _artifact(conn: Any, key: str) -> dict[str, Any]:
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT artifact_id, local_path FROM ingest.artifact WHERE artifact_key = %s AND status IN ('downloaded', 'skipped')",
-            (key,),
-        )
-        row = cur.fetchone()
+def _artifact(key: str) -> dict[str, Any]:
+    """Return a downloaded CBP artifact through immutable typed evidence storage."""
+    table = artifact_table()
+    with session() as active_session:
+        row = active_session.execute(
+            select(table.c.artifact_id, table.c.local_path).where(
+                table.c.artifact_key == key,
+                table.c.status.in_(("downloaded", "skipped")),
+            )
+        ).mappings().first()
     if row is None:
         raise ValueError(f"Required CBP artifact {key!r} has not been downloaded")
-    return row
+    return dict(row)
 
 
 def _scope(plan: dict[str, Any]) -> set[str]:
@@ -78,7 +83,7 @@ def stage_cbp(plan: dict[str, Any], update: Callable[[str], None] | None = None)
     total = 0
     with connect() as conn:
         for level in sorted(_scope(plan)):
-            artifact = _artifact(conn, _artifact_key(year, level))
+            artifact = _artifact(_artifact_key(year, level))
             member = _member_name(year, level)
             if update:
                 update(f"Staging CBP {level} rows")
@@ -146,7 +151,7 @@ def load_cbp(plan: dict[str, Any], update: Callable[[str], None] | None = None) 
         # pg_stat_activity: an unscoped 2012 load held long-running locks
         # that blocked a concurrent 2011 retry and even a schema migration.
         artifact_ids = [
-            _artifact(conn, _artifact_key(year, level))["artifact_id"]
+            _artifact(_artifact_key(year, level))["artifact_id"]
             for level in levels
         ]
         cur.execute(
