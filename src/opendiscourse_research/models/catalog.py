@@ -120,6 +120,29 @@ class DatasetField(SQLModel, table=True):
     )
 
 
+class Plan(SQLModel, table=True):
+    """A reviewed ingestion contract registered from the version-controlled plan inventory."""
+
+    __tablename__ = "plan"
+    __table_args__ = {"schema": "catalog"}
+
+    plan_id: str = Field(sa_column=Column(Text, primary_key=True))
+    dataset_id: str = Field(
+        sa_column=Column(Text, ForeignKey("catalog.dataset.dataset_id"), nullable=False)
+    )
+    handler: str = Field(sa_column=Column(Text, nullable=False))
+    cadence: str = Field(sa_column=Column(Text, nullable=False))
+    enabled: bool = Field(
+        default=True, sa_column=Column(Boolean, nullable=False, server_default=text("true"))
+    )
+    parameters: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column("parameters", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    )
+    metadata_: dict[str, Any] = Field(default_factory=dict, sa_column=_json_object_column())
+    updated_at: datetime | None = Field(
+        default=None, sa_column=Column(_timestamp, nullable=False, server_default=text("now()"))
+    )
 class Resource(SQLModel, table=True):
     """A provider-published resource available for discovery or selection."""
 

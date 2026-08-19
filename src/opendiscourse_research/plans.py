@@ -8,12 +8,15 @@ from typing import Any
 
 import yaml
 from psycopg.types.json import Jsonb
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert
 
-from .db import connect
+from .db import connect, session
 from .ingestion.bls import ingest_manifest as ingest_bls_manifest
 from .ingestion.census import bootstrap_housing
 from .ingestion.congress import ingest_bills
 from .ingestion.fred import ingest_manifest
+from .models.catalog import Plan
 
 ROOT = Path(__file__).resolve().parents[2]
 HANDLERS = {
@@ -60,22 +63,33 @@ def validate_plans() -> list[str]:
 
 
 def sync_plans() -> None:
-    with connect() as conn, conn.cursor() as cur:
+    """Upsert reviewed ingestion plans into the catalog."""
+    table = Plan.__table__
+    with session() as active_session:
         for plan in load_plans():
-            cur.execute(
-                """INSERT INTO catalog.plan (plan_id, dataset_id, handler, cadence, enabled, parameters, metadata)
-                   VALUES (%(id)s, %(dataset)s, %(handler)s, %(cadence)s, %(enabled)s, %(parameters)s, %(metadata)s)
-                   ON CONFLICT (plan_id) DO UPDATE SET dataset_id = EXCLUDED.dataset_id,
-                     handler = EXCLUDED.handler, cadence = EXCLUDED.cadence, enabled = EXCLUDED.enabled,
-                     parameters = EXCLUDED.parameters, metadata = EXCLUDED.metadata, updated_at = now()""",
-                {
-                    **plan,
-                    "enabled": plan.get("enabled", True),
-                    "parameters": Jsonb(plan["parameters"]),
-                    "metadata": Jsonb({"notes": plan.get("notes")}),
-                },
+            statement = insert(table).values(
+                plan_id=plan["id"],
+                dataset_id=plan["dataset"],
+                handler=plan["handler"],
+                cadence=plan["cadence"],
+                enabled=plan.get("enabled", True),
+                parameters=plan["parameters"],
+                metadata={"notes": plan.get("notes")},
             )
-        conn.commit()
+            active_session.execute(
+                statement.on_conflict_do_update(
+                    index_elements=(table.c.plan_id,),
+                    set_={
+                        "dataset_id": statement.excluded.dataset_id,
+                        "handler": statement.excluded.handler,
+                        "cadence": statement.excluded.cadence,
+                        "enabled": statement.excluded.enabled,
+                        "parameters": statement.excluded.parameters,
+                        "metadata": statement.excluded.metadata,
+                        "updated_at": func.now(),
+                    },
+                )
+            )
 
 
 def run_plan(plan_id: str) -> int:
