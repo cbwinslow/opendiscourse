@@ -1,0 +1,52 @@
+# Persistence migration status
+
+Last verified: 2026-08-19
+
+## Adopted stack
+
+SQLModel/SQLAlchemy is the application persistence API. Alembic owns the
+adopted `catalog` schema; the existing ordered `sql/` files remain the schema
+owner for every other schema until its bounded migration is explicitly
+approved. SQLAlchemy continues to use the project's `psycopg` driver.
+
+The `catalog` Alembic baseline is an adoption marker over the legacy-seeded
+schema. The real PostGIS regression suite verifies both downgrade to `base`
+and re-upgrade to the adopted revision without changing legacy catalog tables.
+
+## Completed typed boundaries
+
+- Alembic-owned catalog models and browser/repository/registry persistence:
+  providers, datasets, fields, resources, baskets, snapshots, plans, and
+  discovery leases.
+- Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
+  trigram title search, and full-text GIN search.
+- Immutable ingestion evidence: artifacts, runs, raw payloads, and plan
+  cursors.
+- API observations: ACS, FRED, and BLS now upsert canonical measurements
+  through typed SQLAlchemy contracts with raw-payload provenance.
+- Canonical geography, measurements, and PostGIS geography boundaries have
+  typed external contracts. GeoAlchemy2 geometry/SRID behavior is exercised
+  against PostGIS.
+- Artifact resolution in ACS, CBP, DHC, PEP, TIGER, and FEC bulk loaders is
+  typed and status-filtered.
+
+Every migrated database behavior has real PostgreSQL/PostGIS coverage in
+`tests/test_persistence_foundation.py`; ORM behavior is not mocked there.
+
+## Deliberately retained psycopg boundaries
+
+These remain raw SQL because they are set-based or provider/staging-specific,
+not because their evidence boundary is unmapped:
+
+- Bulk staging `executemany`/COPY and set-based canonical promotions in ACS,
+  CBP, DHC, PEP, TIGER, and FEC loaders.
+- The OpenStates FDW and its source-schema reconciliation queries.
+- Legislative graph writes and provenance reconciliation, pending one bounded
+  mapping slice for the related `core`/`leg` tables and their invariants.
+- Dynamic fact-table health counts, where table names are selected from the
+  reviewed health family map.
+
+Future migrations must keep artifact/raw-payload lineage, idempotent conflict
+keys, batch/commit semantics, and the source-owned staging shape intact. A
+loader may use psycopg for COPY or a complex `INSERT … SELECT` while using the
+typed contracts for reusable persistence and evidence lookup.
