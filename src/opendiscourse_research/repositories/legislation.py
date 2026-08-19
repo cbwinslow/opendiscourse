@@ -13,7 +13,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from ..db import connect, session
 from ..models.catalog import artifact_table
-from ..models.core import jurisdiction_table, legislative_session_table
+from ..models.core import bill_identifier_table, jurisdiction_table, legislative_session_table
 
 _QUERY_ROOT = Path(__file__).resolve().parents[3] / "sql" / "query" / "legislation"
 
@@ -248,9 +248,17 @@ def loaded_artifact_members(artifact_id: str, conn: Any | None = None) -> set[st
             cur.execute(_query("loaded_artifact_members"), params)
             return {row["source_member"] for row in cur.fetchall()}
 
-    with connect() as active_conn, active_conn.cursor() as cur:
-        cur.execute(_query("loaded_artifact_members"), params)
-        return {row["source_member"] for row in cur.fetchall()}
+    table = bill_identifier_table()
+    with session() as active_session:
+        return set(
+            active_session.scalars(
+                select(table.c.metadata["member_name"].astext).where(
+                    table.c.namespace == "govinfo.package",
+                    table.c.source_artifact_id == artifact_id,
+                    table.c.metadata.op("?")("member_name"),
+                )
+            )
+        )
 
 
 def sync_openstates_federal_people(conn: Any) -> dict[str, int]:

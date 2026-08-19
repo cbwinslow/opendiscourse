@@ -122,3 +122,49 @@ def jurisdiction_table():
 def legislative_session_table():
     """Return legacy legislative-session storage without taking Alembic ownership."""
     return core_legislative_session
+
+
+core_bill = Table(
+    "bill",
+    SQLModel.metadata,
+    Column("bill_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("jurisdiction", Text, nullable=False),
+    Column("legislative_session", Text, nullable=False),
+    Column("bill_type", Text, nullable=False),
+    Column("bill_number", Text, nullable=False),
+    Column("title", Text),
+    Column("introduced_date", Date),
+    Column("latest_action_date", Date),
+    Column("latest_action", Text),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column("legislative_session_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.legislative_session.legislative_session_id")),
+    Column("ocd_id", Text),
+    UniqueConstraint("jurisdiction", "legislative_session", "bill_type", "bill_number"),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+core_bill_identifier = Table(
+    "bill_identifier",
+    SQLModel.metadata,
+    Column("bill_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.bill.bill_id"), nullable=False),
+    Column("namespace", Text, primary_key=True),
+    Column("external_id", Text, primary_key=True),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+    Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
+    Column("source_url", Text),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+def bill_table():
+    """Return legacy canonical bill storage without taking Alembic ownership."""
+    return core_bill
+
+
+def bill_identifier_table():
+    """Return legacy bill identifier storage without taking Alembic ownership."""
+    return core_bill_identifier

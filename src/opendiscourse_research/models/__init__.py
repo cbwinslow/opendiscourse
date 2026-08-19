@@ -14,6 +14,8 @@ from .catalog import (
     SnapshotResource,
 )
 from .core import (
+    bill_identifier_table,
+    bill_table,
     geography_boundary_table,
     geography_table,
     jurisdiction_table,
@@ -35,6 +37,8 @@ __all__ = [
     "ResourceField",
     "SnapshotResource",
     "cursor_table",
+    "bill_identifier_table",
+    "bill_table",
     "geography_boundary_table",
     "geography_table",
     "jurisdiction_table",

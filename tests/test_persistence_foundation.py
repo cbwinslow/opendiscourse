@@ -48,6 +48,8 @@ from opendiscourse_research.models.catalog import (
     artifact_table,
 )
 from opendiscourse_research.models.core import (
+    bill_identifier_table,
+    bill_table,
     geography_boundary_table,
     geography_table,
     jurisdiction_table,
@@ -69,6 +71,7 @@ from opendiscourse_research.repositories.catalog import (
 from opendiscourse_research.repositories.legislation import (
     ensure_us_legislative_session,
     get_artifact,
+    loaded_artifact_members,
     register_artifact,
 )
 from opendiscourse_research.providers import census
@@ -548,6 +551,60 @@ def test_tiger_artifact_lookup_uses_typed_immutable_evidence(
     artifact = tiger_artifact("test-tiger-typed-artifact")
     assert artifact["artifact_id"]
     assert artifact["local_path"] == str(source.resolve())
+
+
+def test_loaded_legislation_artifact_members_use_typed_identifier_lineage(
+    catalog_database: None,
+) -> None:
+    """Completed archive members are read from canonical identifier provenance."""
+    artifact = register_artifact(
+        "congress.govinfo_billstatus",
+        "https://example.test/members.zip",
+        "/tmp/members.zip",
+        "test-member-lineage-artifact",
+    )
+    bill = bill_table()
+    identifiers = bill_identifier_table()
+    with session() as active_session:
+        bill_id = active_session.execute(
+            insert(bill)
+            .values(
+                jurisdiction="us",
+                legislative_session="130",
+                bill_type="hr",
+                bill_number="99999",
+                title="Test bill",
+            )
+            .on_conflict_do_update(
+                index_elements=(bill.c.jurisdiction, bill.c.legislative_session, bill.c.bill_type, bill.c.bill_number),
+                set_={"title": "Test bill"},
+            )
+            .returning(bill.c.bill_id)
+        ).scalar_one()
+        for external_id, metadata in (
+            ("member-1", {"member_name": "BILLSTATUS-130hr1.xml"}),
+            ("member-2", {"member_name": "BILLSTATUS-130hr2.xml"}),
+            ("other", {"not_member": True}),
+        ):
+            active_session.execute(
+                insert(identifiers)
+                .values(
+                    bill_id=bill_id,
+                    namespace="govinfo.package",
+                    external_id=f"test-{external_id}",
+                    source_artifact_id=artifact["artifact_id"],
+                    metadata=metadata,
+                )
+                .on_conflict_do_update(
+                    index_elements=(identifiers.c.namespace, identifiers.c.external_id),
+                    set_={"metadata": metadata, "source_artifact_id": artifact["artifact_id"]},
+                )
+            )
+
+    assert loaded_artifact_members(str(artifact["artifact_id"])) == {
+        "BILLSTATUS-130hr1.xml",
+        "BILLSTATUS-130hr2.xml",
+    }
 
 
 def test_legislative_session_default_path_uses_typed_core_mappings(
