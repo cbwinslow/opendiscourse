@@ -53,8 +53,14 @@ if ingest_run is None:
         Column("record_count", BigInteger, nullable=False, server_default=text("0")),
         Column("error_message", Text),
         Column("code_version", Text),
+        CheckConstraint(
+            "mode IN ('backfill', 'incremental', 'manual')", name="run_mode_check"
+        ),
+        CheckConstraint(
+            "status IN ('running', 'succeeded', 'failed', 'partial')",
+            name="run_status_check",
+        ),
         schema="ingest",
-        info={"alembic_exclude": True},
     )
 
 
@@ -80,18 +86,19 @@ if ingest_raw_payload is None:
         Column("content_type", Text),
         Column("checksum_sha256", Text, nullable=False),
         Column("payload", JSONB, nullable=False),
+        UniqueConstraint("run_id", "checksum_sha256"),
+        Index("raw_payload_run_idx", "run_id"),
         schema="ingest",
-        info={"alembic_exclude": True},
     )
 
 
 def run_table():
-    """Return the existing ingestion run table without taking Alembic ownership."""
+    """Return the Alembic-adopted ingestion run table."""
     return ingest_run
 
 
 def raw_payload_table():
-    """Return immutable raw provider payload storage without taking Alembic ownership."""
+    """Return the Alembic-adopted immutable raw-provider payload table."""
     return ingest_raw_payload
 
 
