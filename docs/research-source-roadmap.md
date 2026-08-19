@@ -40,6 +40,7 @@ add coverage without bypassing contracts, capacity checks, or provenance.
 - **Policy and representation:** congressional bills/actions, OpenStates
   source evidence, roll calls, and officially bounded election data.
 
-Do not make causal claims merely by joining geography to policy data. The
-geographic/mart caveats in `docs/blueprint.md` and the source coverage recorded
-in `inventory/progress.yaml` are part of every analysis's provenance.
+Do not make causal claims merely by joining geography to policy data. How
+geography identities resolve and marts are built, per `docs/blueprint.md`'s
+layered data model, and the source coverage recorded in
+`inventory/progress.yaml`, are both part of every analysis's provenance.
