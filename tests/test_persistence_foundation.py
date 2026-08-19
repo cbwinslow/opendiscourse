@@ -9,6 +9,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from alembic import command
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 
@@ -25,7 +26,7 @@ from opendiscourse_research.browser import (
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.censushealth import census_health
 from opendiscourse_research.config import settings
-from opendiscourse_research.db import _engine, apply_migrations, engine, session
+from opendiscourse_research.db import _alembic_config, _engine, apply_migrations, engine, session
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion import census as census_ingestion
 from opendiscourse_research.ingestion.base import IngestionRun
@@ -115,6 +116,23 @@ def test_catalog_baseline_and_search_indexes(catalog_database: None) -> None:
     assert revision == "d207df35ca10"
     assert {"pg_trgm", "unaccent"} <= extensions
     assert {"resource_title_trgm_idx", "resource_fts_idx"} <= indexes
+
+
+def test_catalog_alembic_adoption_can_downgrade_and_reupgrade(
+    catalog_database: None,
+) -> None:
+    """Alembic's no-op adoption revision is reversible over the legacy-seeded schema."""
+    config = _alembic_config()
+    command.downgrade(config, "base")
+    try:
+        with engine().connect() as connection:
+            assert connection.execute(text("SELECT count(*) FROM catalog.resource")).scalar_one() >= 0
+            assert connection.execute(text("SELECT count(*) FROM alembic_version")).scalar_one() == 0
+    finally:
+        command.upgrade(config, "head")
+
+    with engine().connect() as connection:
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "d207df35ca10"
 
 
 def test_resource_upserts_are_idempotent_and_search_indexes_are_usable(
