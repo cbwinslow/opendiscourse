@@ -58,6 +58,7 @@ from opendiscourse_research.ingestion.pep_load import _artifact as pep_artifact
 from opendiscourse_research.ingestion.fec_bulk import _registered_artifacts as fec_artifacts
 from opendiscourse_research.ingestion.fec_bulk import stage_family as stage_fec_family
 from opendiscourse_research.ingestion.pep_load import load_pep, stage_pep
+from opendiscourse_research.ingestion.tiger_load import load_tiger, stage_tiger
 from opendiscourse_research.models.catalog import (
     CatalogSnapshot,
     DatasetField,
@@ -1877,6 +1878,80 @@ def test_dhc_bulk_stage_and_promotion_are_idempotent_on_postgres(
                     text("DELETE FROM ingest.artifact WHERE artifact_key=:key"),
                     {"key": key},
                 )
+
+
+def test_tiger_bulk_stage_and_promotion_are_idempotent_on_postgis(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """TIGER stages transformed geometry then promotes an artifact-linked boundary."""
+    import geopandas
+    from shapely.geometry import Polygon
+
+    key = "test-tiger-postgis-stage-promotion"
+    shapefile = tmp_path / "state.shp"
+    geopandas.GeoDataFrame(
+        {"GEOID": ["99"], "NAME": ["Test State"], "STATEFP": ["99"]},
+        geometry=[Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])],
+        crs="EPSG:4269",
+    ).to_file(shapefile, driver="ESRI Shapefile")
+    source = tmp_path / "state.zip"
+    with ZipFile(source, "w") as archive:
+        for member in tmp_path.glob("state.*"):
+            archive.write(member, member.name)
+    with engine().begin() as connection:
+        connection.execute(
+            text(
+                "DELETE FROM core.geography_boundary WHERE source_artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+            ),
+            {"key": key},
+        )
+        connection.execute(
+            text(
+                "DELETE FROM stage.tiger_feature WHERE artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+            ),
+            {"key": key},
+        )
+        connection.execute(text("DELETE FROM ingest.artifact WHERE artifact_key=:key"), {"key": key})
+    register_local(ArtifactSpec("census.tiger", key, "https://example.test/state.zip", source.name), source)
+    plan = {
+        "state": "downloaded",
+        "selection": {"boundary_vintage": 2020},
+        "canonical_load_scope": {"layers": ["state"]},
+        "artifacts": [{"artifact_key": key, "kind": "state"}],
+    }
+    try:
+        assert stage_tiger(plan) == 1
+        plan["state"] = "staged"
+        assert load_tiger(plan) == 1
+        assert load_tiger(plan) == 1
+        with engine().connect() as connection:
+            assert connection.execute(
+                text(
+                    "SELECT count(*) FROM core.geography_boundary WHERE source_artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key) "
+                    "AND ST_SRID(geom)=4326"
+                ),
+                {"key": key},
+            ).scalar_one() == 1
+    finally:
+        with engine().begin() as connection:
+            connection.execute(
+                text(
+                    "DELETE FROM core.geography_boundary WHERE source_artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            )
+            connection.execute(
+                text(
+                    "DELETE FROM stage.tiger_feature WHERE artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            )
+            connection.execute(text("DELETE FROM ingest.artifact WHERE artifact_key=:key"), {"key": key})
 
 
 def test_pep_artifact_lookup_uses_typed_immutable_evidence(

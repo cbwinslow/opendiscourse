@@ -85,11 +85,11 @@ reviewed baseline artifact retains its expected normalized fingerprint.
 - Alembic-adopted ACS, CBP, DHC, PEP, TIGER, and FEC staging table contracts,
   including their artifact identity keys and legacy lookup/geometry indexes.
 - Real PostgreSQL/PostGIS regressions cover retained COPY/executemany staging
-  and set-based promotion paths: ACS, CBP, DHC, PEP, and FEC source-ordinal
-  idempotency run in the standard suite. The caller-supplied BILLSTATUS graph
-  transaction and OpenStates compatibility-view publisher are also exercised
-  against PostgreSQL; the view test uses an isolated source-schema stand-in,
-  never a provisioned FDW snapshot.
+  and set-based promotion paths: ACS, CBP, DHC, PEP, TIGER, and FEC
+  source-ordinal idempotency run in the standard suite. The caller-supplied
+  BILLSTATUS graph transaction and OpenStates compatibility-view publisher are
+  also exercised against PostgreSQL; the view test uses an isolated
+  source-schema stand-in, never a provisioned FDW snapshot.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan
