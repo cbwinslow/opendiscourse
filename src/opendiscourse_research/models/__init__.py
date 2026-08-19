@@ -22,7 +22,13 @@ from .core import (
     legislative_session_table,
     measurement_table,
 )
-from .ingest import cursor_table, raw_payload_table, run_table
+from .ingest import (
+    cursor_table,
+    identity_exception_table,
+    raw_payload_table,
+    resume_cursor_table,
+    run_table,
+)
 
 __all__ = [
     "Basket",
@@ -37,6 +43,7 @@ __all__ = [
     "ResourceField",
     "SnapshotResource",
     "cursor_table",
+    "identity_exception_table",
     "bill_identifier_table",
     "bill_table",
     "geography_boundary_table",
@@ -45,5 +52,6 @@ __all__ = [
     "legislative_session_table",
     "measurement_table",
     "raw_payload_table",
+    "resume_cursor_table",
     "run_table",
 ]

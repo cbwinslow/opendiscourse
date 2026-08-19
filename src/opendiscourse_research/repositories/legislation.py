@@ -14,6 +14,7 @@ from sqlalchemy.dialects.postgresql import insert
 from ..db import connect, session
 from ..models.catalog import artifact_table
 from ..models.core import bill_identifier_table, jurisdiction_table, legislative_session_table
+from ..models.ingest import identity_exception_table, resume_cursor_table
 
 _QUERY_ROOT = Path(__file__).resolve().parents[3] / "sql" / "query" / "legislation"
 
@@ -62,9 +63,22 @@ def openstates_vote_snapshot_counts(
 
 
 def get_resume_cursor(
-    dataset_id: str, cursor_key: str, conn: Any
+    dataset_id: str, cursor_key: str, conn: Any | None = None
 ) -> dict[str, Any] | None:
     """Return one persisted ingestion checkpoint without changing it."""
+    if conn is None:
+        table = resume_cursor_table()
+        with session() as active_session:
+            row = active_session.execute(
+                select(
+                    table.c.cursor,
+                    table.c.source_artifact_id,
+                    table.c.last_run_id,
+                    table.c.state,
+                    table.c.updated_at,
+                ).where(table.c.dataset_id == dataset_id, table.c.cursor_key == cursor_key)
+            ).mappings().one_or_none()
+        return dict(row) if row else None
     with conn.cursor() as cur:
         cur.execute(
             _query("get_resume_cursor"),
@@ -81,9 +95,35 @@ def save_resume_cursor(
     source_artifact_id: str,
     last_run_id: str,
     state: str,
-    conn: Any,
+    conn: Any | None = None,
 ) -> dict[str, Any]:
     """Persist a source-scoped checkpoint in the caller's transaction."""
+    if conn is None:
+        table = resume_cursor_table()
+        statement = (
+            insert(table)
+            .values(
+                dataset_id=dataset_id,
+                cursor_key=cursor_key,
+                cursor=cursor,
+                source_artifact_id=source_artifact_id,
+                last_run_id=last_run_id,
+                state=state,
+            )
+            .on_conflict_do_update(
+                index_elements=(table.c.dataset_id, table.c.cursor_key),
+                set_={
+                    "cursor": cursor,
+                    "source_artifact_id": source_artifact_id,
+                    "last_run_id": last_run_id,
+                    "state": state,
+                    "updated_at": func.now(),
+                },
+            )
+            .returning(table.c.cursor, table.c.state)
+        )
+        with session() as active_session:
+            return dict(active_session.execute(statement).mappings().one())
     with conn.cursor() as cur:
         cur.execute(
             _query("save_resume_cursor"),
@@ -105,12 +145,48 @@ def record_vote_identity_exceptions(
     source_artifact_id: str,
     run_id: str,
     voter_ids: list[str | None],
-    conn: Any,
+    conn: Any | None = None,
 ) -> int:
     """Persist unresolved voter identifiers with source/run evidence."""
     if not voter_ids:
         return 0
     values = Counter(voter_id or "<missing>" for voter_id in voter_ids)
+    if conn is None:
+        table = identity_exception_table()
+        with session() as active_session:
+            for external_id, reference_count in values.items():
+                active_session.execute(
+                    insert(table)
+                    .values(
+                        dataset_id="openstates.legislation",
+                        run_id=run_id,
+                        source_artifact_id=source_artifact_id,
+                        congress=congress,
+                        kind="voter",
+                        namespace="ocd",
+                        external_id=external_id,
+                        reason=(
+                            "missing_ocd_voter_id"
+                            if external_id == "<missing>"
+                            else "no_canonical_person_identifier"
+                        ),
+                        reference_count=reference_count,
+                    )
+                    .on_conflict_do_update(
+                        index_elements=(
+                            table.c.run_id,
+                            table.c.kind,
+                            table.c.namespace,
+                            table.c.external_id,
+                            table.c.reason,
+                        ),
+                        set_={
+                            "reference_count": table.c.reference_count + reference_count,
+                            "last_seen_at": func.now(),
+                        },
+                    )
+                )
+        return len(values)
     with conn.cursor() as cur:
         for external_id, reference_count in values.items():
             cur.execute(

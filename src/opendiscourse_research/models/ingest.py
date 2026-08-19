@@ -93,3 +93,48 @@ def run_table():
 def raw_payload_table():
     """Return immutable raw provider payload storage without taking Alembic ownership."""
     return ingest_raw_payload
+
+
+ingest_resume_cursor = Table(
+    "resume_cursor",
+    SQLModel.metadata,
+    Column("dataset_id", Text, ForeignKey("catalog.dataset.dataset_id"), primary_key=True),
+    Column("cursor_key", Text, primary_key=True),
+    Column("cursor", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+    Column("last_run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id")),
+    Column("state", Text, nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    schema="ingest",
+    info={"alembic_exclude": True},
+)
+
+
+ingest_identity_exception = Table(
+    "identity_exception",
+    SQLModel.metadata,
+    Column("identity_exception_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("dataset_id", Text, ForeignKey("catalog.dataset.dataset_id"), nullable=False),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id"), nullable=False),
+    Column("congress", Integer, nullable=False),
+    Column("kind", Text, nullable=False),
+    Column("namespace", Text, nullable=False),
+    Column("external_id", Text, nullable=False),
+    Column("reason", Text, nullable=False),
+    Column("reference_count", Integer, nullable=False, server_default=text("1")),
+    Column("first_seen_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    Column("last_seen_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    schema="ingest",
+    info={"alembic_exclude": True},
+)
+
+
+def resume_cursor_table():
+    """Return legacy OpenStates resume checkpoints without Alembic ownership."""
+    return ingest_resume_cursor
+
+
+def identity_exception_table():
+    """Return legacy identity exceptions without taking Alembic ownership."""
+    return ingest_identity_exception

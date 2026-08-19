@@ -56,7 +56,13 @@ from opendiscourse_research.models.core import (
     legislative_session_table,
     measurement_table,
 )
-from opendiscourse_research.models.ingest import cursor_table, raw_payload_table, run_table
+from opendiscourse_research.models.ingest import (
+    cursor_table,
+    identity_exception_table,
+    raw_payload_table,
+    resume_cursor_table,
+    run_table,
+)
 from opendiscourse_research.plans import due_plans, load_plans
 from opendiscourse_research.registry import status as registry_status
 from opendiscourse_research.repositories.catalog import (
@@ -71,8 +77,11 @@ from opendiscourse_research.repositories.catalog import (
 from opendiscourse_research.repositories.legislation import (
     ensure_us_legislative_session,
     get_artifact,
+    get_resume_cursor,
     loaded_artifact_members,
+    record_vote_identity_exceptions,
     register_artifact,
+    save_resume_cursor,
 )
 from opendiscourse_research.providers import census
 from opendiscourse_research.providers.census import sync_acs_bulk_packages
@@ -605,6 +614,77 @@ def test_loaded_legislation_artifact_members_use_typed_identifier_lineage(
         "BILLSTATUS-130hr1.xml",
         "BILLSTATUS-130hr2.xml",
     }
+
+
+def test_openstates_resume_and_identity_evidence_use_typed_mappings(
+    catalog_database: None,
+) -> None:
+    """Checkpoint and unresolved-voter evidence retain source/run lineage idempotently."""
+    artifact = register_artifact(
+        "openstates.legislation",
+        "https://example.test/openstates.json",
+        "/tmp/openstates.json",
+        "test-openstates-evidence-artifact",
+    )
+    with IngestionRun("openstates.legislation", {"test": "typed evidence"}) as run:
+        assert run.run_id is not None
+        saved = save_resume_cursor(
+            "openstates.legislation",
+            "voteevent:130",
+            {"ocd_id": "ocd-vote/130"},
+            str(artifact["artifact_id"]),
+            str(run.run_id),
+            "running",
+        )
+        assert saved == {"cursor": {"ocd_id": "ocd-vote/130"}, "state": "running"}
+        assert record_vote_identity_exceptions(
+            130,
+            str(artifact["artifact_id"]),
+            str(run.run_id),
+            ["ocd-person/a", "ocd-person/a", None],
+        ) == 2
+        assert record_vote_identity_exceptions(
+            130,
+            str(artifact["artifact_id"]),
+            str(run.run_id),
+            ["ocd-person/a", None],
+        ) == 2
+
+    checkpoint = get_resume_cursor("openstates.legislation", "voteevent:130")
+    assert checkpoint is not None
+    assert checkpoint["cursor"] == {"ocd_id": "ocd-vote/130"}
+    assert checkpoint["state"] == "running"
+
+    exceptions = identity_exception_table()
+    checkpoints = resume_cursor_table()
+    with session() as active_session:
+        rows = list(
+            active_session.execute(
+                select(exceptions.c.external_id, exceptions.c.reason, exceptions.c.reference_count)
+                .where(exceptions.c.run_id == run.run_id)
+                .order_by(exceptions.c.external_id)
+            ).mappings()
+        )
+        checkpoint_artifact = active_session.execute(
+            select(checkpoints.c.source_artifact_id).where(
+                checkpoints.c.dataset_id == "openstates.legislation",
+                checkpoints.c.cursor_key == "voteevent:130",
+            )
+        ).scalar_one()
+
+    assert rows == [
+        {
+            "external_id": "<missing>",
+            "reason": "missing_ocd_voter_id",
+            "reference_count": 2,
+        },
+        {
+            "external_id": "ocd-person/a",
+            "reason": "no_canonical_person_identifier",
+            "reference_count": 3,
+        },
+    ]
+    assert str(checkpoint_artifact) == str(artifact["artifact_id"])
 
 
 def test_legislative_session_default_path_uses_typed_core_mappings(

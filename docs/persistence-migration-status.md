@@ -21,7 +21,8 @@ and re-upgrade to the adopted revision without changing legacy catalog tables.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan
-  cursors.
+  cursors, including OpenStates resume checkpoints and unresolved voter
+  identity exceptions.
 - API observations: ACS, FRED, and BLS now upsert canonical measurements
   through typed SQLAlchemy contracts with raw-payload provenance.
 - Canonical geography, measurements, and PostGIS geography boundaries have
