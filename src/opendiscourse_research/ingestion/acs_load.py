@@ -11,8 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from psycopg.types.json import Jsonb
+from sqlalchemy import select
 
-from ..db import connect
+from ..db import connect, session
+from ..models.catalog import artifact_table
 
 SUMMARY_LEVELS = {"040": "state", "050": "county"}
 FIELD_PATTERN = re.compile(r"_(E|M)[0-9]+$")
@@ -32,16 +34,20 @@ def _scope(plan: dict[str, Any]) -> set[str]:
     return scope
 
 
-def _artifact(conn: Any, dataset_id: str, key: str) -> dict[str, Any]:
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT artifact_id, local_path FROM ingest.artifact WHERE dataset_id=%s AND artifact_key=%s AND status IN ('downloaded','skipped')",
-            (dataset_id, key),
-        )
-        row = cur.fetchone()
+def _artifact(dataset_id: str, key: str) -> dict[str, Any]:
+    """Return a downloaded ACS artifact through immutable typed evidence storage."""
+    table = artifact_table()
+    with session() as active_session:
+        row = active_session.execute(
+            select(table.c.artifact_id, table.c.local_path).where(
+                table.c.dataset_id == dataset_id,
+                table.c.artifact_key == key,
+                table.c.status.in_(("downloaded", "skipped")),
+            )
+        ).mappings().first()
     if row is None:
         raise ValueError(f"Required ACS artifact {key!r} has not been downloaded")
-    return row
+    return dict(row)
 
 
 def _table_artifacts(plan: dict[str, Any]) -> list[dict[str, Any]]:
@@ -102,7 +108,7 @@ def stage_acs_bulk(
         for item in _table_artifacts(plan):
             if table_ids is not None and str(item["table_id"]) not in table_ids:
                 continue
-            artifact = _artifact(conn, dataset_id, str(item["artifact_key"]))
+            artifact = _artifact(dataset_id, str(item["artifact_key"]))
             if update:
                 update(f"Staging ACS {item['table_id']}")
             rows = []
@@ -166,7 +172,7 @@ def load_acs_bulk(
         update("Creating ACS geographies")
     with connect() as conn, conn.cursor() as cur:
         artifact_ids = [
-            _artifact(conn, dataset_id, str(item["artifact_key"]))["artifact_id"]
+            _artifact(dataset_id, str(item["artifact_key"]))["artifact_id"]
             for item in _table_artifacts(plan)
             if table_ids is None or str(item["table_id"]) in table_ids
         ]

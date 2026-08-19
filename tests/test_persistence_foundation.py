@@ -34,6 +34,7 @@ from opendiscourse_research.ingestion import bls as bls_ingestion
 from opendiscourse_research.ingestion import fred as fred_ingestion
 from opendiscourse_research.ingestion.base import IngestionRun
 from opendiscourse_research.ingestion.tiger_load import _artifact as tiger_artifact
+from opendiscourse_research.ingestion.acs_load import _artifact as acs_artifact
 from opendiscourse_research.models.catalog import (
     CatalogSnapshot,
     DatasetField,
@@ -535,6 +536,29 @@ def test_tiger_artifact_lookup_uses_typed_immutable_evidence(
     artifact = tiger_artifact("test-tiger-typed-artifact")
     assert artifact["artifact_id"]
     assert artifact["local_path"] == str(source.resolve())
+
+
+def test_acs_artifact_lookup_scopes_typed_evidence_to_its_dataset(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """ACS bulk loading cannot resolve an artifact from another dataset by key alone."""
+    source = tmp_path / "acs.psv"
+    source.write_text("GEO_ID|VALUE\n0400000US01|1\n")
+    register_local(
+        ArtifactSpec(
+            dataset_id="census.acs_5_bulk",
+            artifact_key="test-acs-typed-artifact",
+            url="https://example.test/acs.psv",
+            filename="acs.psv",
+        ),
+        source,
+    )
+
+    artifact = acs_artifact("census.acs_5_bulk", "test-acs-typed-artifact")
+    assert artifact["artifact_id"]
+    assert artifact["local_path"] == str(source.resolve())
+    with pytest.raises(ValueError, match="has not been downloaded"):
+        acs_artifact("census.tiger", "test-acs-typed-artifact")
 
 
 def test_typed_postgis_boundary_mapping_round_trips_geometry(
