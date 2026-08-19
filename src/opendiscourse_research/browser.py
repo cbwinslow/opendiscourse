@@ -13,7 +13,7 @@ from sqlalchemy import String, cast, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import insert
 
 from .config import settings
-from .db import connect, session
+from .db import session
 from .ingestion.base import client, json_response
 from .models.catalog import (
     Basket,
