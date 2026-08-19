@@ -10,8 +10,9 @@ adopted `catalog` schema plus OpenStates evidence tables
 `ingest.identity_exception`, `ingest.artifact`, and `ingest.cursor`; the
 existing ordered `sql/` files remain the schema owner for every other schema
 except adopted `core.geography` and `fact.measurement`, until its bounded
-migration is explicitly approved. SQLAlchemy continues to use the project's
-`psycopg` driver.
+migration is explicitly approved. Alembic also owns the adopted
+`core.geography_boundary` PostGIS table. SQLAlchemy continues to use the
+project's `psycopg` driver.
 
 The Alembic baseline and adoption revisions are markers over the legacy-seeded
 schemas. The real PostGIS regression suite verifies both downgrade to `base`
@@ -29,6 +30,8 @@ and re-upgrade to the adopted revision without changing legacy tables.
   lineage foreign key.
 - Alembic-adopted shared canonical primitives: geography and measurements,
   including the measurement lookup index and NULLS-NOT-DISTINCT identity key.
+- Alembic-adopted PostGIS geography boundaries, including source evidence
+  lineage and the legacy-named GiST geometry index.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan

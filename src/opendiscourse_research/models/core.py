@@ -67,17 +67,17 @@ core_geography_boundary = Table(
     Column("boundary_vintage", Integer, nullable=False),
     Column("valid_from", Date),
     Column("valid_to", Date),
-    Column("geom", Geometry("GEOMETRY", srid=4326), nullable=False),
+    Column("geom", Geometry("GEOMETRY", srid=4326, spatial_index=False), nullable=False),
     Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
     Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
     UniqueConstraint("geography_id", "boundary_vintage"),
+    Index("geography_boundary_geom_idx", "geom", postgresql_using="gist"),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 
 def geography_boundary_table():
-    """Return legacy PostGIS boundary storage without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical PostGIS boundary table."""
     return core_geography_boundary
 
 
