@@ -10,6 +10,9 @@ from unittest.mock import MagicMock, patch
 
 import yaml
 
+from opendiscourse_research.identityexceptions import (
+    unresolved_congressional_identities,
+)
 from opendiscourse_research.openstatesrefresh import (
     build_openstates_vote_dry_run,
     require_openstates_snapshot_download_approval,
@@ -21,9 +24,11 @@ from opendiscourse_research.openstatessnapshot import (
     validate_snapshot_artifact,
     write_snapshot_manifest,
 )
+from opendiscourse_research.openstatesstage import (
+    build_stage_validation,
+    publish_openstates_compatibility_views,
+)
 from opendiscourse_research.peopleload import load_openstates_votes
-from opendiscourse_research.identityexceptions import unresolved_congressional_identities
-from opendiscourse_research.openstatesstage import build_stage_validation
 
 
 def contract() -> dict:
@@ -48,6 +53,41 @@ def contract() -> dict:
 
 
 class TestOpenStatesRefreshPlan(unittest.TestCase):
+    def test_compatibility_view_publication_requires_all_fdw_relations(self) -> None:
+        cursor = MagicMock()
+        cursor.fetchone.return_value = {
+            "person": "openstates_source.opencivicdata_person",
+            "bill": None,
+            "session": "openstates_source.opencivicdata_legislativesession",
+            "jurisdiction": "openstates_source.opencivicdata_jurisdiction",
+        }
+        connection = MagicMock()
+        connection.__enter__.return_value = connection
+        connection.cursor.return_value.__enter__.return_value = cursor
+        with (
+            patch("opendiscourse_research.openstatesstage.connect", return_value=connection),
+            self.assertRaisesRegex(ValueError, "FDW is not provisioned"),
+        ):
+            publish_openstates_compatibility_views()
+        self.assertEqual(cursor.execute.call_count, 1)
+
+    def test_compatibility_view_publication_uses_named_operational_sql(self) -> None:
+        cursor = MagicMock()
+        cursor.fetchone.return_value = {
+            "person": "openstates_source.opencivicdata_person",
+            "bill": "openstates_source.opencivicdata_bill",
+            "session": "openstates_source.opencivicdata_legislativesession",
+            "jurisdiction": "openstates_source.opencivicdata_jurisdiction",
+        }
+        connection = MagicMock()
+        connection.__enter__.return_value = connection
+        connection.cursor.return_value.__enter__.return_value = cursor
+        with patch("opendiscourse_research.openstatesstage.connect", return_value=connection):
+            publish_openstates_compatibility_views()
+        published_sql = cursor.execute.call_args_list[1].args[0]
+        self.assertIn("CREATE OR REPLACE VIEW leg.person", published_sql)
+        self.assertIn("CREATE OR REPLACE VIEW leg.bill", published_sql)
+
     def test_contract_requires_keyset_cursor_and_snapshot_endpoint(self) -> None:
         candidate = contract()
         validate_openstates_vote_contract(candidate)
