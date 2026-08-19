@@ -11,8 +11,15 @@ import yaml
 from sqlalchemy import func, select
 
 from .config import settings
-from .db import connect, session
+from .db import session
 from .models.catalog import Resource, artifact_table
+from .models.core import (
+    acs_bulk_estimate_table,
+    business_pattern_table,
+    decennial_dhc_value_table,
+    geography_boundary_table,
+    population_estimate_table,
+)
 
 FAMILIES = {
     "census.acs_5_bulk": {
@@ -32,6 +39,14 @@ FAMILIES = {
         "fact_table": "fact.decennial_dhc_value",
     },
     "census.tiger": {"name": "TIGER/Line", "fact_table": "core.geography_boundary"},
+}
+
+FACT_TABLES = {
+    "census.acs_5_bulk": acs_bulk_estimate_table(),
+    "census.business_patterns": business_pattern_table(),
+    "census.population_estimates": population_estimate_table(),
+    "census.decennial": decennial_dhc_value_table(),
+    "census.tiger": geography_boundary_table(),
 }
 
 
@@ -95,16 +110,19 @@ def _artifacts(keys: list[str]) -> list[dict[str, Any]]:
         ]
 
 
-def _fact_count(conn: Any, dataset_id: str, artifact_ids: list[str]) -> int:
-    table = FAMILIES[dataset_id]["fact_table"]
-    if not table or not artifact_ids:
+def _fact_count(dataset_id: str, artifact_ids: list[str]) -> int:
+    """Count artifact-linked canonical rows through the mapped fact contract."""
+    if not artifact_ids:
         return 0
-    with conn.cursor() as cur:
-        cur.execute(
-            f"SELECT count(*) AS count FROM {table} WHERE source_artifact_id = ANY(%s)",
-            (artifact_ids,),
+    table = FACT_TABLES[dataset_id]
+    with session() as active_session:
+        return int(
+            active_session.execute(
+                select(func.count())
+                .select_from(table)
+                .where(table.c.source_artifact_id.in_(artifact_ids))
+            ).scalar_one()
         )
-        return int(cur.fetchone()["count"])
 
 
 def census_health() -> dict[str, Any]:
@@ -120,29 +138,28 @@ def census_health() -> dict[str, Any]:
                 .group_by(Resource.dataset_id)
             ).mappings()
         }
-    with connect() as conn:
-        for path, plan in plans:
-            keys = [
-                str(item["artifact_key"])
-                for item in plan.get("artifacts", [])
-                if item.get("artifact_key")
-            ]
-            artifacts = _artifacts(keys)
-            facts = _fact_count(
-                conn, plan["dataset"], [str(row["artifact_id"]) for row in artifacts]
-            )
-            status, issues = classify_plan(plan, artifacts, facts)
-            groups[plan["dataset"]].append(
-                {
-                    "path": str(path),
-                    "state": plan.get("state"),
-                    "scope": plan.get("canonical_load_scope"),
-                    "artifacts": artifacts,
-                    "canonical_rows": facts,
-                    "status": status,
-                    "issues": issues,
-                }
-            )
+    for path, plan in plans:
+        keys = [
+            str(item["artifact_key"])
+            for item in plan.get("artifacts", [])
+            if item.get("artifact_key")
+        ]
+        artifacts = _artifacts(keys)
+        facts = _fact_count(
+            plan["dataset"], [str(row["artifact_id"]) for row in artifacts]
+        )
+        status, issues = classify_plan(plan, artifacts, facts)
+        groups[plan["dataset"]].append(
+            {
+                "path": str(path),
+                "state": plan.get("state"),
+                "scope": plan.get("canonical_load_scope"),
+                "artifacts": artifacts,
+                "canonical_rows": facts,
+                "status": status,
+                "issues": issues,
+            }
+        )
     families = []
     for dataset_id, meta in FAMILIES.items():
         entries = groups[dataset_id]

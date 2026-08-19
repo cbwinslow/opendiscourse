@@ -118,8 +118,6 @@ not because their evidence boundary is unmapped:
 - The OpenStates FDW and its source-schema reconciliation queries.
 - Legislative graph writes and provenance reconciliation that operate on the
   OpenStates FDW or require a supplied caller transaction.
-- Dynamic fact-table health counts, where table names are selected from the
-  reviewed health family map.
 
 Future migrations must keep artifact/raw-payload lineage, idempotent conflict
 keys, batch/commit semantics, and the source-owned staging shape intact. A
