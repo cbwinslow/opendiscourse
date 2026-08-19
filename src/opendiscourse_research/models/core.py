@@ -399,7 +399,22 @@ core_organization = Table(
     Column("jurisdiction_geoid", Text),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     schema="core",
-    info={"alembic_exclude": True},
+)
+
+
+core_organization_identifier = Table(
+    "organization_identifier",
+    SQLModel.metadata,
+    Column(
+        "organization_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.organization.organization_id"),
+        nullable=False,
+    ),
+    Column("namespace", Text, primary_key=True),
+    Column("external_id", Text, primary_key=True),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    schema="core",
 )
 
 
@@ -438,8 +453,13 @@ fact_member_vote = Table(
 
 
 def organization_table():
-    """Return legacy canonical organizations without Alembic ownership."""
+    """Return the Alembic-adopted canonical organization table."""
     return core_organization
+
+
+def organization_identifier_table():
+    """Return Alembic-adopted stable organization identifiers."""
+    return core_organization_identifier
 
 
 def roll_call_table():

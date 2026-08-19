@@ -18,6 +18,8 @@ continues to use the project's `psycopg` driver. `core.bill_action` is also
 Alembic-adopted, as is `core.bill_sponsorship`.
 `core.bill_committee` and `core.bill_subject` are also Alembic-adopted.
 `core.document` and `core.bill_document` are also Alembic-adopted.
+`core.organization` and `core.organization_identifier` are also
+Alembic-adopted.
 
 The Alembic baseline and adoption revisions are markers over the legacy-seeded
 schemas. The real PostGIS regression suite verifies both downgrade to `base`
@@ -49,6 +51,7 @@ and re-upgrade to the adopted revision without changing legacy tables.
 - Alembic-adopted bill committees and subjects, each with source evidence and
   NULLS-NOT-DISTINCT source-member identity.
 - Alembic-adopted canonical documents and their legacy bill-link relationship.
+- Alembic-adopted canonical organizations and stable organization identifiers.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan

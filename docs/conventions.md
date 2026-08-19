@@ -16,10 +16,11 @@ to those tables, and adopted `core.geography`, `core.geography_boundary`, and
 their adoption baseline. `core.bill_sponsorship` belongs there as well.
 `core.bill_committee` and `core.bill_subject` belong there as well. Reusable
 `core.document` and `core.bill_document` belong there as well. Reusable runtime
-statements belong in `sql/query/<area>/`. Python must pass bound parameters to
-those statements and must not assemble SQL with string interpolation. Existing
-inline statements are migrated incrementally whenever their adapter is changed;
-new provider work may not add inline SQL.
+`core.organization` and `core.organization_identifier` belong there as well.
+Reusable runtime statements belong in `sql/query/<area>/`. Python must pass
+bound parameters to those statements and must not assemble SQL with string
+interpolation. Existing inline statements are migrated incrementally whenever
+their adapter is changed; new provider work may not add inline SQL.
 
 Every provider must declare its source URL, authentication requirement,
 rate-limit policy, pagination/cursor behavior, raw-provenance strategy, and
