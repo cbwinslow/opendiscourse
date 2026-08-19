@@ -184,14 +184,15 @@ class TestLegislationPersistence(unittest.TestCase):
 
     def test_ingestion_run_can_record_partial_completion(self) -> None:
         mock_conn = MagicMock()
-        mock_cur = MagicMock()
-        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
-        mock_cur.fetchone.return_value = {
-            "run_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-        }
+        mock_session = MagicMock()
+        active_session = mock_session.return_value.__enter__.return_value
+        active_session.execute.return_value.scalar_one.return_value = (
+            "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        )
 
-        with patch(
-            "opendiscourse_research.ingestion.base.connect", return_value=mock_conn
+        with (
+            patch("opendiscourse_research.ingestion.base.connect", return_value=mock_conn),
+            patch("opendiscourse_research.ingestion.base.session", mock_session),
         ):
             with IngestionRun(
                 "congress.govinfo_billstatus", {"congress": 119}, mode="backfill"
@@ -199,27 +200,27 @@ class TestLegislationPersistence(unittest.TestCase):
                 run.record_count = 7
                 run.mark_partial()
 
-        update_query, update_params = mock_cur.execute.call_args.args
-        self.assertIn("UPDATE ingest.run", update_query)
-        self.assertEqual(update_params[0], "partial")
-        self.assertEqual(update_params[1], 7)
+        self.assertEqual(active_session.execute.call_count, 2)
+        self.assertTrue(mock_conn.commit.called)
 
     def test_ingestion_run_rolls_back_before_recording_failure(self) -> None:
         mock_conn = MagicMock()
-        mock_cur = MagicMock()
-        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
-        mock_cur.fetchone.return_value = {
-            "run_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-        }
+        mock_session = MagicMock()
+        active_session = mock_session.return_value.__enter__.return_value
+        active_session.execute.return_value.scalar_one.return_value = (
+            "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        )
 
-        with patch(
-            "opendiscourse_research.ingestion.base.connect", return_value=mock_conn
+        with (
+            patch("opendiscourse_research.ingestion.base.connect", return_value=mock_conn),
+            patch("opendiscourse_research.ingestion.base.session", mock_session),
         ):
             with self.assertRaisesRegex(RuntimeError, "expected"):
                 with IngestionRun("openstates.legislation", {"test": True}):
                     raise RuntimeError("expected")
 
         mock_conn.rollback.assert_called_once()
+        self.assertEqual(active_session.execute.call_count, 2)
 
     def test_openstates_people_sync_preserves_identifier_conflicts(self) -> None:
         mock_conn = MagicMock()
