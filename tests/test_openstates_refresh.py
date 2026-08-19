@@ -194,10 +194,8 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
         self.assertEqual(record_exceptions.call_count, 1)
 
     def test_identity_exception_report_preserves_reason(self) -> None:
-        conn = MagicMock()
-        conn.__enter__.return_value = conn
-        cur = conn.cursor.return_value.__enter__.return_value
-        cur.fetchall.return_value = [
+        active_session = MagicMock()
+        active_session.execute.return_value.mappings.return_value = [
             {
                 "kind": "voter",
                 "namespace": "ocd",
@@ -206,7 +204,9 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
                 "references": 100,
             }
         ]
-        with patch("opendiscourse_research.identityexceptions.connect", return_value=conn):
+        session_factory = MagicMock()
+        session_factory.return_value.__enter__.return_value = active_session
+        with patch("opendiscourse_research.identityexceptions.session", session_factory):
             result = unresolved_congressional_identities()
         self.assertEqual(result["exceptions"][0]["reason"], "missing_ocd_voter_id")
 

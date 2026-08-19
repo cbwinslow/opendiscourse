@@ -34,6 +34,7 @@ from opendiscourse_research.ingestion import census as census_ingestion
 from opendiscourse_research.ingestion import bls as bls_ingestion
 from opendiscourse_research.ingestion import fred as fred_ingestion
 from opendiscourse_research.ingestion.base import IngestionRun
+from opendiscourse_research.identityexceptions import unresolved_congressional_identities
 from opendiscourse_research.ingestion.tiger_load import _artifact as tiger_artifact
 from opendiscourse_research.ingestion.acs_load import _artifact as acs_artifact
 from opendiscourse_research.ingestion.cbp_load import _artifact as cbp_artifact
@@ -625,6 +626,8 @@ def test_loaded_legislation_artifact_members_use_typed_identifier_lineage(
 
 def test_openstates_resume_and_identity_evidence_use_typed_mappings(
     catalog_database: None,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     """Checkpoint and unresolved-voter evidence retain source/run lineage idempotently."""
     artifact = register_artifact(
@@ -692,6 +695,16 @@ def test_openstates_resume_and_identity_evidence_use_typed_mappings(
         },
     ]
     assert str(checkpoint_artifact) == str(artifact["artifact_id"])
+
+    monkeypatch.setattr(settings, "data_root", str(tmp_path / "data"))
+    report = unresolved_congressional_identities()
+    unresolved = {
+        (row["external_id"], row["reason"]): row["references"]
+        for row in report["exceptions"]
+    }
+    assert unresolved[("<missing>", "missing_ocd_voter_id")] == 2
+    assert unresolved[("ocd-person/a", "no_canonical_person_identifier")] == 3
+    assert Path(report["report"]).is_file()
 
 
 def test_billstatus_graph_default_path_uses_typed_mappings(
