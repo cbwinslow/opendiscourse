@@ -21,6 +21,7 @@ Alembic-adopted, as is `core.bill_sponsorship`.
 `core.organization` and `core.organization_identifier` are also
 Alembic-adopted.
 `core.roll_call` and `fact.member_vote` are also Alembic-adopted.
+`fact.population_estimate` is also Alembic-adopted.
 
 The Alembic baseline and adoption revisions are markers over the legacy-seeded
 schemas. The real PostGIS regression suite verifies both downgrade to `base`
@@ -55,6 +56,8 @@ and re-upgrade to the adopted revision without changing legacy tables.
 - Alembic-adopted canonical organizations and stable organization identifiers.
 - Alembic-adopted roll calls and member votes, including partial OCD-ID
   uniqueness and artifact-or-payload vote provenance.
+- Alembic-adopted PEP population estimates, including source artifact/member
+  lineage and the release/year/geography lookup index.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan

@@ -32,6 +32,7 @@ from .core import (
     organization_table,
     person_identifier_table,
     person_table,
+    population_estimate_table,
     roll_call_table,
 )
 from .ingest import (
@@ -74,6 +75,7 @@ __all__ = [
     "organization_identifier_table",
     "person_identifier_table",
     "person_table",
+    "population_estimate_table",
     "roll_call_table",
     "raw_payload_table",
     "resume_cursor_table",

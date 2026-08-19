@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, Table, Text, UniqueConstraint, text
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, Table, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID as PostgreSQLUUID
 from sqlmodel import SQLModel
 
@@ -474,3 +474,43 @@ def roll_call_table():
 def member_vote_table():
     """Return the Alembic-adopted canonical member-vote table."""
     return fact_member_vote
+
+
+fact_population_estimate = Table(
+    "population_estimate",
+    SQLModel.metadata,
+    Column(
+        "population_estimate_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column("release_vintage", Integer, nullable=False),
+    Column("estimate_year", Integer, nullable=False),
+    Column(
+        "geography_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.geography.geography_id"),
+        nullable=False,
+    ),
+    Column("population", BigInteger, nullable=False),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("source_member", Text, nullable=False),
+    Column("source_ordinal", BigInteger, nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    UniqueConstraint(
+        "source_artifact_id", "source_member", "source_ordinal", "estimate_year"
+    ),
+    Index("population_estimate_lookup_idx", "release_vintage", "estimate_year", "geography_id"),
+    schema="fact",
+)
+
+
+def population_estimate_table():
+    """Return the Alembic-adopted PEP population-estimate fact table."""
+    return fact_population_estimate
