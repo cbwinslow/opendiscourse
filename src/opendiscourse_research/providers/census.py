@@ -6,10 +6,12 @@ import json
 from hashlib import sha256
 from typing import Any
 
-from psycopg.types.json import Jsonb
+from sqlalchemy import func, literal, select
+from sqlalchemy.dialects.postgresql import insert
 
-from ..db import connect
+from ..db import session
 from ..ingestion.base import IngestionRun, client, json_response
+from ..models.catalog import CatalogSnapshot, Resource, SnapshotResource
 from ..repositories.catalog import upsert_resource
 
 CATALOG_URL = "https://api.census.gov/data.json"
@@ -67,7 +69,9 @@ def sync_catalog() -> dict[str, int | str]:
         if not isinstance(offerings, list):
             raise ValueError("Census data catalog did not contain a dataset list")
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-        with run.conn.cursor() as cur:
+        resource_table = Resource.__table__
+        snapshot_table = CatalogSnapshot.__table__
+        with session() as active_session:
             for item in offerings:
                 if not isinstance(item, dict):
                     continue
@@ -92,48 +96,52 @@ def sync_catalog() -> dict[str, int | str]:
                     "geography_url": item.get("c_geographyLink"),
                     "source_payload_id": payload_id,
                 }
-                cur.execute(
-                    """INSERT INTO catalog.resource
-                       (dataset_id, resource_key, resource_type, title, summary, release_year, metadata)
-                       VALUES ('census.api_catalog', %s, %s, %s, %s, %s, %s)
-                       ON CONFLICT (dataset_id, resource_key) DO UPDATE SET
-                         resource_type = EXCLUDED.resource_type, title = EXCLUDED.title,
-                         summary = EXCLUDED.summary, release_year = EXCLUDED.release_year,
-                         metadata = EXCLUDED.metadata, updated_at = now()""",
-                    (
-                        key,
-                        _offering_type(item),
-                        str(item.get("title") or key),
-                        item.get("description"),
-                        release_year,
-                        Jsonb(metadata),
-                    ),
+                resource_statement = insert(resource_table).values(
+                    dataset_id="census.api_catalog",
+                    resource_key=key,
+                    resource_type=_offering_type(item),
+                    title=str(item.get("title") or key),
+                    summary=item.get("description"),
+                    release_year=release_year,
+                    metadata=metadata,
+                )
+                excluded = resource_statement.excluded
+                active_session.execute(
+                    resource_statement.on_conflict_do_update(
+                        index_elements=(resource_table.c.dataset_id, resource_table.c.resource_key),
+                        set_={
+                            "resource_type": excluded.resource_type,
+                            "title": excluded.title,
+                            "summary": excluded.summary,
+                            "release_year": excluded.release_year,
+                            "metadata": excluded.metadata,
+                            "updated_at": func.now(),
+                        },
+                    )
                 )
                 run.record_count += 1
-            cur.execute(
-                """INSERT INTO catalog.snapshot (dataset_id, source_url, checksum_sha256, metadata)
-                   VALUES ('census.api_catalog', %s, %s, %s)
-                   ON CONFLICT (dataset_id, checksum_sha256) DO UPDATE SET metadata = EXCLUDED.metadata
-                   RETURNING snapshot_id""",
-                (
-                    CATALOG_URL,
-                    sha256(canonical).hexdigest(),
-                    Jsonb(
-                        {
-                            "kind": "census_data_api_catalog",
-                            "offerings": run.record_count,
-                        }
+            snapshot_statement = insert(snapshot_table).values(
+                dataset_id="census.api_catalog",
+                source_url=CATALOG_URL,
+                checksum_sha256=sha256(canonical).hexdigest(),
+                metadata={"kind": "census_data_api_catalog", "offerings": run.record_count},
+            )
+            snapshot_id = active_session.execute(
+                snapshot_statement.on_conflict_do_update(
+                    index_elements=(snapshot_table.c.dataset_id, snapshot_table.c.checksum_sha256),
+                    set_={"metadata": snapshot_statement.excluded.metadata},
+                ).returning(snapshot_table.c.snapshot_id)
+            ).scalar_one()
+            active_session.execute(
+                insert(SnapshotResource.__table__)
+                .from_select(
+                    ("snapshot_id", "resource_id"),
+                    select(literal(snapshot_id), Resource.resource_id).where(
+                        Resource.dataset_id == "census.api_catalog"
                     ),
-                ),
+                )
+                .on_conflict_do_nothing()
             )
-            snapshot_id = cur.fetchone()["snapshot_id"]
-            cur.execute(
-                """INSERT INTO catalog.snapshot_resource (snapshot_id, resource_id)
-                   SELECT %s, resource_id FROM catalog.resource WHERE dataset_id = 'census.api_catalog'
-                   ON CONFLICT DO NOTHING""",
-                (snapshot_id,),
-            )
-        run.conn.commit()
     return {"resources": run.record_count, "payload_id": payload_id}
 
 

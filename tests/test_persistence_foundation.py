@@ -6,6 +6,7 @@ import os
 from collections.abc import Iterator
 from pathlib import Path
 
+import httpx
 import pytest
 from sqlalchemy import select, text
 
@@ -30,6 +31,7 @@ from opendiscourse_research.repositories.catalog import (
     resource_ids,
     upsert_resource,
 )
+from opendiscourse_research.providers import census
 
 
 def _psycopg_url(url: str) -> str:
@@ -264,3 +266,54 @@ def test_curated_provider_syncs_record_idempotent_catalog_snapshots(
     assert bls["resources"] > 0
     assert fred_snapshot is not None
     assert len(bls_snapshots) == 2
+
+
+def test_census_api_catalog_sync_links_resources_to_the_ingested_payload(
+    catalog_database: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Census API discovery retains source payload provenance through SQLAlchemy writes."""
+    payload = {
+        "dataset": [
+            {
+                "identifier": "https://api.census.gov/data/2030/acs/acs5",
+                "title": "ACS 5-Year sample",
+                "description": "A test offering",
+                "c_dataset": ["acs5"],
+                "c_vintage": "2030",
+                "distribution": [
+                    {"format": "API", "accessURL": "https://api.census.gov/data/2030/acs/acs5"}
+                ],
+            }
+        ]
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={"content-type": "application/json"}, json=payload)
+
+    monkeypatch.setattr(
+        census, "client", lambda: httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    result = census.sync_catalog()
+    repeat = census.sync_catalog()
+
+    with session() as active_session:
+        resource = active_session.scalar(
+            select(Resource).where(
+                Resource.dataset_id == "census.api_catalog",
+                Resource.resource_key == payload["dataset"][0]["identifier"],
+            )
+        )
+        snapshot = active_session.scalar(
+            select(CatalogSnapshot).where(
+                CatalogSnapshot.dataset_id == "census.api_catalog",
+                CatalogSnapshot.metadata_["kind"].astext == "census_data_api_catalog",
+            )
+        )
+
+    assert result["resources"] == 1
+    assert repeat["resources"] == 1
+    assert repeat["payload_id"] != result["payload_id"]
+    assert resource is not None
+    assert resource.release_year == 2030
+    assert resource.metadata_["source_payload_id"] == repeat["payload_id"]
+    assert snapshot is not None
