@@ -37,6 +37,8 @@ and re-upgrade to the adopted revision without changing legacy catalog tables.
   person-identifier, and ingestion-exception mappings.
 - Congressional health reporting uses typed bill, person, organization,
   roll-call, member-vote, exception, and run mappings.
+- Congress.gov bill API ingestion upserts canonical bills through SQLAlchemy
+  with its existing per-page transaction boundary.
 
 Every migrated database behavior has real PostgreSQL/PostGIS coverage in
 `tests/test_persistence_foundation.py`; ORM behavior is not mocked there.

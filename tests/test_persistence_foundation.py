@@ -33,6 +33,7 @@ from opendiscourse_research.db import _alembic_config, _engine, apply_migrations
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion import census as census_ingestion
 from opendiscourse_research.ingestion import bls as bls_ingestion
+from opendiscourse_research.ingestion import congress as congress_ingestion
 from opendiscourse_research.ingestion import fred as fred_ingestion
 from opendiscourse_research.ingestion.base import IngestionRun
 from opendiscourse_research.identityexceptions import unresolved_congressional_identities
@@ -840,6 +841,55 @@ def test_billstatus_graph_default_path_uses_typed_mappings(
     assert action_row["description"] == "Referred to committee"
     assert str(action_row["source_artifact_id"]) == str(artifact["artifact_id"])
     assert action_row["metadata"] == {"action": "first"}
+
+
+def test_congress_api_bill_upsert_uses_typed_canonical_mapping(
+    catalog_database: None,
+) -> None:
+    """Congress.gov bill identity upserts retain the legacy conflict-update semantics."""
+    first = {
+        "congress": 132,
+        "type": "HR",
+        "number": 7,
+        "title": "Initial title",
+        "introducedDate": "2032-01-03",
+        "latestAction": {"actionDate": "2032-01-04", "text": "Introduced"},
+    }
+    updated = {
+        **first,
+        "title": None,
+        "introducedDate": None,
+        "latestAction": {"actionDate": "2032-01-05", "text": "Referred"},
+    }
+    with session() as active_session:
+        congress_ingestion._upsert_bill(active_session, first, "unused-payload-id")
+    with session() as active_session:
+        congress_ingestion._upsert_bill(active_session, updated, "unused-payload-id")
+
+    bill = bill_table()
+    with session() as active_session:
+        row = active_session.execute(
+            select(
+                bill.c.title,
+                bill.c.introduced_date,
+                bill.c.latest_action_date,
+                bill.c.latest_action,
+                bill.c.metadata,
+            ).where(
+                bill.c.jurisdiction == "us",
+                bill.c.legislative_session == "132",
+                bill.c.bill_type == "hr",
+                bill.c.bill_number == "7",
+            )
+        ).mappings().one()
+
+    assert row == {
+        "title": None,
+        "introduced_date": datetime(2032, 1, 3).date(),
+        "latest_action_date": datetime(2032, 1, 5).date(),
+        "latest_action": "Referred",
+        "metadata": {"source": "congress.gov"},
+    }
 
 
 def test_legislative_session_default_path_uses_typed_core_mappings(
