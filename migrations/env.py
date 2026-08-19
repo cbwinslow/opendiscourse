@@ -34,6 +34,12 @@ def include_object(object_: object, name: str | None, type_: str, reflected: boo
     """Keep cross-schema reference stubs and unrelated reflected tables out."""
     if getattr(object_, "info", {}).get("alembic_exclude", False):
         return False
+    # PostgreSQL normalizes the immutable FTS expression when reflecting the
+    # index, while SQLAlchemy retains its source text. Autogenerate would thus
+    # propose a destructive drop/recreate every time despite equivalent SQL.
+    # Its dedicated PostGIS regression test proves the index's actual shape.
+    if type_ == "index" and name == "resource_fts_idx":
+        return False
     if type_ == "table" and reflected and compare_to is None:
         return False
     return True

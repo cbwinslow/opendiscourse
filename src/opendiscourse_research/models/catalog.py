@@ -117,6 +117,22 @@ class Resource(SQLModel, table=True):
     __tablename__ = "resource"
     __table_args__ = (
         Index("resource_search_idx", "dataset_id", "release_year", "resource_type"),
+        Index(
+            "resource_title_trgm_idx",
+            "title",
+            postgresql_using="gin",
+            postgresql_ops={"title": "gin_trgm_ops"},
+        ),
+        Index(
+            "resource_fts_idx",
+            text(
+                "to_tsvector('english', coalesce(resource_key, '') || ' ' || "
+                "coalesce(title, '') || ' ' || coalesce(summary, '') || ' ' || "
+                "coalesce(universe, '') || ' ' || coalesce(resource_type, '') || ' ' || "
+                "coalesce(metadata::text, ''))"
+            ),
+            postgresql_using="gin",
+        ),
         UniqueConstraint("dataset_id", "resource_key"),
         {"schema": "catalog"},
     )

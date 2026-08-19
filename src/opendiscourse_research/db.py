@@ -29,7 +29,7 @@ def _sqlalchemy_url(database_url: str) -> str:
     url = make_url(database_url)
     if url.drivername == "postgresql":
         url = url.set(drivername="postgresql+psycopg")
-    return str(url)
+    return url.render_as_string(hide_password=False)
 
 
 @lru_cache
@@ -46,7 +46,7 @@ def engine() -> Engine:
 @contextmanager
 def session() -> Iterator[Session]:
     """Provide a transactional SQLModel session for migrated persistence modules."""
-    with Session(engine()) as active_session:
+    with Session(engine(), expire_on_commit=False) as active_session:
         try:
             yield active_session
             active_session.commit()

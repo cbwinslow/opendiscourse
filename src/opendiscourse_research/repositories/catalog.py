@@ -7,10 +7,39 @@ from pathlib import Path
 from typing import Any
 
 from psycopg.types.json import Jsonb
+from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert
 
-from ..db import connect
+from ..db import connect, session
+from ..models.catalog import Resource
 
 ROOT = Path(__file__).resolve().parents[3]
+
+RESOURCE_UPDATE_COLUMNS = (
+    "resource_type",
+    "title",
+    "summary",
+    "universe",
+    "release_year",
+    "metadata",
+)
+
+
+def _upsert_resource(values: dict[str, Any]) -> None:
+    """Execute the catalog resource's idempotent PostgreSQL upsert pattern."""
+    table = Resource.__table__
+    statement = insert(table).values(**values)
+    updates = {
+        column: statement.excluded[column]
+        for column in RESOURCE_UPDATE_COLUMNS
+        if column in values
+    }
+    updates["updated_at"] = func.now()
+    statement = statement.on_conflict_do_update(
+        index_elements=(table.c.dataset_id, table.c.resource_key), set_=updates
+    )
+    with session() as active_session:
+        active_session.execute(statement)
 
 
 def _query(name: str) -> str:
@@ -20,7 +49,7 @@ def _query(name: str) -> str:
 
 def cache_fred_records(records: list[dict[str, Any]], discovery: dict[str, Any]) -> int:
     """Upsert FRED metadata records without acquiring observations."""
-    with connect() as conn, conn.cursor() as cur:
+    with session() as active_session:
         for record in records:
             metadata = {
                 key: record.get(key)
@@ -38,16 +67,26 @@ def cache_fred_records(records: list[dict[str, Any]], discovery: dict[str, Any])
                 )
             }
             metadata.update({"series_id": record["id"], "discovery": discovery})
-            cur.execute(
-                _query("upsert_fred_search"),
-                {
-                    "key": record["id"],
-                    "title": record.get("title", record["id"]),
-                    "summary": record.get("notes"),
-                    "metadata": Jsonb(metadata),
+            table = Resource.__table__
+            statement = insert(table).values(
+                dataset_id="fred.series",
+                resource_key=record["id"],
+                resource_type="series",
+                title=record.get("title", record["id"]),
+                summary=record.get("notes"),
+                metadata=metadata,
+            )
+            statement = statement.on_conflict_do_update(
+                index_elements=(table.c.dataset_id, table.c.resource_key),
+                set_={
+                    "resource_type": statement.excluded.resource_type,
+                    "title": statement.excluded.title,
+                    "summary": statement.excluded.summary,
+                    "metadata": statement.excluded.metadata,
+                    "updated_at": func.now(),
                 },
             )
-        conn.commit()
+            active_session.execute(statement)
     return len(records)
 
 
@@ -66,42 +105,41 @@ def upsert_resource(
     metadata: dict[str, Any],
 ) -> None:
     """Persist one provider-catalog resource using its external SQL statement."""
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            _query("upsert_resource"),
-            {
-                "dataset_id": dataset_id,
-                "resource_key": resource_key,
-                "resource_type": resource_type,
-                "title": title,
-                "summary": summary,
-                "release_year": release_year,
-                "metadata": Jsonb(metadata),
-            },
-        )
-        conn.commit()
+    _upsert_resource(
+        {
+            "dataset_id": dataset_id,
+            "resource_key": resource_key,
+            "resource_type": resource_type,
+            "title": title,
+            "summary": summary,
+            "release_year": release_year,
+            "metadata": metadata,
+        }
+    )
 
 
 def delete_resources_prefix(dataset_id: str, prefix: str) -> None:
     """Remove obsolete derived catalog rows; source artifacts are never affected."""
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            _query("delete_resources_prefix"),
-            {"dataset_id": dataset_id, "prefix": prefix},
+    with session() as active_session:
+        active_session.execute(
+            delete(Resource).where(
+                Resource.dataset_id == dataset_id,
+                Resource.resource_key.like(f"{prefix}%"),
+            )
         )
-        conn.commit()
 
 
 def resource_ids(
     dataset: str, year: int | None = None, product: str | None = None
 ) -> list[str]:
     """Return every resource ID in one catalog group for selection expansion."""
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            _query("resource_ids"),
-            {"dataset": dataset, "year": year, "product": product},
-        )
-        return [str(row["resource_id"]) for row in cur.fetchall()]
+    statement = select(Resource.resource_id).where(Resource.dataset_id == dataset)
+    if year is not None:
+        statement = statement.where(Resource.release_year == year)
+    if product is not None:
+        statement = statement.where(Resource.resource_type == product)
+    with session() as active_session:
+        return [str(resource_id) for resource_id in active_session.scalars(statement)]
 
 
 def discovery(discovery_id: str) -> dict[str, Any] | None:
