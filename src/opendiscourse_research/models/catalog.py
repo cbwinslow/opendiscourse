@@ -265,3 +265,57 @@ class BasketItem(SQLModel, table=True):
     added_at: datetime | None = Field(
         default=None, sa_column=Column(_timestamp, nullable=False, server_default=text("now()"))
     )
+
+
+class CatalogSnapshot(SQLModel, table=True):
+    """Immutable checksum-addressed evidence for one catalog discovery result."""
+
+    __tablename__ = "snapshot"
+    __table_args__ = (
+        UniqueConstraint("dataset_id", "checksum_sha256"),
+        {"schema": "catalog"},
+    )
+
+    snapshot_id: UUID | None = Field(
+        default=None,
+        sa_column=Column(
+            PostgreSQLUUID(as_uuid=True),
+            primary_key=True,
+            server_default=text("gen_random_uuid()"),
+        ),
+    )
+    dataset_id: str = Field(
+        sa_column=Column(Text, ForeignKey("catalog.dataset.dataset_id"), nullable=False)
+    )
+    source_url: str = Field(sa_column=Column(Text, nullable=False))
+    checksum_sha256: str = Field(sa_column=Column(Text, nullable=False))
+    artifact_id: UUID | None = Field(
+        default=None,
+        sa_column=Column(PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+    )
+    captured_at: datetime | None = Field(
+        default=None, sa_column=Column(_timestamp, nullable=False, server_default=text("now()"))
+    )
+    metadata_: dict[str, Any] = Field(default_factory=dict, sa_column=_json_object_column())
+
+
+class SnapshotResource(SQLModel, table=True):
+    """The resources represented by one immutable catalog snapshot."""
+
+    __tablename__ = "snapshot_resource"
+    __table_args__ = {"schema": "catalog"}
+
+    snapshot_id: UUID = Field(
+        sa_column=Column(
+            PostgreSQLUUID(as_uuid=True),
+            ForeignKey("catalog.snapshot.snapshot_id", ondelete="CASCADE"),
+            primary_key=True,
+        )
+    )
+    resource_id: UUID = Field(
+        sa_column=Column(
+            PostgreSQLUUID(as_uuid=True),
+            ForeignKey("catalog.resource.resource_id", ondelete="RESTRICT"),
+            primary_key=True,
+        )
+    )
