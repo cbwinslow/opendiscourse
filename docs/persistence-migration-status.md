@@ -20,6 +20,7 @@ Alembic-adopted, as is `core.bill_sponsorship`.
 `core.document` and `core.bill_document` are also Alembic-adopted.
 `core.organization` and `core.organization_identifier` are also
 Alembic-adopted.
+`core.document_chunk` and `core.embedding` are also Alembic-adopted.
 `core.roll_call` and `fact.member_vote` are also Alembic-adopted.
 `fact.population_estimate` is also Alembic-adopted.
 `fact.business_pattern` is also Alembic-adopted.
@@ -71,6 +72,8 @@ and re-upgrade to the adopted revision without changing legacy tables.
   provenance and release/geography/table/variable lookup.
 - Alembic-adopted financial instruments, symbols, and provenance-backed market
   bars.
+- Alembic-adopted document chunks and portable embeddings, including ordinal,
+  dimension, and vector-cardinality integrity checks.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan

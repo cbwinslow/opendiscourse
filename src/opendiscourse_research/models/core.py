@@ -1,10 +1,25 @@
-"""Typed references to legacy-owned core and fact tables used by shared ingestion."""
+"""Typed SQLAlchemy contracts for canonical core and fact tables."""
 
 from __future__ import annotations
 
 from geoalchemy2 import Geometry
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, Table, Text, UniqueConstraint, text
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID as PostgreSQLUUID
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    Table,
+    Text,
+    UniqueConstraint,
+    text,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, REAL, UUID as PostgreSQLUUID
 from sqlmodel import SQLModel
 
 
@@ -351,42 +366,42 @@ core_bill_document = Table(
 
 
 def person_identifier_table():
-    """Return legacy person identifiers without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical person-identifier table."""
     return core_person_identifier
 
 
 def person_table():
-    """Return legacy canonical people without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical people table."""
     return core_person
 
 
 def bill_action_table():
-    """Return legacy bill actions without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical bill-action table."""
     return core_bill_action
 
 
 def bill_sponsorship_table():
-    """Return legacy bill sponsorships without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical bill-sponsorship table."""
     return core_bill_sponsorship
 
 
 def bill_committee_table():
-    """Return legacy bill committees without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical bill-committee table."""
     return core_bill_committee
 
 
 def bill_subject_table():
-    """Return legacy bill subjects without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical bill-subject table."""
     return core_bill_subject
 
 
 def document_table():
-    """Return legacy documents without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical document table."""
     return core_document
 
 
 def bill_document_table():
-    """Return legacy bill-document links without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical bill-document table."""
     return core_bill_document
 
 
@@ -727,3 +742,66 @@ def instrument_symbol_table():
 def market_bar_table():
     """Return the Alembic-adopted market-bar fact table."""
     return fact_market_bar
+
+
+core_document_chunk = Table(
+    "document_chunk",
+    SQLModel.metadata,
+    Column(
+        "chunk_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column(
+        "document_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.document.document_id"),
+        nullable=False,
+    ),
+    Column("ordinal", Integer, nullable=False),
+    Column("text", Text, nullable=False),
+    Column("token_count", Integer),
+    Column("checksum_sha256", Text, nullable=False),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    CheckConstraint("ordinal >= 0", name="document_chunk_ordinal_check"),
+    UniqueConstraint("document_id", "ordinal"),
+    UniqueConstraint("document_id", "checksum_sha256"),
+    schema="core",
+)
+
+
+core_embedding = Table(
+    "embedding",
+    SQLModel.metadata,
+    Column(
+        "embedding_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column(
+        "chunk_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.document_chunk.chunk_id"),
+        nullable=False,
+    ),
+    Column("model", Text, nullable=False),
+    Column("dimensions", Integer, nullable=False),
+    Column("vector_values", ARRAY(REAL), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("dimensions > 0", name="embedding_dimensions_check"),
+    CheckConstraint("cardinality(vector_values) = dimensions", name="embedding_check"),
+    UniqueConstraint("chunk_id", "model"),
+    schema="core",
+)
+
+
+def document_chunk_table():
+    """Return the Alembic-adopted canonical document-chunk table."""
+    return core_document_chunk
+
+
+def embedding_table():
+    """Return the Alembic-adopted portable embedding table."""
+    return core_embedding
