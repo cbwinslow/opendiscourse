@@ -10,10 +10,13 @@ from typing import Any
 
 import yaml
 from psycopg.types.json import Jsonb
+from sqlalchemy import String, cast, func, or_, select
+from sqlalchemy.dialects.postgresql import insert
 
 from .config import settings
-from .db import connect
+from .db import connect, session
 from .ingestion.base import client, json_response
+from .models.catalog import Basket, BasketItem, Dataset, Provider, Resource, ResourceField
 from .providers.fred import search as search_fred
 from .repositories.catalog import resource_ids
 
@@ -443,45 +446,71 @@ def search(
     product: str | None = None,
 ) -> list[dict[str, Any]]:
     query = text.strip()
-    terms = f"%{query}%"
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """SELECT resource_id, resource_key, resource_type, title, universe, release_year, metadata
-               FROM catalog.resource
-               WHERE dataset_id = %s AND (%s = '' OR resource_key ILIKE %s OR title ILIKE %s OR summary ILIKE %s OR metadata::text ILIKE %s OR
-                 to_tsvector('english', concat_ws(' ', resource_key, title, summary, universe, resource_type, metadata::text)) @@ websearch_to_tsquery('english', %s))
-                 AND (%s::integer IS NULL OR release_year = %s) AND (%s::text IS NULL OR resource_type = %s)
-               ORDER BY resource_key LIMIT %s""",
-            (
-                dataset_id,
-                query,
-                terms,
-                terms,
-                terms,
-                terms,
-                query,
-                year,
-                year,
-                product,
-                product,
-                limit,
-            ),
+    table = Resource.__table__
+    columns = (
+        table.c.resource_id,
+        table.c.resource_key,
+        table.c.resource_type,
+        table.c.title,
+        table.c.universe,
+        table.c.release_year,
+        table.c.metadata,
+    )
+    statement = select(*columns).where(table.c.dataset_id == dataset_id)
+    if query:
+        terms = f"%{query}%"
+        document = func.to_tsvector(
+            "english",
+            func.coalesce(table.c.resource_key, "")
+            + " "
+            + func.coalesce(table.c.title, "")
+            + " "
+            + func.coalesce(table.c.summary, "")
+            + " "
+            + func.coalesce(table.c.universe, "")
+            + " "
+            + func.coalesce(table.c.resource_type, "")
+            + " "
+            + func.coalesce(cast(table.c.metadata, String), ""),
         )
-        return cur.fetchall()
+        statement = statement.where(
+            or_(
+                table.c.resource_key.ilike(terms),
+                table.c.title.ilike(terms),
+                table.c.summary.ilike(terms),
+                cast(table.c.metadata, String).ilike(terms),
+                document.op("@@")(func.websearch_to_tsquery("english", query)),
+            )
+        )
+    if year is not None:
+        statement = statement.where(table.c.release_year == year)
+    if product is not None:
+        statement = statement.where(table.c.resource_type == product)
+    statement = statement.order_by(table.c.resource_key).limit(limit)
+    with session() as active_session:
+        return [dict(row) for row in active_session.execute(statement).mappings()]
 
 
 def facets(dataset_id: str) -> dict[str, Any]:
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            "SELECT release_year, count(*) AS count FROM catalog.resource WHERE dataset_id = %s AND release_year IS NOT NULL GROUP BY release_year ORDER BY release_year DESC",
-            (dataset_id,),
-        )
-        years = cur.fetchall()
-        cur.execute(
-            "SELECT resource_type, count(*) AS count FROM catalog.resource WHERE dataset_id = %s GROUP BY resource_type ORDER BY resource_type",
-            (dataset_id,),
-        )
-        products = cur.fetchall()
+    with session() as active_session:
+        years = [
+            dict(row)
+            for row in active_session.execute(
+                select(Resource.release_year, func.count().label("count"))
+                .where(Resource.dataset_id == dataset_id, Resource.release_year.is_not(None))
+                .group_by(Resource.release_year)
+                .order_by(Resource.release_year.desc())
+            ).mappings()
+        ]
+        products = [
+            dict(row)
+            for row in active_session.execute(
+                select(Resource.resource_type, func.count().label("count"))
+                .where(Resource.dataset_id == dataset_id)
+                .group_by(Resource.resource_type)
+                .order_by(Resource.resource_type)
+            ).mappings()
+        ]
     # The ACS release choices are known even before each small table-list
     # workbook has been cached. Entering an uncached year can trigger metadata
     # discovery; it never downloads observations.
@@ -497,117 +526,139 @@ def facets(dataset_id: str) -> dict[str, Any]:
 
 
 def providers() -> list[dict[str, Any]]:
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute("SELECT provider_id, name FROM catalog.provider ORDER BY name")
-        return cur.fetchall()
+    with session() as active_session:
+        return [
+            dict(row)
+            for row in active_session.execute(
+                select(Provider.provider_id, Provider.name).order_by(Provider.name)
+            ).mappings()
+        ]
 
 
 def datasets(provider_id: str) -> list[dict[str, Any]]:
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """SELECT d.dataset_id, d.title, count(r.resource_id) AS resources
-                     FROM catalog.dataset d LEFT JOIN catalog.resource r ON r.dataset_id = d.dataset_id
-                     WHERE d.provider_id = %s GROUP BY d.dataset_id, d.title ORDER BY d.title""",
-            (provider_id,),
-        )
-        return cur.fetchall()
+    with session() as active_session:
+        return [
+            dict(row)
+            for row in active_session.execute(
+                select(
+                    Dataset.dataset_id,
+                    Dataset.title,
+                    func.count(Resource.resource_id).label("resources"),
+                )
+                .outerjoin(Resource, Resource.dataset_id == Dataset.dataset_id)
+                .where(Dataset.provider_id == provider_id)
+                .group_by(Dataset.dataset_id, Dataset.title)
+                .order_by(Dataset.title)
+            ).mappings()
+        ]
 
 
 def get_resource(resource_id: str) -> dict[str, Any]:
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            "SELECT * FROM catalog.resource WHERE resource_id = %s", (resource_id,)
-        )
-        resource = cur.fetchone()
+    with session() as active_session:
+        resource = active_session.get(Resource, resource_id)
         if resource is None:
             raise ValueError(f"Unknown catalog resource {resource_id}")
-        cur.execute(
-            "SELECT field_key, label, description, data_type, metadata FROM catalog.resource_field WHERE resource_id = %s ORDER BY field_key",
-            (resource_id,),
-        )
-        resource["fields"] = cur.fetchall()
-        return resource
+        payload = {
+            column.name: getattr(resource, "metadata_" if column.name == "metadata" else column.key)
+            for column in Resource.__table__.columns
+        }
+        payload["fields"] = [
+            dict(row)
+            for row in active_session.execute(
+                select(
+                    ResourceField.field_key,
+                    ResourceField.label,
+                    ResourceField.description,
+                    ResourceField.data_type,
+                    ResourceField.__table__.c.metadata,
+                )
+                .where(ResourceField.resource_id == resource_id)
+                .order_by(ResourceField.field_key)
+            ).mappings()
+        ]
+        return payload
 
 
 def upsert_fields(resource_id: str, fields: list[dict[str, Any]]) -> None:
-    with connect() as conn, conn.cursor() as cur:
+    table = ResourceField.__table__
+    with session() as active_session:
         for field in fields:
-            cur.execute(
-                """INSERT INTO catalog.resource_field (resource_id, field_key, label, description, data_type, metadata)
-                   VALUES (%s, %s, %s, %s, %s, %s)
-                   ON CONFLICT (resource_id, field_key) DO UPDATE SET label = EXCLUDED.label,
-                     description = EXCLUDED.description, data_type = EXCLUDED.data_type, metadata = EXCLUDED.metadata,
-                     discovered_at = now()""",
-                (
-                    resource_id,
-                    field["id"],
-                    field.get("label"),
-                    field.get("concept"),
-                    field.get("type"),
-                    Jsonb({}),
-                ),
+            statement = insert(table).values(
+                resource_id=resource_id,
+                field_key=field["id"],
+                label=field.get("label"),
+                description=field.get("concept"),
+                data_type=field.get("type"),
+                metadata={},
             )
-        conn.commit()
+            statement = statement.on_conflict_do_update(
+                index_elements=(table.c.resource_id, table.c.field_key),
+                set_={
+                    "label": statement.excluded.label,
+                    "description": statement.excluded.description,
+                    "data_type": statement.excluded.data_type,
+                    "metadata": statement.excluded.metadata,
+                    "discovered_at": func.now(),
+                },
+            )
+            active_session.execute(statement)
 
 
 def _basket_id(name: str) -> str:
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """INSERT INTO catalog.basket (name) VALUES (%s)
-               ON CONFLICT (name) DO UPDATE SET updated_at = now()
-               RETURNING basket_id""",
-            (name,),
-        )
-        basket_id = str(cur.fetchone()["basket_id"])
-        conn.commit()
-        return basket_id
+    table = Basket.__table__
+    statement = insert(table).values(name=name)
+    statement = statement.on_conflict_do_update(
+        index_elements=(table.c.name,), set_={"updated_at": func.now()}
+    ).returning(table.c.basket_id)
+    with session() as active_session:
+        return str(active_session.scalar(statement))
 
 
 def toggle(name: str, resource_id: str) -> bool:
     """Toggle one resource in a persistent basket; return True when selected."""
     basket_id = _basket_id(name)
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            "SELECT 1 FROM catalog.basket_item WHERE basket_id = %s AND resource_id = %s",
-            (basket_id, resource_id),
-        )
-        if cur.fetchone():
-            cur.execute(
-                "DELETE FROM catalog.basket_item WHERE basket_id = %s AND resource_id = %s",
-                (basket_id, resource_id),
-            )
-            selected = False
-        else:
-            cur.execute(
-                "INSERT INTO catalog.basket_item (basket_id, resource_id) VALUES (%s, %s)",
-                (basket_id, resource_id),
-            )
-            selected = True
-        conn.commit()
-        return selected
+    with session() as active_session:
+        item = active_session.get(BasketItem, (basket_id, resource_id))
+        if item is not None:
+            active_session.delete(item)
+            return False
+        active_session.add(BasketItem(basket_id=basket_id, resource_id=resource_id))
+        return True
 
 
 def basket(name: str) -> list[dict[str, Any]]:
     basket_id = _basket_id(name)
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """SELECT r.resource_id, r.dataset_id, r.resource_key, r.resource_type, r.title, r.universe, r.release_year, b.added_at
-               FROM catalog.basket_item b JOIN catalog.resource r ON r.resource_id = b.resource_id
-               WHERE b.basket_id = %s ORDER BY r.dataset_id, r.resource_key""",
-            (basket_id,),
-        )
-        return cur.fetchall()
+    with session() as active_session:
+        return [
+            dict(row)
+            for row in active_session.execute(
+                select(
+                    Resource.resource_id,
+                    Resource.dataset_id,
+                    Resource.resource_key,
+                    Resource.resource_type,
+                    Resource.title,
+                    Resource.universe,
+                    Resource.release_year,
+                    BasketItem.added_at,
+                )
+                .join(BasketItem, BasketItem.resource_id == Resource.resource_id)
+                .where(BasketItem.basket_id == basket_id)
+                .order_by(Resource.dataset_id, Resource.resource_key)
+            ).mappings()
+        ]
 
 
 def add_all(name: str, resource_ids: list[str]) -> int:
     basket_id = _basket_id(name)
-    with connect() as conn, conn.cursor() as cur:
+    table = BasketItem.__table__
+    with session() as active_session:
         for resource_id in resource_ids:
-            cur.execute(
-                "INSERT INTO catalog.basket_item (basket_id, resource_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-                (basket_id, resource_id),
+            active_session.execute(
+                insert(table)
+                .values(basket_id=basket_id, resource_id=resource_id)
+                .on_conflict_do_nothing()
             )
-        conn.commit()
     return len(resource_ids)
 
 

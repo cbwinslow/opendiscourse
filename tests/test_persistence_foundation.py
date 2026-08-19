@@ -8,6 +8,7 @@ from collections.abc import Iterator
 import pytest
 from sqlalchemy import select, text
 
+from opendiscourse_research.browser import basket, get_resource, search, toggle, upsert_fields
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
 from opendiscourse_research.db import _engine, apply_migrations, engine, session
@@ -126,6 +127,17 @@ def test_resource_upserts_are_idempotent_and_search_indexes_are_usable(
     assert updated.title == "Updated income series"
     assert updated.metadata_ == {"version": 2}
     assert str(updated.resource_id) in resource_ids("fred.series", 2024, "series")
+    upsert_fields(
+        str(updated.resource_id),
+        [{"id": "VALUE", "label": "Value", "concept": "Test value", "type": "number"}],
+    )
+    detail = get_resource(str(updated.resource_id))
+    assert detail["metadata"] == {"version": 2}
+    assert detail["fields"][0]["field_key"] == "VALUE"
+    assert key in {row["resource_key"] for row in search("fred.series", "updated income")}
+    assert toggle("test-persistence-foundation", str(updated.resource_id)) is True
+    assert basket("test-persistence-foundation")[0]["resource_key"] == key
+    assert toggle("test-persistence-foundation", str(updated.resource_id)) is False
 
     with engine().begin() as connection:
         connection.execute(text("SET LOCAL enable_seqscan = off"))
