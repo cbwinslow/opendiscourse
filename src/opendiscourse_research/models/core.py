@@ -557,3 +557,51 @@ fact_business_pattern = Table(
 def business_pattern_table():
     """Return the Alembic-adopted CBP business-pattern fact table."""
     return fact_business_pattern
+
+
+fact_acs_bulk_estimate = Table(
+    "acs_bulk_estimate",
+    SQLModel.metadata,
+    Column(
+        "acs_bulk_estimate_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column("release_year", Integer, nullable=False),
+    Column(
+        "geography_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.geography.geography_id"),
+        nullable=False,
+    ),
+    Column("table_id", Text, nullable=False),
+    Column("field_id", Text, nullable=False),
+    Column("measure", Text, nullable=False),
+    Column("value", Numeric),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("source_ordinal", BigInteger, nullable=False),
+    CheckConstraint(
+        "measure IN ('estimate', 'margin_of_error')",
+        name="acs_bulk_estimate_measure_check",
+    ),
+    UniqueConstraint("source_artifact_id", "source_ordinal", "field_id"),
+    Index(
+        "acs_bulk_estimate_lookup_idx",
+        "release_year",
+        "geography_id",
+        "table_id",
+        "field_id",
+    ),
+    schema="fact",
+)
+
+
+def acs_bulk_estimate_table():
+    """Return the Alembic-adopted ACS bulk-estimate fact table."""
+    return fact_acs_bulk_estimate

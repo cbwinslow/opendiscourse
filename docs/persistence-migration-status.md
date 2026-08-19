@@ -23,6 +23,7 @@ Alembic-adopted.
 `core.roll_call` and `fact.member_vote` are also Alembic-adopted.
 `fact.population_estimate` is also Alembic-adopted.
 `fact.business_pattern` is also Alembic-adopted.
+`fact.acs_bulk_estimate` is also Alembic-adopted.
 
 The Alembic baseline and adoption revisions are markers over the legacy-seeded
 schemas. The real PostGIS regression suite verifies both downgrade to `base`
@@ -61,6 +62,8 @@ and re-upgrade to the adopted revision without changing legacy tables.
   lineage and the release/year/geography lookup index.
 - Alembic-adopted CBP business patterns, including immutable source-row lineage
   and release/year/geography/NAICS lookup.
+- Alembic-adopted ACS bulk estimates, including measure validation, immutable
+  artifact-row identity, and release/geography/table/field lookup.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan

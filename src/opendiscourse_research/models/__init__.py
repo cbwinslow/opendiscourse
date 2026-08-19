@@ -14,6 +14,7 @@ from .catalog import (
     SnapshotResource,
 )
 from .core import (
+    acs_bulk_estimate_table,
     bill_action_table,
     bill_committee_table,
     bill_document_table,
@@ -58,6 +59,7 @@ __all__ = [
     "SnapshotResource",
     "cursor_table",
     "bill_action_table",
+    "acs_bulk_estimate_table",
     "bill_committee_table",
     "bill_document_table",
     "identity_exception_table",
