@@ -184,8 +184,70 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
                 )
             )
         }
+        tables = {
+            f"{row[0]}.{row[1]}"
+            for row in connection.execute(
+                text(
+                    "SELECT schemaname, tablename FROM pg_tables "
+                    "WHERE schemaname IN ('catalog', 'core', 'fact', 'ingest', 'stage')"
+                )
+            )
+        }
 
     assert revision == "c4f7a2d9e651"
+    assert {
+        "catalog.provider",
+        "catalog.dataset",
+        "catalog.dataset_field",
+        "catalog.plan",
+        "catalog.discovery",
+        "catalog.resource",
+        "catalog.resource_field",
+        "catalog.basket",
+        "catalog.basket_item",
+        "catalog.snapshot",
+        "catalog.snapshot_resource",
+        "core.geography",
+        "core.geography_boundary",
+        "core.jurisdiction",
+        "core.legislative_session",
+        "core.bill",
+        "core.bill_identifier",
+        "core.bill_action",
+        "core.bill_sponsorship",
+        "core.bill_committee",
+        "core.bill_subject",
+        "core.document",
+        "core.document_chunk",
+        "core.embedding",
+        "core.person",
+        "core.person_identifier",
+        "core.organization",
+        "core.organization_identifier",
+        "core.membership",
+        "core.roll_call",
+        "core.instrument",
+        "core.instrument_symbol",
+        "fact.measurement",
+        "fact.market_bar",
+        "fact.member_vote",
+        "fact.population_estimate",
+        "fact.business_pattern",
+        "fact.acs_bulk_estimate",
+        "fact.decennial_dhc_value",
+        "ingest.run",
+        "ingest.raw_payload",
+        "ingest.artifact",
+        "ingest.cursor",
+        "ingest.resume_cursor",
+        "ingest.identity_exception",
+        "stage.acs_bulk_row",
+        "stage.cbp_row",
+        "stage.dhc_geo_row",
+        "stage.fec_row",
+        "stage.pep_row",
+        "stage.tiger_feature",
+    } <= tables
     assert {"pg_trgm", "unaccent"} <= extensions
     assert {"resource_title_trgm_idx", "resource_fts_idx"} <= indexes
     assert {"membership_person_idx", "membership_organization_idx"} <= membership_indexes
