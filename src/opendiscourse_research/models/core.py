@@ -435,8 +435,8 @@ core_roll_call = Table(
     Column("organization_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.organization.organization_id")),
     Column("ocd_id", Text),
     UniqueConstraint("jurisdiction", "legislative_session", "external_id"),
+    Index("roll_call_ocd_id_idx", "ocd_id", unique=True, postgresql_where=text("ocd_id IS NOT NULL")),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 
@@ -446,9 +446,13 @@ fact_member_vote = Table(
     Column("roll_call_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.roll_call.roll_call_id"), primary_key=True),
     Column("person_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.person.person_id"), primary_key=True),
     Column("position", Text, nullable=False),
-    Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id"), nullable=False),
+    Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+    CheckConstraint(
+        "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
+        name="member_vote_source_evidence",
+    ),
     schema="fact",
-    info={"alembic_exclude": True},
 )
 
 
@@ -463,10 +467,10 @@ def organization_identifier_table():
 
 
 def roll_call_table():
-    """Return legacy canonical roll calls without Alembic ownership."""
+    """Return the Alembic-adopted canonical roll-call table."""
     return core_roll_call
 
 
 def member_vote_table():
-    """Return legacy member votes without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical member-vote table."""
     return fact_member_vote
