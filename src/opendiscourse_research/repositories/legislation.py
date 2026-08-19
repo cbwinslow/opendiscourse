@@ -8,8 +8,11 @@ from typing import Any
 from xml.etree import ElementTree
 
 from psycopg.types.json import Jsonb
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
 
-from ..db import connect
+from ..db import connect, session
+from ..models.catalog import artifact_table
 
 _QUERY_ROOT = Path(__file__).resolve().parents[3] / "sql" / "query" / "legislation"
 
@@ -162,11 +165,46 @@ def register_artifact(
             row = cur.fetchone()
             return dict(row) if row else {}
 
-    with connect() as active_conn, active_conn.cursor() as cur:
-        cur.execute(_query("register_artifact"), params)
-        row = cur.fetchone()
-        active_conn.commit()
-        return dict(row) if row else {}
+    table = artifact_table()
+    statement = insert(table).values(
+        dataset_id=dataset_id,
+        remote_url=remote_url,
+        local_path=local_path,
+        artifact_key=artifact_key,
+        period_start=period_start,
+        period_end=period_end,
+        content_type=content_type or "application/zip",
+        bytes_downloaded=bytes_downloaded,
+        checksum_sha256=checksum_sha256,
+        status=status,
+        metadata=metadata or {},
+    )
+    with session() as active_session:
+        row = active_session.execute(
+            statement.on_conflict_do_update(
+                index_elements=(table.c.dataset_id, table.c.artifact_key),
+                set_={
+                    "remote_url": statement.excluded.remote_url,
+                    "local_path": statement.excluded.local_path,
+                    "period_start": func.coalesce(statement.excluded.period_start, table.c.period_start),
+                    "period_end": func.coalesce(statement.excluded.period_end, table.c.period_end),
+                    "content_type": func.coalesce(statement.excluded.content_type, table.c.content_type),
+                    "bytes_downloaded": func.coalesce(statement.excluded.bytes_downloaded, table.c.bytes_downloaded),
+                    "checksum_sha256": func.coalesce(statement.excluded.checksum_sha256, table.c.checksum_sha256),
+                    "status": statement.excluded.status,
+                    "metadata": table.c.metadata.op("||")(statement.excluded.metadata),
+                },
+            ).returning(
+                table.c.artifact_id,
+                table.c.dataset_id,
+                table.c.remote_url,
+                table.c.local_path,
+                table.c.artifact_key,
+                table.c.status,
+                table.c.checksum_sha256,
+            )
+        ).mappings().one()
+    return dict(row)
 
 
 def get_artifact(
@@ -184,13 +222,21 @@ def get_artifact(
             row = cur.fetchone()
             return dict(row) if row else None
 
-    with connect() as active_conn, active_conn.cursor() as cur:
-        cur.execute(
-            _query("get_artifact"),
-            {"dataset_id": dataset_id, "artifact_key": artifact_key},
-        )
-        row = cur.fetchone()
-        return dict(row) if row else None
+    table = artifact_table()
+    with session() as active_session:
+        row = active_session.execute(
+            select(
+                table.c.artifact_id,
+                table.c.dataset_id,
+                table.c.remote_url,
+                table.c.local_path,
+                table.c.artifact_key,
+                table.c.status,
+                table.c.checksum_sha256,
+                table.c.metadata,
+            ).where(table.c.dataset_id == dataset_id, table.c.artifact_key == artifact_key)
+        ).mappings().first()
+    return dict(row) if row else None
 
 
 def loaded_artifact_members(artifact_id: str, conn: Any | None = None) -> set[str]:

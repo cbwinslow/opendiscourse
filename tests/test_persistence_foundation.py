@@ -63,6 +63,7 @@ from opendiscourse_research.repositories.catalog import (
     save_discovery,
     upsert_resource,
 )
+from opendiscourse_research.repositories.legislation import get_artifact, register_artifact
 from opendiscourse_research.providers import census
 from opendiscourse_research.providers.census import sync_acs_bulk_packages
 
@@ -540,6 +541,39 @@ def test_tiger_artifact_lookup_uses_typed_immutable_evidence(
     artifact = tiger_artifact("test-tiger-typed-artifact")
     assert artifact["artifact_id"]
     assert artifact["local_path"] == str(source.resolve())
+
+
+def test_legislation_artifact_registration_uses_typed_default_path(
+    catalog_database: None,
+) -> None:
+    """Standalone legislative artifact registration keeps its merge-on-conflict contract."""
+    registered = register_artifact(
+        "congress.govinfo_billstatus",
+        "https://example.test/billstatus.zip",
+        "/tmp/billstatus.zip",
+        "test-legislation-artifact",
+        checksum_sha256="first-checksum",
+        bytes_downloaded=10,
+        period_start="2025-01-01",
+        period_end="2025-12-31",
+        metadata={"source": "first"},
+    )
+    updated = register_artifact(
+        "congress.govinfo_billstatus",
+        "https://example.test/billstatus-v2.zip",
+        "/tmp/billstatus-v2.zip",
+        "test-legislation-artifact",
+        status="loaded",
+        metadata={"loaded": True},
+    )
+    stored = get_artifact("congress.govinfo_billstatus", "test-legislation-artifact")
+
+    assert registered["artifact_id"] == updated["artifact_id"]
+    assert stored is not None
+    assert stored["remote_url"] == "https://example.test/billstatus-v2.zip"
+    assert stored["checksum_sha256"] == "first-checksum"
+    assert stored["status"] == "loaded"
+    assert stored["metadata"] == {"source": "first", "loaded": True}
 
 
 def test_fec_artifact_lookup_filters_and_orders_typed_metadata(
