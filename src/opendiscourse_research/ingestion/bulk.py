@@ -11,10 +11,12 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from psycopg.types.json import Jsonb
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert
 
 from ..config import settings
-from ..db import connect
+from ..db import session
+from ..models.catalog import artifact_table
 from .base import client
 
 
@@ -42,32 +44,39 @@ def artifact_path(spec: ArtifactSpec) -> Path:
 
 
 def _upsert(spec: ArtifactSpec, path: Path, status: str, **values: object) -> None:
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """INSERT INTO ingest.artifact (dataset_id, remote_url, local_path, artifact_key, period_start, period_end, status, metadata, bytes_downloaded, checksum_sha256, content_type, downloaded_at, error_message)
-               VALUES (%(dataset_id)s, %(url)s, %(path)s, %(artifact_key)s, %(period_start)s, %(period_end)s, %(status)s, %(metadata)s, %(bytes)s, %(checksum)s, %(content_type)s,
-                       CASE WHEN %(status)s = 'downloaded' THEN now() ELSE NULL END, %(error)s)
-               ON CONFLICT (dataset_id, artifact_key) DO UPDATE SET
-                 remote_url = EXCLUDED.remote_url, local_path = EXCLUDED.local_path, status = EXCLUDED.status,
-                 bytes_downloaded = EXCLUDED.bytes_downloaded, checksum_sha256 = EXCLUDED.checksum_sha256,
-                 content_type = EXCLUDED.content_type, downloaded_at = EXCLUDED.downloaded_at, error_message = EXCLUDED.error_message,
-                 metadata = EXCLUDED.metadata""",
-            {
-                "dataset_id": spec.dataset_id,
-                "url": spec.url,
-                "path": str(path),
-                "artifact_key": spec.artifact_key,
-                "period_start": spec.period_start,
-                "period_end": spec.period_end,
-                "status": status,
-                "metadata": Jsonb(spec.metadata or {}),
-                "bytes": values.get("bytes"),
-                "checksum": values.get("checksum"),
-                "content_type": values.get("content_type"),
-                "error": values.get("error"),
-            },
+    table = artifact_table()
+    statement = insert(table).values(
+        dataset_id=spec.dataset_id,
+        remote_url=spec.url,
+        local_path=str(path),
+        artifact_key=spec.artifact_key,
+        period_start=spec.period_start,
+        period_end=spec.period_end,
+        status=status,
+        metadata=spec.metadata or {},
+        bytes_downloaded=values.get("bytes"),
+        checksum_sha256=values.get("checksum"),
+        content_type=values.get("content_type"),
+        downloaded_at=func.now() if status == "downloaded" else None,
+        error_message=values.get("error"),
+    )
+    with session() as active_session:
+        active_session.execute(
+            statement.on_conflict_do_update(
+                index_elements=(table.c.dataset_id, table.c.artifact_key),
+                set_={
+                    "remote_url": statement.excluded.remote_url,
+                    "local_path": statement.excluded.local_path,
+                    "status": statement.excluded.status,
+                    "bytes_downloaded": statement.excluded.bytes_downloaded,
+                    "checksum_sha256": statement.excluded.checksum_sha256,
+                    "content_type": statement.excluded.content_type,
+                    "downloaded_at": statement.excluded.downloaded_at,
+                    "error_message": statement.excluded.error_message,
+                    "metadata": statement.excluded.metadata,
+                },
+            )
         )
-        conn.commit()
 
 
 def download(

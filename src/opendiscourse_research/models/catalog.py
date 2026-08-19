@@ -8,6 +8,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     Boolean,
+    BigInteger,
     CheckConstraint,
     Column,
     Date,
@@ -38,11 +39,28 @@ _timestamp = DateTime(timezone=True)
 _artifact = Table(
     "artifact",
     SQLModel.metadata,
-    Column("artifact_id", PostgreSQLUUID(as_uuid=True), primary_key=True),
+    Column(
+        "artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
     Column("dataset_id", Text, nullable=False),
     Column("remote_url", Text, nullable=False),
+    Column("local_path", Text, nullable=False),
     Column("artifact_key", Text, nullable=False),
-    Column("checksum_sha256", Text, nullable=False),
+    Column("period_start", Date),
+    Column("period_end", Date),
+    Column("content_type", Text),
+    Column("bytes_downloaded", BigInteger),
+    Column("checksum_sha256", Text),
+    Column("status", Text, nullable=False),
+    Column("discovered_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    Column("downloaded_at", DateTime(timezone=True)),
+    Column("loaded_at", DateTime(timezone=True)),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column("error_message", Text),
+    UniqueConstraint("dataset_id", "artifact_key"),
     schema="ingest",
     info={"alembic_exclude": True},
 )
