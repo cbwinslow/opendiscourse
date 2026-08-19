@@ -34,6 +34,9 @@ Every provider must declare its source URL, authentication requirement,
 rate-limit policy, pagination/cursor behavior, raw-provenance strategy, and
 resume key before ingestion is enabled.
 
+Alembic owns provider-specific staging-table contracts. Their high-throughput
+COPY and set-based promotion operations remain in the raw repository boundary.
+
 Use the shared `opendiscourse_research.feedback` helper for any operation with
 more than one unit of work. Show phase, progress, elapsed time, remaining time
 when totals are known, and an actionable resume command after interruption.

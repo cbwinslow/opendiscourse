@@ -77,6 +77,8 @@ and re-upgrade to the adopted revision without changing legacy tables.
   bars.
 - Alembic-adopted document chunks and portable embeddings, including ordinal,
   dimension, and vector-cardinality integrity checks.
+- Alembic-adopted ACS, CBP, DHC, PEP, TIGER, and FEC staging table contracts,
+  including their artifact identity keys and legacy lookup/geometry indexes.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan
