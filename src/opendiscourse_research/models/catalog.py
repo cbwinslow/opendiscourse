@@ -39,9 +39,16 @@ _artifact = Table(
     "artifact",
     SQLModel.metadata,
     Column("artifact_id", PostgreSQLUUID(as_uuid=True), primary_key=True),
+    Column("remote_url", Text, nullable=False),
+    Column("checksum_sha256", Text, nullable=False),
     schema="ingest",
     info={"alembic_exclude": True},
 )
+
+
+def artifact_table() -> Table:
+    """Return the read-only ingest artifact reference used by catalog provenance."""
+    return _artifact
 
 
 class Provider(SQLModel, table=True):
