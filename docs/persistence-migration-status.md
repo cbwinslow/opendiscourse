@@ -33,6 +33,9 @@ The Alembic baseline and adoption revisions are markers over the legacy-seeded
 schemas. The real PostGIS regression suite verifies both downgrade to `base`
 and re-upgrade to the adopted revision without changing legacy tables.
 
+Use `python scripts/render_baseline_ddl.py` to render the exact offline
+baseline DDL for review before freezing the generated artifact.
+
 ## Completed typed boundaries
 
 - Alembic-owned catalog models and browser/repository/registry persistence:
