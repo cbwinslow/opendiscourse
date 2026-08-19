@@ -48,6 +48,7 @@ from opendiscourse_research.ingestion import treasury as treasury_ingestion
 from opendiscourse_research.ingestion.acs_load import load_acs_bulk, stage_acs_bulk
 from opendiscourse_research.ingestion.base import IngestionRun
 from opendiscourse_research.ingestion.cbp_load import load_cbp, stage_cbp
+from opendiscourse_research.ingestion.dhc_load import load_dhc, stage_dhc
 from opendiscourse_research.identityexceptions import unresolved_congressional_identities
 from opendiscourse_research.ingestion.tiger_load import _artifact as tiger_artifact
 from opendiscourse_research.ingestion.acs_load import _artifact as acs_artifact
@@ -1785,6 +1786,97 @@ def test_pep_bulk_stage_and_promotion_are_idempotent_on_postgres(
                 text("DELETE FROM ingest.artifact WHERE artifact_key=:key"),
                 {"key": key},
             )
+
+
+def test_dhc_bulk_stage_and_promotion_are_idempotent_on_postgres(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """DHC GEO staging and segment promotion preserve artifact provenance."""
+    import openpyxl
+
+    archive_key, matrix_key = "dhc-2020-national", "dhc-2020-table-matrix"
+    archive_path = tmp_path / "dhc.zip"
+    with ZipFile(archive_path, "w") as archive:
+        archive.writestr(
+            "usgeo2020.dhc",
+            "DHCST|ZZ|040|00|00|000|00|0000001|0400000US99\n",
+        )
+        archive.writestr("us000012020.dhc", "DHCST|ZZ|000|01|0000001|17\n")
+        archive.writestr("us000052020.dhc", "DHCST|ZZ|000|05|0000001|23\n")
+    matrix_path = tmp_path / "matrix.xlsx"
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "DHC Table Matrix"
+    sheet.append(["title"] * 4)
+    sheet.append(["headers"] * 4)
+    sheet.append([None, "H1", "H0010001", 1])
+    sheet.append([None, "P1", "P0010001", 5])
+    workbook.save(matrix_path)
+    with engine().begin() as connection:
+        for key in (archive_key, matrix_key):
+            connection.execute(
+                text(
+                    "DELETE FROM fact.decennial_dhc_value WHERE source_artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            )
+            connection.execute(
+                text(
+                    "DELETE FROM stage.dhc_geo_row WHERE artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            )
+            connection.execute(
+                text("DELETE FROM ingest.artifact WHERE artifact_key=:key"), {"key": key}
+            )
+    register_local(
+        ArtifactSpec("census.decennial", archive_key, "https://example.test/dhc.zip", archive_path.name),
+        archive_path,
+    )
+    register_local(
+        ArtifactSpec("census.decennial", matrix_key, "https://example.test/matrix.xlsx", matrix_path.name),
+        matrix_path,
+    )
+    plan = {
+        "state": "downloaded",
+        "canonical_load_scope": {"summary_levels": ["040"], "tables": ["H1", "P1"]},
+    }
+    try:
+        assert stage_dhc(plan) == 1
+        plan["state"] = "staged"
+        assert load_dhc(plan) == 2
+        assert load_dhc(plan) == 2
+        with engine().connect() as connection:
+            assert connection.execute(
+                text(
+                    "SELECT count(*) FROM fact.decennial_dhc_value WHERE source_artifact_id "
+                    "IN (SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": archive_key},
+            ).scalar_one() == 2
+    finally:
+        with engine().begin() as connection:
+            for key in (archive_key, matrix_key):
+                connection.execute(
+                    text(
+                        "DELETE FROM fact.decennial_dhc_value WHERE source_artifact_id IN "
+                        "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                    ),
+                    {"key": key},
+                )
+                connection.execute(
+                    text(
+                        "DELETE FROM stage.dhc_geo_row WHERE artifact_id IN "
+                        "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                    ),
+                    {"key": key},
+                )
+                connection.execute(
+                    text("DELETE FROM ingest.artifact WHERE artifact_key=:key"),
+                    {"key": key},
+                )
 
 
 def test_pep_artifact_lookup_uses_typed_immutable_evidence(
