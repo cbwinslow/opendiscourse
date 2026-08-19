@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Column, Date, ForeignKey, Numeric, Table, Text, UniqueConstraint, text
+from geoalchemy2 import Geometry
+from sqlalchemy import Column, Date, ForeignKey, Integer, Numeric, Table, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PostgreSQLUUID
 from sqlmodel import SQLModel
 
@@ -57,3 +58,25 @@ def geography_table():
 def measurement_table():
     """Return legacy fact measurement storage without taking Alembic ownership."""
     return fact_measurement
+
+
+core_geography_boundary = Table(
+    "geography_boundary",
+    SQLModel.metadata,
+    Column("boundary_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("geography_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.geography.geography_id"), nullable=False),
+    Column("boundary_vintage", Integer, nullable=False),
+    Column("valid_from", Date),
+    Column("valid_to", Date),
+    Column("geom", Geometry("GEOMETRY", srid=4326), nullable=False),
+    Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+    UniqueConstraint("geography_id", "boundary_vintage"),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+def geography_boundary_table():
+    """Return legacy PostGIS boundary storage without taking Alembic ownership."""
+    return core_geography_boundary

@@ -10,7 +10,8 @@ from pathlib import Path
 import httpx
 import pytest
 from alembic import command
-from sqlalchemy import select, text
+from geoalchemy2 import WKTElement
+from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
 from opendiscourse_research.browser import (
@@ -39,7 +40,11 @@ from opendiscourse_research.models.catalog import (
     SnapshotResource,
     artifact_table,
 )
-from opendiscourse_research.models.core import geography_table, measurement_table
+from opendiscourse_research.models.core import (
+    geography_boundary_table,
+    geography_table,
+    measurement_table,
+)
 from opendiscourse_research.models.ingest import cursor_table, raw_payload_table, run_table
 from opendiscourse_research.plans import due_plans, load_plans
 from opendiscourse_research.registry import status as registry_status
@@ -508,6 +513,45 @@ def test_bls_ingestion_upserts_monthly_measurements_with_sqlalchemy(
     assert rows[0]["value_numeric"] == 2.5
     assert rows[0]["flags"] == {"source": "BLS"}
     assert rows[0]["source_payload_id"] is not None
+
+
+def test_typed_postgis_boundary_mapping_round_trips_geometry(
+    catalog_database: None,
+) -> None:
+    """GeoAlchemy maps canonical boundaries with their SRID and uniqueness intact."""
+    geography = geography_table()
+    boundary = geography_boundary_table()
+    geography_statement = insert(geography).values(
+        geography_type="test-spatial", geoid="001", name="Spatial test"
+    )
+    with session() as active_session:
+        geography_id = active_session.execute(
+            geography_statement.on_conflict_do_update(
+                index_elements=(geography.c.geography_type, geography.c.geoid),
+                set_={"name": geography_statement.excluded.name},
+            ).returning(geography.c.geography_id)
+        ).scalar_one()
+        boundary_statement = insert(boundary).values(
+            geography_id=geography_id,
+            boundary_vintage=2030,
+            geom=WKTElement("POINT(-77.0365 38.8977)", srid=4326),
+        )
+        active_session.execute(
+            boundary_statement.on_conflict_do_update(
+                index_elements=(boundary.c.geography_id, boundary.c.boundary_vintage),
+                set_={"geom": boundary_statement.excluded.geom},
+            )
+        )
+
+    with session() as active_session:
+        srid, geometry = active_session.execute(
+            select(func.ST_SRID(boundary.c.geom), func.ST_AsText(boundary.c.geom)).where(
+                boundary.c.geography_id == geography_id, boundary.c.boundary_vintage == 2030
+            )
+        ).one()
+
+    assert srid == 4326
+    assert geometry == "POINT(-77.0365 38.8977)"
 
 
 def test_acs_field_catalog_uses_batched_sqlalchemy_upserts(
