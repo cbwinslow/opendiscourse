@@ -40,8 +40,6 @@ def include_object(object_: object, name: str | None, type_: str, reflected: boo
     # Its dedicated PostGIS regression test proves the index's actual shape.
     if type_ == "index" and name == "resource_fts_idx":
         return False
-    if type_ == "table" and reflected and compare_to is None:
-        return False
     return True
 
 
