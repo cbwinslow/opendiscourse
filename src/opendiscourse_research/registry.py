@@ -6,8 +6,11 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy import Integer, cast, distinct, func, select
+
 from .browser import ensure_acs, preview_fred_full, sync_bls, sync_fred, sync_fred_full
-from .db import connect
+from .db import session
+from .models.catalog import CatalogSnapshot, Dataset, Provider, Resource
 from .providers.census import (
     sync_acs_bulk_packages,
     sync_cbp_bulk_packages,
@@ -36,11 +39,7 @@ def sync(
     results: dict[str, Any] = {}
     requested = sources or {"acs", "census", "fred", "congress", "bls"}
     if "census" in requested:
-        with connect() as conn, conn.cursor() as cur:
-            cur.execute(
-                "SELECT 1 FROM catalog.snapshot WHERE dataset_id = 'census.api_catalog' LIMIT 1"
-            )
-            census_ready = cur.fetchone() is not None
+        census_ready = _has_snapshot("census.api_catalog")
         catalog_result = (
             sync_census_catalog()
             if refresh or not census_ready
@@ -55,13 +54,15 @@ def sync(
             "tiger_bulk_packages": sync_tiger_bulk_packages(),
         }
     if "acs" in requested:
-        with connect() as conn, conn.cursor() as cur:
-            cur.execute(
-                "SELECT DISTINCT (metadata->>'year')::integer AS year FROM catalog.snapshot WHERE dataset_id = 'census.acs_5'"
+        with session() as active_session:
+            existing = set(
+                active_session.scalars(
+                    select(
+                        distinct(cast(CatalogSnapshot.metadata_["year"].astext, Integer))
+                    ).where(CatalogSnapshot.dataset_id == "census.acs_5")
+                )
             )
-            existing = {
-                row["year"] for row in cur.fetchall() if row["year"] is not None
-            }
+        existing.discard(None)
         years = (
             ACS_YEARS
             if refresh
@@ -78,11 +79,7 @@ def sync(
         if full:
             results["fred"] = preview_fred_full() if preview else sync_fred_full()
         else:
-            with connect() as conn, conn.cursor() as cur:
-                cur.execute(
-                    "SELECT 1 FROM catalog.snapshot WHERE dataset_id = 'fred.series' LIMIT 1"
-                )
-                fred_ready = cur.fetchone() is not None
+            fred_ready = _has_snapshot("fred.series")
             results["fred"] = (
                 sync_fred(refresh)
                 if refresh or not fred_ready
@@ -91,11 +88,7 @@ def sync(
     if "congress" in requested:
         results["congress"] = sync_congress()
     if "bls" in requested:
-        with connect() as conn, conn.cursor() as cur:
-            cur.execute(
-                "SELECT 1 FROM catalog.snapshot WHERE dataset_id = 'bls.cpi' LIMIT 1"
-            )
-            bls_ready = cur.fetchone() is not None
+        bls_ready = _has_snapshot("bls.cpi")
         results["bls"] = (
             sync_bls() if refresh or not bls_ready else {"state": "current"}
         )
@@ -104,18 +97,25 @@ def sync(
 
 def status() -> list[dict[str, Any]]:
     """Report what the browser can actually navigate today."""
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """SELECT p.provider_id, p.name, d.dataset_id, d.title,
-                      count(DISTINCT r.resource_id) AS resources,
-                      max(s.captured_at) AS last_snapshot
-               FROM catalog.provider p JOIN catalog.dataset d ON d.provider_id = p.provider_id
-               LEFT JOIN catalog.resource r ON r.dataset_id = d.dataset_id
-               LEFT JOIN catalog.snapshot s ON s.dataset_id = d.dataset_id
-               GROUP BY p.provider_id, p.name, d.dataset_id, d.title
-               ORDER BY p.name, d.title"""
-        )
-        rows = cur.fetchall()
+    with session() as active_session:
+        rows = [
+            dict(row)
+            for row in active_session.execute(
+                select(
+                    Provider.provider_id,
+                    Provider.name,
+                    Dataset.dataset_id,
+                    Dataset.title,
+                    func.count(distinct(Resource.resource_id)).label("resources"),
+                    func.max(CatalogSnapshot.captured_at).label("last_snapshot"),
+                )
+                .join(Dataset, Dataset.provider_id == Provider.provider_id)
+                .outerjoin(Resource, Resource.dataset_id == Dataset.dataset_id)
+                .outerjoin(CatalogSnapshot, CatalogSnapshot.dataset_id == Dataset.dataset_id)
+                .group_by(Provider.provider_id, Provider.name, Dataset.dataset_id, Dataset.title)
+                .order_by(Provider.name, Dataset.title)
+            ).mappings()
+        ]
     for row in rows:
         if row["resources"]:
             row["state"] = "ready"
@@ -124,3 +124,13 @@ def status() -> list[dict[str, Any]]:
         if row["dataset_id"] == "fred.series":
             row["discovery"] = discovery("fredmeta")
     return rows
+
+
+def _has_snapshot(dataset_id: str) -> bool:
+    """Return whether a catalog dataset has at least one successful discovery snapshot."""
+    with session() as active_session:
+        return active_session.scalar(
+            select(CatalogSnapshot.snapshot_id)
+            .where(CatalogSnapshot.dataset_id == dataset_id)
+            .limit(1)
+        ) is not None

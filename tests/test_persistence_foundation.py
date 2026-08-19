@@ -31,6 +31,7 @@ from opendiscourse_research.ingestion.base import IngestionRun
 from opendiscourse_research.models.catalog import CatalogSnapshot, DatasetField, Resource, SnapshotResource
 from opendiscourse_research.models.ingest import cursor_table, raw_payload_table, run_table
 from opendiscourse_research.plans import due_plans, load_plans
+from opendiscourse_research.registry import status as registry_status
 from opendiscourse_research.repositories.catalog import (
     cache_fred_records,
     claim_discovery,
@@ -427,3 +428,11 @@ def test_ingestion_run_persists_typed_run_and_raw_payload_evidence(
 
     assert stored_run == {"status": "succeeded", "record_count": 3}
     assert payload == {"run_id": run_id, "payload": {"source": "test"}}
+
+
+def test_registry_status_reads_catalog_through_sqlalchemy(catalog_database: None) -> None:
+    """Readiness reporting returns every registered dataset without raw catalog SQL."""
+    rows = registry_status()
+    assert rows
+    assert {row["dataset_id"] for row in rows} >= {"fred.series", "census.acs_5"}
+    assert {row["state"] for row in rows} <= {"ready", "pending_adapter"}
