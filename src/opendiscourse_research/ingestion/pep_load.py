@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from psycopg.types.json import Jsonb
+from sqlalchemy import select
 
-from ..db import connect
+from ..db import connect, session
+from ..models.catalog import artifact_table
 
 
 def _scope(plan: dict[str, Any]) -> set[str]:
@@ -22,16 +24,19 @@ def _scope(plan: dict[str, Any]) -> set[str]:
     return levels
 
 
-def _artifact(conn: Any, key: str) -> dict[str, Any]:
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT artifact_id, local_path FROM ingest.artifact WHERE artifact_key = %s AND status IN ('downloaded', 'skipped')",
-            (key,),
-        )
-        row = cur.fetchone()
+def _artifact(key: str) -> dict[str, Any]:
+    """Return a downloaded PEP artifact through immutable typed evidence storage."""
+    table = artifact_table()
+    with session() as active_session:
+        row = active_session.execute(
+            select(table.c.artifact_id, table.c.local_path).where(
+                table.c.artifact_key == key,
+                table.c.status.in_(("downloaded", "skipped")),
+            )
+        ).mappings().first()
     if row is None:
         raise ValueError(f"Required PEP artifact {key!r} has not been downloaded")
-    return row
+    return dict(row)
 
 
 def stage_pep(plan: dict[str, Any], update: Callable[[str], None] | None = None) -> int:
@@ -51,7 +56,7 @@ def stage_pep(plan: dict[str, Any], update: Callable[[str], None] | None = None)
                 level == "state" and "nation" in requested
             ):
                 continue
-            artifact = _artifact(conn, key)
+            artifact = _artifact(key)
             if update:
                 update(f"Staging PEP {level} totals")
             # PEP county names include characters such as ñ; published CSVs use
