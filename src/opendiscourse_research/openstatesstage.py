@@ -19,7 +19,11 @@ from .openstatessnapshot import REQUIRED_VOTE_TABLES
 _DATABASE_NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 _REQUIRED_CONGRESSES = {"118", "119"}
 _COMPATIBILITY_VIEWS_SQL = (
-    Path(__file__).resolve().parents[2] / "sql" / "013_openstates_compatibility_views.sql"
+    Path(__file__).resolve().parents[2]
+    / "sql"
+    / "query"
+    / "legislation"
+    / "publish_openstates_compatibility_views.sql"
 )
 
 
@@ -134,7 +138,9 @@ def publish_openstates_compatibility_views() -> None:
     with connect() as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT to_regclass('openstates_source.opencivicdata_person'), "
-            "to_regclass('openstates_source.opencivicdata_bill')"
+            "to_regclass('openstates_source.opencivicdata_bill'), "
+            "to_regclass('openstates_source.opencivicdata_legislativesession'), "
+            "to_regclass('openstates_source.opencivicdata_jurisdiction')"
         )
         if any(value is None for value in cur.fetchone().values()):
             raise ValueError(

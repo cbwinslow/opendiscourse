@@ -115,6 +115,8 @@ not because their evidence boundary is unmapped:
 - Bulk staging `executemany`/COPY and set-based canonical promotions in ACS,
   CBP, DHC, PEP, TIGER, and FEC loaders.
 - The OpenStates FDW and its source-schema reconciliation queries.
+- The explicit OpenStates compatibility-view publisher, which runs only after
+  an externally approved FDW remap and reads its named operational SQL resource.
 - Legislative graph writes and provenance reconciliation that operate on the
   OpenStates FDW or require a supplied caller transaction.
 
