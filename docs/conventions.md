@@ -5,11 +5,13 @@ Public functions and classes require concise docstrings. Provider modules make
 HTTP requests only; repository modules persist/query database records only; UI
 and CLI modules coordinate those layers.
 
-Schema changes belong in ordered `sql/NNN_name.sql` migrations. Reusable
-runtime statements belong in `sql/query/<area>/`. Python must pass bound
-parameters to those statements and must not assemble SQL with string
-interpolation. Existing inline statements are migrated incrementally whenever
-their adapter is changed; new provider work may not add inline SQL.
+Legacy and not-yet-migrated schema changes belong in ordered
+`sql/NNN_name.sql` bootstrap migrations. `catalog.*` changes belong in Alembic
+revisions after baseline `d207df35ca10`. Reusable runtime statements belong in
+`sql/query/<area>/`. Python must pass bound parameters to those statements and
+must not assemble SQL with string interpolation. Existing inline statements are
+migrated incrementally whenever their adapter is changed; new provider work may
+not add inline SQL.
 
 Every provider must declare its source URL, authentication requirement,
 rate-limit policy, pagination/cursor behavior, raw-provenance strategy, and

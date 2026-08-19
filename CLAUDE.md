@@ -104,8 +104,10 @@ the canonical database model.
   rather than being advertised directly. Subgroups: `ingest` (per-provider
   plan/preview/load steps), `bootstrap` (resumable bulk downloads), `catalog`
   (browser internals).
-- Schema changes are ordered `sql/NNN_name.sql` migrations; reusable runtime
-  SQL lives in `sql/query/<area>/`.
+- Legacy and not-yet-migrated schemas use ordered `sql/NNN_name.sql` bootstrap
+  migrations. `catalog.*` is Alembic-owned from baseline `d207df35ca10` onward;
+  new catalog schema changes require an Alembic revision. Reusable runtime SQL
+  lives in `sql/query/<area>/`.
 
 ### Registry files (reviewed in Git, not runtime config)
 
