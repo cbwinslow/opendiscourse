@@ -13,10 +13,14 @@ from psycopg.conninfo import conninfo_to_dict
 from psycopg.rows import dict_row
 
 from .config import settings
+from .db import connect
 from .openstatessnapshot import REQUIRED_VOTE_TABLES
 
 _DATABASE_NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 _REQUIRED_CONGRESSES = {"118", "119"}
+_COMPATIBILITY_VIEWS_SQL = (
+    Path(__file__).resolve().parents[2] / "sql" / "013_openstates_compatibility_views.sql"
+)
 
 
 def stage_connection(database: str) -> psycopg.Connection:
@@ -123,3 +127,17 @@ def validate_openstates_stage(database: str) -> dict[str, Any]:
     temporary.replace(target)
     result["report"] = str(target)
     return result
+
+
+def publish_openstates_compatibility_views() -> None:
+    """Publish project-owned views after an approved OpenStates FDW remap."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT to_regclass('openstates_source.opencivicdata_person'), "
+            "to_regclass('openstates_source.opencivicdata_bill')"
+        )
+        if any(value is None for value in cur.fetchone().values()):
+            raise ValueError(
+                "OpenStates FDW is not provisioned; remap and validate it before publishing views"
+            )
+        cur.execute(_COMPATIBILITY_VIEWS_SQL.read_text())

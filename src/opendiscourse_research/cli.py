@@ -90,7 +90,10 @@ from .legreconcile import reconcile_billstatus
 from .legvalidate import validate_billstatus
 from .openstatesrefresh import dry_run_openstates_vote_refresh
 from .openstatessnapshot import validate_snapshot_artifact, write_snapshot_manifest
-from .openstatesstage import validate_openstates_stage
+from .openstatesstage import (
+    publish_openstates_compatibility_views,
+    validate_openstates_stage,
+)
 from .peopleload import (
     load_openstates_federal_organizations,
     load_openstates_federal_people,
@@ -628,6 +631,17 @@ def validate_openstates_stage_command(
     except (ValueError, psycopg.Error) as exc:
         raise typer.BadParameter(str(exc)) from None
     typer.echo(json.dumps(result, indent=2, sort_keys=True, default=str))
+
+
+@app.command("publish-openstates-compatibility-views")
+def publish_openstates_compatibility_views_command() -> None:
+    """Publish compatibility views after the approved FDW remap."""
+    try:
+        with render_spinner("Publishing OpenStates compatibility views"):
+            publish_openstates_compatibility_views()
+    except (FileNotFoundError, ValueError, psycopg.Error) as exc:
+        raise typer.BadParameter(str(exc)) from None
+    typer.echo("Published OpenStates compatibility views.")
 
 
 @app.command("congress-health")
