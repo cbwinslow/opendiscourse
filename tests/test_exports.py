@@ -1,15 +1,28 @@
 """Unit tests for safe researcher-facing export formats."""
 
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
-from opendiscourse_research.exports import _write, available_exports, export_relation
+from opendiscourse_research.exports import (
+    EXPORTS,
+    _write,
+    available_exports,
+    export_relation,
+)
 
 
 def test_available_exports_are_named_and_stable() -> None:
     """The public API exposes only reviewed relation names."""
     assert available_exports() == ("measurements",)
+
+
+def test_measurements_export_includes_margin_of_error() -> None:
+    """The named export cannot silently drop a real fact.measurement column."""
+    fields, statement = EXPORTS["measurements"]
+    assert "margin_of_error" in fields
+    assert "margin_of_error" in statement
 
 
 def test_write_csv_and_jsonl(tmp_path: Path) -> None:
@@ -25,6 +38,25 @@ def test_write_csv_and_jsonl(tmp_path: Path) -> None:
     assert jsonl_path.read_text() == '{"dataset_id": "treasury.yield_curve", "value": 4.25}\n'
 
 
+def test_write_csv_empty_result_uses_canonical_header(tmp_path: Path) -> None:
+    """An empty result still yields the reviewed column list, not a blank file."""
+    csv_path = tmp_path / "measurements.csv"
+
+    _write([], csv_path, "csv", fields=("dataset_id", "value"))
+
+    assert csv_path.read_text() == "dataset_id,value\n"
+
+
+def test_write_jsonl_preserves_decimal_precision(tmp_path: Path) -> None:
+    """Numeric columns like value_numeric/margin_of_error stay JSON numbers."""
+    rows = [{"value_numeric": Decimal("4.25"), "margin_of_error": Decimal("0.10")}]
+    jsonl_path = tmp_path / "measurements.jsonl"
+
+    _write(rows, jsonl_path, "jsonl")
+
+    assert jsonl_path.read_text() == '{"margin_of_error": 0.1, "value_numeric": 4.25}\n'
+
+
 def test_export_rejects_unknown_relation_and_existing_output(tmp_path: Path) -> None:
     """Exports cannot execute arbitrary SQL or silently overwrite evidence."""
     with pytest.raises(ValueError, match="Unknown export"):
@@ -34,3 +66,15 @@ def test_export_rejects_unknown_relation_and_existing_output(tmp_path: Path) -> 
     output.write_text("keep")
     with pytest.raises(FileExistsError, match="Refusing to overwrite"):
         export_relation("measurements", output, "csv")
+
+
+def test_export_rejects_unknown_format(tmp_path: Path) -> None:
+    """Format is validated before touching the filesystem or the database."""
+    with pytest.raises(ValueError, match="format must be one of"):
+        export_relation("measurements", tmp_path / "x.tsv", "tsv")
+
+
+def test_write_rejects_unknown_format(tmp_path: Path) -> None:
+    """`_write` enforces the same accepted-format contract as `export_relation`."""
+    with pytest.raises(ValueError, match="format must be one of"):
+        _write([], tmp_path / "x.tsv", "tsv")
