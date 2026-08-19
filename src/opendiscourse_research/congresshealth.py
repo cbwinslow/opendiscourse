@@ -7,12 +7,20 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import func, text, update
+from sqlalchemy import exists, func, select, text, update
 
 from .config import settings
-from .db import connect, session
-from .models.ingest import run_table
-from .repositories.legislation import _query
+from .db import session
+from .models.core import (
+    bill_sponsorship_table,
+    bill_table,
+    member_vote_table,
+    organization_table,
+    person_identifier_table,
+    person_table,
+    roll_call_table,
+)
+from .models.ingest import identity_exception_table, run_table
 from .votereconcile import reconcile_openstates_votes
 
 
@@ -61,9 +69,7 @@ def has_identity_attention(health: dict[str, Any]) -> bool:
 
 def congressional_health() -> dict[str, Any]:
     """Return and persist one source-aware congressional ingestion health report."""
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(_query("congress_health"))
-        health = cur.fetchone()["health"]
+    health = _congressional_health_evidence()
     meta_root = Path(settings.data_root).expanduser().resolve().parent / "meta"
     validation_path = meta_root / "validate" / "billstatus" / "latest.json"
     reconciliation_path = meta_root / "reconcile" / "billstatus" / "119.json"
@@ -123,6 +129,68 @@ def congressional_health() -> dict[str, Any]:
     target.write_text(json.dumps(result, indent=2, sort_keys=True, default=str) + "\n")
     result["report"] = str(target)
     return result
+
+
+def _congressional_health_evidence() -> dict[str, Any]:
+    """Read canonical congressional coverage and unresolved evidence via typed mappings."""
+    bill = bill_table()
+    person = person_table()
+    organization = organization_table()
+    roll_call = roll_call_table()
+    member_vote = member_vote_table()
+    sponsorship = bill_sponsorship_table()
+    person_identifier = person_identifier_table()
+    identity_exception = identity_exception_table()
+    run = run_table()
+    unresolved_voters = select(func.coalesce(func.sum(identity_exception.c.reference_count), 0)).where(
+        ~exists(
+            select(person_identifier.c.person_id).where(
+                person_identifier.c.namespace == identity_exception.c.namespace,
+                person_identifier.c.external_id == identity_exception.c.external_id,
+            )
+        )
+    )
+    latest_runs = (
+        select(
+            run.c.dataset_id,
+            run.c.status,
+            run.c.started_at,
+            run.c.finished_at,
+            run.c.record_count,
+            run.c.error_message,
+            run.c.parameters,
+        )
+        .where(run.c.dataset_id.in_(("congress.govinfo_billstatus", "openstates.legislation")))
+        .order_by(run.c.started_at.desc())
+        .limit(10)
+    )
+    with session() as active_session:
+        def count(statement: Any) -> int:
+            return int(active_session.execute(statement).scalar_one())
+
+        return {
+            "bills_118": count(select(func.count()).select_from(bill).where(bill.c.legislative_session == "118")),
+            "bills_119": count(select(func.count()).select_from(bill).where(bill.c.legislative_session == "119")),
+            "people": count(select(func.count()).select_from(person)),
+            "organizations": count(select(func.count()).select_from(organization)),
+            "roll_calls_118": count(select(func.count()).select_from(roll_call).where(roll_call.c.legislative_session == "118")),
+            "roll_calls_119": count(select(func.count()).select_from(roll_call).where(roll_call.c.legislative_session == "119")),
+            "member_votes_118": count(
+                select(func.count())
+                .select_from(member_vote.join(roll_call, member_vote.c.roll_call_id == roll_call.c.roll_call_id))
+                .where(roll_call.c.legislative_session == "118")
+            ),
+            "member_votes_119": count(
+                select(func.count())
+                .select_from(member_vote.join(roll_call, member_vote.c.roll_call_id == roll_call.c.roll_call_id))
+                .where(roll_call.c.legislative_session == "119")
+            ),
+            "unresolved_sponsorships": count(
+                select(func.count()).select_from(sponsorship).where(sponsorship.c.person_id.is_(None))
+            ),
+            "unresolved_voters": int(active_session.execute(unresolved_voters).scalar_one()),
+            "latest_runs": [dict(row) for row in active_session.execute(latest_runs).mappings()],
+        }
 
 
 def recover_stale_congressional_runs(

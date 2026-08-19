@@ -337,3 +337,65 @@ def document_table():
 def bill_document_table():
     """Return legacy bill-document links without taking Alembic ownership."""
     return core_bill_document
+
+
+core_organization = Table(
+    "organization",
+    SQLModel.metadata,
+    Column("organization_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("organization_type", Text, nullable=False),
+    Column("name", Text, nullable=False),
+    Column("jurisdiction_geoid", Text),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+core_roll_call = Table(
+    "roll_call",
+    SQLModel.metadata,
+    Column("roll_call_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("jurisdiction", Text, nullable=False),
+    Column("legislative_session", Text, nullable=False),
+    Column("chamber", Text),
+    Column("external_id", Text, nullable=False),
+    Column("occurred_at", DateTime(timezone=True)),
+    Column("question", Text),
+    Column("result", Text),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column("bill_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.bill.bill_id")),
+    Column("legislative_session_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.legislative_session.legislative_session_id")),
+    Column("organization_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.organization.organization_id")),
+    Column("ocd_id", Text),
+    UniqueConstraint("jurisdiction", "legislative_session", "external_id"),
+    schema="core",
+    info={"alembic_exclude": True},
+)
+
+
+fact_member_vote = Table(
+    "member_vote",
+    SQLModel.metadata,
+    Column("roll_call_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.roll_call.roll_call_id"), primary_key=True),
+    Column("person_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.person.person_id"), primary_key=True),
+    Column("position", Text, nullable=False),
+    Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id"), nullable=False),
+    schema="fact",
+    info={"alembic_exclude": True},
+)
+
+
+def organization_table():
+    """Return legacy canonical organizations without Alembic ownership."""
+    return core_organization
+
+
+def roll_call_table():
+    """Return legacy canonical roll calls without Alembic ownership."""
+    return core_roll_call
+
+
+def member_vote_table():
+    """Return legacy member votes without taking Alembic ownership."""
+    return fact_member_vote

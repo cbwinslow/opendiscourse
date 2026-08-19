@@ -35,6 +35,8 @@ and re-upgrade to the adopted revision without changing legacy catalog tables.
   Supplied caller connections retain the existing atomic raw graph path.
 - Congressional unresolved-identity reporting uses typed canonical sponsorship,
   person-identifier, and ingestion-exception mappings.
+- Congressional health reporting uses typed bill, person, organization,
+  roll-call, member-vote, exception, and run mappings.
 
 Every migrated database behavior has real PostgreSQL/PostGIS coverage in
 `tests/test_persistence_foundation.py`; ORM behavior is not mocked there.

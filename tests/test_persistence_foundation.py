@@ -26,6 +26,7 @@ from opendiscourse_research.browser import (
 )
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.censushealth import census_health
+from opendiscourse_research import congresshealth
 from opendiscourse_research.congresshealth import recover_stale_congressional_runs
 from opendiscourse_research.config import settings
 from opendiscourse_research.db import _alembic_config, _engine, apply_migrations, engine, session
@@ -957,6 +958,26 @@ def test_legislation_artifact_registration_uses_typed_default_path(
     assert stored["checksum_sha256"] == "first-checksum"
     assert stored["status"] == "loaded"
     assert stored["metadata"] == {"source": "first", "loaded": True}
+
+
+def test_congressional_health_reads_canonical_evidence_with_sqlalchemy(
+    catalog_database: None,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Health aggregation reads canonical tables without its former raw JSON query."""
+    monkeypatch.setattr(settings, "data_root", str(tmp_path / "data"))
+    monkeypatch.setattr(
+        congresshealth,
+        "reconcile_openstates_votes",
+        lambda congress: {"congress": congress, "source": {}, "canonical": {}, "duplicate_identifiers": []},
+    )
+
+    result = congresshealth.congressional_health()
+
+    assert {"bills_118", "people", "roll_calls_119", "latest_runs"} <= set(result["canonical"])
+    assert isinstance(result["canonical"]["latest_runs"], list)
+    assert Path(result["report"]).is_file()
 
 
 def test_fec_artifact_lookup_filters_and_orders_typed_metadata(
