@@ -5,8 +5,11 @@ from pathlib import Path
 from time import monotonic, sleep
 
 import yaml
+from sqlalchemy.dialects.postgresql import insert
 
 from ..config import settings
+from ..db import session
+from ..models.core import measurement_table
 from .base import IngestionRun, client, json_response
 
 # providers/fred.py already paces its own (metadata-only) requests at this
@@ -39,27 +42,40 @@ def ingest_series(series_id: str) -> int:
         )
         payload = json_response(response)
         payload_id = run.store_payload(response, payload)
-        for observation in payload["observations"]:
-            value = None if observation["value"] == "." else float(observation["value"])
-            with run.conn.cursor() as cur:
-                cur.execute(
-                    """INSERT INTO fact.measurement (dataset_id, field_id, period_start, vintage_date, value_numeric, unit, flags, source_payload_id)
-                       VALUES ('fred.series', %s, %s, %s, %s, 'source-defined', %s, %s)
-                       ON CONFLICT (dataset_id, field_id, geography_id, period_start, period_end, vintage_date)
-                       DO UPDATE SET value_numeric = EXCLUDED.value_numeric, flags = EXCLUDED.flags, source_payload_id = EXCLUDED.source_payload_id""",
-                    (
-                        series_id,
-                        observation["date"],
-                        observation["realtime_start"],
-                        value,
-                        '{"source":"FRED"}',
-                        payload_id,
-                    ),
-                )
-                run.record_count += 1
-            if run.record_count % _COMMIT_BATCH == 0:
-                run.conn.commit()
-        run.conn.commit()
+        table = measurement_table()
+        observations = payload["observations"]
+        for start in range(0, len(observations), _COMMIT_BATCH):
+            with session() as active_session:
+                for observation in observations[start : start + _COMMIT_BATCH]:
+                    value = None if observation["value"] == "." else float(observation["value"])
+                    statement = insert(table).values(
+                        dataset_id="fred.series",
+                        field_id=series_id,
+                        period_start=observation["date"],
+                        vintage_date=observation["realtime_start"],
+                        value_numeric=value,
+                        unit="source-defined",
+                        flags={"source": "FRED"},
+                        source_payload_id=payload_id,
+                    )
+                    active_session.execute(
+                        statement.on_conflict_do_update(
+                            index_elements=(
+                                table.c.dataset_id,
+                                table.c.field_id,
+                                table.c.geography_id,
+                                table.c.period_start,
+                                table.c.period_end,
+                                table.c.vintage_date,
+                            ),
+                            set_={
+                                "value_numeric": statement.excluded.value_numeric,
+                                "flags": statement.excluded.flags,
+                                "source_payload_id": statement.excluded.source_payload_id,
+                            },
+                        )
+                    )
+                    run.record_count += 1
         return run.record_count
 
 

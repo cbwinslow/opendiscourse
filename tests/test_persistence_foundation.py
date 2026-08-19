@@ -29,6 +29,7 @@ from opendiscourse_research.config import settings
 from opendiscourse_research.db import _alembic_config, _engine, apply_migrations, engine, session
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion import census as census_ingestion
+from opendiscourse_research.ingestion import fred as fred_ingestion
 from opendiscourse_research.ingestion.base import IngestionRun
 from opendiscourse_research.models.catalog import (
     CatalogSnapshot,
@@ -418,6 +419,50 @@ def test_acs_ingestion_upserts_geography_and_measurements_with_sqlalchemy(
     assert measurements[0]["value_numeric"] == 42
     assert measurements[0]["value_text"] == "42"
     assert measurements[0]["source_payload_id"] is not None
+
+
+def test_fred_ingestion_upserts_measurements_with_sqlalchemy(
+    catalog_database: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FRED observations retain null-geography uniqueness and source payload lineage."""
+    payload = {
+        "observations": [
+            {"date": "2030-01-01", "realtime_start": "2030-01-02", "value": "3.5"},
+            {"date": "2030-02-01", "realtime_start": "2030-02-02", "value": "."},
+        ]
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={"content-type": "application/json"}, json=payload)
+
+    monkeypatch.setattr(settings, "fred_api_key", "test-key")
+    monkeypatch.setattr(
+        fred_ingestion, "client", lambda: httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    assert fred_ingestion.ingest_series("TEST_FRED") == 2
+    assert fred_ingestion.ingest_series("TEST_FRED") == 2
+
+    table = measurement_table()
+    with session() as active_session:
+        rows = list(
+            active_session.execute(
+                select(
+                    table.c.value_numeric,
+                    table.c.geography_id,
+                    table.c.flags,
+                    table.c.source_payload_id,
+                )
+                .where(table.c.dataset_id == "fred.series", table.c.field_id == "TEST_FRED")
+                .order_by(table.c.period_start)
+            ).mappings()
+        )
+
+    assert len(rows) == 2
+    assert rows[0]["value_numeric"] == 3.5
+    assert rows[1]["value_numeric"] is None
+    assert all(row["geography_id"] is None for row in rows)
+    assert all(row["flags"] == {"source": "FRED"} for row in rows)
+    assert all(row["source_payload_id"] is not None for row in rows)
 
 
 def test_acs_field_catalog_uses_batched_sqlalchemy_upserts(
