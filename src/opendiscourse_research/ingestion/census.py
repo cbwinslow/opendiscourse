@@ -17,6 +17,7 @@ from ..config import settings
 from ..contracts import get_contract
 from ..db import session
 from ..models.catalog import DatasetField
+from ..models.core import geography_table, measurement_table
 from .base import IngestionRun, client, json_response
 from .bulk import ArtifactSpec, data_root, download
 
@@ -45,15 +46,22 @@ def ingest_acs(
         for row in rows:
             record = dict(zip(headers, row, strict=True))
             geoid = f"{record['state']}{record['county']}"
-            with run.conn.cursor() as cur:
-                cur.execute(
-                    """INSERT INTO core.geography (geography_type, geoid, name, state_fips, county_fips)
-                       VALUES ('county', %s, %s, %s, %s)
-                       ON CONFLICT (geography_type, geoid) DO UPDATE SET name = EXCLUDED.name
-                       RETURNING geography_id""",
-                    (geoid, record.get("NAME"), record["state"], record["county"]),
-                )
-                geography_id = cur.fetchone()["geography_id"]
+            geography = geography_table()
+            measurement = measurement_table()
+            geography_statement = insert(geography).values(
+                geography_type="county",
+                geoid=geoid,
+                name=record.get("NAME"),
+                state_fips=record["state"],
+                county_fips=record["county"],
+            )
+            with session() as active_session:
+                geography_id = active_session.execute(
+                    geography_statement.on_conflict_do_update(
+                        index_elements=(geography.c.geography_type, geography.c.geoid),
+                        set_={"name": geography_statement.excluded.name},
+                    ).returning(geography.c.geography_id)
+                ).scalar_one()
                 for field_id in get:
                     if field_id == "NAME" or record.get(field_id) is None:
                         continue
@@ -61,23 +69,34 @@ def ingest_acs(
                         value = float(record[field_id])
                     except ValueError:
                         value = None
-                    cur.execute(
-                        """INSERT INTO fact.measurement (dataset_id, field_id, geography_id, period_start, vintage_date, value_numeric, value_text, source_payload_id)
-                           VALUES ('census.acs_5', %s, %s, make_date(%s, 1, 1), make_date(%s, 1, 1), %s, %s, %s)
-                           ON CONFLICT (dataset_id, field_id, geography_id, period_start, period_end, vintage_date)
-                           DO UPDATE SET value_numeric = EXCLUDED.value_numeric, value_text = EXCLUDED.value_text, source_payload_id = EXCLUDED.source_payload_id""",
-                        (
-                            field_id,
-                            geography_id,
-                            year,
-                            year,
-                            value,
-                            record[field_id],
-                            payload_id,
-                        ),
+                    measurement_statement = insert(measurement).values(
+                        dataset_id="census.acs_5",
+                        field_id=field_id,
+                        geography_id=geography_id,
+                        period_start=date(year, 1, 1),
+                        vintage_date=date(year, 1, 1),
+                        value_numeric=value,
+                        value_text=record[field_id],
+                        source_payload_id=payload_id,
+                    )
+                    active_session.execute(
+                        measurement_statement.on_conflict_do_update(
+                            index_elements=(
+                                measurement.c.dataset_id,
+                                measurement.c.field_id,
+                                measurement.c.geography_id,
+                                measurement.c.period_start,
+                                measurement.c.period_end,
+                                measurement.c.vintage_date,
+                            ),
+                            set_={
+                                "value_numeric": measurement_statement.excluded.value_numeric,
+                                "value_text": measurement_statement.excluded.value_text,
+                                "source_payload_id": measurement_statement.excluded.source_payload_id,
+                            },
+                        )
                     )
                     run.record_count += 1
-            run.conn.commit()
         return run.record_count
 
 

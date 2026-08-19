@@ -37,6 +37,7 @@ from opendiscourse_research.models.catalog import (
     SnapshotResource,
     artifact_table,
 )
+from opendiscourse_research.models.core import geography_table, measurement_table
 from opendiscourse_research.models.ingest import cursor_table, raw_payload_table, run_table
 from opendiscourse_research.plans import due_plans, load_plans
 from opendiscourse_research.registry import status as registry_status
@@ -368,6 +369,55 @@ def test_census_api_catalog_sync_links_resources_to_the_ingested_payload(
     assert resource.release_year == 2030
     assert resource.metadata_["source_payload_id"] == repeat["payload_id"]
     assert snapshot is not None
+
+
+def test_acs_ingestion_upserts_geography_and_measurements_with_sqlalchemy(
+    catalog_database: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A Census response retains geography, values, and payload lineage on repeat runs."""
+    payload = [
+        ["NAME", "B01001_001", "state", "county"],
+        ["Example County", "42", "01", "001"],
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={"content-type": "application/json"}, json=payload)
+
+    monkeypatch.setattr(settings, "census_api_key", "test-key")
+    monkeypatch.setattr(
+        census_ingestion, "client", lambda: httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    assert census_ingestion.ingest_acs(2030, "01", ["B01001_001"]) == 1
+    assert census_ingestion.ingest_acs(2030, "01", ["B01001_001"]) == 1
+
+    geography = geography_table()
+    measurement = measurement_table()
+    with session() as active_session:
+        geography_row = active_session.execute(
+            select(geography.c.geography_id, geography.c.name).where(
+                geography.c.geography_type == "county", geography.c.geoid == "01001"
+            )
+        ).mappings().one()
+        measurements = list(
+            active_session.execute(
+                select(
+                    measurement.c.value_numeric,
+                    measurement.c.value_text,
+                    measurement.c.source_payload_id,
+                ).where(
+                    measurement.c.dataset_id == "census.acs_5",
+                    measurement.c.field_id == "B01001_001",
+                    measurement.c.geography_id == geography_row["geography_id"],
+                    measurement.c.period_start == datetime(2030, 1, 1, tzinfo=UTC).date(),
+                )
+            ).mappings()
+        )
+
+    assert geography_row["name"] == "Example County"
+    assert len(measurements) == 1
+    assert measurements[0]["value_numeric"] == 42
+    assert measurements[0]["value_text"] == "42"
+    assert measurements[0]["source_payload_id"] is not None
 
 
 def test_acs_field_catalog_uses_batched_sqlalchemy_upserts(
