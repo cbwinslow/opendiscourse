@@ -13,7 +13,8 @@ except adopted `core.geography` and `fact.measurement`, until its bounded
 migration is explicitly approved. Alembic also owns the adopted
 `core.geography_boundary`, `core.jurisdiction`, and
 `core.legislative_session`, `core.bill`, and `core.bill_identifier` tables.
-SQLAlchemy continues to use the project's `psycopg` driver.
+Alembic also owns `core.person` and `core.person_identifier`. SQLAlchemy
+continues to use the project's `psycopg` driver.
 
 The Alembic baseline and adoption revisions are markers over the legacy-seeded
 schemas. The real PostGIS regression suite verifies both downgrade to `base`
@@ -37,6 +38,7 @@ and re-upgrade to the adopted revision without changing legacy tables.
   legislative sessions.
 - Alembic-adopted canonical bill identity and identifiers, including source
   evidence, reverse identifier lookup, and partial OCD-ID uniqueness.
+- Alembic-adopted canonical people and their stable external identifiers.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan

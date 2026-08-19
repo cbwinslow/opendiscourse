@@ -184,7 +184,6 @@ core_person_identifier = Table(
     Column("valid_from", Date),
     Column("valid_to", Date),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 
@@ -197,7 +196,6 @@ core_person = Table(
     Column("family_name", Text),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 
