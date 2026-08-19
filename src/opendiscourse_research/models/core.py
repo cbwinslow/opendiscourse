@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, Table, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, Table, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID as PostgreSQLUUID
 from sqlmodel import SQLModel
 
@@ -89,7 +89,6 @@ core_jurisdiction = Table(
     Column("classification", Text, nullable=False),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 
@@ -108,18 +107,21 @@ core_legislative_session = Table(
     Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     UniqueConstraint("jurisdiction_id", "identifier"),
+    CheckConstraint(
+        "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
+        name="legislative_session_check",
+    ),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 
 def jurisdiction_table():
-    """Return legacy jurisdiction storage without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical jurisdiction table."""
     return core_jurisdiction
 
 
 def legislative_session_table():
-    """Return legacy legislative-session storage without taking Alembic ownership."""
+    """Return the Alembic-adopted canonical legislative-session table."""
     return core_legislative_session
 
 
