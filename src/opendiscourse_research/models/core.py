@@ -212,8 +212,20 @@ core_bill_action = Table(
     Column("source_member", Text),
     Column("source_ordinal", Integer),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    CheckConstraint(
+        "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
+        name="bill_action_source_evidence",
+    ),
+    Index(
+        "bill_action_source_member_idx",
+        "bill_id",
+        "source_artifact_id",
+        "source_member",
+        "source_ordinal",
+        unique=True,
+        postgresql_where=text("source_artifact_id IS NOT NULL"),
+    ),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 
