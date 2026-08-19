@@ -86,6 +86,7 @@ from opendiscourse_research.repositories.catalog import (
     upsert_resource,
 )
 from opendiscourse_research.repositories.legislation import (
+    bill_keys,
     ensure_us_legislative_session,
     get_artifact,
     get_resume_cursor,
@@ -1221,6 +1222,42 @@ def test_congressional_health_reads_canonical_evidence_with_sqlalchemy(
     assert {"bills_118", "people", "roll_calls_119", "latest_runs"} <= set(result["canonical"])
     assert isinstance(result["canonical"]["latest_runs"], list)
     assert Path(result["report"]).is_file()
+
+
+def test_bill_keys_reads_canonical_bills_through_sqlalchemy(
+    catalog_database: None,
+) -> None:
+    """BILLSTATUS reconciliation keys exclude mixed FDW compatibility rows."""
+    bill = bill_table()
+    with session() as active_session:
+        active_session.execute(
+            insert(bill),
+            [
+                {
+                    "jurisdiction": "us",
+                    "legislative_session": "2120",
+                    "bill_type": "hr",
+                    "bill_number": "1",
+                    "metadata": {},
+                },
+                {
+                    "jurisdiction": "us",
+                    "legislative_session": "2120",
+                    "bill_type": "s",
+                    "bill_number": "2",
+                    "metadata": {},
+                },
+                {
+                    "jurisdiction": "us",
+                    "legislative_session": "2119",
+                    "bill_type": "hr",
+                    "bill_number": "3",
+                    "metadata": {},
+                },
+            ],
+        )
+
+    assert bill_keys(2120, "HR") == {"1"}
 
 
 def test_fec_artifact_lookup_filters_and_orders_typed_metadata(

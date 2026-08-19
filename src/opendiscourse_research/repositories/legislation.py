@@ -11,7 +11,7 @@ from psycopg.types.json import Jsonb
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
-from ..db import connect, session
+from ..db import session
 from ..models.catalog import artifact_table
 from ..models.core import (
     bill_action_table,
@@ -43,11 +43,18 @@ def _query(name: str) -> str:
 
 
 def bill_keys(congress: int, bill_type: str) -> set[str]:
-    """Return OpenStates-compatible bill numbers for one Congress and bill type."""
-    query = _query("bill_keys")
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(query, {"congress": str(congress), "bill_type": bill_type.lower()})
-        return {row["bill_number"] for row in cur.fetchall()}
+    """Return canonical bill numbers for one Congress and bill type."""
+    bill = bill_table()
+    with session() as active_session:
+        return set(
+            active_session.scalars(
+                select(bill.c.bill_number).where(
+                    bill.c.jurisdiction == "us",
+                    bill.c.legislative_session == str(congress),
+                    bill.c.bill_type == bill_type.lower(),
+                )
+            )
+        )
 
 
 def openstates_vote_snapshot_counts(
