@@ -77,6 +77,9 @@ class TestCensusBulkPlans(unittest.TestCase):
             with patch(
                 "opendiscourse_research.ingestion.acs_bulk.remote_size",
                 return_value=RemoteObject("https://example.test/acs", 1),
+            ), patch(
+                "opendiscourse_research.ingestion.acs_bulk.storage_preview",
+                return_value={"approved": True},
             ):
                 report = preview_acs5_bulk_plan(path)
         self.assertTrue(report["approved"])

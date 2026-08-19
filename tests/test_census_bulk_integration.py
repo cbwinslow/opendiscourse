@@ -126,7 +126,7 @@ class TestBulkDatabaseIntegration(unittest.TestCase):
         with ZipFile(path, "w") as archive:
             archive.writestr(
                 "cbp23st.txt",
-                "fipstate,naics,lfo,est,emp,qp1,ap,emp_nf,qp1_nf,ap_nf\n99,00,,10,20,30,40,,,,\n",
+                "fipstate,naics,lfo,est,emp,qp1,ap,emp_nf,qp1_nf,ap_nf\n99,00,,10,20,30,40,,,\n",
             )
         self._register("census.business_patterns", key, path)
         plan = {
