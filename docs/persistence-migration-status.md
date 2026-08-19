@@ -20,6 +20,7 @@ Alembic-adopted, as is `core.bill_sponsorship`.
 `core.document` and `core.bill_document` are also Alembic-adopted.
 `core.organization` and `core.organization_identifier` are also
 Alembic-adopted.
+`core.membership` is also Alembic-adopted.
 `core.document_chunk` and `core.embedding` are also Alembic-adopted.
 `core.roll_call` and `fact.member_vote` are also Alembic-adopted.
 `fact.population_estimate` is also Alembic-adopted.
@@ -60,6 +61,8 @@ and re-upgrade to the adopted revision without changing legacy tables.
   NULLS-NOT-DISTINCT source-member identity.
 - Alembic-adopted canonical documents and their legacy bill-link relationship.
 - Alembic-adopted canonical organizations and stable organization identifiers.
+- Alembic-adopted memberships, including person, organization, session, and
+  artifact-or-payload evidence linkage.
 - Alembic-adopted roll calls and member votes, including partial OCD-ID
   uniqueness and artifact-or-payload vote provenance.
 - Alembic-adopted PEP population estimates, including source artifact/member

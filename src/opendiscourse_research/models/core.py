@@ -433,6 +433,56 @@ core_organization_identifier = Table(
 )
 
 
+core_membership = Table(
+    "membership",
+    SQLModel.metadata,
+    Column(
+        "membership_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column(
+        "person_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.person.person_id"),
+        nullable=False,
+    ),
+    Column(
+        "organization_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.organization.organization_id"),
+        nullable=False,
+    ),
+    Column(
+        "legislative_session_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.legislative_session.legislative_session_id"),
+    ),
+    Column("role", Text, nullable=False),
+    Column("start_date", Date),
+    Column("end_date", Date),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+    ),
+    Column(
+        "source_payload_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.raw_payload.payload_id"),
+    ),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    CheckConstraint(
+        "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
+        name="membership_check",
+    ),
+    Index("membership_person_idx", "person_id"),
+    Index("membership_organization_idx", "organization_id"),
+    schema="core",
+)
+
+
 core_roll_call = Table(
     "roll_call",
     SQLModel.metadata,
@@ -479,6 +529,11 @@ def organization_table():
 def organization_identifier_table():
     """Return Alembic-adopted stable organization identifiers."""
     return core_organization_identifier
+
+
+def membership_table():
+    """Return the Alembic-adopted canonical membership table."""
+    return core_membership
 
 
 def roll_call_table():

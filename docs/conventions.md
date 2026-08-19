@@ -17,6 +17,7 @@ their adoption baseline. `core.bill_sponsorship` belongs there as well.
 `core.bill_committee` and `core.bill_subject` belong there as well. Reusable
 `core.document` and `core.bill_document` belong there as well. Reusable runtime
 `core.organization` and `core.organization_identifier` belong there as well.
+`core.membership` belongs there as well.
 `core.roll_call` and `fact.member_vote` belong there as well. Reusable runtime
 `fact.population_estimate` belongs there as well. Reusable runtime statements
 `fact.business_pattern` belongs there as well. Reusable runtime statements

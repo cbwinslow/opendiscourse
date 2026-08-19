@@ -151,6 +151,24 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
                 )
             )
         }
+        membership_indexes = {
+            row[0]
+            for row in connection.execute(
+                text(
+                    "SELECT indexname FROM pg_indexes "
+                    "WHERE schemaname = 'core' AND tablename = 'membership'"
+                )
+            )
+        }
+        membership_constraints = {
+            row[0]
+            for row in connection.execute(
+                text(
+                    "SELECT conname FROM pg_constraint "
+                    "WHERE conrelid = 'core.membership'::regclass"
+                )
+            )
+        }
         extensions = {
             row[0]
             for row in connection.execute(
@@ -161,9 +179,11 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
             )
         }
 
-    assert revision == "a8d5e2c7f361"
+    assert revision == "b9e3a6d4f182"
     assert {"pg_trgm", "unaccent"} <= extensions
     assert {"resource_title_trgm_idx", "resource_fts_idx"} <= indexes
+    assert {"membership_person_idx", "membership_organization_idx"} <= membership_indexes
+    assert "membership_check" in membership_constraints
 
 
 def test_alembic_adoptions_can_downgrade_and_reupgrade(
@@ -180,7 +200,7 @@ def test_alembic_adoptions_can_downgrade_and_reupgrade(
         command.upgrade(config, "head")
 
     with engine().connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "a8d5e2c7f361"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "b9e3a6d4f182"
 
 
 def test_resource_upserts_are_idempotent_and_search_indexes_are_usable(
