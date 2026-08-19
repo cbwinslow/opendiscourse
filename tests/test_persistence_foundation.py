@@ -26,6 +26,7 @@ from opendiscourse_research.browser import (
 )
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.censushealth import census_health
+from opendiscourse_research.congresshealth import recover_stale_congressional_runs
 from opendiscourse_research.config import settings
 from opendiscourse_research.db import _alembic_config, _engine, apply_migrations, engine, session
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
@@ -541,6 +542,48 @@ def test_tiger_artifact_lookup_uses_typed_immutable_evidence(
     artifact = tiger_artifact("test-tiger-typed-artifact")
     assert artifact["artifact_id"]
     assert artifact["local_path"] == str(source.resolve())
+
+
+def test_congressional_stale_run_recovery_uses_typed_run_updates(
+    catalog_database: None,
+) -> None:
+    """Only stale congressional ingestion runs are failed with explicit recovery evidence."""
+    table = run_table()
+    with session() as active_session:
+        stale_id = active_session.execute(
+            insert(table)
+            .values(
+                dataset_id="congress.govinfo_billstatus",
+                mode="manual",
+                status="running",
+                parameters={},
+                started_at=func.now() - text("interval '7 hours'"),
+            )
+            .returning(table.c.run_id)
+        ).scalar_one()
+        fresh_id = active_session.execute(
+            insert(table)
+            .values(
+                dataset_id="congress.govinfo_billstatus",
+                mode="manual",
+                status="running",
+                parameters={},
+            )
+            .returning(table.c.run_id)
+        ).scalar_one()
+
+    recovered = recover_stale_congressional_runs()
+    with session() as active_session:
+        states = {
+            row["run_id"]: row["status"]
+            for row in active_session.execute(
+                select(table.c.run_id, table.c.status).where(table.c.run_id.in_((stale_id, fresh_id)))
+            ).mappings()
+        }
+
+    assert stale_id in {row["run_id"] for row in recovered}
+    assert states[stale_id] == "failed"
+    assert states[fresh_id] == "running"
 
 
 def test_legislation_artifact_registration_uses_typed_default_path(

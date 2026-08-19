@@ -7,8 +7,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import func, text, update
+
 from .config import settings
-from .db import connect
+from .db import connect, session
+from .models.ingest import run_table
 from .repositories.legislation import _query
 from .votereconcile import reconcile_openstates_votes
 
@@ -126,8 +129,23 @@ def recover_stale_congressional_runs(
     older_than: str = "6 hours",
 ) -> list[dict[str, Any]]:
     """Mark long-abandoned congressional runs failed with explicit recovery evidence."""
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(_query("fail_stale_runs"), {"older_than": older_than})
-        rows = [dict(row) for row in cur.fetchall()]
-        conn.commit()
-    return rows
+    table = run_table()
+    statement = (
+        update(table)
+        .where(
+            table.c.status == "running",
+            table.c.started_at < func.now() - text("CAST(:older_than AS interval)"),
+            table.c.dataset_id.in_(("congress.govinfo_billstatus", "openstates.legislation")),
+        )
+        .values(
+            status="failed",
+            finished_at=func.now(),
+            error_message="Recovered by congressional health check: run exceeded the stale-run threshold without completion.",
+        )
+        .returning(table.c.run_id, table.c.dataset_id, table.c.started_at)
+    )
+    with session() as active_session:
+        return [
+            dict(row)
+            for row in active_session.execute(statement, {"older_than": older_than}).mappings()
+        ]
