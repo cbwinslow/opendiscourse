@@ -256,6 +256,27 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
     assert "'plan'" in run_mode_constraint
 
 
+def test_existing_schema_without_alembic_watermark_is_adopted_safely(
+    catalog_database: None,
+) -> None:
+    """Alembic adopts an existing schema without replaying numbered SQL files."""
+    with engine().begin() as connection:
+        connection.execute(text("DROP TABLE alembic_version"))
+        assert connection.execute(
+            text("SELECT to_regclass('core.bill')")
+        ).scalar_one() == "core.bill"
+
+    apply_migrations()
+
+    with engine().connect() as connection:
+        assert connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one() == "c4f7a2d9e651"
+        assert connection.execute(
+            text("SELECT to_regclass('core.bill')")
+        ).scalar_one() == "core.bill"
+
+
 def test_alembic_adoptions_can_downgrade_and_reupgrade(
     catalog_database: None,
 ) -> None:
