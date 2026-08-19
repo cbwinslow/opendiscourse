@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: core
+    schema: core
+    tables:
+      - name: bill
+      - name: roll_call
+      - name: geography
+  - name: fact
+    schema: fact
+    tables:
+      - name: member_vote
+      - name: measurement

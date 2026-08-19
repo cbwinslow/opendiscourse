@@ -88,16 +88,62 @@ baskets, rather than a provider-specific list of checkboxes. After discovery:
 
 ```bash
 research-db catalog-sync acs --year 2024
-research-db browse --basket housing
+research-db browse
 ```
 
 The browser starts at Provider → Dataset → Year → Product → Resource. Type to
 filter resources; press Enter to descend or inspect fields; press Backspace to
 go back; press Space to add/remove the highlighted resource; press `c` to
-review the basket; press `Ctrl+Q` to quit.
+review your selection; press `Ctrl+Q` to quit.
 Selections are drafts only. They do not create a fetch plan or download data.
 The same catalog and basket tables will serve FRED, FBI, GovInfo, and other
 adapters when they are implemented.
+
+`research-db sync` refreshes every implemented metadata adapter and never
+downloads bulk observations. `research-db status` distinguishes catalog-ready
+datasets from registered providers that still need an adapter.
+
+`research-db sync --source census` indexes every offering currently published
+in the official Census Data API catalog. It stores the source response and
+offering metadata only; this is the safe starting point for discovering ACS,
+housing, Decennial, PEP, business, and other Census APIs. Open it with
+`research-db browse --dataset census.api_catalog`. Browsing a Census offering
+or adding it to a basket does not authorize observation or bulk-file ingestion.
+Search includes each offering's official description, so terms such as
+`housing`, `rent`, and `American Community Survey` find relevant offerings.
+When entered through Provider → Census → Census Data API offering catalog, the
+browser groups offerings into ACS 1-Year, ACS 5-Year, ACS supplemental/special,
+Decennial Census, Population Estimates, and TIGER geography facets.
+
+## ACS bulk plans
+
+The primary browser path is **American Community Survey 5-Year bulk downloads**:
+one full Detailed Tables package per available release (currently 2021–2024).
+Select a release,
+press `p` twice, then run the displayed preflight command. Advanced users can
+also select individual **2022+ ACS 5-Year Detailed Tables** and create the same
+kind of disabled table-based Summary File plan:
+
+```bash
+research-db ingest acs-bulk-preview --plan /path/to/acs5-selection.yaml
+```
+
+The plan names every official table data file plus its geography and table-shell
+files. The preflight uses only HEAD/range metadata requests and writes a separate
+report containing every URL, published byte size, temporary-stage estimate,
+PostgreSQL estimate, free space, and approval decision. It never downloads data.
+The Summary File contains estimates and MOEs for every published geography, so a
+later approved loader must state its canonical geography filter explicitly.
+
+Every provider discovery will also create a `catalog.snapshot` record linked to
+the original metadata artifact and its checksum. Resources may be refreshed for
+search, but snapshots preserve exactly what the provider advertised at a given
+time; no discovery job may silently erase that history.
+
+The browser currently auto-discovers the verified modern ACS table-based
+releases (2022–2024). Earlier ACS releases remain a separate legacy
+sequence-format adapter task; they are not presented as selectable until their
+metadata path is implemented and tested.
 
 Use `research-db catalog-options` to see discovered years and products, or
 filter the browser with `--year 2024 --product 'Detailed Table'`. `a` requires

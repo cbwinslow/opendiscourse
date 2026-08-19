@@ -1,0 +1,19 @@
+# Copy this reviewed template to meta/plan/openstates/ before validating a new
+# OpenStates source snapshot. Do not place credentials in this file.
+schema: 1
+provider: openstates
+dataset: openstates.dump
+artifact_key: openstates-public-YYYY-MM
+remote_url: https://data.openstates.org/postgres/monthly/YYYY-MM-public.pgdump
+local_path: /absolute/path/to/YYYY-MM-public.pgdump
+period: YYYY-MM
+bytes: 0
+checksum_sha256: replace_with_the_64_character_sha256
+source_watermark: null
+expected_tables:
+  - public.opencivicdata_legislativesession
+  - public.opencivicdata_voteevent
+  - public.opencivicdata_personvote
+notes: >-
+  Snapshot is a provider-owned staging artifact. Validation does not authorize
+  restore, FDW remapping, canonical loading, promotion, or scheduling.

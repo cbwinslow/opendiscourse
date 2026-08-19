@@ -1,0 +1,41 @@
+"""Regression checks that newcomer-facing docs exist and cross-link correctly."""
+
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+class TestDocsCrossLinks(unittest.TestCase):
+    def test_getting_started_exists_and_links_to_reference_docs(self) -> None:
+        text = (REPO_ROOT / "docs" / "getting-started.md").read_text()
+        self.assertIn("README.md", text)
+        self.assertIn("AGENTS.md", text)
+        self.assertIn("CONTRIBUTING.md", text)
+
+    def test_contributing_exists_and_links_to_getting_started(self) -> None:
+        text = (REPO_ROOT / "CONTRIBUTING.md").read_text()
+        self.assertIn("docs/getting-started.md", text)
+        self.assertIn("AGENTS.md", text)
+
+    def test_adding_a_provider_exists_and_names_the_scaffold_command(self) -> None:
+        text = (REPO_ROOT / "docs" / "adding-a-provider.md").read_text()
+        self.assertIn("research-db new-provider", text)
+        self.assertIn("fred.py", text)
+
+    def test_contributing_links_to_adding_a_provider(self) -> None:
+        text = (REPO_ROOT / "CONTRIBUTING.md").read_text()
+        self.assertIn("docs/adding-a-provider.md", text)
+
+    def test_readme_points_new_contributors_at_getting_started(self) -> None:
+        text = (REPO_ROOT / "README.md").read_text()
+        self.assertIn("docs/getting-started.md", text)
+        self.assertIn("CONTRIBUTING.md", text)
+
+    def test_adding_a_provider_explains_wiring_and_links_back(self) -> None:
+        text = (REPO_ROOT / "docs" / "adding-a-provider.md").read_text()
+        self.assertIn("registry.py", text)
+        self.assertIn("docs/getting-started.md", text)
+        self.assertIn("CONTRIBUTING.md", text)

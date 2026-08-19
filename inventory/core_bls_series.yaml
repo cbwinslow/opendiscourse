@@ -1,0 +1,15 @@
+# Curated BLS series allow-list, mirroring inventory/core_fred_series.yaml:
+# the manifest is the catalog's authoritative selection boundary, not an
+# attempt at every published BLS series. National scope only for this first
+# cut -- state/area LAUS series can be added deliberately once there's a
+# concrete research need and a geography-resolution path for BLS area codes.
+series:
+  - {series_id: CUUR0000SA0, dataset: bls.cpi, label: CPI-U all items (NSA), category: inflation, priority: 1}
+  - {series_id: CUSR0000SA0, dataset: bls.cpi, label: CPI-U all items (SA), category: inflation, priority: 1}
+  - {series_id: CUUR0000SA0L1E, dataset: bls.cpi, label: CPI-U less food and energy, core (NSA), category: inflation, priority: 1}
+  - {series_id: CUSR0000SA0L1E, dataset: bls.cpi, label: CPI-U less food and energy, core (SA), category: inflation, priority: 1}
+  - {series_id: LNS14000000, dataset: bls.laus, label: Unemployment rate (SA), category: labor, priority: 1}
+  - {series_id: LNU04000000, dataset: bls.laus, label: Unemployment rate (NSA), category: labor, priority: 2}
+  - {series_id: LNS11300000, dataset: bls.laus, label: Labor force participation rate (SA), category: labor, priority: 1}
+  - {series_id: LNS12000000, dataset: bls.laus, label: Employment level (SA), category: labor, priority: 2}
+  - {series_id: LNS13000000, dataset: bls.laus, label: Unemployment level (SA), category: labor, priority: 2}

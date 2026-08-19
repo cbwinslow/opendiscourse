@@ -1,0 +1,34 @@
+version: 2
+
+models:
+  - name: mart_roll_call_results
+    description: One row per roll call, with bill identity and vote tallies.
+    columns:
+      - name: roll_call_id
+        tests: [not_null, unique]
+      - name: jurisdiction
+        tests: [not_null]
+      - name: bill_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_bills')
+                field: bill_id
+
+  - name: mart_geography_year_measurement
+    description: >
+      Geography x year panel pivoted from fact.measurement, for joining
+      research questions to place-level economic/demographic series.
+    columns:
+      - name: dataset_id
+        tests: [not_null]
+      - name: field_id
+        tests: [not_null]
+      - name: period_year
+        tests: [not_null]
+      - name: geography_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_geography')
+                field: geography_id

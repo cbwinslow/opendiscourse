@@ -8,11 +8,14 @@ version = "0.1.0"
 description = "A provenance-first U.S. public policy, economic, and financial research database."
 requires-python = ">=3.12"
 dependencies = [
+  "alembic>=1.14,<2",
+  "geoalchemy2>=0.17,<1",
   "httpx>=0.27,<1",
   "psycopg[binary]>=3.2,<4",
   "pydantic>=2.7,<3",
   "pydantic-settings>=2.3,<3",
   "PyYAML>=6,<7",
+  "sqlmodel>=0.0.22,<1",
   "tenacity>=8.3,<10",
   "typer>=0.12,<1",
 ]
@@ -27,8 +30,37 @@ browser = ["textual>=0.85,<1"]
 [project.scripts]
 research-db = "opendiscourse_research.cli:app"
 
+[dependency-groups]
+dev = [
+  "hypothesis>=6.100,<7",
+  "polyfactory>=2.16,<4",
+  "pytest>=8.2,<10",
+  "pytest-cov>=5,<8",
+  "ruff>=0.15,<1",
+  "testcontainers[postgres]>=4.7,<5",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff.lint]
+# TRY004 wants TypeError for shape checks; this project deliberately raises
+# ValueError for malformed external data and contracts (provider payloads,
+# YAML contracts), matching the tests written against that contract.
+ignore = ["TRY004"]
+
+[tool.ruff.lint.per-file-ignores]
+# Typer's documented idiom is `param: T = typer.Option(...)` in the
+# function signature itself.
+"src/opendiscourse_research/cli.py" = ["B008"]
+# Textual TUI: BINDINGS is the framework's own mutable class-attribute
+# idiom, and action handlers deliberately catch broad exceptions to
+# surface an actionable status message instead of crashing the app.
+"src/opendiscourse_research/browser.py" = ["RUF012", "BLE001"]
+# Treasury par-yield-curve dates are calendar dates with no timezone
+# concept; the naive datetime is immediately narrowed with `.date()`.
+"src/opendiscourse_research/ingestion/treasury.py" = ["DTZ007"]

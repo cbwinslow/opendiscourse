@@ -51,3 +51,49 @@ never make entity assertions from a filename, OCR result, or model output.
    as lineage.
 5. Only copy verified, actively used source artifacts into the new `raw/`
    layout. Use a content-addressed path to avoid duplicates.
+
+## Legislative inventory
+
+Run `research-db audit` before planning any Congressional or GovInfo backfill.
+It is read-only: it inventories the known legacy roots, records paths, sizes,
+formats, inferred coverage, and optional checksums, and writes a report under
+`meta/audit/leg/latest.json`, plus a compact `summary.json` consumed by the
+Congress/GovInfo browser catalog. It never copies, parses, registers, or deletes a
+source artifact. Use `research-db audit --hashes` when a full checksum pass is
+needed before admitting a selected legacy artifact.
+
+Run `research-db validate billstatus` after the inventory. It validates every
+available BILLSTATUS listing/ZIP pair and samples parseable XML bill identities
+without changing the cache or loading PostgreSQL records. Its report is written
+under `meta/validate/billstatus/latest.json` and is required evidence before a
+future BILLSTATUS ingestion contract can be enabled.
+Use `research-db validate billstatus --official --congress 119` to compare one
+bounded Congress against live GovInfo listing manifests. It performs no file or
+database writes beyond the project validation report.
+Use `research-db validate billstatus --official --all` for the complete local
+coverage range; it is paced and may take several minutes.
+
+For a validated incomplete collection, run `research-db plan billstatus
+--congress 119`. It creates an exact official missing-file manifest and a
+capacity preview under `meta/plan/govinfo/`; the version-controlled `billstatus`
+contract remains disabled and no file is downloaded.
+
+After a complete validation and reconciliation, load one bounded batch with
+`research-db load-billstatus --congress 118 --limit 100`. The loader commits
+at `--batch-size` boundaries, records an `ingest.run` with coverage, and skips
+already loaded archives and XML members, so rerunning safely resumes a stopped
+load. The 119th Congress
+requires `--allow-partial`; its results remain explicitly partial until the
+approved missing-file backfill is validated and loaded.
+
+Use `research-db load-openstates-people` to seed canonical federal people from
+the provisioned read-only OpenStates snapshot. People are keyed by their OCD
+identifier and retain baseline metadata; conflicting external identifiers are
+reported rather than reassigned. Congress.gov should enrich this baseline.
+
+Federal vote events use the same read-only OpenStates snapshot. Start with
+`research-db load-openstates-votes --congress 118 --limit 1` and reconcile with
+`research-db reconcile-openstates-votes --congress 118`. The 118th source has
+1,089 events but 1,088 stable roll-call identifiers; the reconciliation report
+records the single duplicate. Loads for the 119th Congress are explicitly
+recorded as partial coverage.

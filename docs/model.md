@@ -40,6 +40,27 @@ queries expose the provider snapshot when needed.
 The join key for federal people is Bioguide ID. The bill identity is Congress,
 type, and number, with source-specific package/version IDs retained beside it.
 
+## BILLSTATUS reconciliation mapping
+
+The first federal loader reconciles GovInfo `BILLSTATUS` XML to the existing
+Congress.gov bill grain. It never matches on a title or a person's display
+name. The required source-to-model mapping is:
+
+| BILLSTATUS XML field | Canonical target | Deterministic key / rule |
+|---|---|---|
+| `bill/congress`, `bill/type`, `bill/number` | `core.bill` | `us`, Congress number, lower-cased bill type, bill number |
+| GovInfo XML member path | `core.bill_identifier` | namespace `govinfo.billstatus_xml`; one immutable source reference per bill |
+| `actions/item` | `core.bill_action` | bill plus ordinal in the source XML; retain date, text, code, source system, and source reference |
+| `sponsors/item/bioguideId` | `core.bill_sponsorship` → `core.person_identifier` | namespace `bioguide`; unresolved people remain explicit source identifiers, never name matches |
+| `committees/item/systemCode` | `core.bill_committee` | namespace `congress.gov.committee`; preserve activity metadata |
+| `subjects/*/item/name`, `policyArea/name` | `core.bill_subject` | namespace `congress.gov.subject`; preserve the original classification |
+| `textVersions/item` | `core.bill_document` | text-version code plus official GovInfo URL; no text is fetched by BILLSTATUS ingestion |
+
+Each normalized relationship must point to either the immutable source artifact
+and its member path or an API raw payload. A loader may report an unresolved
+foreign key, but it must not invent a person, committee, vote, or document
+identity to make a join succeed.
+
 ## Rule
 
 Before an adapter is added, write its source-to-model mapping and grain. Do not

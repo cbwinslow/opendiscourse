@@ -8,6 +8,15 @@ providers:
     base_url: https://api.census.gov/data
     auth: api_key
     datasets:
+      - id: census.api_catalog
+        title: Census Data API offering catalog
+        access: Census Data API data.json catalog
+        client: httpx
+        grain: published Census API offering × vintage
+        identifiers: [identifier, vintage, endpoint]
+        cadence: provider release schedule
+        priority: 1
+        notes: Metadata-only index of every offering published by the Census Data API. Selecting an offering never authorizes observation or bulk-file acquisition.
       - id: census.acs_1
         title: American Community Survey 1-Year
         access: REST API and summary downloads
@@ -26,6 +35,15 @@ providers:
         cadence: annual
         priority: 1
         notes: Default small-area demographic and housing baseline; do not compare overlapping windows as independent observations.
+      - id: census.acs_5_bulk
+        title: American Community Survey 5-Year bulk downloads
+        access: ACS table-based Summary File downloads
+        client: httpx
+        grain: release × complete Detailed Table bundle
+        identifiers: [release_year, package]
+        cadence: annual
+        priority: 1
+        notes: Primary browser path for complete ACS releases. The package contains all Detailed Tables, estimates, margins of error, and published geographies; later loads filter to approved canonical scope.
       - id: census.decennial
         title: Decennial Census
         access: REST API and bulk files

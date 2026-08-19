@@ -8,16 +8,41 @@ items:
   - id: congapi
     dataset: congress.legislation
     state: ready
-    scope: 119th Congress; bounded Congress.gov collection pages
+    scope: "Browser catalog prepopulated for Congresses 1-119: members, bills, actions, amendments, committees, and House votes"
     origin: Congress.gov API
     provenance: authoritative_api
     sensitivity: public
     validate: API response retained with each ingestion run
-    next: Add people, sponsors, actions, and votes after bill collection backfill.
+    next: Build the official coverage comparator, then approve bounded member and bill metadata contracts before enabling ingestion.
+  - id: congvotes
+    dataset: congress.legislation
+    state: idea
+    scope: >-
+      Gap found while evaluating third-party bulk tooling (2026-08-07):
+      providers/congress.py's CONGRESS_RESOURCES only registers House
+      roll-call votes ("housevotes") from the Congress.gov API. Senate
+      roll-call votes are not registered as a resource anywhere in the
+      catalog. github.com/unitedstates/congress (active, pushed 2025-10,
+      1k+ stars -- the codebase GovTrack itself runs on) scrapes both
+      chambers' floor XML directly (clerk.house.gov and senate.gov via its
+      congress/tasks/votes.py + vote_info.py) and is the standing "use
+      other people's work" candidate here, per the user's stated
+      preference for adopting established tooling over rebuilding it.
+    origin: https://github.com/unitedstates/congress
+    provenance: third_party_tool_not_yet_run
+    sensitivity: public
+    validate: Not yet run against this repo's data; no local artifacts exist to validate.
+    next: >-
+      Decide whether to (a) run unitedstates/congress as an external
+      fetcher and register its output directory as a new raw root (mirrors
+      the audit.py legacy-root pattern), or (b) add a Senate-votes resource
+      to CONGRESS_RESOURCES backed by a new direct-scrape adapter. Do not
+      start either until reviewed -- this is a scope decision, not a
+      metadata-only action.
   - id: cong118
     dataset: congress.legislation
     state: found
-    scope: 20 local 118th-Congress bill-list JSON chunks; 18,315 records with only list-level fields
+    scope: 24 local Congress JSON artifacts (11.4 MiB), including 118th-Congress bill-list chunks; list-level fields only
     origin: /mnt/storage/data-lake/government/epstein/raw-files/congress/bills
     provenance: legacy_cache_unverified
     sensitivity: public_claimed
@@ -25,40 +50,225 @@ items:
     next: Do not parse. Rebuild the official Congress.gov metadata baseline, then retain or delete this cache only after coverage comparison.
   - id: govbulk
     dataset: govinfo.bulk
-    state: found
-    scope: 289 ZIP, 250 XML, and 329 JSON files in a legacy GovInfo bulk cache
+    state: verify
+    scope: 868 legacy GovInfo artifacts (289 ZIP, 250 XML, 329 JSON; 5.46 GiB) across BILLS, BILLSTATUS, and BILLSUM; Congresses 108-119. BILLSTATUS structural validation passed for 96 archive groups, but the 119th cache is incomplete versus live GovInfo.
     origin: /mnt/storage/data-lake/government/epstein/raw-files/govinfo_bulk
     provenance: legacy_cache_unverified
     sensitivity: public_claimed
-    validate: Verify package and granule IDs against GovInfo manifests.
-    next: Build artifact registrar, then implement BILLSTATUS and bill-text parser.
+    validate: Verify package and granule IDs against GovInfo manifests. The 119th Congress comparison found 2,831 XML files absent from local BILLSTATUS listing metadata; treat local data as a partial cache only.
+    next: Review the disabled 119th-Congress missing-file plan (2,831 XML, 28.3 MB, capacity approved) at meta/plan/govinfo/billstatus-119-missing.json. Do not download or ingest until explicitly approved.
+  - id: congdata
+    dataset: congress.legislation
+    state: verify
+    scope: 268,773 legacy artifacts (2.01 GiB), primarily 268,740 bill JSON records under congress-data; Congresses 93-113 and one 118th item
+    origin: /mnt/storage/data-lake/government/congress/congress-data
+    provenance: legacy_cache_unverified
+    sensitivity: public_claimed
+    validate: Identify the historical downloader/version, inspect record schema, and compare per-Congress bill IDs to Congress.gov before admission.
+    next: Keep in place. Build a coverage comparator before registering any selected artifact.
   - id: fecbulk
     dataset: fec.campaign_finance
-    state: found
-    scope: 50 FEC-style bulk ZIP archives; approximately 19.7 GiB
+    state: verify
+    scope: >-
+      50 official FEC bulk archives (~19.7 GiB) across four families --
+      indiv (individual contributions, 21 cols), oth (other committee-to-
+      committee transactions, 21 cols, same layout as indiv), pas2
+      (committee-to-committee/candidate transfers, 22 cols), oppexp
+      (operating expenditures, 25 named cols + a trailing-delimiter
+      artifact) -- 13 cycles each (2000-2024; oppexp from 2004), column
+      count stable within each family across every cycle checked. pas224.zip
+      matched the live https://www.fec.gov/files/bulk-downloads mirror
+      byte-for-byte. pas2 pilot: all 13 cycles registered as checksummed
+      ingest.artifact rows and staged into stage.fec_row via
+      `research-db ingest fec-bulk-register/-stage --family pas2`
+      (see inventory/contracts/fecbulk.yaml).
     origin: /mnt/storage/data-lake/government/fec_bulk_data
     provenance: legacy_cache_unverified
     sensitivity: public
-    validate: Match filenames, release years, sizes, and checksums to FEC downloads.
-    next: Register archives and select one transaction family for a pilot parser.
+    validate: >-
+      pas2 schema and one cycle's size confirmed live against fec.gov; the
+      other three families' checksums are not yet spot-checked. FEC amends
+      filings after publication, so a size/checksum mismatch on an older
+      cycle would not necessarily mean corruption -- see the mismatch_policy
+      note in inventory/contracts/fecbulk.yaml before treating one as an
+      error.
+    next: >-
+      Register and stage indiv, oth, and oppexp the same way (fecindiv,
+      fecoth, fecoppexp contracts already drafted, disabled). indiv is the
+      payoff run (2024 cycle alone is 11 GB uncompressed) -- run it after
+      pas2 has been spot-checked for correctness. No fact-table transform
+      exists yet; committee/candidate identity resolution against
+      core.organization/core.person is a separate, reviewed decision before
+      any contract here can be enabled.
   - id: acshome
-    dataset: census.acs_5
-    state: ready
-    scope: Curated county-level ACS 5-year housing groups; Maryland first
+    dataset: census.acs_5_bulk
+    state: loaded
+    scope: >-
+      Superseded by acscomprehensive below. Kept only as the historical
+      record of the original 2024-only, 7-table Housing Core selection
+      (see docs/census-bulk-roadmap.md's "ACS Housing Core checkpoint").
     origin: Census API and official summary files
     provenance: authoritative_api_metadata_verified
     sensitivity: public
     validate: Variable metadata, estimate/MOE pairing, and geography coverage.
-    next: Review the recorded 2024 group metadata (five estimate fields, one Maryland request) before explicitly enabling the county-data load.
+    next: No further action; superseded by acscomprehensive's broader scope.
+  - id: acscomprehensive
+    dataset: census.acs_5_bulk
+    state: loaded
+    scope: >-
+      Comprehensive ACS 5-year Detailed Table selection (~600-615
+      tables/year, state+county geography), 2021-2024. Generated by
+      relevant_acs_tables() -- see inventory/contracts/acscomprehensive.yaml
+      for the exact rule and decision record. STATUS as of 2026-08-07: the
+      original narrower scope (380-387 non-housing tables/year) is loaded
+      for all 4 years (277.7M facts total, verified live). The
+      "comprehensive-delta" plans that add the full B25 housing family
+      (126-132 tables/year, ~199 published) plus the previously-excluded
+      B10/B13/B26/B29 narrow families are DOWNLOADED for all 4 years but
+      NOT YET STAGED OR LOADED -- this is the actual current gap. Separately,
+      a curated 14-table Housing Core+Extended selection (see acshome
+      above) is already loaded for 2022-2024 only (not 2021), 2.5M facts,
+      via a different plan family. A documented ~29-30 table/year core
+      (dominated by B24 industry-by-occupation and B27 health-insurance
+      wide cross-tabs, plus a few confirmed-404 table IDs like B25130/131
+      that Census's manifest lists but never published) returns no
+      reliable size and is excluded; see ACS_SIZE_PROBE_UNRESOLVABLE in
+      ingestion/census.py.
+    origin: Census ACS 5-year table-based Summary File (per-table .dat downloads)
+    provenance: authoritative_api_metadata_verified
+    sensitivity: public
+    validate: >-
+      research-db census-health; every canonical estimate/MOE row retains
+      its source Detailed Table artifact and row ordinal.
+    next: >-
+      Run all four acs5-comprehensive-delta<year>.yaml plans (already
+      downloaded/approved) through `ops/census-bulk-refresh.sh acs-bulk
+      <plan> --workers N` to stage+load them -- this is what actually
+      brings ACS housing/narrow-family coverage to comprehensive and
+      current for all 4 years.
+  - id: cbphistorical
+    dataset: census.business_patterns
+    state: loaded
+    scope: >-
+      County Business Patterns, one plan per release year, 2009-2023
+      (national/state/county/CBSA/ZIP). 30,618,200 artifact-linked
+      fact.business_pattern rows across all 15 years (verified count,
+      2026-08-07).
+    origin: Census CBP CSV-in-ZIP annual bulk releases
+    provenance: authoritative_api_metadata_verified
+    sensitivity: public
+    validate: research-db census-health; every fact.business_pattern row retains its source artifact.
+    next: No further action; extend by adding a new year's plan when Census publishes it.
+  - id: tigerhistorical
+    dataset: census.tiger
+    state: loaded
+    scope: >-
+      TIGER/Line state/county/CBSA/ZCTA boundary layers, one plan per
+      vintage, 2016-2025 (2022 vintage omits CBSA -- not published that
+      year; ZCTA switches from the 2010 to 2020 vintage naming/columns at
+      the 2020 release). 376,678 artifact-linked core.geography_boundary
+      rows across 39 loaded vintage/layer artifacts (verified count,
+      2026-08-07).
+    origin: Census TIGER/Line annual national shapefile releases
+    provenance: authoritative_api_metadata_verified
+    sensitivity: public
+    validate: research-db census-health; every core.geography_boundary row retains its source artifact.
+    next: No further action; tract/block-group/block layers are a distinct, much larger addition and remain out of scope unless explicitly requested.
+  - id: pephistorical
+    dataset: census.population_estimates
+    state: loaded
+    scope: >-
+      Population Estimates Program, two vintage series (2010-2020 and
+      2020-2025), national/state/county. 55,205 artifact-linked
+      fact.population_estimate rows across both series (verified count,
+      2026-08-07).
+    origin: Census PEP annual CSV releases
+    provenance: authoritative_api_metadata_verified
+    sensitivity: public
+    validate: research-db census-health; vintages are never mixed, each estimate retains its release_vintage.
+    next: No further action; add a new vintage series when Census starts one.
   - id: fredcore
     dataset: fred.series
-    state: planned
-    scope: Versioned core macroeconomic series manifest
+    state: loaded
+    scope: >-
+      38 FRED macroeconomic series, 242,707 observations, 1919-01-01 to
+      2026-08-06 (verified live, 2026-08-07). Entry was stale (said
+      "planned"/"set FRED key"); the key is set and this has been loaded
+      and kept current for some time.
     origin: FRED API
-    provenance: authoritative_planned
+    provenance: authoritative_api_metadata_verified
     sensitivity: public
     validate: Series metadata, observation date, and real-time vintage.
-    next: Set FRED key and run the declared plan.
+    next: >-
+      Confirm which 38 series are covered against the intended "core
+      macroeconomic series manifest" and register that manifest explicitly
+      (it is not currently written down anywhere reviewable) so growing
+      the series list is a reviewed addition, not implicit.
+  - id: treasuryyields
+    dataset: treasury.yield_curve
+    state: loaded
+    scope: >-
+      Daily Treasury par yield curve rates, 75,033 rows, current through
+      2026-08-05 (verified live, 2026-08-07). No progress.yaml entry
+      existed for this despite real loaded data; treasury.fiscal_data (the
+      other registered Treasury dataset) has no data loaded at all.
+    origin: Treasury fiscal data / yield curve API
+    provenance: authoritative_api_metadata_verified
+    sensitivity: public
+    validate: fact.measurement rows retain period_start/vintage_date; spot-check against Treasury's published curve.
+    next: Decide whether treasury.fiscal_data (spending/debt series) is in scope; currently unregistered here and unloaded.
+  - id: dhc2020
+    dataset: census.decennial
+    state: loaded
+    scope: >-
+      2020 Decennial DHC, state/county summary levels, tables H1 and P1
+      only. 22,758 artifact-linked fact.decennial_dhc_value rows (verified
+      live, 2026-08-07, matches docs/census-bulk-roadmap.md's DHC
+      checkpoint). Loaded and documented since an earlier phase but had no
+      progress.yaml entry at all -- pure tracking gap, now closed.
+    origin: Census 2020 Decennial DHC national archive
+    provenance: authoritative_api_metadata_verified
+    sensitivity: public
+    validate: research-db census-health; LOGRECNO-joined GEO records retain source segment/member and row ordinal.
+    next: Additional DHC tables or summary levels require an explicit new approval; not planned unless requested.
+  - id: openstatesdump
+    dataset: openstates.dump
+    state: loaded
+    scope: >-
+      Full OpenStates snapshot restored into the separate `openstates`
+      database (84 tables, ~98.8M rows, verified live 2026-08-07) --
+      reached from `opendiscourse` only through the read-only
+      `openstates_source` foreign schema per docs/runtime.md. Resolved
+      identities in the main DB are comparatively small (core.person=726,
+      core.organization=242) because most consumers query the foreign
+      schema directly rather than duplicating it into core.*. Had no
+      progress.yaml entry despite being a major, working pipeline
+      (tests/test_openstates_refresh.py).
+    origin: OpenStates bulk data dump
+    provenance: authoritative_api_metadata_verified
+    sensitivity: public
+    validate: Snapshot checksum validation and vote-table population checks in tests/test_openstates_refresh.py.
+    next: No further action tracked here; refresh cadence for the dump is a separate operational decision.
+  - id: blspilot
+    dataset: bls.laus
+    state: verify
+    scope: >-
+      NOT comprehensive despite being marked done elsewhere: only 9
+      national series total (5 LAUS + 4 CPI), 2007-01 through 2016-12 only
+      (stops a decade ago, not current), and zero geography breakdown
+      (LAUS is specifically a Local Area Unemployment Statistics product
+      but every loaded row has geography_id=null -- no state/county
+      figures at all). bls.qcew has zero rows loaded. Verified live,
+      2026-08-07.
+    origin: BLS API
+    provenance: authoritative_api_metadata_verified
+    sensitivity: public
+    validate: This IS the validation finding -- flagging that "adapter built" does not mean "data is comprehensive."
+    next: >-
+      Decide real target scope (which LAUS geographies, which CPI series,
+      what date range) and re-run with that scope; current data is
+      pilot/smoke-test scale, not usable for real LAUS-by-geography or
+      recent-CPI research.
   - id: epstein
     dataset: null
     state: hold

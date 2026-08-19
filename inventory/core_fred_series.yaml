@@ -1,3 +1,12 @@
+# RUT (Russell 2000), GOLDAMGBD228NLBM (LBMA gold fixing), and USD1MTD156N
+# (USD 1-month LIBOR) were removed 2026-08-06 after FRED confirmed all three
+# no longer exist ("Bad Request. The series does not exist.", verified via a
+# direct API call outside any batch/pacing context, not a rate-limit
+# artifact). FRED periodically retires series when upstream benchmarks are
+# discontinued or replaced; LIBOR and the LBMA gold-fixing benchmark were
+# both wound down some years ago. A replacement gold-price and small-cap
+# equity series would be a reasonable future addition once picked
+# deliberately, not restored under their old (dead) IDs.
 series:
   - {series_id: CPIAUCSL, label: CPI all urban consumers, category: inflation, priority: 1}
   - {series_id: CPILFESL, label: Core CPI, category: inflation, priority: 1}
@@ -30,13 +39,10 @@ series:
   - {series_id: SP500, label: S&P 500 index, category: market_indices, priority: 1}
   - {series_id: DJIA, label: Dow Jones Industrial Average, category: market_indices, priority: 1}
   - {series_id: NASDAQCOM, label: NASDAQ Composite, category: market_indices, priority: 1}
-  - {series_id: RUT, label: Russell 2000 index, category: market_indices, priority: 1}
   - {series_id: VIXCLS, label: CBOE volatility index, category: market_indices, priority: 2}
   - {series_id: DCOILWTICO, label: WTI crude oil spot price, category: commodities, priority: 1}
   - {series_id: DCOILBRENTEU, label: Brent crude oil spot price, category: commodities, priority: 1}
-  - {series_id: GOLDAMGBD228NLBM, label: Gold fixing price, category: commodities, priority: 2}
   - {series_id: DEXUSEU, label: US dollars per euro, category: fx, priority: 1}
   - {series_id: DEXJPUS, label: Japanese yen per US dollar, category: fx, priority: 1}
   - {series_id: DEXUSUK, label: US dollars per British pound, category: fx, priority: 1}
   - {series_id: DTWEXBGS, label: Trade-weighted US dollar index, category: fx, priority: 1}
-  - {series_id: USD1MTD156N, label: USD 1-month LIBOR, category: historical_libor, priority: 3, notes: Historical/discontinued benchmark; do not expect live updates.}

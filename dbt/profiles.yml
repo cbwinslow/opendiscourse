@@ -1,0 +1,22 @@
+# Checked into git deliberately -- no secret lives in this file itself
+# (the password is pulled from an env var at run time). The app
+# (src/opendiscourse_research/db.py) connects via Unix-socket peer auth with
+# no password at all, but dbt-fusion's Postgres adapter is experimental as of
+# 2.0.0-preview and cannot use a Unix-socket host ("empty host" error), so
+# this profile uses TCP loopback + scram-sha-256 instead. pg_hba.conf already
+# allowed `host all all 127.0.0.1/32 scram-sha-256`; only the role needed a
+# password (see docs/runtime.md for the auth model this adds to).
+# Set DBT_PG_PASSWORD before running dbt (e.g. in .env, sourced into your
+# shell -- dbt does not read .env files itself).
+opendiscourse:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: 127.0.0.1
+      port: 5434
+      user: cbwinslow
+      password: "{{ env_var('DBT_PG_PASSWORD') }}"
+      dbname: opendiscourse
+      schema: mart
+      threads: 4

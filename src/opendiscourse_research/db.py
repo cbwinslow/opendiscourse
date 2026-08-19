@@ -1,21 +1,67 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from functools import lru_cache
 from pathlib import Path
+
 import psycopg
+from alembic import command
+from alembic.config import Config
 from psycopg.rows import dict_row
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine, make_url
+from sqlmodel import Session
 
 from .config import settings
+from .feedback import progress
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
 def connect() -> psycopg.Connection:
     return psycopg.connect(settings.database_url, row_factory=dict_row)
 
 
+def _sqlalchemy_url(database_url: str) -> str:
+    """Translate a psycopg DSN to SQLAlchemy's psycopg dialect URL."""
+    url = make_url(database_url)
+    if url.drivername == "postgresql":
+        url = url.set(drivername="postgresql+psycopg")
+    return url.render_as_string(hide_password=False)
+
+
+@lru_cache
+def _engine(database_url: str) -> Engine:
+    """Create one pooled engine for a resolved database URL."""
+    return create_engine(database_url, pool_pre_ping=True)
+
+
+def engine() -> Engine:
+    """Return the engine for the current environment-backed database URL."""
+    return _engine(_sqlalchemy_url(settings.database_url))
+
+
+@contextmanager
+def session() -> Iterator[Session]:
+    """Provide a transactional SQLModel session for migrated persistence modules."""
+    with Session(engine(), expire_on_commit=False) as active_session:
+        try:
+            yield active_session
+            active_session.commit()
+        except Exception:
+            active_session.rollback()
+            raise
+
+
+def _alembic_config() -> Config:
+    """Build Alembic configuration using the same environment-backed database URL."""
+    config = Config(ROOT / "alembic.ini")
+    config.set_main_option("sqlalchemy.url", str(engine().url))
+    return config
+
+
 def apply_migrations() -> None:
-    with connect() as conn:
-        for path in sorted((ROOT / "sql").glob("*.sql")):
-            with conn.cursor() as cur:
-                cur.execute(path.read_text())
-            conn.commit()
+    """Upgrade the mapped database schema through Alembic."""
+    with progress("Applying database migrations", 1) as advance:
+        config = _alembic_config()
+        command.upgrade(config, "head")
+        advance("Applied Alembic schema revisions")

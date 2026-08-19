@@ -1,18 +1,39 @@
 """Conservative preflight checks for all bulk acquisition workflows."""
+
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from pathlib import Path
 import re
 import shutil
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from time import monotonic, sleep
+
+import httpx
 
 from .config import settings
-from .ingestion.base import client
-
 
 MiB = 1024 * 1024
 GiB = 1024 * MiB
+
+# A HEAD request only needs response headers, never a body -- it should be
+# fast even for a large file. Discovered live: some Census artifacts (large
+# ACS Detailed Table files) took 35s+ just for HEAD response headers,
+# repeatedly, so probing with the same 45s timeout used for real downloads
+# (ingestion/base.py::client()) meant one slow URL could cost up to ~90s
+# (attempt + retry) before falling back to "unknown". A dedicated, much
+# shorter timeout here fails fast into that same retry/unknown-size path
+# instead.
+_PROBE_TIMEOUT = 10.0
+
+# A bulk plan preview calls remote_size() once per artifact -- hundreds of
+# times for a multi-table ACS plan. Discovered live: unpaced back-to-back
+# HEAD requests to the same publisher (Census) produced a high rate of
+# timeouts, each costing a 45s wait plus a retry, turning a preview that
+# should take minutes into the better part of an hour. Same fix as FRED's
+# providers/fred.py::PACE_SECONDS.
+PACE_SECONDS = 0.5
+_last_probe = 0.0
 
 
 @dataclass(frozen=True)
@@ -22,14 +43,16 @@ class RemoteObject:
     source: str = "remote"
 
 
-def remote_size(url: str) -> RemoteObject:
-    """Obtain a published byte size without downloading the object.
+def _probe_client() -> httpx.Client:
+    return httpx.Client(
+        timeout=_PROBE_TIMEOUT,
+        follow_redirects=True,
+        headers={"User-Agent": "opendiscourse-research/0.1"},
+    )
 
-    A one-byte range request is a safe fallback for publishers that do not
-    implement HEAD. An unavailable size remains unknown and deliberately
-    prevents automatic approval.
-    """
-    with client() as http:
+
+def _probe_size(url: str) -> RemoteObject:
+    with _probe_client() as http:
         response = http.head(url)
         if response.is_success and response.headers.get("content-length"):
             return RemoteObject(url, int(response.headers["content-length"]), "head")
@@ -43,6 +66,35 @@ def remote_size(url: str) -> RemoteObject:
             if response.headers.get("content-length"):
                 return RemoteObject(url, int(response.headers["content-length"]), "get")
     return RemoteObject(url, None, "unknown")
+
+
+def remote_size(url: str) -> RemoteObject:
+    """Obtain a published byte size without downloading the object.
+
+    A one-byte range request is a safe fallback for publishers that do not
+    implement HEAD. An unavailable size remains unknown and deliberately
+    prevents automatic approval -- including when the probe itself fails
+    (timeout, connection reset): one retry after a short pause absorbs a
+    transient blip, but a persistent failure must not abort a preview
+    covering many other artifacts. A bulk plan with hundreds of artifacts
+    makes a network hiccup on any single one a near-certainty, not an edge
+    case.
+    """
+    global _last_probe
+    for attempt in range(2):
+        wait = PACE_SECONDS - (monotonic() - _last_probe)
+        if wait > 0:
+            sleep(wait)
+        try:
+            result = _probe_size(url)
+        except httpx.HTTPError:
+            _last_probe = monotonic()
+            if attempt == 0:
+                sleep(2)
+            continue
+        _last_probe = monotonic()
+        return result
+    return RemoteObject(url, None, "error")
 
 
 def storage_preview(
@@ -81,6 +133,8 @@ def storage_preview(
         "free_after_bytes": free_after,
         "unknown_urls": unknown,
         "approved": not unknown and free_after >= 0,
-        "reason": "sizes unavailable" if unknown else ("enough capacity" if free_after >= 0 else "insufficient capacity"),
+        "reason": "sizes unavailable"
+        if unknown
+        else ("enough capacity" if free_after >= 0 else "insufficient capacity"),
         "objects": [asdict(item) for item in items],
     }

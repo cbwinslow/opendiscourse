@@ -9,9 +9,11 @@ class Settings(BaseSettings):
     census_api_key: str | None = None
     fred_api_key: str | None = None
     congress_api_key: str | None = None
+    # Optional: BLS API v2 works unregistered at a lower daily rate limit.
+    bls_api_key: str | None = None
     # Raw artifacts belong on the large workspace partition, not alongside the
     # application checkout or Docker's default root-disk volume.
-    data_root: str = "/home/cbwinslow/workspace/data-lake/opendiscourse/raw"
+    data_root: str = "./data-lake/opendiscourse/raw"
 
 
 settings = Settings()

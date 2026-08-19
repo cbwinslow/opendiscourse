@@ -15,3 +15,10 @@ groups:
   - B25077 # median housing value
   - B25081 # mortgage status
   - B25093 # housing costs as percentage of household income
+packages:
+  housing_core:
+    description: Core housing stock, occupancy, tenure, vacancy, rent, and value measures.
+    tables: [B25001, B25002, B25003, B25004, B25010, B25064, B25077]
+  housing_extended:
+    description: Remaining reviewed housing tables, including age, cost burden, and mortgage detail.
+    tables: [B25034, B25035, B25070, B25071, B25075, B25081, B25093]

@@ -1,0 +1,9 @@
+[Unit]
+Description=OpenDiscourse resumable FRED metadata index
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/workspace/opendiscourse
+ExecStart=%h/workspace/opendiscourse/.venv/bin/research-db sync --source fred --index --minutes 30
