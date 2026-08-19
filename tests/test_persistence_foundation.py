@@ -29,6 +29,7 @@ from opendiscourse_research.config import settings
 from opendiscourse_research.db import _alembic_config, _engine, apply_migrations, engine, session
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion import census as census_ingestion
+from opendiscourse_research.ingestion import bls as bls_ingestion
 from opendiscourse_research.ingestion import fred as fred_ingestion
 from opendiscourse_research.ingestion.base import IngestionRun
 from opendiscourse_research.models.catalog import (
@@ -463,6 +464,50 @@ def test_fred_ingestion_upserts_measurements_with_sqlalchemy(
     assert all(row["geography_id"] is None for row in rows)
     assert all(row["flags"] == {"source": "FRED"} for row in rows)
     assert all(row["source_payload_id"] is not None for row in rows)
+
+
+def test_bls_ingestion_upserts_monthly_measurements_with_sqlalchemy(
+    catalog_database: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """BLS ignores annual averages and safely replaces monthly observations."""
+    payload = {
+        "status": "REQUEST_SUCCEEDED",
+        "Results": {
+            "series": [
+                {
+                    "data": [
+                        {"year": "2030", "period": "M01", "value": "2.5"},
+                        {"year": "2030", "period": "M13", "value": "9.9"},
+                    ]
+                }
+            ]
+        },
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={"content-type": "application/json"}, json=payload)
+
+    monkeypatch.setattr(
+        bls_ingestion, "client", lambda: httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    assert bls_ingestion.ingest_series("bls.cpi", "TEST_BLS", 2030, 2030) == 1
+    assert bls_ingestion.ingest_series("bls.cpi", "TEST_BLS", 2030, 2030) == 1
+
+    table = measurement_table()
+    with session() as active_session:
+        rows = list(
+            active_session.execute(
+                select(table.c.value_numeric, table.c.flags, table.c.source_payload_id).where(
+                    table.c.dataset_id == "bls.cpi", table.c.field_id == "TEST_BLS"
+                )
+            ).mappings()
+        )
+
+    assert len(rows) == 1
+    assert rows[0]["value_numeric"] == 2.5
+    assert rows[0]["flags"] == {"source": "BLS"}
+    assert rows[0]["source_payload_id"] is not None
 
 
 def test_acs_field_catalog_uses_batched_sqlalchemy_upserts(

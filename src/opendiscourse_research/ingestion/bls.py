@@ -7,8 +7,11 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import yaml
+from sqlalchemy.dialects.postgresql import insert
 
 from ..config import settings
+from ..db import session
+from ..models.core import measurement_table
 from .base import IngestionRun, client, json_response
 
 BLS_URL = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
@@ -58,23 +61,35 @@ def ingest_series(
             period_start = date(int(observation["year"]), month, 1)
             raw_value = observation["value"]
             value = None if raw_value in ("", ".") else float(raw_value)
-            with run.conn.cursor() as cur:
-                cur.execute(
-                    """INSERT INTO fact.measurement (dataset_id, field_id, period_start, value_numeric, unit, flags, source_payload_id)
-                       VALUES (%s, %s, %s, %s, 'source-defined', %s, %s)
-                       ON CONFLICT (dataset_id, field_id, geography_id, period_start, period_end, vintage_date)
-                       DO UPDATE SET value_numeric = EXCLUDED.value_numeric, flags = EXCLUDED.flags, source_payload_id = EXCLUDED.source_payload_id""",
-                    (
-                        dataset_id,
-                        series_id,
-                        period_start,
-                        value,
-                        '{"source":"BLS"}',
-                        payload_id,
-                    ),
+            table = measurement_table()
+            statement = insert(table).values(
+                dataset_id=dataset_id,
+                field_id=series_id,
+                period_start=period_start,
+                value_numeric=value,
+                unit="source-defined",
+                flags={"source": "BLS"},
+                source_payload_id=payload_id,
+            )
+            with session() as active_session:
+                active_session.execute(
+                    statement.on_conflict_do_update(
+                        index_elements=(
+                            table.c.dataset_id,
+                            table.c.field_id,
+                            table.c.geography_id,
+                            table.c.period_start,
+                            table.c.period_end,
+                            table.c.vintage_date,
+                        ),
+                        set_={
+                            "value_numeric": statement.excluded.value_numeric,
+                            "flags": statement.excluded.flags,
+                            "source_payload_id": statement.excluded.source_payload_id,
+                        },
+                    )
                 )
                 run.record_count += 1
-            run.conn.commit()
         return run.record_count
 
 
