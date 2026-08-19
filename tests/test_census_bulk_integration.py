@@ -24,6 +24,10 @@ from opendiscourse_research.ingestion.fec_bulk import stage_family
 from opendiscourse_research.ingestion.pep_load import load_pep, stage_pep
 from opendiscourse_research.ingestion.tiger_load import load_tiger, stage_tiger
 
+
+_BULK_DATABASE_READY = False
+
+
 def _psycopg_url(url: str) -> str:
     """Normalize Testcontainers' SQLAlchemy URL for the psycopg connection factory."""
     return url.replace("postgresql+psycopg2://", "postgresql://", 1)
@@ -32,15 +36,19 @@ def _psycopg_url(url: str) -> str:
 @pytest.fixture(scope="module", autouse=True)
 def bulk_database() -> Iterator[None]:
     """Provide CI's service or a disposable PostGIS database for bulk tests."""
+    global _BULK_DATABASE_READY
     original_url = settings.database_url
     external_url = os.environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
     if external_url:
-        settings.database_url = external_url
-        apply_migrations()
-        sync_inventory()
         try:
+            settings.database_url = external_url
+            apply_migrations()
+            sync_inventory()
+            _BULK_DATABASE_READY = True
             yield
         finally:
+            _BULK_DATABASE_READY = False
+            _engine.cache_clear()
             settings.database_url = original_url
         return
 
@@ -51,18 +59,26 @@ def bulk_database() -> Iterator[None]:
         password="test",
         dbname="test",
     ) as container:
-        settings.database_url = _psycopg_url(container.get_connection_url())
-        apply_migrations()
-        sync_inventory()
         try:
+            settings.database_url = _psycopg_url(container.get_connection_url())
+            apply_migrations()
+            sync_inventory()
+            _BULK_DATABASE_READY = True
             yield
         finally:
+            _BULK_DATABASE_READY = False
             settings.database_url = original_url
             _engine.cache_clear()
 
 
 class TestBulkDatabaseIntegration(unittest.TestCase):
     """Use generated source artifacts only; never call upstream providers in tests."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Prevent unittest from running mutating database tests without pytest's fixture."""
+        if not _BULK_DATABASE_READY:
+            raise unittest.SkipTest("Run this module with pytest so bulk_database is active")
 
     def setUp(self) -> None:
         self.temp = TemporaryDirectory()
