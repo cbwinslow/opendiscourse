@@ -7,10 +7,10 @@ Last verified: 2026-08-19
 SQLModel/SQLAlchemy is the application persistence API. Alembic owns the
 adopted `catalog` schema plus OpenStates evidence tables
 `ingest.run`, `ingest.raw_payload`, `ingest.resume_cursor`, and
-`ingest.identity_exception`, and `ingest.artifact`; the existing ordered
-`sql/` files remain the schema owner for every other schema until its bounded
-migration is explicitly approved. SQLAlchemy continues to use the project's
-`psycopg` driver.
+`ingest.identity_exception`, `ingest.artifact`, and `ingest.cursor`; the
+existing ordered `sql/` files remain the schema owner for every other schema
+until its bounded migration is explicitly approved. SQLAlchemy continues to
+use the project's `psycopg` driver.
 
 The Alembic baseline and adoption revisions are markers over the legacy-seeded
 schemas. The real PostGIS regression suite verifies both downgrade to `base`
@@ -24,6 +24,8 @@ and re-upgrade to the adopted revision without changing legacy tables.
 - Alembic-adopted immutable ingestion evidence: runs, raw payloads, resume
   checkpoints, unresolved identity exceptions, and local artifacts, including
   their validation constraints and lookup indexes.
+- Alembic-adopted shared ingestion plan cursor, including its run-success
+  lineage foreign key.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan

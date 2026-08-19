@@ -14,7 +14,11 @@ if ingest_cursor is None:
         SQLModel.metadata,
         Column("plan_id", Text, ForeignKey("catalog.plan.plan_id"), primary_key=True),
         Column("cursor", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
-        Column("successful_run_id", PostgreSQLUUID(as_uuid=True)),
+        Column(
+            "successful_run_id",
+            PostgreSQLUUID(as_uuid=True),
+            ForeignKey("ingest.run.run_id"),
+        ),
         Column(
             "updated_at",
             DateTime(timezone=True),
@@ -22,12 +26,11 @@ if ingest_cursor is None:
             server_default=text("now()"),
         ),
         schema="ingest",
-        info={"alembic_exclude": True},
     )
 
 
 def cursor_table():
-    """Return the existing ingestion cursor table without taking Alembic ownership."""
+    """Return the Alembic-adopted ingestion plan cursor table."""
     return ingest_cursor
 
 

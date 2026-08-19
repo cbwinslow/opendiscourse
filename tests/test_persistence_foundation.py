@@ -161,7 +161,7 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
             )
         }
 
-    assert revision == "c2d7e4a9b631"
+    assert revision == "e6c9d2f41a85"
     assert {"pg_trgm", "unaccent"} <= extensions
     assert {"resource_title_trgm_idx", "resource_fts_idx"} <= indexes
 
@@ -180,7 +180,7 @@ def test_alembic_adoptions_can_downgrade_and_reupgrade(
         command.upgrade(config, "head")
 
     with engine().connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "c2d7e4a9b631"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "e6c9d2f41a85"
 
 
 def test_resource_upserts_are_idempotent_and_search_indexes_are_usable(
