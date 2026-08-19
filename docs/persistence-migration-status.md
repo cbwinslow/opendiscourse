@@ -6,7 +6,8 @@ Last verified: 2026-08-19
 
 SQLModel/SQLAlchemy is the application persistence API. Alembic owns all
 application table contracts in the `catalog`, `core`, `fact`, `ingest`,
-and `stage` schemas. Alembic creates a new database directly; the ordered
+and `stage` schemas. Alembic creates a new database with the frozen,
+reviewable DDL artifact at `migrations/baseline/d207df35ca10.sql`; the ordered
 `sql/` files remain as legacy-history references while adoption revisions
 preserve a reversible upgrade history. Alembic also owns the adopted
 `core.geography_boundary`,
@@ -29,12 +30,14 @@ Alembic-adopted.
 `core.instrument`, `core.instrument_symbol`, and `fact.market_bar` are also
 Alembic-adopted.
 
-The Alembic baseline and adoption revisions are markers over the legacy-seeded
-schemas. The real PostGIS regression suite verifies both downgrade to `base`
-and re-upgrade to the adopted revision without changing legacy tables.
+The baseline creates new schemas directly from static DDL. For a pre-Alembic
+database, it preserves the legacy-seeded tables and indexes and records the
+adoption history. The real PostGIS regression suite verifies both that safe
+adoption and downgrade to `base` followed by re-upgrade without changing
+legacy tables.
 
-Use `python scripts/render_baseline_ddl.py` to render the exact offline
-baseline DDL for review before freezing the generated artifact.
+Run `python scripts/render_baseline_ddl.py --check` to verify that the
+reviewed baseline artifact retains its expected normalized fingerprint.
 
 ## Completed typed boundaries
 

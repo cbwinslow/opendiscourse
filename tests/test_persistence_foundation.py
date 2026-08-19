@@ -256,6 +256,25 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
     assert "'plan'" in run_mode_constraint
 
 
+def test_baseline_migration_uses_frozen_reviewable_ddl() -> None:
+    """The first revision applies reviewed static DDL rather than ORM metadata."""
+    repository_root = Path(__file__).resolve().parents[1]
+    migration_source = (
+        repository_root
+        / "migrations"
+        / "versions"
+        / "d207df35ca10_baseline_catalog_schema.py"
+    ).read_text()
+    baseline_ddl = (
+        repository_root / "migrations" / "baseline" / "d207df35ca10.sql"
+    ).read_text()
+
+    assert "SQLModel.metadata" not in migration_source
+    assert "BASELINE_DDL" in migration_source
+    assert baseline_ddl.startswith("CREATE EXTENSION IF NOT EXISTS postgis;")
+    assert "CREATE TABLE core.bill" in baseline_ddl
+
+
 def test_existing_schema_without_alembic_watermark_is_adopted_safely(
     catalog_database: None,
 ) -> None:
