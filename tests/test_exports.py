@@ -1,10 +1,12 @@
 """Unit tests for safe researcher-facing export formats."""
 
+import os
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
+from opendiscourse_research import exports
 from opendiscourse_research.exports import (
     EXPORTS,
     _write,
@@ -48,13 +50,63 @@ def test_write_csv_empty_result_uses_canonical_header(tmp_path: Path) -> None:
 
 
 def test_write_jsonl_preserves_decimal_precision(tmp_path: Path) -> None:
-    """Numeric columns like value_numeric/margin_of_error stay JSON numbers."""
-    rows = [{"value_numeric": Decimal("4.25"), "margin_of_error": Decimal("0.10")}]
+    """Numeric columns like value_numeric/margin_of_error stay exact JSON numbers.
+
+    Routing through float would silently drop the trailing zero and, for a
+    long enough coefficient, round the value -- exercised here with more
+    digits than a float's ~15-17 significant digits can carry exactly.
+    """
+    rows = [
+        {
+            "value_numeric": Decimal("4.25"),
+            "margin_of_error": Decimal("0.10"),
+            "value_text": Decimal("123456789012345678901234567890.123456789"),
+        }
+    ]
     jsonl_path = tmp_path / "measurements.jsonl"
 
     _write(rows, jsonl_path, "jsonl")
 
-    assert jsonl_path.read_text() == '{"margin_of_error": 0.1, "value_numeric": 4.25}\n'
+    assert jsonl_path.read_text() == (
+        '{"margin_of_error": 0.10, "value_numeric": 4.25, '
+        '"value_text": 123456789012345678901234567890.123456789}\n'
+    )
+
+
+def test_write_jsonl_rejects_non_finite_decimal(tmp_path: Path) -> None:
+    """NaN/Infinity are valid Decimal values but not valid JSON numbers."""
+    rows = [{"value_numeric": Decimal("NaN")}]
+    jsonl_path = tmp_path / "measurements.jsonl"
+
+    with pytest.raises(ValueError, match="non-finite"):
+        _write(rows, jsonl_path, "jsonl")
+
+    assert not jsonl_path.exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_write_does_not_clobber_a_competing_writer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A destination created between the pre-check and publish must not be overwritten.
+
+    ``os.link`` is where the export actually becomes visible; simulate a second
+    process winning that race by creating ``output`` just before the real link.
+    """
+    output = tmp_path / "measurements.csv"
+    real_link = os.link
+
+    def racing_link(src: str, dst: str) -> None:
+        Path(dst).write_text("written by a competing export\n")
+        real_link(src, dst)
+
+    monkeypatch.setattr(exports.os, "link", racing_link)
+
+    with pytest.raises(FileExistsError, match="Refusing to overwrite"):
+        _write([{"a": 1}], output, "csv")
+
+    assert output.read_text() == "written by a competing export\n"
+    assert list(tmp_path.iterdir()) == [output]
 
 
 def test_export_rejects_unknown_relation_and_existing_output(tmp_path: Path) -> None:

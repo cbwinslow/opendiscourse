@@ -71,11 +71,25 @@ def export_relation(name: str, output: Path, format_: str) -> int:
     return len(rows)
 
 
-def _json_default(value: Any) -> Any:
-    """Preserve numeric precision for Decimal columns; fall back to text for the rest."""
+def _json_scalar(key: str, value: Any) -> str:
+    """Render one field as a JSON token, keeping Decimal precision exact.
+
+    Routing Decimal through ``float`` would round it; formatting it as fixed-point
+    text and splicing that text in directly preserves the database's exact scale
+    (``0.10`` stays ``0.10``) without pulling in a JSON library that special-cases
+    ``Decimal``.
+    """
     if isinstance(value, Decimal):
-        return float(value)
-    return str(value)
+        if not value.is_finite():
+            raise ValueError(f"Cannot export non-finite value for {key!r}: {value}")
+        return format(value, "f")
+    return json.dumps(value, default=str)
+
+
+def _dumps_row(row: dict[str, Any]) -> str:
+    """Serialize one row as a compact JSON object with exact Decimal precision."""
+    fields = (f"{json.dumps(key)}: {_json_scalar(key, value)}" for key, value in sorted(row.items()))
+    return "{" + ", ".join(fields) + "}"
 
 
 def _atomic_write(
@@ -123,7 +137,7 @@ def _write(
 
         def write_jsonl(stream: Any) -> None:
             for row in materialized:
-                stream.write(json.dumps(row, default=_json_default, sort_keys=True) + "\n")
+                stream.write(_dumps_row(row) + "\n")
 
         _atomic_write(output, "w", write_jsonl)
         return
