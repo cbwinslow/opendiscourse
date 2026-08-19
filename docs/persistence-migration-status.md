@@ -123,6 +123,12 @@ not because their evidence boundary is unmapped:
 - Legislative graph writes and provenance reconciliation that operate on the
   OpenStates FDW or require a supplied caller transaction.
 
+The only direct psycopg connection modules are `openstatesrefresh`,
+`openstatesstage`, and `votereconcile` for OpenStates FDW work; the ACS, CBP,
+DHC, FEC, PEP, and TIGER loaders for bulk staging/promotion; and `db` for the
+shared connection factory. Ordinary browser, catalog, evidence, health, and
+connection-free legislative paths use SQLAlchemy sessions and mapped tables.
+
 Future migrations must keep artifact/raw-payload lineage, idempotent conflict
 keys, batch/commit semantics, and the source-owned staging shape intact. A
 loader may use psycopg for COPY or a complex `INSERT … SELECT` while using the
