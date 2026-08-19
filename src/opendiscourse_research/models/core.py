@@ -276,8 +276,19 @@ core_bill_committee = Table(
     Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
     Column("source_member", Text),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    CheckConstraint(
+        "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
+        name="bill_committee_check",
+    ),
+    UniqueConstraint(
+        "bill_id",
+        "namespace",
+        "external_id",
+        "source_artifact_id",
+        "source_member",
+        postgresql_nulls_not_distinct=True,
+    ),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 
@@ -293,8 +304,19 @@ core_bill_subject = Table(
     Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
     Column("source_member", Text),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    CheckConstraint(
+        "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
+        name="bill_subject_check",
+    ),
+    UniqueConstraint(
+        "bill_id",
+        "namespace",
+        "external_id",
+        "source_artifact_id",
+        "source_member",
+        postgresql_nulls_not_distinct=True,
+    ),
     schema="core",
-    info={"alembic_exclude": True},
 )
 
 

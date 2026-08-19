@@ -16,6 +16,7 @@ migration is explicitly approved. Alembic also owns the adopted
 Alembic also owns `core.person` and `core.person_identifier`. SQLAlchemy
 continues to use the project's `psycopg` driver. `core.bill_action` is also
 Alembic-adopted, as is `core.bill_sponsorship`.
+`core.bill_committee` and `core.bill_subject` are also Alembic-adopted.
 
 The Alembic baseline and adoption revisions are markers over the legacy-seeded
 schemas. The real PostGIS regression suite verifies both downgrade to `base`
@@ -44,6 +45,8 @@ and re-upgrade to the adopted revision without changing legacy tables.
   check and partial source-member idempotency index.
 - Alembic-adopted bill sponsorships, including role validation, source
   evidence, NULLS-NOT-DISTINCT identity, and person linkage indexing.
+- Alembic-adopted bill committees and subjects, each with source evidence and
+  NULLS-NOT-DISTINCT source-member identity.
 - Catalog search extensions and actual plan usage: `pg_trgm`, `unaccent`,
   trigram title search, and full-text GIN search.
 - Immutable ingestion evidence: artifacts, runs, raw payloads, and plan
