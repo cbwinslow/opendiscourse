@@ -23,6 +23,7 @@ from opendiscourse_research.browser import (
     upsert_fields,
 )
 from opendiscourse_research.catalog import sync_inventory
+from opendiscourse_research.censushealth import census_health
 from opendiscourse_research.config import settings
 from opendiscourse_research.db import _engine, apply_migrations, engine, session
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
@@ -48,6 +49,7 @@ from opendiscourse_research.repositories.catalog import (
     upsert_resource,
 )
 from opendiscourse_research.providers import census
+from opendiscourse_research.providers.census import sync_acs_bulk_packages
 
 
 def _psycopg_url(url: str) -> str:
@@ -457,3 +459,19 @@ def test_registry_status_reads_catalog_through_sqlalchemy(catalog_database: None
     assert rows
     assert {row["dataset_id"] for row in rows} >= {"fred.series", "census.acs_5"}
     assert {row["state"] for row in rows} <= {"ready", "pending_adapter"}
+
+
+def test_census_health_reads_catalog_packages_through_sqlalchemy(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """Census health reporting uses typed package and artifact reads."""
+    original_data_root = settings.data_root
+    settings.data_root = tmp_path / "data"
+    try:
+        assert sync_acs_bulk_packages() > 0
+        report = census_health()
+    finally:
+        settings.data_root = original_data_root
+
+    family = next(item for item in report["families"] if item["dataset_id"] == "census.acs_5_bulk")
+    assert family["catalog_packages"] > 0

@@ -8,9 +8,11 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from sqlalchemy import func, select
 
 from .config import settings
-from .db import connect
+from .db import connect, session
+from .models.catalog import Resource, artifact_table
 
 FAMILIES = {
     "census.acs_5_bulk": {
@@ -71,15 +73,26 @@ def classify_plan(
     return "failed", [f"unknown plan lifecycle state: {state}"]
 
 
-def _artifacts(conn: Any, keys: list[str]) -> list[dict[str, Any]]:
+def _artifacts(keys: list[str]) -> list[dict[str, Any]]:
+    """Read immutable artifact evidence through the shared typed reference."""
     if not keys:
         return []
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT artifact_id, artifact_key, status, local_path, bytes_downloaded, checksum_sha256, error_message FROM ingest.artifact WHERE artifact_key = ANY(%s)",
-            (keys,),
-        )
-        return [dict(row) for row in cur.fetchall()]
+    table = artifact_table()
+    with session() as active_session:
+        return [
+            dict(row)
+            for row in active_session.execute(
+                select(
+                    table.c.artifact_id,
+                    table.c.artifact_key,
+                    table.c.status,
+                    table.c.local_path,
+                    table.c.bytes_downloaded,
+                    table.c.checksum_sha256,
+                    table.c.error_message,
+                ).where(table.c.artifact_key.in_(keys))
+            ).mappings()
+        ]
 
 
 def _fact_count(conn: Any, dataset_id: str, artifact_ids: list[str]) -> int:
@@ -98,21 +111,23 @@ def census_health() -> dict[str, Any]:
     """Persist a source-aware Census health report without loading provider data."""
     plans = plan_files()
     groups: dict[str, list[dict[str, Any]]] = {dataset: [] for dataset in FAMILIES}
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            "SELECT dataset_id, count(*) AS package_count FROM catalog.resource WHERE dataset_id = ANY(%s) GROUP BY dataset_id",
-            (list(FAMILIES),),
-        )
+    with session() as active_session:
         packages = {
-            row["dataset_id"]: int(row["package_count"]) for row in cur.fetchall()
+            row["dataset_id"]: int(row["package_count"])
+            for row in active_session.execute(
+                select(Resource.dataset_id, func.count().label("package_count"))
+                .where(Resource.dataset_id.in_(FAMILIES))
+                .group_by(Resource.dataset_id)
+            ).mappings()
         }
+    with connect() as conn:
         for path, plan in plans:
             keys = [
                 str(item["artifact_key"])
                 for item in plan.get("artifacts", [])
                 if item.get("artifact_key")
             ]
-            artifacts = _artifacts(conn, keys)
+            artifacts = _artifacts(keys)
             facts = _fact_count(
                 conn, plan["dataset"], [str(row["artifact_id"]) for row in artifacts]
             )
