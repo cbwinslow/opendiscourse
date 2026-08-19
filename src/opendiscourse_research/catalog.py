@@ -3,9 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-from psycopg.types.json import Jsonb
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert
 
-from .db import connect
+from .db import session
+from .models.catalog import Dataset, Provider
 from .plans import sync_plans, validate_plans
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -46,14 +48,25 @@ def validate_inventory() -> list[str]:
 
 
 def sync_inventory() -> None:
+    """Upsert the reviewed provider and dataset inventory before syncing plans."""
     inventory = load_inventory()
-    with connect() as conn, conn.cursor() as cur:
+    provider_table = Provider.__table__
+    dataset_table = Dataset.__table__
+    with session() as active_session:
         for provider in inventory["providers"]:
-            cur.execute(
-                """INSERT INTO catalog.provider (provider_id, name, base_url)
-                   VALUES (%s, %s, %s)
-                   ON CONFLICT (provider_id) DO UPDATE SET name = EXCLUDED.name, base_url = EXCLUDED.base_url""",
-                (provider["id"], provider["name"], provider.get("base_url")),
+            provider_statement = insert(provider_table).values(
+                provider_id=provider["id"],
+                name=provider["name"],
+                base_url=provider.get("base_url"),
+            )
+            active_session.execute(
+                provider_statement.on_conflict_do_update(
+                    index_elements=(provider_table.c.provider_id,),
+                    set_={
+                        "name": provider_statement.excluded.name,
+                        "base_url": provider_statement.excluded.base_url,
+                    },
+                )
             )
             for dataset in provider["datasets"]:
                 metadata = {
@@ -62,20 +75,28 @@ def sync_inventory() -> None:
                     if k
                     not in {"id", "title", "access", "grain", "cadence", "priority"}
                 }
-                cur.execute(
-                    """INSERT INTO catalog.dataset
-                       (dataset_id, provider_id, title, access_method, grain_description, refresh_cadence, priority, metadata)
-                       VALUES (%(id)s, %(provider_id)s, %(title)s, %(access)s, %(grain)s, %(cadence)s, %(priority)s, %(metadata)s)
-                       ON CONFLICT (dataset_id) DO UPDATE SET
-                         title = EXCLUDED.title, access_method = EXCLUDED.access_method,
-                         grain_description = EXCLUDED.grain_description, refresh_cadence = EXCLUDED.refresh_cadence,
-                         priority = EXCLUDED.priority, metadata = EXCLUDED.metadata, updated_at = now()""",
-                    {
-                        **dataset,
-                        "provider_id": provider["id"],
-                        "priority": dataset.get("priority"),
-                        "metadata": Jsonb(metadata),
-                    },
+                dataset_statement = insert(dataset_table).values(
+                    dataset_id=dataset["id"],
+                    provider_id=provider["id"],
+                    title=dataset["title"],
+                    access_method=dataset["access"],
+                    grain_description=dataset["grain"],
+                    refresh_cadence=dataset["cadence"],
+                    priority=dataset.get("priority"),
+                    metadata=metadata,
                 )
-        conn.commit()
+                active_session.execute(
+                    dataset_statement.on_conflict_do_update(
+                        index_elements=(dataset_table.c.dataset_id,),
+                        set_={
+                            "title": dataset_statement.excluded.title,
+                            "access_method": dataset_statement.excluded.access_method,
+                            "grain_description": dataset_statement.excluded.grain_description,
+                            "refresh_cadence": dataset_statement.excluded.refresh_cadence,
+                            "priority": dataset_statement.excluded.priority,
+                            "metadata": dataset_statement.excluded.metadata,
+                            "updated_at": func.now(),
+                        },
+                    )
+                )
     sync_plans()
