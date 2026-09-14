@@ -31,8 +31,9 @@ provider → Connector.extract → raw lake → stage → core/fact → mart →
 ```
 
 Layers map to schemas: `ingest` / `stage` / `core` / `fact` / `mart` / `api`.
-Python: `providers/` (HTTP only) → `ingestion/` (pipelines) →
-`repositories/` (SQL only) → `cli.py` (coordination only).
+Python: `providers/` (HTTP only) → `ingestion/` (pipelines; Connector in
+`ingestion/connector.py`) → `repositories/` (SQL only) → `cli.py`
+(coordination only).
 
 ## Invariants & Rules
 
@@ -145,7 +146,7 @@ flowchart LR
 | Capability | Lives in | Governed by |
 |---|---|---|
 | CAP-1 Provenance | `ingestion.base`, `ingest.*` | AD-3 |
-| CAP-2 Connector | new protocol; FRED first | AD-2 |
+| CAP-2 Connector | `ingestion/connector.py`; FRED first | AD-2 |
 | CAP-3 Wrap votes | `vendor/unitedstates-congress` | AD-4 |
 | CAP-4 Identity | congress-legislators → `core.person_identifier` | AD-5 |
 | CAP-5 Marts/packs | `dbt/`, `docs/research-source-roadmap.md` | AD-1 |

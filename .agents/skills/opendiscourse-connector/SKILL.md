@@ -26,8 +26,9 @@ PRD. Also load `opendiscourse-provenance` and `opendiscourse-testing`.
   normalize → validate → publish → checkpoint. Map onto existing modules:
   `providers/` HTTP, `IngestionRun` / `ingest.raw_payload`,
   `capacity.storage_preview`, stage COPY, `repositories/`, `feedback`.
-- If the Connector protocol is not in code, do **not** invent it unless the
-  active story is 2.1. Do not add a dispatcher branch as a shortcut.
+- Protocol: `src/opendiscourse_research/ingestion/connector.py` (`Connector`,
+  `STAGES`, `run_connector`). FRED registration is Story 2.2; e2e is 2.3.
+  Do not add a dispatcher branch as a shortcut.
 - `docs/adding-a-provider.md` is stale where it tells you to branch
   `registry.sync`. Follow this skill and AD-2 instead.
 
