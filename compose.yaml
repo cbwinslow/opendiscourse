@@ -16,3 +16,20 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
+
+  # Read-only HTTP surface over reviewed `api` views. Start with:
+  #   docker compose --profile api up -d
+  # Create the schema first: psql "$DATABASE_URL" -f sql/query/access/ensure_api_schema.sql
+  postgrest:
+    image: postgrest/postgrest:v16.3
+    profiles: ["api"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://${POSTGRES_USER:-research}:${POSTGRES_PASSWORD:-research}@postgres:5432/${POSTGRES_DB:-research}
+      PGRST_DB_SCHEMAS: api
+      PGRST_DB_ANON_ROLE: ${POSTGRES_USER:-research}
+      PGRST_OPENAPI_MODE: follow-privileges
+    ports:
+      - "${PGRST_PORT:-3000}:3000"

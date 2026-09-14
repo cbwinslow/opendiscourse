@@ -13,7 +13,7 @@ bare-metal setup this project runs in production.
 ```bash
 cp .env.example .env
 python -m venv .venv && source .venv/bin/activate
-pip install -e '.[analytics,spatial,ingest]'
+pip install -e '.[analytics,spatial,ingest,search,ops]'
 research-db init-db
 research-db sync   # contacts census/fred/congress; add their API keys to .env first
 research-db status
@@ -70,7 +70,8 @@ research-db bootstrap openstates-dump --year 2026 --month 7
 research-db bootstrap treasury-curve --year 2025
 
 # Export a reviewed canonical research surface. CSV works in a base install;
-# Parquet requires `uv sync --extra analytics`.
+# Parquet/DuckDB require `uv sync --extra analytics`. Vector helpers:
+# `uv sync --extra search`. Optional Prefect: `uv sync --extra ops`.
 research-db export measurements --output ./exports/measurements.csv
 
 # Curated priority-one FRED macro, labor, rates, yield, index, commodity, and FX series.

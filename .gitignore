@@ -45,3 +45,7 @@ _bmad-output/
 .trae/
 .zcode/
 .zencoder/
+
+# Wrapped upstream clones (see vendor/README.md and scripts/bootstrap_upstream.sh)
+vendor/*
+!vendor/README.md

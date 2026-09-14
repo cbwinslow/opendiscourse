@@ -21,11 +21,21 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-analytics = ["polars>=1,<2", "pyarrow>=16,<24"]
+analytics = [
+    "duckdb>=1.2,<2",
+    "polars>=1,<2",
+    "pyarrow>=16,<24",
+]
 spatial = ["geopandas>=1,<2", "pyogrio>=0.9,<1", "shapely>=2,<3"]
 fred = ["fredapi>=0.5,<1"]
 ingest = ["dlt[postgres]>=1.29,<2", "openpyxl>=3.1,<4"]
 browser = ["textual>=0.85,<1"]
+search = [
+    "pgvector>=0.3,<1",
+]
+ops = [
+    "prefect>=3,<4",
+]
 
 [project.scripts]
 research-db = "opendiscourse_research.cli:app"

@@ -30,6 +30,16 @@ after; see `AGENTS.md` for the full engineering standard.
 Pack a repo snapshot for an external model with `npx repomix` (config:
 `repomix.config.json`).
 
+Optional extras (not required for unit tests):
+
+```bash
+uv sync --extra analytics   # polars, pyarrow, duckdb
+uv sync --extra search      # pgvector Python client (extension already on port 5434)
+uv sync --extra ops         # Prefect, optional scheduler
+scripts/bootstrap_upstream.sh   # unitedstates/congress + congress-legislators
+docker compose --profile api up -d   # PostgREST on :3000 after creating schema api
+```
+
 ## Lint/format
 
 ```bash
