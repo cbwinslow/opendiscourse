@@ -40,11 +40,12 @@ Acceptance: file exists; AGENTS.md points at it.
 Landed: `docs/adr/0001-postgres-system-of-record.md`; `AGENTS.md` Where things
 are lists `docs/adr/`.
 
-### Story 1.3 — OpenDiscourse skills
+### Story 1.3 — OpenDiscourse skills — done
 As an agent, I have project skills for connector, schema-change, provenance,
 testing.
 Acceptance: four skills under `.agents/skills/` (or `_bmad/custom`) with
 when-to-use; Grok discovers them.
+Landed: `.agents/skills/opendiscourse-{connector,schema-change,provenance,testing}`.
 
 ### Story 1.4 — GitHub ruleset (optional solo)
 As an operator, `main` requires PR + CI, no force-push, squash; no extra
@@ -130,4 +131,4 @@ Blocked on Epic 3. Stories TBD after CAP-4. Do not start.
 
 ## Suggested next build
 
-`bmad-build` Story 1.3 (OpenDiscourse skills), then Story 2.1 (Connector).
+`bmad-build` Story 2.1 (Connector protocol), then 2.2–2.3 (FRED).

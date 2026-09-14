@@ -17,5 +17,5 @@ Sources (absorbed; do not re-ingest unless updating the spec):
 - `docs/research/2026-09-14-chatgpt-engineering-plan.md`
 - `docs/research/2026-09-14-chatgpt-bmad-context-plan.md`
 
-Next: Story 1.3 (OpenDiscourse skills) then Epic 2 (Connector + FRED).
-Story 1.1 (`AGENTS.md` constitution) and Story 1.2 (`docs/adr/` ADR-0001) are done.
+Next: Story 2.1 (Connector protocol), then 2.2–2.3 (FRED).
+Story 1.1–1.3 are done. Story 1.4 (GitHub ruleset) is optional.
