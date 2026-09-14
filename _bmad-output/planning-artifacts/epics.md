@@ -61,9 +61,11 @@ Acceptance: Protocol in code; tests for the interface; no schema change.
 Landed: `ingestion/connector.py` (`Connector`, `STAGES`, `run_connector`);
 `tests/test_connector.py`.
 
-### Story 2.2 — Registry without HANDLERS if/elif
+### Story 2.2 — Registry without HANDLERS if/elif — done
 As a developer, I register FRED without adding to a hardcoded handler set.
 Acceptance: FRED path does not need a new `plans.py` elif.
+Landed: `ingestion/connectors.py`; `FredCoreConnector`; `fred_core` not in
+`HANDLERS` or `run_plan()` elif.
 
 ### Story 2.3 — Migrate FRED end-to-end
 As an operator, FRED discover/index vs observations still split; observations
@@ -133,4 +135,4 @@ Blocked on Epic 3. Stories TBD after CAP-4. Do not start.
 
 ## Suggested next build
 
-`bmad-build` Story 2.2 (registry without HANDLERS), then 2.3 (FRED e2e).
+`bmad-build` Story 2.3 (FRED e2e; discover/index vs observations still split).
