@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgis/postgis:17-3.5
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-research}
+      POSTGRES_DB: ${POSTGRES_DB:-opendiscourse}
       POSTGRES_USER: ${POSTGRES_USER:-research}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-research}
     ports:
@@ -27,7 +27,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      PGRST_DB_URI: postgres://${POSTGRES_USER:-research}:${POSTGRES_PASSWORD:-research}@postgres:5432/${POSTGRES_DB:-research}
+      PGRST_DB_URI: postgres://${POSTGRES_USER:-research}:${POSTGRES_PASSWORD:-research}@postgres:5432/${POSTGRES_DB:-opendiscourse}
       PGRST_DB_SCHEMAS: api
       PGRST_DB_ANON_ROLE: ${POSTGRES_USER:-research}
       PGRST_OPENAPI_MODE: follow-privileges

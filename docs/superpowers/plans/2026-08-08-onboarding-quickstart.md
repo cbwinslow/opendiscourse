@@ -215,7 +215,7 @@ Open `.env` and point `DATABASE_URL` at the Docker Compose database instead
 of the bare-metal default:
 
 ```
-DATABASE_URL=postgresql://research:change-me@localhost:5433/research
+DATABASE_URL=postgresql://research:change-me@localhost:5433/opendiscourse
 ```
 
 Leave `POSTGRES_*`, `OD_LAKE_ROOT`, and `DATA_ROOT` at their defaults for a
@@ -769,7 +769,7 @@ From a scratch directory (not this checkout):
 git clone /home/cbwinslow/projects/opendiscourse /tmp/opendiscourse-smoke-test
 cd /tmp/opendiscourse-smoke-test
 cp .env.example .env
-# Edit .env: set DATABASE_URL=postgresql://research:change-me@localhost:5433/research
+# Edit .env: set DATABASE_URL=postgresql://research:change-me@localhost:5433/opendiscourse
 docker compose up -d
 python -m venv .venv && source .venv/bin/activate
 pip install -e '.[analytics,spatial,ingest]'

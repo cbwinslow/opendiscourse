@@ -16,7 +16,7 @@ Open `.env` and point `DATABASE_URL` at the Docker Compose database instead
 of the bare-metal default:
 
 ```
-DATABASE_URL=postgresql://research:change-me@localhost:5433/research
+DATABASE_URL=postgresql://research:change-me@localhost:5433/opendiscourse
 ```
 
 Leave `POSTGRES_*`, `OD_LAKE_ROOT`, and `DATA_ROOT` at their defaults for a

@@ -25,7 +25,8 @@ Postgres adapter has two rough edges worth knowing before you run it:
    (`src/opendiscourse_research/db.py`) uses peer auth over that socket with
    no password, per `docs/runtime.md` — but dbt needs TCP loopback instead.
 
-   The checked-in profile defaults to the Docker Compose database. For the
+   The checked-in profile defaults to database `opendiscourse` on the Docker
+   Compose port. For the
    bare-metal cluster, `pg_hba.conf` already allows
    `host all all 127.0.0.1/32 scram-sha-256`; give the `cbwinslow` role a
    password and override the profile variables:

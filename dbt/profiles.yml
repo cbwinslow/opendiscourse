@@ -6,9 +6,9 @@
 # this profile uses TCP loopback + scram-sha-256 instead. pg_hba.conf already
 # allowed `host all all 127.0.0.1/32 scram-sha-256`; only the role needed a
 # password (see docs/runtime.md for the auth model this adds to).
-# The defaults match compose.yaml. Override DBT_PG_* for bare-metal or a
-# shared deployment; dbt never reads .env files directly, so export or
-# source them into your shell first.
+# The database name defaults to opendiscourse. Compose still uses port 5433
+# and role `research`; override DBT_PG_* for bare-metal (port 5434). dbt never
+# reads .env files directly, so export or source them into your shell first.
 opendiscourse:
   target: dev
   outputs:
@@ -18,6 +18,6 @@ opendiscourse:
       port: "{{ env_var('DBT_PG_PORT', '5433') | int }}"
       user: "{{ env_var('DBT_PG_USER', 'research') }}"
       password: "{{ env_var('DBT_PG_PASSWORD', 'change-me') }}"
-      dbname: "{{ env_var('DBT_PG_DBNAME', 'research') }}"
+      dbname: "{{ env_var('DBT_PG_DBNAME', 'opendiscourse') }}"
       schema: mart
       threads: 4

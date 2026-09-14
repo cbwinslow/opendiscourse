@@ -45,5 +45,6 @@ deployment policy.
 ## Docker
 
 `compose.yaml` is an optional development fallback on port `5433`. It is not
-the production data store. Do not run migrations against it by accident: set a
-Docker-specific `DATABASE_URL` explicitly before using Compose.
+the production data store. Its database is also named `opendiscourse` (the
+Compose role may still be `research`). Do not run migrations against it by
+accident: set a Docker-specific `DATABASE_URL` explicitly before using Compose.
