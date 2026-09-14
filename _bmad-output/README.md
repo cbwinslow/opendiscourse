@@ -17,6 +17,5 @@ Sources (absorbed; do not re-ingest unless updating the spec):
 - `docs/research/2026-09-14-chatgpt-engineering-plan.md`
 - `docs/research/2026-09-14-chatgpt-bmad-context-plan.md`
 
-Next: `bmad-project-context` (adopt `AGENTS.md`), then `bmad-build` on Epic 2
-(operating contract) and Epic 3 (Connector + FRED). Epic 1 tooling is largely
-already on `main`.
+Next: Story 1.2 (`docs/adr/` ADR-0001) then Epic 2 (Connector + FRED).
+Story 1.1 (`AGENTS.md` constitution) is done.

@@ -1,119 +1,84 @@
-# OpenDiscourse project creed
+<!-- bmad:context -->
+<!-- Verified 2026-09-14 against 5fa7c49724f9d41cd1254b27d1744c6e4920d704. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
-## User feedback
+## OpenDiscourse
 
-Every operation that can take more than a moment must provide useful terminal
-feedback. Prefer the shared `feedback` module over ad-hoc printing. Show a
-spinner for indeterminate work and a progress bar when total work is known.
-Include the current phase, completed/total work, elapsed time, estimated time
-remaining when meaningful, safe resume information, and actionable failures.
+Provenance-first U.S. public-policy research warehouse. PostgreSQL 17/PostGIS,
+database name `opendiscourse`. Software SDD is BMAD; data SDD is `inventory/`.
+Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
+`_bmad-output/planning-artifacts/epics.md`, not archived ChatGPT essays.
 
-For TUI work, show contextual controls and offer an opt-in debug trace that
-records navigation state without capturing sensitive inputs. When reviewing or
-changing existing code, identify long-running or opaque workflows and apply
-this standard where practical.
+## Policy
 
-## Code and data boundaries
+- Hierarchy of truth, highest wins: current code+tests → migrations/schema →
+  architecture spine/ADRs → active BMAD spec/story → GitHub → agent memory →
+  old chats → model guesses.
+- Search for a maintained project before writing acquisition, parse,
+  orchestrate, search, or export code. Wrap it; own evidence and canonical
+  keys. Catalog: `reuse.md` beside the spec.
+- Adding a source is a Connector (`SPEC.md` CAP-2). Do not add `if/elif` to
+  `cli.py`, `plans.py` HANDLERS, or `registry.sync`. Keep provider-specific
+  behavior at the adapter boundary.
+- Do not write OpenStates dump tables; read `openstates_source` FDW only.
+- Do not load FEC, disclosures, elections, or crime until BioGuide identity
+  exists (Epic 3).
+- Do not invent news, stocks, or corruption scores as schema domains.
+- Never commit secrets or `.env`. Capacity gate fails closed on unknown size.
+- `dlt` writes `stage` only, never `core`/`fact`.
 
-Provider modules own external requests and provider-specific pacing.
-Repositories own PostgreSQL persistence. Reusable runtime SQL belongs in
-`sql/query/`; schema changes belong in ordered `sql/` migrations. New public
-modules and functions require concise docstrings.
+## Where things are
 
-## Engineering, database, and AI practice
+- Product contract: `_bmad-output/specs/spec-opendiscourse/SPEC.md`
+- Architecture: `_bmad-output/planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md`
+- Data registry: `inventory/sources.yaml`, `plans.yaml`, `contracts/`
+- HTTP only: `src/opendiscourse_research/providers/`
+- Pipelines: `src/opendiscourse_research/ingestion/`
+- SQL only: `src/opendiscourse_research/repositories/`
+- Runtime SQL: `sql/query/`; bootstrap schema: `sql/NNN_*.sql`; catalog from
+  Alembic baseline `d207df35ca10` onward
+- Upstream clones: `vendor/` (gitignored); refresh `scripts/bootstrap_upstream.sh`
+- Planning index: `_bmad-output/README.md`
 
-Follow established industry standards for software engineering, database
-administration, security, and operations. Favor clear module ownership, typed
-interfaces, explicit error handling, idempotent and observable data changes,
-least-privilege access, parameterized queries, ordered reversible migrations,
-and validation appropriate to the risk of a change. Preserve immutable source
-evidence and provenance; never silently overwrite, co-mingle, or promote data
-whose ownership, coverage, or quality has not been established.
+## Running and verifying
 
-Develop tests alongside the code, schemas, queries, and workflows they cover;
-do not defer test design until implementation is complete. Start from the
-behaviors, boundaries, failure modes, data states, and recovery paths the change
-must handle, then add proportionate unit, integration, and regression coverage.
-Tests must exercise both intended outcomes and meaningful error, idempotency,
-pagination/resume, provenance, and migration cases when applicable. Treat a
-change as unverified until its relevant automated tests and risk-appropriate
-runtime checks pass; record any intentionally untested boundary and its reason.
+- Use `uv run` / `just check-fast`. Bare `pytest` or `ruff` may miss the
+  project environment.
+- Fast lane (CI `fast` job): `just check-fast` or `bash scripts/ci/check_fast.sh`
+  — `ruff check src` plus `pytest -m "not db and not slow and not live and not e2e" -n auto`.
+- DB tests: `just check-db` (needs `OPENDISCOURSE_TEST_DATABASE_URL` or
+  testcontainers). Do not pass `-n` for DB tests.
+- Full suite: `just check-full`. Never run `-m live` in ordinary CI.
+- App DSN default: `postgresql:///opendiscourse?port=5434`. Docker Compose
+  fallback is port `5433`, still database `opendiscourse`.
+- `ty`, `ruff format`, and `sqlfluff` are installed but not merge gates.
 
-Treat provider snapshots and canonical warehouse data as separate owned
-systems. Preserve upstream schemas and refreshability; use documented
-read-only mappings or views before copying data, and record the rationale,
-source identifiers, and validation evidence for every consolidation decision.
+## Conventions that differ from defaults
 
-Use AI-assisted tools deliberately: delegate bounded work when it improves
-coverage or speed, verify all generated output against the repository and
-primary evidence, protect secrets and sensitive inputs, and retain human-
-reviewable reasoning in code, migrations, runbooks, and commit history. Keep
-architecture, operations, and user-facing procedures documented as the system
-changes; update the relevant documentation in the same change as a behavior,
-schema, contract, or workflow change.
+- Long work uses `opendiscourse_research.feedback` (spinner or progress bar,
+  phase, resume, actionable failure) — not ad-hoc prints.
+- Bound parameters only; JSON via `psycopg.types.json.Jsonb`.
+- Alembic for catalog/core/fact/ingest/stage. Raw psycopg for COPY, set-based
+  promotion, OpenStates FDW, and caller-supplied legislative transactions.
+- Federal people join on BioGuide, never display name.
+- Change class: XS/S → `bmad-build`; M → `bmad-spec` then Build; L/XL →
+  existing PRD/spine/epics. Do not add OpenSpec or Spec Kit.
+- TEA/pytest: warehouse tests, not Playwright-first.
+- New public modules need docstrings. Tests ship with the change, including
+  failure, idempotency, resume, and provenance cases when they apply.
+- Small cohesive commits; agents may commit and push focused work. Imperative
+  subject plus body when the why is not obvious.
+- Codex may delegate bounded mechanical work to Antigravity (plan mode unless
+  edits are authorized); inspect output before relying on it.
 
-Design new code around reusable, interoperable primitives rather than a single
-provider or one-off workflow. Separate source-specific parsing and transport
-from shared validation, identity resolution, provenance, persistence, and
-reporting. Prefer stable interfaces, portable schemas, and source-native
-identifiers so additional providers can reuse the same pathway without copying
-or weakening its safeguards. Generalize only from demonstrated common needs;
-keep provider-specific behavior explicit at the adapter boundary.
+## Known pitfalls
 
-## Git and GitHub workflow
+- `cli.py` and `plans.py` are god modules. New sources go through a Connector,
+  not another dispatcher branch.
+- `IngestionRun` is a provenance context manager, not a Connector.
+- `core.embedding.vector_values` is `real[]` for portability; the live cluster
+  has pgvector but promotion is a later ADR.
+- `censusdis` is Hippocratic-licensed — do not add it as a required dependency.
+- OpenStates database `openstates` is a provider snapshot; do not merge it
+  into `opendiscourse`.
 
-Make small, cohesive commits as work reaches a verified checkpoint. Each
-commit should contain one logical change that can be understood, reviewed,
-tested, and reverted independently; do not mix unrelated cleanup or another
-task's work into it. Commit frequently enough to preserve useful progress.
-
-Write informative commit messages. Use a concise imperative subject, followed
-when helpful by a body that explains the intent, key implementation choices,
-user-visible or data-model effects, validation performed, and relevant issue
-references. Agents may create branches and commits without asking for advance
-permission. When a remote is configured and the task calls for publishing the
-work, push these focused commits promptly.
-
-Keep GitHub tracking current when it would help collaborators. Add issue
-comments for meaningful progress, decisions, blockers, validation results, or
-scope changes. Create or maintain sub-issues when a task has independently
-trackable parts, dependencies, or follow-up work. Link commits, pull requests,
-and issues where useful so the implementation and its rationale remain
-discoverable.
-
-## Delegating work to Antigravity
-
-Codex may delegate bounded general tasks to the locally authenticated Gemini
-Antigravity AGY CLI whenever doing so is useful. Prefer delegation for simple,
-mechanical, read-only, repetitive, broad-reconnaissance, documentation, or
-long-running work that can proceed independently, conserving Codex context for
-task framing, integration, review, and final verification. Use the appropriate
-delegation mode for the task: plan mode by default, and edit-accepting mode
-only when changes have been authorized. Treat delegated output as a report:
-inspect any edits and run relevant verification before relying on them.
-
-## Python libraries and conventions
-
-Use the project's declared dependencies for their intended boundaries:
-
-- `httpx` for provider HTTP requests; providers own request behavior,
-  authentication, pagination, retries, and pacing.
-- `psycopg` for PostgreSQL/PostGIS access; repositories own persistence and
-  queries, use bound parameters, and preserve JSON with `Jsonb` where needed.
-- `pydantic` and `pydantic-settings` for typed models and configuration; keep
-  environment-backed settings centralized in the configuration module.
-- `typer` for CLI commands and `rich` through the shared `feedback` module for
-  progress, spinners, elapsed time, and actionable failures.
-- `tenacity` for explicit, provider-appropriate retry policies rather than
-  ad-hoc retry loops.
-- `PyYAML` for the reviewed inventory, plan, and contract files; validate
-  their shape before using them operationally.
-
-Optional dependencies are installed only when their capability is needed:
-`polars`/`pyarrow` for analytics, `geopandas`/`pyogrio`/`shapely` for spatial
-work, `fredapi` for FRED access, `dlt` and `openpyxl` for ingestion support,
-and `textual` for the optional browser TUI. `dlt` is staging machinery, not
-the canonical database model. Keep additions to the dependency set deliberate:
-prefer an existing project library when it fits, declare new runtime
-dependencies in `pyproject.toml`, and update the lockfile with the supported
-package workflow.
+<!-- /bmad:context -->

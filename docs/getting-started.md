@@ -52,9 +52,8 @@ research-db browse    # interactive catalog browser
 - Full adapter-by-adapter command reference: `README.md`
 - How to add a new data source: `docs/adding-a-provider.md`
 - How to propose a change: `CONTRIBUTING.md`
-- If you're using an AI coding assistant on this repo, read `AGENTS.md` and
-  `CLAUDE.md` first — they describe conventions this quickstart doesn't
-  repeat.
+- If you're using an AI coding assistant on this repo, read `AGENTS.md`
+  (`CLAUDE.md` is a pointer to it).
 - Running this for real, not local exploration: see the bare-metal
   PostgreSQL setup in `README.md`. Docker Compose here is a development
   convenience only.

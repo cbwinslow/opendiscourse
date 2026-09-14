@@ -27,11 +27,12 @@ no Playwright-first TEA, OpenStates FDW not a physical merge.
 *Mostly landed on `main` (BMAD/TEA, CI fast lane, extras, Serena, postgres
 skills, upstream bootstrap). Remaining stories still matter.*
 
-### Story 1.1 — AGENTS.md constitution
+### Story 1.1 — AGENTS.md constitution — done
 As an agent, I follow a short constitution (hierarchy of truth, reuse-first,
 Connector vs inventory, definition of done) instead of a creed-only AGENTS.md.
 Acceptance: `bmad-project-context` adopts existing AGENTS.md; CLAUDE.md is a
-stub; no GROK.md fork.
+stub; no GROK.md fork. Landed: managed `<!-- bmad:context -->` block in
+`AGENTS.md`; `CLAUDE.md` is `@AGENTS.md`.
 
 ### Story 1.2 — ADR-0001 Postgres system of record
 As an operator, I have ADR-0001 in `docs/adr/` matching AD-1.
