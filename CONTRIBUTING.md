@@ -7,31 +7,40 @@ See `docs/getting-started.md` for the fastest path to a running database.
 ## Running tests
 
 Tests use `pytest`, which also collects the existing `unittest.TestCase`
-tests unchanged. CI runs them against a real `postgis/postgis:17-3.5` service
-container (`.github/workflows/test.yml`):
+tests unchanged. Prefer the canonical commands (requires `just`, or run the
+matching `scripts/ci/` shell):
 
 ```bash
-uv run --extra ingest --extra spatial pytest
+just check-fast    # ruff check src + non-DB pytest, parallel
+just check-db      # PostgreSQL/PostGIS tests
+just check-full    # entire suite (CI integration job)
+just check-lint    # ruff + ty over src and tests (not yet a merge gate)
+just check-sql     # sqlfluff (advisory)
 
 # Single file / class / test
 uv run pytest tests/test_govbackfill.py
 ```
 
-Tests that touch a real database are skipped automatically unless
-`OPENDISCOURSE_TEST_DATABASE_URL` is set — everything else runs against
-fakes/mocks with no database required. Write tests alongside the code that
-needs them, not after; see `AGENTS.md` for the full engineering standard.
+CI (`.github/workflows/test.yml`) runs `check-fast` without a database, then
+the PostGIS service job runs `check-full`. Tests marked `db` / `integration`
+need `OPENDISCOURSE_TEST_DATABASE_URL` or testcontainers; `live` tests must
+not run in ordinary CI. Write tests alongside the code that needs them, not
+after; see `AGENTS.md` for the full engineering standard.
+
+Pack a repo snapshot for an external model with `npx repomix` (config:
+`repomix.config.json`).
 
 ## Lint/format
 
 ```bash
-ruff check src/
-ruff format src/
+uv run ruff check src
+uv run ruff format src
+uv run ty check src tests
 ```
 
-`ruff` is available but not a CI gate yet, and the tree is not currently
-clean under it. Don't assume a passing `ruff check` is required to merge,
-but don't add new violations either.
+`ruff check src` is part of the fast CI lane. `ruff format`, `ty`, and
+`sqlfluff` are installed but the rest of the tree is not yet clean under
+them — don't add new violations.
 
 ## Adding a new data source
 

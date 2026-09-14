@@ -36,8 +36,13 @@ dev = [
   "polyfactory>=2.16,<4",
   "pytest>=8.2,<10",
   "pytest-cov>=5,<8",
+  "pytest-timeout>=2.3,<3",
+  "pytest-xdist>=3.6,<4",
+  "respx>=0.22,<1",
   "ruff>=0.15,<1",
+  "sqlfluff>=3.3,<4",
   "testcontainers[postgres]>=4.7,<5",
+  "ty>=0.0.1",
 ]
 
 [tool.setuptools.packages.find]
@@ -46,6 +51,26 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+timeout = 60
+markers = [
+  "unit: fast tests with no external services",
+  "db: requires PostgreSQL/PostGIS",
+  "integration: crosses multiple application layers",
+  "slow: intentionally expensive tests",
+  "live: contacts a real provider",
+  "e2e: end-to-end application workflow",
+]
+
+[tool.sqlfluff.core]
+dialect = "postgres"
+max_line_length = 120
+large_file_skip_byte_limit = 40000
+
+[tool.sqlfluff.templater]
+unwrap_wrapped_queries = true
+
+[tool.ty.src]
+include = ["src", "tests"]
 
 [tool.ruff.lint]
 # TRY004 wants TypeError for shape checks; this project deliberately raises

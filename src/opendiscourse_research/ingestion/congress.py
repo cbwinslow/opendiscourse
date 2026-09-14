@@ -4,12 +4,12 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 
 from ..config import settings
+from ..db import session
+from ..models.core import bill_table
 from ..repositories.legislation import (
     resolve_bill_sponsorship_people,
     upsert_congress_person,
 )
-from ..db import session
-from ..models.core import bill_table
 from .base import IngestionRun, client, json_response
 
 

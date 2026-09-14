@@ -7,9 +7,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .config import settings
 from sqlalchemy import exists, func, literal, select, union_all
 
+from .config import settings
 from .db import session
 from .models.core import bill_sponsorship_table, person_identifier_table
 from .models.ingest import identity_exception_table

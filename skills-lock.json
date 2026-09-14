@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "pg-graph": {
+      "source": "microsoft/postgres-skills",
+      "sourceType": "github",
+      "skillPath": "plugin/skills/pg-graph/SKILL.md",
+      "computedHash": "5e86a7f57c83819be3da172fccd291aa3ca170b197d6606b7b3eb494455a954a"
+    },
+    "postgresql-best-practices": {
+      "source": "microsoft/postgres-skills",
+      "sourceType": "github",
+      "skillPath": "plugin/skills/postgresql-best-practices/SKILL.md",
+      "computedHash": "8041dcb0124dfa3ffbc25db2cafe479f797ece63a621d757bbb651522f8d211f"
+    }
+  }
+}

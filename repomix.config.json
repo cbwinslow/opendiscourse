@@ -1,0 +1,66 @@
+{
+  "$schema": "https://repomix.com/schemas/latest/schema.json",
+  "input": {
+    "maxFileSize": 1000000
+  },
+  "output": {
+    "filePath": "repomix-output.md",
+    "style": "markdown",
+    "compress": true,
+    "fileSummary": true,
+    "directoryStructure": true,
+    "files": true,
+    "removeComments": false,
+    "removeEmptyLines": true,
+    "showLineNumbers": false,
+    "topFilesLength": 20,
+    "instructionFilePath": "AGENTS.md",
+    "git": {
+      "sortByChanges": true,
+      "sortByChangesMaxCommits": 50,
+      "includeDiffs": false,
+      "includeLogs": false
+    }
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "sql/**/*",
+    "docs/**/*",
+    "inventory/**/*",
+    "migrations/**/*",
+    "dbt/models/**/*",
+    "ops/**/*",
+    "scripts/**/*",
+    "*.md",
+    "pyproject.toml",
+    "compose.yaml",
+    "alembic.ini"
+  ],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "_bmad/**",
+      "_bmad-output/**",
+      ".agents/**",
+      ".claude/**",
+      ".agent/**",
+      ".github/agents/**",
+      "chatgpt-*.md",
+      "data/**",
+      "data-lake/**",
+      "logs/**",
+      "dbt/target/**",
+      "dbt/logs/**",
+      "uv.lock",
+      "repomix-output.*"
+    ]
+  },
+  "security": {
+    "enableSecurityCheck": true
+  },
+  "tokenCount": {
+    "encoding": "o200k_base"
+  }
+}
