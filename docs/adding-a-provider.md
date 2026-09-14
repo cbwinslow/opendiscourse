@@ -2,7 +2,10 @@
 
 A provider is a plain Python module under
 `src/opendiscourse_research/providers/` that talks to one external data
-source. Providers intentionally do **not** share a common base class or
+source. HTTP stays in `providers/`. Ingest plans register a Connector in
+`src/opendiscourse_research/ingestion/connectors.py` — do not add
+`plans.py` `HANDLERS` members or `run_plan()` elif branches. Providers
+intentionally do **not** share a common base class or
 function signature — FRED, Census, and Congress each expose different
 shapes (paced search plus resumable indexing; multi-dataset bulk-package
 sync; one-shot sync) because their upstream APIs are genuinely different.
@@ -78,7 +81,7 @@ Then fill in each of the required behaviors below.
   register → contract → discovery → staging → canonical-transform sequence
   this project follows once a provider goes beyond metadata discovery.
 
-Note: FRED does not yet have a dedicated `tests/test_fred*.py` file. For a
+Note: FRED plan dispatch is covered by `tests/test_fred_connector.py`. For a
 worked example of this project's actual test style (real
 `unittest.TestCase` classes, `unittest.mock.patch`, temp directories, no
 live network calls), read `tests/test_census_bulk.py` or
