@@ -54,10 +54,12 @@ Acceptance: documented; applied if GitHub permissions allow.
 
 ## Epic 2 — Connector protocol + FRED reference
 
-### Story 2.1 — Connector Protocol
+### Story 2.1 — Connector Protocol — done
 As a developer, I have a typed Connector interface covering the 10-stage
 lifecycle.
 Acceptance: Protocol in code; tests for the interface; no schema change.
+Landed: `ingestion/connector.py` (`Connector`, `STAGES`, `run_connector`);
+`tests/test_connector.py`.
 
 ### Story 2.2 — Registry without HANDLERS if/elif
 As a developer, I register FRED without adding to a hardcoded handler set.
@@ -131,4 +133,4 @@ Blocked on Epic 3. Stories TBD after CAP-4. Do not start.
 
 ## Suggested next build
 
-`bmad-build` Story 2.1 (Connector protocol), then 2.2–2.3 (FRED).
+`bmad-build` Story 2.2 (registry without HANDLERS), then 2.3 (FRED e2e).
