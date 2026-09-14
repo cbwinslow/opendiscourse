@@ -20,7 +20,8 @@ repomix-output.*
 # BMAD: personal overrides and generated artifacts
 _bmad/config.user.toml
 _bmad/custom/config.user.toml
-_bmad-output/
+_bmad-output/test-artifacts/
+_bmad-output/implementation-artifacts/
 
 # BMAD skill launchers that duplicate .agents/skills (Grok/Codex/Cursor/Hermes/Kilo
 # share that directory). Claude Code uses .claude/skills; Antigravity uses .agent/skills;
