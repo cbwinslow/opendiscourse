@@ -34,9 +34,11 @@ Acceptance: `bmad-project-context` adopts existing AGENTS.md; CLAUDE.md is a
 stub; no GROK.md fork. Landed: managed `<!-- bmad:context -->` block in
 `AGENTS.md`; `CLAUDE.md` is `@AGENTS.md`.
 
-### Story 1.2 — ADR-0001 Postgres system of record
+### Story 1.2 — ADR-0001 Postgres system of record — done
 As an operator, I have ADR-0001 in `docs/adr/` matching AD-1.
 Acceptance: file exists; AGENTS.md points at it.
+Landed: `docs/adr/0001-postgres-system-of-record.md`; `AGENTS.md` Where things
+are lists `docs/adr/`.
 
 ### Story 1.3 — OpenDiscourse skills
 As an agent, I have project skills for connector, schema-change, provenance,
@@ -128,4 +130,4 @@ Blocked on Epic 3. Stories TBD after CAP-4. Do not start.
 
 ## Suggested next build
 
-`bmad-build` Story 1.1 (AGENTS.md constitution), then Story 2.1 (Connector).
+`bmad-build` Story 1.3 (OpenDiscourse skills), then Story 2.1 (Connector).

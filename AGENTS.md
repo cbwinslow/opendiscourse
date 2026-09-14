@@ -30,6 +30,7 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
 
 - Product contract: `_bmad-output/specs/spec-opendiscourse/SPEC.md`
 - Architecture: `_bmad-output/planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md`
+- ADRs: `docs/adr/0001-postgres-system-of-record.md` (Postgres system of record)
 - Data registry: `inventory/sources.yaml`, `plans.yaml`, `contracts/`
 - HTTP only: `src/opendiscourse_research/providers/`
 - Pipelines: `src/opendiscourse_research/ingestion/`
