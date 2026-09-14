@@ -42,6 +42,7 @@ Python: `providers/` (HTTP only) → `ingestion/` (pipelines) →
 - **Prevents:** silent dual-writes to Qdrant/DuckDB/files as authority
 - **Rule:** Database name is `opendiscourse`. DuckDB/PostgREST/Parquet are
   derived. Another store requires a new AD.
+- **ADR:** `docs/adr/0001-postgres-system-of-record.md`
 
 ### AD-2 — Connector is the only way to add a source
 
