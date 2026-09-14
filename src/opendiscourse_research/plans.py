@@ -14,18 +14,26 @@ from .db import session
 from .ingestion.bls import ingest_manifest as ingest_bls_manifest
 from .ingestion.census import bootstrap_housing
 from .ingestion.congress import ingest_bills
-from .ingestion.fred import ingest_manifest
+from .ingestion.connector import ConnectorContext, run_connector
+from .ingestion.connectors import get as get_connector
+from .ingestion.connectors import handlers as connector_handlers
 from .models.catalog import Plan
 from .models.ingest import cursor_table
 
 ROOT = Path(__file__).resolve().parents[2]
+# Legacy dispatch only. Connector-backed handlers (FRED) register in
+# ``ingestion.connectors`` and must not be added here.
 HANDLERS = {
-    "fred_core",
     "acs_housing",
     "congress_bills",
     "census_metadata",
     "bls_core",
 }
+_DUAL = HANDLERS & connector_handlers()
+if _DUAL:
+    raise RuntimeError(
+        f"Handler(s) registered as both legacy HANDLERS and Connector: {_DUAL}"
+    )
 
 
 def load_plans() -> list[dict[str, Any]]:
@@ -55,7 +63,7 @@ def validate_plans() -> list[str]:
             or plan_id != plan_id.lower()
         ):
             errors.append(f"{plan_id}: id must be one lower-case alphanumeric word")
-        if plan.get("handler") not in HANDLERS:
+        if plan.get("handler") not in HANDLERS | connector_handlers():
             errors.append(f"{plan_id}: unknown handler {plan.get('handler')!r}")
         if not isinstance(plan.get("parameters"), dict):
             errors.append(f"{plan_id}: parameters must be a mapping")
@@ -92,24 +100,28 @@ def sync_plans() -> None:
             )
 
 
-def run_plan(plan_id: str) -> int:
-    plans = {plan["id"]: plan for plan in load_plans()}
-    if plan_id not in plans:
-        raise ValueError(
-            f"Unknown plan {plan_id!r}; use plan-list to see available plans"
-        )
-    plan = plans[plan_id]
-    if not plan.get("enabled", True):
-        raise ValueError(f"Plan {plan_id!r} is disabled")
-    # Keep the catalog foreign-key allow-list aligned with the reviewed file
-    # before recording an execution cursor for a newly introduced plan.
-    sync_plans()
+def execute_handler(plan: dict[str, Any]) -> tuple[int, dict[str, str]]:
+    """Run a plan's handler. Does not write ``ingest.cursor``."""
     args = plan["parameters"]
     failures: dict[str, str] = {}
-    if plan["handler"] == "fred_core":
-        successes, failures = ingest_manifest(priority=args.get("max_priority", 1))
-        count = sum(successes.values())
-    elif plan["handler"] == "acs_housing":
+    connector = get_connector(plan["handler"])
+    if connector is not None:
+        ctx = run_connector(
+            connector,
+            ConnectorContext(
+                source_id=connector.source_id,
+                plan_id=plan.get("id"),
+                extras={"parameters": args},
+            ),
+        )
+        if "count" not in ctx.extras:
+            raise ValueError(
+                f"Connector {connector.source_id} did not set extras['count']"
+            )
+        count = int(ctx.extras["count"])
+        failures = ctx.extras.get("failures") or {}
+        return count, failures
+    if plan["handler"] == "acs_housing":
         count = bootstrap_housing(
             args["year"], [str(state).zfill(2) for state in args["states"]]
         )
@@ -131,6 +143,22 @@ def run_plan(plan_id: str) -> int:
         count = sum(successes.values())
     else:
         raise AssertionError(f"Handler validation missed {plan['handler']!r}")
+    return count, failures
+
+
+def run_plan(plan_id: str) -> int:
+    plans = {plan["id"]: plan for plan in load_plans()}
+    if plan_id not in plans:
+        raise ValueError(
+            f"Unknown plan {plan_id!r}; use plan-list to see available plans"
+        )
+    plan = plans[plan_id]
+    if not plan.get("enabled", True):
+        raise ValueError(f"Plan {plan_id!r} is disabled")
+    # Keep the catalog foreign-key allow-list aligned with the reviewed file
+    # before recording an execution cursor for a newly introduced plan.
+    sync_plans()
+    count, failures = execute_handler(plan)
     table = cursor_table()
     statement = insert(table).values(
         plan_id=plan_id,

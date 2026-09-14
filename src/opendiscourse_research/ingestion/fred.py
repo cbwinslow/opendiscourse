@@ -11,6 +11,7 @@ from ..config import settings
 from ..db import session
 from ..models.core import measurement_table
 from .base import IngestionRun, client, json_response
+from .connector import ConnectorContext
 
 # providers/fred.py already paces its own (metadata-only) requests at this
 # rate; ingest_manifest's back-to-back series fetches never had the same
@@ -117,3 +118,51 @@ def ingest_manifest(
         if report:
             report(f"{series_id}: {successes[series_id]} observations")
     return successes, failures
+
+
+class FredCoreConnector:
+    """FRED observations via the Connector registry (Story 2.2).
+
+    Discover/index vs observations split is Story 2.3. Until then ``publish``
+    calls the existing ``ingest_manifest`` path.
+    """
+
+    source_id = "fred.series"
+
+    def discover(self, ctx: ConnectorContext) -> ConnectorContext:
+        return ctx
+
+    def select(self, ctx: ConnectorContext) -> ConnectorContext:
+        return ctx
+
+    def plan(self, ctx: ConnectorContext) -> ConnectorContext:
+        return ctx
+
+    def extract(self, ctx: ConnectorContext) -> ConnectorContext:
+        return ctx
+
+    def evidence(self, ctx: ConnectorContext) -> ConnectorContext:
+        return ctx
+
+    def stage(self, ctx: ConnectorContext) -> ConnectorContext:
+        return ctx
+
+    def normalize(self, ctx: ConnectorContext) -> ConnectorContext:
+        return ctx
+
+    def validate(self, ctx: ConnectorContext) -> ConnectorContext:
+        return ctx
+
+    def publish(self, ctx: ConnectorContext) -> ConnectorContext:
+        params = ctx.extras.get("parameters") or {}
+        successes, failures = ingest_manifest(
+            category=params.get("category"),
+            priority=params.get("max_priority", 1),
+            report=ctx.extras.get("report"),
+        )
+        ctx.extras["count"] = sum(successes.values())
+        ctx.extras["failures"] = failures
+        return ctx
+
+    def checkpoint(self, ctx: ConnectorContext) -> ConnectorContext:
+        return ctx
