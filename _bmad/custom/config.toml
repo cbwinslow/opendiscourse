@@ -1,0 +1,12 @@
+# Team / enterprise overrides for _bmad/config.toml.
+# Committed to the repo — applies to every developer on the project.
+# Tables deep-merge over base config; keyed entries merge by key.
+
+# OpenDiscourse is a Python/PostGIS warehouse. Do not default TEA to a
+# Playwright/Pact JavaScript frontend stack; pytest is the execution target.
+[modules.tea]
+tea_use_playwright_utils = false
+tea_use_pactjs_utils = false
+tea_pact_mcp = "off"
+test_stack_type = "backend"
+ci_platform = "github-actions"

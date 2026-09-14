@@ -14,3 +14,32 @@ dbt/target/
 dbt/dbt_packages/
 dbt/logs/
 dbt/.user.yml
+
+# BMAD: personal overrides and generated artifacts
+_bmad/config.user.toml
+_bmad/custom/config.user.toml
+_bmad-output/
+
+# BMAD skill launchers that duplicate .agents/skills (Grok/Codex/Cursor/Hermes/Kilo
+# share that directory). Claude Code uses .claude/skills; Antigravity uses .agent/skills;
+# Copilot uses .github/agents. Re-run `npx bmad-method install` to regenerate others.
+.adal/
+.bob/
+.cline/
+.codebuddy/
+.codewhale/
+.cortex/
+.factory/
+.firebender/
+.iflow/
+.junie/
+.kiro/
+.kode/
+.neovate/
+.ona/
+.opencode/
+.qoder/
+.qwen/
+.trae/
+.zcode/
+.zencoder/
