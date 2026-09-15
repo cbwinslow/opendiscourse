@@ -24,12 +24,12 @@ dependencies = [
 analytics = [
     "duckdb>=1.2,<2",
     "polars>=1,<2",
-    "pyarrow>=16,<24",
+    "pyarrow>=16,<26",
 ]
 spatial = ["geopandas>=1,<2", "pyogrio>=0.9,<1", "shapely>=2,<3"]
 fred = ["fredapi>=0.5,<1"]
 ingest = ["dlt[postgres]>=1.29,<2", "openpyxl>=3.1,<4"]
-browser = ["textual>=0.85,<1"]
+browser = ["textual>=0.85,<9"]
 search = [
     "pgvector>=0.3,<1",
 ]
@@ -50,7 +50,7 @@ dev = [
   "pytest-xdist>=3.6,<4",
   "respx>=0.22,<1",
   "ruff>=0.15,<1",
-  "sqlfluff>=3.3,<4",
+  "sqlfluff>=3.3,<5",
   "testcontainers[postgres]>=4.7,<5",
   "ty>=0.0.1",
 ]
