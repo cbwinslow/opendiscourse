@@ -12,6 +12,7 @@ import yaml
 
 from opendiscourse_research.browser import acs_package_tables
 from opendiscourse_research.capacity import RemoteObject
+from opendiscourse_research.ingestion import census as census_ingestion
 from opendiscourse_research.ingestion.acs_bulk import (
     build_acs5_bulk_plan,
     preview_acs5_bulk_plan,
@@ -44,6 +45,10 @@ def resource(dataset_id: str, key: str, resource_type: str) -> dict[str, str]:
 
 
 class TestCensusBulkPlans(unittest.TestCase):
+    def test_census_module_import_does_not_bind_openpyxl(self) -> None:
+        """Fast CI has no ingest extra; collection must not import openpyxl."""
+        self.assertNotIn("load_workbook", census_ingestion.__dict__)
+
     def test_reviewed_acs_housing_core_package_is_small_and_explicit(self) -> None:
         self.assertEqual(
             acs_package_tables(),
