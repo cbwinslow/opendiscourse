@@ -34,6 +34,14 @@ from opendiscourse_research.models.core import (
 from opendiscourse_research.repositories.legislation import register_artifact
 
 
+_RUN_NS = uuid.uuid4().hex[:8]
+
+
+def _scoped(suffix: str) -> str:
+    """Namespace a test key or identifier to guarantee run isolation across persistent databases."""
+    return f"{_RUN_NS}-{suffix}"
+
+
 def _psycopg_url(url: str) -> str:
     """Normalize testcontainers' SQLAlchemy URL for the project's psycopg client."""
     return url.replace("postgresql+psycopg2://", "postgresql://", 1)
@@ -74,25 +82,27 @@ def catalog_database() -> Iterator[None]:
 
 def _contract_artifact(suffix: str) -> uuid.UUID:
     """Register immutable artifact evidence for contract test scenarios."""
+    scoped = _scoped(suffix)
     return register_artifact(
         "census.tiger",
-        f"https://example.test/contract-artifact-{suffix}.zip",
-        f"/tmp/contract-artifact-{suffix}.zip",
-        f"contract-key-{suffix}",
-        metadata={"contract": "1.6", "suffix": suffix},
+        f"https://example.test/contract-artifact-{scoped}.zip",
+        f"/tmp/contract-artifact-{scoped}.zip",
+        f"contract-key-{scoped}",
+        metadata={"contract": "1.6", "suffix": scoped},
     )["artifact_id"]
 
 
 def _contract_payload(suffix: str) -> uuid.UUID:
     """Register raw payload evidence for contract test scenarios."""
+    scoped = _scoped(suffix)
     response = httpx.Response(
         200,
         headers={"content-type": "application/json"},
-        json={"contract": "1.6", "suffix": suffix},
-        request=httpx.Request("GET", f"https://example.test/payload/{suffix}"),
+        json={"contract": "1.6", "suffix": scoped},
+        request=httpx.Request("GET", f"https://example.test/payload/{scoped}"),
     )
-    with IngestionRun("fred.series", {"test": True, "suffix": suffix}, mode="plan") as run:
-        return uuid.UUID(str(run.store_payload(response, {"source": f"payload-{suffix}"})))
+    with IngestionRun("fred.series", {"test": True, "suffix": scoped}, mode="plan") as run:
+        return uuid.UUID(str(run.store_payload(response, {"source": f"payload-{scoped}"})))
 
 
 def _contract_person(suffix: str) -> uuid.UUID:
@@ -101,7 +111,7 @@ def _contract_person(suffix: str) -> uuid.UUID:
     with session() as active_session:
         return active_session.execute(
             insert(person)
-            .values(full_name=f"Contract Person {suffix}")
+            .values(full_name=f"Contract Person {_scoped(suffix)}")
             .returning(person.c.person_id)
         ).scalar_one()
 
@@ -112,7 +122,7 @@ def _contract_organization(suffix: str) -> uuid.UUID:
     with session() as active_session:
         return active_session.execute(
             insert(organization)
-            .values(organization_type="legislature", name=f"Contract Org {suffix}")
+            .values(organization_type="legislature", name=f"Contract Org {_scoped(suffix)}")
             .returning(organization.c.organization_id)
         ).scalar_one()
 
@@ -124,9 +134,9 @@ def _contract_geography(suffix: str) -> uuid.UUID:
         return active_session.execute(
             insert(geography)
             .values(
-                geography_type=f"state-{suffix}",
-                geoid=f"geo-{suffix}",
-                name=f"Geography {suffix}",
+                geography_type=f"state-{_scoped(suffix)}",
+                geoid=f"geo-{_scoped(suffix)}",
+                name=f"Geography {_scoped(suffix)}",
             )
             .returning(geography.c.geography_id)
         ).scalar_one()
@@ -139,9 +149,9 @@ def _contract_roll_call(suffix: str) -> uuid.UUID:
         return active_session.execute(
             insert(roll_call)
             .values(
-                jurisdiction=f"us-{suffix}",
-                legislative_session=f"session-{suffix}",
-                external_id=f"roll-call-{suffix}",
+                jurisdiction=f"us-{_scoped(suffix)}",
+                legislative_session=f"session-{_scoped(suffix)}",
+                external_id=f"roll-call-{_scoped(suffix)}",
             )
             .returning(roll_call.c.roll_call_id)
         ).scalar_one()
@@ -160,8 +170,8 @@ def _contract_document(
             insert(document)
             .values(
                 document_type="contract_doc",
-                source_key=f"doc-{suffix}",
-                title=f"Document {suffix}",
+                source_key=f"doc-{_scoped(suffix)}",
+                title=f"Document {_scoped(suffix)}",
                 artifact_id=artifact_id,
                 source_payload_id=payload_id,
             )
@@ -178,8 +188,8 @@ def _contract_chunk(document_id: uuid.UUID, suffix: str) -> uuid.UUID:
             .values(
                 document_id=document_id,
                 ordinal=0,
-                text=f"Chunk content {suffix}",
-                checksum_sha256=f"hash-{suffix}",
+                text=f"Chunk content {_scoped(suffix)}",
+                checksum_sha256=f"hash-{_scoped(suffix)}",
             )
             .returning(chunk.c.chunk_id)
         ).scalar_one()
@@ -323,7 +333,7 @@ def test_sourceless_document_rejected(catalog_database: None) -> None:
         active_session.execute(
             insert(document).values(
                 document_type="bill_text",
-                source_key="sourceless-doc-1",
+                source_key=_scoped("sourceless-doc-1"),
                 title="Sourceless Doc",
                 artifact_id=None,
                 source_payload_id=None,
@@ -337,7 +347,7 @@ def test_sourceless_document_rejected(catalog_database: None) -> None:
             insert(document)
             .values(
                 document_type="bill_text",
-                source_key="valid-doc-artifact",
+                source_key=_scoped("valid-doc-artifact"),
                 title="Artifact Doc",
                 artifact_id=artifact_id,
             )
@@ -352,7 +362,7 @@ def test_sourceless_document_rejected(catalog_database: None) -> None:
             insert(document)
             .values(
                 document_type="bill_text",
-                source_key="valid-doc-payload",
+                source_key=_scoped("valid-doc-payload"),
                 title="Payload Doc",
                 source_payload_id=payload_id,
             )
@@ -366,13 +376,14 @@ def test_duplicate_person_external_id_rejected(catalog_database: None) -> None:
     person_1_id = _contract_person("dup-id-1")
     person_2_id = _contract_person("dup-id-2")
     identifiers = person_identifier_table()
+    test_external_id = _scoped("K000001")
 
     with session() as active_session:
         active_session.execute(
             insert(identifiers).values(
                 person_id=person_1_id,
                 namespace="bioguide",
-                external_id="K000001",
+                external_id=test_external_id,
             )
         )
 
@@ -382,7 +393,7 @@ def test_duplicate_person_external_id_rejected(catalog_database: None) -> None:
             insert(identifiers).values(
                 person_id=person_2_id,
                 namespace="bioguide",
-                external_id="K000001",
+                external_id=test_external_id,
             )
         )
 
@@ -391,15 +402,15 @@ def test_duplicate_artifact_key_rejected(catalog_database: None) -> None:
     """Duplicate artifact keys within the same dataset violate uniqueness."""
     artifacts = artifact_table()
     dataset_id = "census.tiger"
-    artifact_key = "tiger-unique-contract-key"
+    artifact_key = _scoped("tiger-unique-contract-key")
 
     with session() as active_session:
         active_session.execute(
             insert(artifacts).values(
                 dataset_id=dataset_id,
                 artifact_key=artifact_key,
-                remote_url="https://example.test/tiger-dup-1.zip",
-                local_path="/tmp/tiger-dup-1.zip",
+                remote_url=f"https://example.test/tiger-dup-1-{_RUN_NS}.zip",
+                local_path=f"/tmp/tiger-dup-1-{_RUN_NS}.zip",
                 status="planned",
             )
         )
@@ -413,8 +424,8 @@ def test_duplicate_artifact_key_rejected(catalog_database: None) -> None:
             insert(artifacts).values(
                 dataset_id=dataset_id,
                 artifact_key=artifact_key,
-                remote_url="https://example.test/tiger-dup-2.zip",
-                local_path="/tmp/tiger-dup-2.zip",
+                remote_url=f"https://example.test/tiger-dup-2-{_RUN_NS}.zip",
+                local_path=f"/tmp/tiger-dup-2-{_RUN_NS}.zip",
                 status="planned",
             )
         )
