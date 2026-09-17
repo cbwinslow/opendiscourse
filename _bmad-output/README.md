@@ -17,6 +17,9 @@ Sources (absorbed; do not re-ingest unless updating the spec):
 - `docs/research/2026-09-14-chatgpt-engineering-plan.md`
 - `docs/research/2026-09-14-chatgpt-bmad-context-plan.md`
 
+Live schema snapshot for external review: `docs/schema-snapshot/`
+(reading order: `docs/research/2026-09-17-chatgpt-review-packet.md`).
+
 Partial absorb (2026-09-17): `docs/research/2026-09-15-chatgpt-architecture-rereview.md`
 is research, not a replacement epic list. Accepted: OpenStates dump is a source
 snapshot (OCD language, not Django schema); identity gates politician *joins*

@@ -31,3 +31,7 @@ check-live:
 # SQL lint (advisory; existing sql/ is not yet clean).
 check-sql:
     uv run sqlfluff lint sql
+
+# Schema-only dump of the live warehouse for review (not a migration path).
+export-schema:
+    uv run python scripts/export_schema_snapshot.py

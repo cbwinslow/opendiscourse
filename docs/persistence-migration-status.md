@@ -2,6 +2,11 @@
 
 Last verified: 2026-08-19
 
+A live schema-only dump of the operator warehouse (plus the OpenStates OCD
+provider tables) is checked in at `docs/schema-snapshot/` for review. That
+directory is not a second migration path; regenerate with
+`uv run python scripts/export_schema_snapshot.py`.
+
 ## Adopted stack
 
 SQLModel/SQLAlchemy is the application persistence API. Alembic owns all
