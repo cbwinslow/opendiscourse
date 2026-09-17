@@ -10,6 +10,7 @@ operator decisions that followed (BMAD Method v6 + TEA; Fast path).
 | Architecture spine | `planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md` |
 | Spec kernel | `specs/spec-opendiscourse/SPEC.md` |
 | Epics and stories | `planning-artifacts/epics.md` |
+| Story specs / epic context | `implementation-artifacts/` (tracked; bmad-build working files) |
 
 Sources (absorbed; do not re-ingest unless updating the spec):
 
@@ -25,10 +26,10 @@ Live schema snapshot for external review: `docs/schema-snapshot/`
 (reading order: `docs/research/2026-09-17-chatgpt-review-packet.md`).
 
 **Standing (2026-09-17):** Architecture approved. Stories 1.1–1.3, 1.5, 2.1,
-8.1 done (PR #21; live Alembic `a4f8c2e9b176`). Story 1.4 optional. Story
-2.2 = PR #18 open; Story 2.3 = PR #20 stacked on 2.2. Story 8.2 spec
-ready-for-dev. Story 1.6 not started. Story 8.3 deferred. Kernel open
-questions closed. Epic 7 closed even though `stage.fec_row` already has data.
+8.1 done (PR #21). Story 8.2 implemented on `feat/8-2-openstates-promote-spec`
+(PR #22; Alembic `b8c2f1d4e390`). Story 1.4 optional. Story 2.2 = PR #18;
+Story 2.3 = PR #20 stacked on 2.2. Story 1.6 not started. Story 8.3 deferred.
+Epic 7 closed even though `stage.fec_row` already has data.
 
-Next: implement Story 8.2 (federal FDW promote). Connector PRs #18/#20 are
-an independent track. Do not start Epic 7. Do not redesign.
+Next: merge 8.2; Connector PRs #18/#20 are an independent track. Do not
+start Epic 7. Do not redesign.

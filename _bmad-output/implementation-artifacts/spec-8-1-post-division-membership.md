@@ -1,9 +1,3 @@
-# Story 8.1 — Post, division, membership
-
-Convenience copy of `_bmad-output/implementation-artifacts/spec-8-1-post-division-membership.md`
-for the schema-snapshot review packet. The BMAD file is tracked; edit that
-file and refresh this copy when the story changes.
-
 ---
 title: 'Story 8.1 — Post, division, membership'
 type: 'feature'
