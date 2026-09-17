@@ -1,9 +1,5 @@
 # Epic 8 Context: Legislative primitives (blocks Epic 4)
 
-Copy of `_bmad-output/implementation-artifacts/epic-8-context.md` for
-GitHub/ChatGPT review. That directory is gitignored as a BMAD
-implementation artifact.
-
 <!-- Compiled from planning artifacts. Edit freely. Regenerate with compile-epic-context if planning docs change. -->
 
 ## Goal
@@ -33,6 +29,6 @@ Give `core` a seat/post and a political division that is not a Census GEOID, so 
 
 ## Cross-Story Dependencies
 
-- 8.1 blocks Epic 4 (votes) and should land before 8.2 promote.
-- 8.2 is a bounded promote from FDW, not a dump merge.
+- 8.1 landed (PR #21, revision `a4f8c2e9b176`) and should stay ahead of 8.2 promote.
+- 8.2 is a bounded **federal** promote from FDW (US sessions, then occupancy), not a dump merge and not all-state.
 - Story 3.1 (BioGuide) can proceed in parallel; politician joins still wait on it.

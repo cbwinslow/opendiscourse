@@ -16,6 +16,7 @@ migration path, bootstrap script, or restore kit.
 | `openstates-inventory.md` | All OpenStates dump tables + OCD column lists |
 | `related-files.md` | In-repo SQL, Alembic, models, inventory, specs |
 | `spec-8-1-post-division-membership.md` | Copy of Story 8.1 (BMAD impl artifact is gitignored) |
+| `spec-8-2-openstates-promote.md` | Copy of Story 8.2 (ready-for-dev) |
 | `epic-8-context.md` | Copy of Epic 8 context for the same reason |
 | `metadata.json` | Capture metadata |
 
