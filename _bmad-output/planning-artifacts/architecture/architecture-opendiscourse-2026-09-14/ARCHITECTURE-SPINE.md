@@ -65,9 +65,16 @@ Python: `providers/` (HTTP only) → `ingestion/` (pipelines; Connector in
 ### AD-3 — Provenance is not optional [ADOPTED]
 
 - **Binds:** CAP-1
-- **Prevents:** facts without URL/checksum/run
-- **Rule:** Capacity gate fails closed. Raw is immutable. Stage is the only
-  auto-evolved layer.
+- **Prevents:** facts without URL/checksum/run; evidence identifiers whose
+  meaning changes after a source refresh
+- **Rule:** Capacity gate fails closed. Raw bytes and evidence identity are
+  immutable. If a remote logical artifact is refreshed with different bytes,
+  the new checksum must receive a new immutable artifact/version identity;
+  rows that reference an older artifact must continue to resolve to the older
+  checksum. Stage is the only auto-evolved layer. Story 1.7 closes the current
+  `(dataset_id, artifact_key)` mutable-artifact implementation gap; until then,
+  do not describe refreshed-in-place artifact rows as preserving historical
+  evidence.
 
 ### AD-4 — Wrap, don't rewrite
 
@@ -222,6 +229,8 @@ flowchart LR
   needs vintage comparability. `parent_geoid` stays a loose string until then.
 - Provenance CHECK audit for class-A tables missing constraints
   (`geography_boundary`, `document`).
+- Immutable artifact-version migration (Story 1.7); current unique logical
+  artifact key plus mutable checksum is not sufficient historical evidence.
 - Prefect as required scheduler.
 - GitHub ruleset / extra human reviewers (solo operator).
 - Letta and other memory products.

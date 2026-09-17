@@ -1,0 +1,20 @@
+ci:
+  autoupdate_schedule: monthly
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(migrations/|docs/|vendor/|\.agent/|\.agents/|\.claude/|_bmad/)
+      - id: end-of-file-fixer
+        exclude: ^(migrations/|docs/|vendor/|\.agent/|\.agents/|\.claude/|_bmad/)
+      - id: check-yaml
+        exclude: ^(migrations/|docs/|vendor/|\.agent/|\.agents/|\.claude/|_bmad/)
+      - id: check-toml
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.9
+    hooks:
+      - id: ruff
+        files: ^src/
+        args: [--fix]

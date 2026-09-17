@@ -70,6 +70,18 @@ Acceptance: audit remaining CHECK gaps (`geography_boundary`, `document`);
 pytest db cases listed in `schema-invariants.md`. Not on the FRED branch;
 not mixed into 8.1 unless a CHECK is required for new 8.1 tables.
 
+### Story 1.7 — Immutable artifact versions
+As a researcher, an evidence identifier always means the same bytes even after
+a remote bulk file is refreshed in place.
+Acceptance: changing `checksum_sha256` for the same logical
+`(dataset_id, artifact_key)` creates a new immutable artifact/version rather
+than mutating the evidence row referenced by existing `core`/`fact` records;
+old artifact ids/checksums remain queryable; canonical current-state rows point
+to evidence that supports their current values; tests cover unchanged retry,
+changed-content refresh, and rollback/replay. Do not implement as a silent
+`register_artifact()` behavior change without an Alembic migration and loader
+compatibility tests.
+
 ## Epic 2 — Connector protocol + FRED reference
 
 ### Story 2.1 — Connector Protocol — done
@@ -107,7 +119,7 @@ v1.1 (Epic 7) and must not start here.
 Additive `core` model before loading more votes/members. Do not run on the
 FRED branch. Do not copy OpenStates Django tables.
 
-### Story 8.1 — Post, division, membership
+### Story 8.1 — Post, division, membership — done
 As a researcher, a person occupies a seat/post representing a political
 division for a time range, not only a chamber.
 Acceptance: Alembic adds `core.post` (or equivalent) and `core.division` (or
@@ -116,28 +128,34 @@ a post; existing membership rows remain valid; no OpenStates dump writes.
 Do not treat `bill.jurisdiction` / `bill.legislative_session` text as
 canonical; prefer `legislative_session_id`. Do not add
 `core.geography_relationship` here.
+Landed on `main` via PR #21.
 
-### Story 8.2 — OpenStates promote, not public FDW
+### Story 8.2 — OpenStates promote, not public FDW — in review
 As a researcher, I query `core`/`fact`/`mart` for OCD-aligned state rows,
 not `openstates_source.opencivicdata_*`.
 Acceptance: Documented; at least one promote path from FDW to `core` for a
 bounded grain (jurisdiction/session or membership); dump remains replace-only.
+Current implementation is PR #22; do not merge while required CI/review checks
+are unresolved.
 
 ### Story 8.3 — Session identity on FKs (deferred)
 As a developer, `core.bill` and `core.roll_call` unique keys use
 `legislative_session_id`, not text `jurisdiction` + `legislative_session`.
 Acceptance: Gate in `resolved-questions.md` §5 (every bill/roll_call has
 non-null session FK; new unique keys; upsert SQL moved). Text columns may
-remain as cache. Do not start in 8.1 while `core.legislative_session` is
-empty.
+remain as cache. Do not start until 8.2/backfill prerequisites are green.
 
 ## Epic 4 — Wrap unitedstates/congress
 
 ### Story 4.1 — Senate + House votes producer
 As a researcher, both chambers' roll calls ingest via wrapped
-`vendor/unitedstates-congress`.
-Acceptance: No new scraper module that parses clerk XML directly; checksummed
-raw; maps to `core.roll_call` / `fact.member_vote`.
+`vendor/unitedstates-congress`, with chamber-native source evidence retained.
+Acceptance: No new first-party scraper module duplicating acquisition logic;
+checksummed raw; maps to `core.roll_call` / `fact.member_vote`; House evidence
+is traceable to House Clerk data and Senate evidence to Senate LIS data.
+Congress.gov House-vote endpoints may be used for reconciliation only after a
+coverage gate proves the required scope; a partial/beta endpoint is not the
+sole vote corpus.
 
 ## Epic 5 — Research packs and marts
 
@@ -188,20 +206,26 @@ promote). Stories TBD.
 | FR-17..19 | 1 |
 | AD-10 | 1.5, 1.6, 8.3 |
 | FR-20 | 1.5, 1.6, 8.3 |
-| FR-20 | 1.5, 1.6, 8.3 |
+| AD-3 immutable evidence | 1.7 |
 
 ## Suggested next build
 
-Keep-and-refine (2026-09-17 schema review). Do not start Epic 7.
+Keep-and-refine. Do not start Epic 7 and do not redesign the Connector while
+its reference migration is still in flight.
 
 Independent tracks (do not mix on one branch):
 
-1. **Connector vertical slice:** merge PR #18 (Story 2.2), then PR #20
-   (Story 2.3 FRED e2e, stacked on 2.2).
-2. **Legislative primitives:** Story 8.1 on `feat/8-1-legislative-primitives`
-   (spec ready-for-dev; no Alembic yet). Then 8.2 promote. Then Epic 4.
-3. **Docs absorb:** PR #19 (2026-09-15 rereview) plus this 2026-09-17
-   schema-invariants absorb. Story 1.6 (provenance contract tests) after
-   8.1 CHECKs are known.
+1. **Connector vertical slice:** finish/rebase PR #18 (Story 2.2), then PR #20
+   (Story 2.3 FRED e2e, stacked on 2.2). Resolve the duplicate-registration
+   invariant before merge.
+2. **Legislative ownership:** finish PR #22 (Story 8.2), then execute the 8.3
+   session-FK backfill gate. After that, Epic 4 moves federal roll-call
+   acquisition to wrapped chamber-native evidence.
+3. **Evidence hardening:** Story 1.6 provenance/identity contract tests, then
+   Story 1.7 immutable artifact versioning. These are cross-cutting integrity
+   changes and should not be hidden inside the FRED or OpenStates branches.
+4. **Identity spine:** Story 3.1 loads `congress-legislators` before any
+   politician-to-money/disclosure joins.
 
-Do not implement Connector v2 or the 2026-09-15 rereview reboot.
+The next political-data work should improve evidence, identity, temporal
+membership, and vote completeness before broadening the source catalog.
