@@ -1,7 +1,7 @@
 ---
 title: "Azure PostgreSQL Networking SSL"
-description: "Configure SSL/TLS, private endpoints, VNet integration, and firewall rules for Azure Database for PostgreSQL Flexible Server"
-tags: [azure, postgresql, ssl, tls, private-endpoint, vnet, firewall, networking]
+description: "Configure SSL/TLS, private endpoints, VNet integration, and firewall rules for Azure Database for PostgreSQL Flexible Server"
+tags: [azure, postgresql, ssl, tls, private-endpoint, vnet, firewall, networking]
 ---
 
 # Networking and SSL

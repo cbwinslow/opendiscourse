@@ -1,7 +1,7 @@
 ---
 title: "PostgreSQL Vector Search"
-description: "Vector similarity search with pgvector on any PostgreSQL — HNSW indexes, distance operators, and embedding storage."
-tags: [postgresql, vector, pgvector, hnsw, similarity-search, embeddings]
+description: "Vector similarity search with pgvector on any PostgreSQL — HNSW indexes, distance operators, and embedding storage."
+tags: [postgresql, vector, pgvector, hnsw, similarity-search, embeddings]
 ---
 
 # Vector Search with pgvector

@@ -1,7 +1,7 @@
 ---
 title: "Azure PostgreSQL Vector DiskANN"
-description: "Azure Database for PostgreSQL vector search with DiskANN and pgvector: index selection, filtered search, distance operations, and quantization"
-tags: [azure, postgresql, vector, diskann, pgvector, hnsw, similarity-search]
+description: "Azure Database for PostgreSQL vector search with DiskANN and pgvector: index selection, filtered search, distance operations, and quantization"
+tags: [azure, postgresql, vector, diskann, pgvector, hnsw, similarity-search]
 ---
 
 ## Prerequisites

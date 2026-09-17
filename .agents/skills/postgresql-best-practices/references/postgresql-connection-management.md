@@ -1,7 +1,7 @@
 ---
 title: "PostgreSQL Connection Management"
-description: "PostgreSQL connection lifecycle, pooling strategies, idle timeout tuning, and connection exhaustion prevention"
-tags: [postgresql, connections, pooling, pgbouncer, timeout]
+description: "PostgreSQL connection lifecycle, pooling strategies, idle timeout tuning, and connection exhaustion prevention"
+tags: [postgresql, connections, pooling, pgbouncer, timeout]
 ---
 
 # Connection Management

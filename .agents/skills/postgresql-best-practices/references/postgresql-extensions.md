@@ -1,7 +1,7 @@
 ---
 title: "PostgreSQL Extensions"
-description: "Managing PostgreSQL extensions on any deployment — install, upgrade, version checks, and common extensions."
-tags: [postgresql, extensions, contrib, pg_stat_statements, pg_trgm]
+description: "Managing PostgreSQL extensions on any deployment — install, upgrade, version checks, and common extensions."
+tags: [postgresql, extensions, contrib, pg_stat_statements, pg_trgm]
 ---
 
 # PostgreSQL Extensions

@@ -6,9 +6,11 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        exclude: ^(migrations/|docs/|vendor/|\.agent/|\.agents/|\.claude/|_bmad/)
       - id: end-of-file-fixer
+        exclude: ^(migrations/|docs/|vendor/|\.agent/|\.agents/|\.claude/|_bmad/)
       - id: check-yaml
-        exclude: ^(vendor/|_bmad/)
+        exclude: ^(migrations/|docs/|vendor/|\.agent/|\.agents/|\.claude/|_bmad/)
       - id: check-toml
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.9.9

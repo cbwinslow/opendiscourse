@@ -115,7 +115,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner:
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: 
 --
 
 COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
@@ -129,7 +129,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner:
+-- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: 
 --
 
 COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
@@ -143,7 +143,7 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION postgis; Type: COMMENT; Schema: -; Owner:
+-- Name: EXTENSION postgis; Type: COMMENT; Schema: -; Owner: 
 --
 
 COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types and functions';
@@ -157,7 +157,7 @@ CREATE EXTENSION IF NOT EXISTS postgres_fdw WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION postgres_fdw; Type: COMMENT; Schema: -; Owner:
+-- Name: EXTENSION postgres_fdw; Type: COMMENT; Schema: -; Owner: 
 --
 
 COMMENT ON EXTENSION postgres_fdw IS 'foreign-data wrapper for remote PostgreSQL servers';
@@ -171,7 +171,7 @@ CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION unaccent; Type: COMMENT; Schema: -; Owner:
+-- Name: EXTENSION unaccent; Type: COMMENT; Schema: -; Owner: 
 --
 
 COMMENT ON EXTENSION unaccent IS 'text search dictionary that removes accents';
@@ -185,7 +185,7 @@ CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION vector; Type: COMMENT; Schema: -; Owner:
+-- Name: EXTENSION vector; Type: COMMENT; Schema: -; Owner: 
 --
 
 COMMENT ON EXTENSION vector IS 'vector data type and ivfflat and hnsw access methods';
@@ -3559,3 +3559,4 @@ GRANT SELECT ON TABLE openstates_source.opencivicdata_voteevent TO cbwinslow;
 --
 
 \unrestrict opendiscourseschemasnapshot
+

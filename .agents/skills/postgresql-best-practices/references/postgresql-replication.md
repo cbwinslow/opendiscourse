@@ -1,7 +1,7 @@
 ---
 title: "PostgreSQL Logical Replication"
-description: "PostgreSQL logical replication setup, publication/subscription patterns, and conflict resolution"
-tags: [postgresql, replication, logical, publication, subscription, cdc]
+description: "PostgreSQL logical replication setup, publication/subscription patterns, and conflict resolution"
+tags: [postgresql, replication, logical, publication, subscription, cdc]
 ---
 
 # Logical Replication
