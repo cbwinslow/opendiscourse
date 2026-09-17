@@ -446,7 +446,10 @@ class TestCensusScopesAndMatrix(unittest.TestCase):
             acs_numeric("not-a-number")
 
     def test_dhc_matrix_preserves_column_offsets_for_skipped_tables(self) -> None:
-        import openpyxl
+        try:
+            import openpyxl
+        except ImportError:
+            self.skipTest("openpyxl requires `uv sync --extra ingest`")
 
         with TemporaryDirectory() as directory:
             path = Path(directory) / "matrix.xlsx"
