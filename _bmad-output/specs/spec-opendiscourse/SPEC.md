@@ -9,6 +9,7 @@ sources:
   - ../../../docs/research/2026-09-14-chatgpt-review.md
   - ../../../docs/research/2026-09-14-chatgpt-engineering-plan.md
   - ../../../docs/research/2026-09-14-chatgpt-bmad-context-plan.md
+  - ../../../docs/research/2026-09-15-chatgpt-architecture-rereview.md
 ---
 
 > **Canonical contract.** Read `companions:` with this file. ChatGPT markdown
@@ -46,7 +47,7 @@ so agents can implement without re-reading the ChatGPT essays.
   - **intent:** Researcher can join people across sources on BioGuide (and
     preserved OCD IDs), never display name.
   - **success:** `core.person_identifier` populated from congress-legislators;
-    FEC/disclosure loads blocked until this exists.
+    politician joins to FEC/disclosure blocked until this exists.
 - **CAP-5**
   - **intent:** Researcher can start from named research packs and dbt marts
     instead of assembling `fact.measurement` joins.
@@ -61,11 +62,23 @@ so agents can implement without re-reading the ChatGPT essays.
     with inventory remaining the data contract.
   - **success:** `AGENTS.md` constitution points at this spec; XS changes skip
     PRD; no second SDD framework.
+- **CAP-8**
+  - **intent:** Researcher can join a person to a seat/post and a political
+    division over time, not only to a chamber, without querying the
+    OpenStates dump as the public schema.
+  - **success:** Owned `core` has post (or equivalent) and division (or
+    equivalent) distinct from Census geography; membership can reference a
+    post; FDW remains read-only; Congress.gov/GovInfo/clerk rows are not
+    written into database `openstates`.
 
 ## Constraints
 
 - Database name is `opendiscourse`. Postgres/PostGIS is system of record (AD-1).
-- OpenStates dump stays a separate DB; warehouse uses read-only FDW (AD-5).
+- OpenStates dump stays a separate DB; warehouse uses read-only FDW (AD-8).
+  FDW is an internal reader, not the researcher contract. Combine other
+  legislative sources in `core` by identifier.
+- Default acquisition: bulk/archive for history, API/feed for freshness
+  (AD-9).
 - dlt never writes `core`/`fact`.
 - TEA execution target is pytest + PostGIS, not Playwright-first.
 - Grok/Claude/Codex/Cursor share `.agents/skills/` (plus Claude `.claude/skills`).
@@ -80,6 +93,9 @@ so agents can implement without re-reading the ChatGPT essays.
 - Integrity/corruption scores as a product.
 - OpenSpec, Spec Kit, or a second planning system.
 - Physically copying the OpenStates database into `opendiscourse`.
+- Adopting the OpenStates Django dump as the canonical schema.
+- Rewriting the Connector protocol or legislative schema on the FRED
+  (Story 2.3) branch.
 
 ## Success signal
 
@@ -96,3 +112,7 @@ merge without expanding ingest scope.
 
 - FEC grain/retention after CAP-4.
 - When to switch embeddings from `real[]` to pgvector columns.
+- `core.division` as its own entity vs extending `core.geography` (default:
+  separate division, linked to TIGER vintages).
+- When to physically move `instrument` / `market_bar` to CFA (default:
+  deprecate in docs first).

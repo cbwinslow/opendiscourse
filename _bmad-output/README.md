@@ -17,5 +17,13 @@ Sources (absorbed; do not re-ingest unless updating the spec):
 - `docs/research/2026-09-14-chatgpt-engineering-plan.md`
 - `docs/research/2026-09-14-chatgpt-bmad-context-plan.md`
 
-Next: Story 2.2 (FRED without HANDLERS elif), then 2.3 (FRED e2e).
-Story 1.1–1.3 and 2.1 are done. Story 1.4 (GitHub ruleset) is optional.
+Partial absorb (2026-09-17): `docs/research/2026-09-15-chatgpt-architecture-rereview.md`
+is research, not a replacement epic list. Accepted: OpenStates dump is a source
+snapshot (OCD language, not Django schema); identity gates politician *joins*
+not every v1.1 acquire; legislative post/division before Epic 4; Connector v2
+and market-table move stay deferred. Do not implement the strangler reboot from
+that essay.
+
+Next: Story 2.2 (PR #18), then 2.3 (FRED e2e).
+Stories 1.1–1.3 and 2.1 are done. Story 1.4 (GitHub ruleset) is optional.
+Epic 8 (legislative primitives) blocks Epic 4; do not start it on a FRED branch.

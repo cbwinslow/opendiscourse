@@ -13,7 +13,8 @@ only. dbt = marts. Optional Prefect extra `ops`, not required.
 |---|---|
 | OpenSpec / Spec Kit | Operator chose BMAD+TEA as the single SDD |
 | Restart repo | Foundation is sound; god modules are the bug |
-| Copy OpenStates into `opendiscourse` | FDW `openstates_source` is the merge; dump stays refreshable |
+| Copy OpenStates into `opendiscourse` | FDW `openstates_source` is the reader; dump stays refreshable |
+| Adopt OpenStates Django dump as `core` | OCD language in owned tables; dump is a replaceable snapshot |
 | Qdrant / Weaviate | Extra ops; pgvector is enough at this scale |
 | Playwright-first TEA | Warehouse is pytest + PostGIS |
 

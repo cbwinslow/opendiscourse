@@ -7,7 +7,12 @@ search, or export code. Wrap behind provenance.
 |---|---|
 | `unitedstates/congress` | Wrap as vote/bill producer (`vendor/unitedstates-congress`) |
 | `unitedstates/congress-legislators` | Identity crosswalk (`vendor/congress-legislators`) |
-| OpenStates / Plural dumps | Isolated DB + FDW `openstates_source` |
+| OpenStates / Plural dumps | Isolated DB + FDW `openstates_source`; OCD language in `core`, not Django dump schema |
+| `pyopenstates` | Evaluate for API v3 incremental after dump promote |
+| `openstates-core` | Model reference; do not clone internal schema |
+| U.S. BEA `beaapi` | Evaluate before a custom BEA client |
+| `usaspending-orm` | Evaluate before a custom USAspending client |
+| MIT Election Lab / OpenElections | Evaluate when Epic 7 opens |
 | dlt | REST → `stage` only |
 | dbt | Marts |
 | PostgREST | Read-only `api.*` |

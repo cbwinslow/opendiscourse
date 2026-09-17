@@ -2,7 +2,7 @@
 title: OpenDiscourse
 status: final
 created: 2026-09-14
-updated: 2026-09-14
+updated: 2026-09-17
 ---
 
 # PRD: OpenDiscourse
@@ -99,7 +99,9 @@ scraper. `[ASSUMPTION: vendor checkout is the wrap target.]`
 BioGuide as the federal deterministic key.
 
 **FR-9:** OpenStates remains an isolated snapshot; warehouse reads via FDW
-`openstates_source`; never write into the dump.
+`openstates_source`; never write into the dump. FDW is not the researcher
+contract; promote OCD-aligned rows into `core`. Combine Congress.gov,
+GovInfo, and clerk votes in `core` by identifier, not inside the dump.
 
 ### 4.4 Geography, census, macro
 
@@ -156,8 +158,11 @@ what already exists; DuckDB export path.
 
 ### 6.2 Out of Scope for MVP
 
-FEC/disclosures/elections/crime **loads** until identity crosswalk exists
-(they are v1.1, not “maybe”). Prefect/Dagster as required runtime.
+FEC/disclosure/elections-as-member **joins** until identity crosswalk exists.
+FEC-native and crime-native staging are also v1.1 (not identity-blocked, still
+not MVP). Prefect/Dagster as required runtime. Adopting the OpenStates Django
+dump as the canonical schema. Connector v2 / legislative post schema on the
+FRED branch.
 
 ## 7. Success Metrics
 

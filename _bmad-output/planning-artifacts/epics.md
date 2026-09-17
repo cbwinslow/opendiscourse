@@ -2,7 +2,7 @@
 title: OpenDiscourse epics and stories
 status: final
 created: 2026-09-14
-updated: 2026-09-14
+updated: 2026-09-17
 inputDocuments:
   - planning-artifacts/prds/prd-opendiscourse-2026-09-14/prd.md
   - planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md
@@ -19,8 +19,9 @@ Fast-path decomposition. No UX spine (CLI/TUI already exist; no new UI epic).
 
 **FR-1..FR-19** as in the PRD. **NFR:** provenance, capacity fail-closed,
 parameterized SQL, pytest+PostGIS, BMAD change-sizing, database name
-`opendiscourse`. **Architecture extras:** AD-1..AD-7, FRED as first Connector,
-no Playwright-first TEA, OpenStates FDW not a physical merge.
+`opendiscourse`. **Architecture extras:** AD-1..AD-9, FRED as first Connector,
+no Playwright-first TEA, OpenStates dump is a source snapshot (AD-8), not a
+physical merge.
 
 ## Epic 1 — Development substrate
 
@@ -77,10 +78,30 @@ As a researcher, BioGuide IDs land in `core.person` / `person_identifier`
 from `vendor/congress-legislators`.
 Acceptance: Idempotent load; provenance artifact; no name matching.
 
-### Story 3.2 — Gate v1.1 sources
-As an operator, FEC/disclosure/crime plans stay disabled until Story 3.1
-is green.
-Acceptance: Inventory/progress states say identity-blocked.
+### Story 3.2 — Gate politician-join sources
+As an operator, FEC/disclosure/elections-as-member *joins* stay disabled
+until Story 3.1 is green.
+Acceptance: Inventory/progress states say identity-blocked for those joins.
+Crime-native and FEC-native staging are not identity-blocked; they stay
+v1.1 (Epic 7) and must not start here.
+
+## Epic 8 — Legislative primitives (blocks Epic 4)
+
+Additive `core` model before loading more votes/members. Do not run on the
+FRED branch. Do not copy OpenStates Django tables.
+
+### Story 8.1 — Post, division, membership
+As a researcher, a person occupies a seat/post representing a political
+division for a time range, not only a chamber.
+Acceptance: Alembic adds `core.post` (or equivalent) and `core.division` (or
+equivalent, distinct from Census geography); `core.membership` can reference
+a post; existing membership rows remain valid; no OpenStates dump writes.
+
+### Story 8.2 — OpenStates promote, not public FDW
+As a researcher, I query `core`/`fact`/`mart` for OCD-aligned state rows,
+not `openstates_source.opencivicdata_*`.
+Acceptance: Documented; at least one promote path from FDW to `core` for a
+bounded grain (jurisdiction/session or membership); dump remains replace-only.
 
 ## Epic 4 — Wrap unitedstates/congress
 
@@ -115,7 +136,9 @@ Acceptance: Streaming/chunked path; analytics extra.
 
 ## Epic 7 — v1.1 money, elections, crime
 
-Blocked on Epic 3. Stories TBD after CAP-4. Do not start.
+Do not start in v1. Politician *joins* still need Epic 3 / CAP-4. FEC-native
+and crime-native staging are not blocked on BioGuide; open this epic only
+when v1 spine + Epic 8 are in place. Stories TBD.
 
 ## Coverage
 
@@ -125,7 +148,9 @@ Blocked on Epic 3. Stories TBD after CAP-4. Do not start.
 | FR-4..5 | 2 |
 | FR-6 | existing + 4 |
 | FR-7 | 4 |
-| FR-8..9 | 3 |
+| FR-8 | 3 |
+| FR-9 | 8, OpenStates FDW |
+| CAP-8 | 8 |
 | FR-10..12 | existing bulk |
 | FR-13 | 5 |
 | FR-14..16 | 6 |
@@ -134,3 +159,5 @@ Blocked on Epic 3. Stories TBD after CAP-4. Do not start.
 ## Suggested next build
 
 `bmad-build` Story 2.2 (registry without HANDLERS), then 2.3 (FRED e2e).
+After Epic 2: Epic 8 before Epic 4. Do not implement Connector v2 or the
+2026-09-15 rereview reboot.
