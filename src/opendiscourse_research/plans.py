@@ -29,11 +29,17 @@ HANDLERS = {
     "census_metadata",
     "bls_core",
 }
-_DUAL = HANDLERS & connector_handlers()
-if _DUAL:
-    raise RuntimeError(
-        f"Handler(s) registered as both legacy HANDLERS and Connector: {_DUAL}"
-    )
+
+
+def _check_dual_registration() -> None:
+    dual = HANDLERS & connector_handlers()
+    if dual:
+        raise RuntimeError(
+            f"Handler(s) registered as both legacy HANDLERS and Connector: {dual}"
+        )
+
+
+_check_dual_registration()
 
 
 def load_plans() -> list[dict[str, Any]]:
@@ -43,6 +49,7 @@ def load_plans() -> list[dict[str, Any]]:
 
 
 def validate_plans() -> list[str]:
+    _check_dual_registration()
     errors: list[str] = []
     seen: set[str] = set()
     for plan in load_plans():
@@ -102,6 +109,7 @@ def sync_plans() -> None:
 
 def execute_handler(plan: dict[str, Any]) -> tuple[int, dict[str, str]]:
     """Run a plan's handler. Does not write ``ingest.cursor``."""
+    _check_dual_registration()
     args = plan["parameters"]
     failures: dict[str, str] = {}
     connector = get_connector(plan["handler"])

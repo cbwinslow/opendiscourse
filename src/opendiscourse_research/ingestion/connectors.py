@@ -16,6 +16,14 @@ def register(handler: str, connector_type: type[Connector]) -> None:
     """Bind an inventory handler name to a Connector class."""
     if handler in _CONNECTORS:
         raise ValueError(f"handler {handler!r} is already registered")
+    import sys
+
+    if "opendiscourse_research.plans" in sys.modules:
+        legacy = getattr(sys.modules["opendiscourse_research.plans"], "HANDLERS", set())
+        if handler in legacy:
+            raise RuntimeError(
+                f"Handler {handler!r} is already registered as a legacy handler"
+            )
     probe = connector_type()
     if not isinstance(probe, Connector):
         raise TypeError(f"{connector_type.__name__} does not implement Connector")

@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import inspect
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from opendiscourse_research.ingestion.connector import Connector, ConnectorContext
 from opendiscourse_research.ingestion.connectors import get, handlers, register
 from opendiscourse_research.ingestion.fred import FredCoreConnector
 from opendiscourse_research.plans import (
     HANDLERS,
+    _check_dual_registration,
     execute_handler,
     run_plan,
     validate_plans,
@@ -41,6 +42,38 @@ class TestFredConnectorRegistry(unittest.TestCase):
     def test_duplicate_register_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
             register("fred_core", FredCoreConnector)
+
+    def test_register_rejects_legacy_handler_name(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "already registered as a legacy handler"):
+            register("acs_housing", FredCoreConnector)
+
+    def test_dual_registration_check_raises_when_overlap_exists(self) -> None:
+        with patch(
+            "opendiscourse_research.plans.connector_handlers",
+            return_value=frozenset({"acs_housing"}),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Handler.*registered as both"):
+                _check_dual_registration()
+
+    @patch("opendiscourse_research.plans.run_connector")
+    @patch("opendiscourse_research.plans.bootstrap_housing")
+    def test_dispatch_boundary_selects_connector_path(
+        self, mock_bootstrap: MagicMock, mock_run_connector: MagicMock
+    ) -> None:
+        mock_run_connector.return_value = ConnectorContext(
+            source_id="fred.series", extras={"count": 5, "failures": {}}
+        )
+        count, failures = execute_handler(
+            {
+                "id": "fredcore",
+                "handler": "fred_core",
+                "parameters": {"max_priority": 1},
+            }
+        )
+        mock_run_connector.assert_called_once()
+        mock_bootstrap.assert_not_called()
+        self.assertEqual(count, 5)
+        self.assertEqual(failures, {})
 
     def test_register_rejects_non_connector(self) -> None:
         class Incomplete:
