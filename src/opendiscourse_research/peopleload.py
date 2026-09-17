@@ -12,6 +12,7 @@ from .db import connect
 from .ingestion.base import IngestionRun
 from .repositories.legislation import (
     get_resume_cursor,
+    promote_openstates_federal,
     record_vote_identity_exceptions,
     register_artifact,
     resolve_bill_sponsorship_people,
@@ -176,4 +177,39 @@ def load_openstates_federal_organizations() -> dict[str, Any]:
         "kind": "openstates_organizations_load",
         "organizations": organizations,
         "generated_at": datetime.now(UTC).isoformat(),
+    }
+
+
+def load_openstates_federal_promote() -> dict[str, Any]:
+    """Promote federal OpenStates sessions and occupancy into owned core tables."""
+    parameters = {
+        "source": "openstates_source",
+        "jurisdiction": "ocd-jurisdiction/country:us/government",
+        "role": "federal_promote",
+    }
+    with (
+        IngestionRun("openstates.legislation", parameters, mode="backfill") as run,
+        connect() as conn,
+    ):
+        artifact = register_artifact(
+            "openstates.legislation",
+            "openstates_source://federal-promote",
+            "openstates_source.federal_promote",
+            "federal-promote",
+            status="loaded",
+            metadata={"jurisdiction": parameters["jurisdiction"]},
+            conn=conn,
+        )
+        counts = promote_openstates_federal(
+            str(artifact["artifact_id"]),
+            str(run.run_id),
+            conn,
+        )
+        run.record_count = counts.get("memberships", 0) + counts.get("sessions", 0)
+        conn.commit()
+    return {
+        "schema": 1,
+        "kind": "openstates_federal_promote",
+        "generated_at": datetime.now(UTC).isoformat(),
+        **counts,
     }

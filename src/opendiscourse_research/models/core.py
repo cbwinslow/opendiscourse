@@ -557,6 +557,7 @@ core_membership = Table(
         "post_id",
         PostgreSQLUUID(as_uuid=True),
     ),
+    Column("ocd_id", Text),
     Column(
         "legislative_session_id",
         PostgreSQLUUID(as_uuid=True),
@@ -588,6 +589,12 @@ core_membership = Table(
     Index("membership_person_idx", "person_id"),
     Index("membership_organization_idx", "organization_id"),
     Index("membership_post_idx", "post_id"),
+    Index(
+        "membership_ocd_id_idx",
+        "ocd_id",
+        unique=True,
+        postgresql_where=text("ocd_id IS NOT NULL"),
+    ),
     schema="core",
 )
 

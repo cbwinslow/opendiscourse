@@ -673,6 +673,43 @@ def load_openstates_votes(
     return counts
 
 
+def promote_openstates_federal(
+    artifact_id: str,
+    run_id: str,
+    conn: Any,
+) -> dict[str, int]:
+    """Promote US sessions, posts, divisions, and memberships from the OpenStates FDW."""
+    jurisdiction_id = "ocd-jurisdiction/country:us/government"
+    params = {
+        "jurisdiction_id": jurisdiction_id,
+        "source_artifact_id": artifact_id,
+        "run_id": run_id,
+    }
+    counts: dict[str, int] = {}
+    with conn.cursor() as cur:
+        cur.execute(
+            _query("ensure_jurisdiction"),
+            {
+                "jurisdiction_id": jurisdiction_id,
+                "name": "United States Congress",
+                "classification": "government",
+                "metadata": Jsonb({"country": "us"}),
+            },
+        )
+        for name, key in (
+            ("openstates_promote_jurisdiction", "jurisdictions"),
+            ("openstates_promote_sessions", "sessions"),
+            ("openstates_promote_divisions", "divisions"),
+            ("openstates_promote_posts", "posts"),
+            ("openstates_promote_memberships", "memberships"),
+            ("openstates_promote_unresolved_memberships", "unresolved_memberships"),
+        ):
+            cur.execute(_query(name), params)
+            row = cur.fetchone()
+            counts[key] = int(row["n"]) if row else 0
+    return counts
+
+
 def ensure_us_legislative_session(
     congress: int,
     source_artifact_id: str | None = None,

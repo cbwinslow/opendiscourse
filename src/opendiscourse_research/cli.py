@@ -100,6 +100,7 @@ from .openstatesstage import (
 from .peopleload import (
     load_openstates_federal_organizations,
     load_openstates_federal_people,
+    load_openstates_federal_promote,
     load_openstates_votes,
 )
 from .plans import due_plans, load_plans, run_plan
@@ -598,6 +599,14 @@ def load_openstates_votes_command(
     """Load bounded OpenStates congressional roll calls and member positions."""
     with render_spinner("Loading OpenStates congressional votes"):
         result = load_openstates_votes(congress, limit, resume=resume)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("load-openstates-promote")
+def load_openstates_promote_command() -> None:
+    """Promote federal OpenStates sessions and occupancy into owned core tables."""
+    with render_spinner("Promoting OpenStates federal sessions and occupancy"):
+        result = load_openstates_federal_promote()
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 
