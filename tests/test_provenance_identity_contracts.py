@@ -417,7 +417,7 @@ def test_duplicate_artifact_key_rejected(catalog_database: None) -> None:
 
     # Second insert with identical dataset_id and artifact_key must fail
     with (
-        pytest.raises(IntegrityError, match="artifact_dataset_id_artifact_key_key"),
+        pytest.raises(IntegrityError, match="artifact_dataset_id_artifact_key_version_key"),
         session() as active_session,
     ):
         active_session.execute(
