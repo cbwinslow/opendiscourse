@@ -1,7 +1,7 @@
 ---
 title: "Azure PostgreSQL Entra ID Auth"
-description: "Configure Microsoft Entra ID (Azure AD) authentication for Azure Database for PostgreSQL Flexible Server with managed identities and token-based access"
-tags: [azure, postgresql, entra-id, azure-ad, managed-identity, authentication]
+description: "Configure Microsoft Entra ID (Azure AD) authentication for Azure Database for PostgreSQL Flexible Server with managed identities and token-based access"
+tags: [azure, postgresql, entra-id, azure-ad, managed-identity, authentication]
 ---
 
 # Entra ID Authentication

@@ -1,7 +1,7 @@
 ---
 title: "Azure PostgreSQL GenAI Patterns"
-description: Generate vector embeddings in-database via azure_ai extension and build RAG pipelines with hybrid search on Azure Database for PostgreSQL.
-tags: [azure, postgresql, embeddings, vector, pgvector, rag, hybrid-search, RRF, azure-openai, genai]
+description: Generate vector embeddings in-database via azure_ai extension and build RAG pipelines with hybrid search on Azure Database for PostgreSQL.
+tags: [azure, postgresql, embeddings, vector, pgvector, rag, hybrid-search, RRF, azure-openai, genai]
 ---
 
 ## When to use this skill

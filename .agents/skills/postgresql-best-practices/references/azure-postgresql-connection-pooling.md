@@ -1,7 +1,7 @@
 ---
 title: "Azure PostgreSQL Connection Pooling"
-description: "Configure Azure Database for PostgreSQL Flexible Server built-in PgBouncer: transaction vs session mode, port 6432, and pool sizing"
-tags: [azure, postgresql, pgbouncer, connection-pooling, port-6432]
+description: "Configure Azure Database for PostgreSQL Flexible Server built-in PgBouncer: transaction vs session mode, port 6432, and pool sizing"
+tags: [azure, postgresql, pgbouncer, connection-pooling, port-6432]
 ---
 
 # Connection Pooling (Built-in PgBouncer)

@@ -1,7 +1,7 @@
 ---
 title: "Azure PostgreSQL Upgrades Maintenance"
-description: "Azure Database for PostgreSQL Flexible Server major version upgrades, maintenance windows, and in-place upgrade procedures"
-tags: [azure, postgresql, upgrade, major-version, maintenance, mvu]
+description: "Azure Database for PostgreSQL Flexible Server major version upgrades, maintenance windows, and in-place upgrade procedures"
+tags: [azure, postgresql, upgrade, major-version, maintenance, mvu]
 ---
 
 # Upgrades and Maintenance

@@ -1,7 +1,7 @@
 """baseline mapped persistence schema
 
 Revision ID: d207df35ca10
-Revises: 
+Revises:
 Create Date: 2026-08-19 04:16:49.591165
 """
 

@@ -2742,4 +2742,3 @@ GRANT ALL ON TABLE public.opencivicdata_votesource TO cbwinslow;
 --
 
 \unrestrict opendiscourseschemasnapshot
-

@@ -1,7 +1,7 @@
 ---
 title: "PostgreSQL Full Text Search"
-description: "PostgreSQL native full-text search with tsvector, tsquery, GIN indexes, and ranking functions"
-tags: [postgresql, full-text-search, tsvector, tsquery, gin, ranking]
+description: "PostgreSQL native full-text search with tsvector, tsquery, GIN indexes, and ranking functions"
+tags: [postgresql, full-text-search, tsvector, tsquery, gin, ranking]
 ---
 
 # Full-Text Search

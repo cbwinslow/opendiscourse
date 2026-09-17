@@ -20,14 +20,14 @@ only. dbt = marts. Optional Prefect extra `ops`, not required.
 
 ## Hierarchy of truth
 
-1. Current code + tests  
-2. Migrations/schema  
-3. Accepted ADRs / architecture spine  
-4. Active BMAD spec/story  
-5. GitHub issue/PR  
-6. Agent memory  
-7. Old chats  
-8. Model guesses  
+1. Current code + tests
+2. Migrations/schema
+3. Accepted ADRs / architecture spine
+4. Active BMAD spec/story
+5. GitHub issue/PR
+6. Agent memory
+7. Old chats
+8. Model guesses
 
 Lower never overrides higher.
 

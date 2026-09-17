@@ -137,7 +137,7 @@ SHOW shared_preload_libraries;
 
 ## On Azure HorizonDB (Preview)
 
-- **The `azure.extensions` allowlist is set on a parameter group, not per-server.** Parameter groups are first-class resources attached to the cluster (default `default_pg17`). To change `azure.extensions`, create a new parameter group with the desired allowlist and attach it to the cluster, then run `CREATE EXTENSION`. Preload-required libraries still go in `shared_preload_libraries` (static → restart).
+- **The `azure.extensions` allowlist is set on a parameter group, not per-server.** Parameter groups are first-class resources attached to the cluster (default `default_pg17`). To change `azure.extensions`, create a new parameter group with the desired allowlist and attach it to the cluster, then run `CREATE EXTENSION`. Preload-required libraries still go in `shared_preload_libraries` (static → restart).
 
 - **The `azure.extensions` allowlist is set on a parameter group, not per-server.** A parameter group is a first-class Azure resource attached to the cluster (default `default_pg17`); edit `azure.extensions` there instead of `az postgres flexible-server parameter set`, then run `CREATE EXTENSION`. Preload-required libraries still go in `shared_preload_libraries` (static → restart).
 - PostgreSQL **17 only**; HorizonDB additionally ships `pg_textsearch` (BM25 full-text) and `pg_diskann`.

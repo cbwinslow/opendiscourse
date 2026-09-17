@@ -5,8 +5,8 @@
 
 # OpenDiscourse Comprehensive Architecture & Data Platform Re-Review
 
-**Date:** 2026-09-15  
-**Repository reviewed:** `cbwinslow/opendiscourse`  
+**Date:** 2026-09-15
+**Repository reviewed:** `cbwinslow/opendiscourse`
 **Review posture:** fresh, objective, brownfield re-evaluation. Existing project rules and prior architectural decisions were treated as hypotheses rather than constraints.
 
 ---
