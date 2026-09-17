@@ -23,7 +23,9 @@ bounded BLS).
 - **Politician joins** (FEC/disclosure/elections-as-member): blocked on CAP-4
   BioGuide identity. Never name-match.
 - **FEC-native and crime-native staging:** not identity-blocked; still v1.1.
-  Open only with Epic 7 after the v1 spine and Epic 8.
+  Open only with Epic 7 after the v1 spine and Epic 8. Canonical FEC grain
+  (when opened): candidate/committee `(id, cycle)`; itemized `sub_id`+cycle;
+  hot fact = current + two prior cycles (`resolved-questions.md`).
 - **`stage.fec_row` already holds ~102M rows on the operator cluster.**
   That is leftover staging, not authorization to promote, join, or open
   Epic 7. Schema support ≠ ingest scope (AD-10).

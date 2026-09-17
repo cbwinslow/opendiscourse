@@ -4,6 +4,7 @@ companions:
   - reuse.md
   - v1-scope.md
   - schema-invariants.md
+  - resolved-questions.md
   - ../../planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md
   - ../../planning-artifacts/prds/prd-opendiscourse-2026-09-14/prd.md
   - ../../../docs/adr/0002-schema-invariants.md
@@ -108,6 +109,16 @@ not authorize a redesign.
 - Do not expand v1.1 sources until a Connector→evidence→stage→core/fact→mart
   slice is proven (FRED e2e and/or legislator-vote). Keep-and-refine; do not
   redesign from ChatGPT schema reviews.
+- FEC (Epic 7, after CAP-4): candidate/committee masters by `(id, cycle)`;
+  itemized facts by FEC `sub_id`+cycle; lake keeps all cycle zips; hot
+  `fact` default is current cycle + previous two. Details:
+  `resolved-questions.md`.
+- `core.division` is its own entity (OCDEP 2); never a `geography_id` FK
+  on division.
+- Keep empty `core.instrument`; never ingest `fact.market_bar`; do not
+  move tables to CFA until a CFA repo exists.
+- Story 8.3 session unique keys wait until `legislative_session_id` is
+  non-null on every bill and roll_call.
 
 ## Non-goals
 
@@ -121,7 +132,12 @@ not authorize a redesign.
   (Story 2.3) branch.
 - Ripping `core.instrument` / `fact.market_bar` in v1, or loading market
   bars because those tables exist.
-- Adding `core.geography_relationship` in v1.
+- Adding `core.geography_relationship` before the first longitudinal mart
+  that needs Census relationship files (resolved-questions.md §6).
+- Promoting `core.embedding.vector_values` to pgvector before chunks exist
+  and a kNN/search story needs HNSW (resolved-questions.md §2).
+- Promoting `stage.fec_row` jsonb into `core`/`fact`, or joining FEC donors
+  to people by name (resolved-questions.md §1).
 - Another architectural rewrite from `docs/research/2026-09-17-chatgpt-schema-review.md`.
 
 ## Success signal
@@ -136,16 +152,5 @@ text session columns or `stage.fec_row` as canonical product.
 - Vendor clones from `scripts/bootstrap_upstream.sh` are the wrap targets.
 - Operator accepted keep-and-refine from the 2026-09-17 schema review
   (absorb into BMAD; do not replace epics).
-
-## Open Questions
-
-- FEC grain/retention after CAP-4.
-- When to switch embeddings from `real[]` to pgvector columns.
-- `core.division` as its own entity vs extending `core.geography` (default:
-  separate division; 8.1 stores identifiers only, no `geography_id`).
-- When to physically move `instrument` / `market_bar` to CFA (default:
-  deprecate in docs first; keep empty tables).
-- When unique keys on `core.bill` / `core.roll_call` drop textual
-  jurisdiction+session in favor of `legislative_session_id`.
-- When to add `core.geography_relationship` (default: after TIGER vintages
-  need longitudinal overlap; not 8.1).
+- Operator asked to close kernel open questions with researched best
+  options (2026-09-17); see `resolved-questions.md`.

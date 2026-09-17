@@ -41,8 +41,9 @@ imply v1 crime or market ingest.
    pair as a second identity. Do not drop the columns until unique keys
    and loaders move to the FK (later story).
 8. **Vintage geography.** Never overwrite historical TIGER boundaries.
-   `parent_geoid` stays a loose string in v1; `core.geography_relationship`
-   is deferred.
+   `parent_geoid` stays a loose string in v1. `core.geography_relationship`
+   is loaded from Census relationship files when Epic 5 needs vintage
+   comparability, not as an invented parent tree.
 9. **Idempotency keys.** Ingest of the same artifact/member/ordinal or the
    same external identifier must not create a second canonical row. Unique
    keys and NULLS NOT DISTINCT indexes already used on legislative children

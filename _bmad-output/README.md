@@ -28,7 +28,8 @@ Live schema snapshot for external review: `docs/schema-snapshot/`
 done. Story 1.4 optional. Story 2.2 = PR #18 open; Story 2.3 = PR #20 stacked
 on 2.2. Story 8.1 spec ready-for-dev (no Alembic yet). Story 1.6
 (provenance contract tests) not started. Story 8.3 (session FK unique keys)
-deferred. FR-20 / AD-10 in the spec kernel. Epic 7 closed even though
+deferred. FR-20 / AD-10 in the spec kernel. Kernel open questions closed in
+`resolved-questions.md`. Epic 7 closed even though
 `stage.fec_row` already has data.
 
 Next: land Connector PRs (#18 then #20) and implement 8.1 on its own branch.

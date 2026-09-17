@@ -188,11 +188,15 @@ catalog size.
 
 ## 8. Open Questions
 
-1. Exact FEC grain and retention once identity exists.
-2. Whether politician investments use STOCK Act / official disclosures only.
-3. When to promote `core.embedding.vector_values` to pgvector (extension
-   already on port 5434).
-4. When bill/roll-call unique keys drop textual session columns (AD-10).
+None. Closed 2026-09-17 in
+`specs/spec-opendiscourse/resolved-questions.md`:
+
+1. FEC: masters `(id, cycle)`; itemized `sub_id`+cycle; hot fact = current
+   + two prior cycles; no name joins.
+2. Politician investments: official STOCK Act / PTR filings only, via
+   `core.instrument` stub; no market bars.
+3. Embeddings: keep `real[]` until chunks + kNN story; then a new ADR.
+4. Session unique keys: Story 8.3 after `legislative_session_id` backfill.
 
 ## 9. Assumptions Index
 

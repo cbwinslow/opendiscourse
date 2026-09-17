@@ -204,21 +204,22 @@ flowchart LR
 
 ## Deferred
 
-- Promoting `real[]` embeddings to pgvector columns (extension exists).
+- Promoting `real[]` embeddings to pgvector columns (new ADR after chunks
+  + kNN story; `resolved-questions.md` §2).
 - Connector protocol v2 (typed acquire/stage results; runtime-owned
   evidence). Finish Story 2.3 first.
 - Package split (`acquisition/` / `sources/` / `domains/`).
 - Dropping SQLModel; `ty`/`sqlfluff`/`ruff format` as merge gates.
-- Moving `core.instrument` / `fact.market_bar` to CFA (deprecate in docs
-  first; tables stay empty).
+- Moving `core.instrument` / `fact.market_bar` to CFA (do not move until a
+  CFA repo exists; never ingest market bars here).
 - Materializing the full OpenStates canonical subset (Epic 8 then later
   promote stories).
 - FEC-native / crime-native staging until Epic 7 is opened (not blocked on
   BioGuide, still out of v1). Existing `stage.fec_row` is not a green light.
 - Dropping textual `jurisdiction`/`legislative_session` from `core.bill` and
-  `core.roll_call` unique keys.
-- `core.geography_relationship` (typed, dated overlaps). `parent_geoid`
-  stays a loose string in v1.
+  `core.roll_call` unique keys (Story 8.3; gate in `resolved-questions.md`).
+- `core.geography_relationship` from Census relationship files when Epic 5
+  needs vintage comparability. `parent_geoid` stays a loose string until then.
 - Provenance CHECK audit for class-A tables missing constraints
   (`geography_boundary`, `document`).
 - Prefect as required scheduler.

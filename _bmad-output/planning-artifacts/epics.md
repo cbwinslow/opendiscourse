@@ -10,6 +10,7 @@ inputDocuments:
   - specs/spec-opendiscourse/reuse.md
   - specs/spec-opendiscourse/v1-scope.md
   - specs/spec-opendiscourse/schema-invariants.md
+  - specs/spec-opendiscourse/resolved-questions.md
 ---
 
 # OpenDiscourse — epics and stories
@@ -125,8 +126,10 @@ bounded grain (jurisdiction/session or membership); dump remains replace-only.
 ### Story 8.3 — Session identity on FKs (deferred)
 As a developer, `core.bill` and `core.roll_call` unique keys use
 `legislative_session_id`, not text `jurisdiction` + `legislative_session`.
-Acceptance: Loaders and `sql/query/legislation/upsert_bill.sql` moved; text
-columns remain readable until a later drop. Do not start in 8.1.
+Acceptance: Gate in `resolved-questions.md` §5 (every bill/roll_call has
+non-null session FK; new unique keys; upsert SQL moved). Text columns may
+remain as cache. Do not start in 8.1 while `core.legislative_session` is
+empty.
 
 ## Epic 4 — Wrap unitedstates/congress
 
@@ -164,7 +167,9 @@ Acceptance: Streaming/chunked path; analytics extra.
 Do not start in v1. Politician *joins* still need Epic 3 / CAP-4. FEC-native
 and crime-native staging are not blocked on BioGuide; open this epic only
 when v1 spine + Epic 8 are in place. Existing `stage.fec_row` (~102M rows)
-is leftover staging, not a story in this epic. Stories TBD.
+is leftover staging, not a story in this epic. When opened, grains are
+`resolved-questions.md` §1 (masters by cycle; itemized `sub_id`; no jsonb
+promote). Stories TBD.
 
 ## Coverage
 

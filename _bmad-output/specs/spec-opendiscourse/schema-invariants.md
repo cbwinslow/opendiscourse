@@ -120,7 +120,8 @@ districts, tracts, and ZCTAs do not form a single parent tree.
 Story 8.1 stores division **identifiers only**; no `geography_id` on
 `core.division`.
 
-Deferred grain (not v1, not 8.1):
+Deferred grain (not v1, not 8.1): wrap Census relationship files when
+Epic 5 needs vintage comparability (`resolved-questions.md` §6).
 
 ```text
 core.geography_relationship
