@@ -97,10 +97,13 @@ Acceptance: FRED path does not need a new `plans.py` elif.
 Landed: `ingestion/connectors.py`; `FredCoreConnector`; `fred_core` not in
 `HANDLERS` or `run_plan()` elif.
 
-### Story 2.3 — Migrate FRED end-to-end
+### Story 2.3 — Migrate FRED end-to-end — done
 As an operator, FRED discover/index vs observations still split; observations
 still contract-gated.
 Acceptance: Existing FRED tests pass; provenance unchanged.
+Landed: `FredCoreConnector.discover` for catalog/index/full; `registry.sync`
+FRED path uses `run_connector`; observations stay `fredcore` +
+`ingest_manifest`.
 
 ## Epic 3 — Identity crosswalk
 
