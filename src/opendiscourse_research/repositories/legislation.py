@@ -701,6 +701,7 @@ def promote_openstates_federal(
             ("openstates_promote_sessions", "sessions"),
             ("openstates_promote_divisions", "divisions"),
             ("openstates_promote_posts", "posts"),
+            ("openstates_reconcile_memberships", "reconciled_memberships"),
             ("openstates_promote_memberships", "memberships"),
             ("openstates_promote_unresolved_memberships", "unresolved_memberships"),
         ):

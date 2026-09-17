@@ -7,7 +7,7 @@ import subprocess
 import sys
 import uuid
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from unittest.mock import patch
 from zipfile import ZipFile
@@ -1753,6 +1753,7 @@ def test_openstates_federal_promote_uses_standin_fdw(
     person_identifier = person_identifier_table()
     organization = organization_table()
     organization_identifier = organization_identifier_table()
+    membership = membership_table()
     with session() as active_session:
         person_id = active_session.execute(
             insert(person).values(full_name="8.2 Federal Occupant").returning(person.c.person_id)
@@ -1772,6 +1773,17 @@ def test_openstates_federal_promote_uses_standin_fdw(
                 organization_id=organization_id, namespace="ocd", external_id=house_ocd
             )
         )
+        pre_existing_membership_id = active_session.execute(
+            insert(membership).values(
+                person_id=person_id,
+                organization_id=organization_id,
+                post_id=None,
+                ocd_id=None,
+                role="representative",
+                start_date=date(2035, 1, 3),
+                source_artifact_id=artifact["artifact_id"],
+            ).returning(membership.c.membership_id)
+        ).scalar_one()
 
     with engine().begin() as connection:
         connection.execute(text("CREATE SCHEMA openstates_source"))
@@ -1989,8 +2001,10 @@ def test_openstates_federal_promote_uses_standin_fdw(
         assert str(kept["legislative_session_id"]) == existing_session_id
         assert kept["starts_on"] is not None
         assert first["sessions"] >= 2
+        assert first["reconciled_memberships"] == 1
         assert second["memberships"] == first["memberships"]
         assert [row["ocd_id"] for row in membership_rows] == [seat_membership]
+        assert membership_rows[0]["membership_id"] == pre_existing_membership_id
         assert str(membership_rows[0]["person_id"]) == str(person_id)
         assert membership_rows[0]["post_id"] == post_ids[post_ocd]
         assert post_ocd in post_ids

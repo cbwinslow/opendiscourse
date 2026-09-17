@@ -401,3 +401,34 @@ class TestOpenStatesPromoteArtifactBinding(unittest.TestCase):
         call_args = mock_register_artifact.call_args.args
         dataset = call_args[0]
         self.assertEqual(dataset, "openstates.dump")
+
+    @patch("opendiscourse_research.peopleload.promote_openstates_federal")
+    def test_load_openstates_federal_promote_fails_on_missing_manifest_path(
+        self, mock_promote: MagicMock
+    ) -> None:
+        with self.assertRaisesRegex(ValueError, "Snapshot manifest not found"):
+            load_openstates_federal_promote(manifest_path="/nonexistent/openstates-manifest.yaml")
+        mock_promote.assert_not_called()
+
+    @patch("opendiscourse_research.peopleload.promote_openstates_federal")
+    def test_load_openstates_federal_promote_fails_on_invalid_manifest_content(
+        self, mock_promote: MagicMock
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            manifest_file = Path(temp_dir) / "corrupt-manifest.yaml"
+            manifest_file.write_text("not a valid manifest content: [}")
+            with self.assertRaisesRegex(ValueError, "Invalid snapshot manifest"):
+                load_openstates_federal_promote(manifest_path=manifest_file)
+        mock_promote.assert_not_called()
+
+    @patch("opendiscourse_research.peopleload.find_latest_openstates_manifest", return_value=None)
+    @patch("opendiscourse_research.peopleload.promote_openstates_federal")
+    def test_load_openstates_federal_promote_require_manifest_fails_when_none_found(
+        self, mock_promote: MagicMock, mock_find_manifest: MagicMock
+    ) -> None:
+        with self.assertRaisesRegex(
+            ValueError, "OpenStates promotion requires a validated snapshot manifest"
+        ):
+            load_openstates_federal_promote(require_manifest=True)
+        mock_promote.assert_not_called()
+

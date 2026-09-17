@@ -612,10 +612,18 @@ def load_openstates_promote_command(
         readable=True,
         help="Optional reviewed OpenStates snapshot manifest to bind evidence to.",
     ),
+    require_manifest: bool = typer.Option(
+        False,
+        "--require-manifest",
+        help="Fail if a validated snapshot manifest is not available.",
+    ),
 ) -> None:
     """Promote federal OpenStates sessions and occupancy into owned core tables."""
     with render_spinner("Promoting OpenStates federal sessions and occupancy"):
-        result = load_openstates_federal_promote(manifest_path=manifest)
+        result = load_openstates_federal_promote(
+            manifest_path=manifest,
+            require_manifest=require_manifest,
+        )
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 

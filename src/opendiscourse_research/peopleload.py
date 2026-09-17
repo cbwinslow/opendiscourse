@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from .config import settings
 from .db import connect
 from .ingestion.base import IngestionRun
@@ -196,6 +198,8 @@ def find_latest_openstates_manifest() -> Path | None:
 
 def load_openstates_federal_promote(
     manifest_path: Path | str | None = None,
+    *,
+    require_manifest: bool = False,
 ) -> dict[str, Any]:
     """Promote federal OpenStates sessions and occupancy into owned core tables."""
     parameters = {
@@ -203,15 +207,29 @@ def load_openstates_federal_promote(
         "jurisdiction": "ocd-jurisdiction/country:us/government",
         "role": "federal_promote",
     }
-    target_manifest = Path(manifest_path) if manifest_path else find_latest_openstates_manifest()
-    manifest: dict[str, Any] | None = None
-    if target_manifest and target_manifest.is_file():
-        try:
-            from .openstatessnapshot import load_snapshot_manifest
+    target_manifest: Path | None = None
+    if manifest_path:
+        target_manifest = Path(manifest_path)
+        if not target_manifest.is_file():
+            raise ValueError(f"Snapshot manifest not found: {target_manifest}")
+    else:
+        target_manifest = find_latest_openstates_manifest()
+        if require_manifest and not target_manifest:
+            raise ValueError("OpenStates promotion requires a validated snapshot manifest")
 
+    manifest: dict[str, Any] | None = None
+    if target_manifest:
+        from .openstatessnapshot import load_snapshot_manifest
+
+        try:
             manifest = load_snapshot_manifest(target_manifest)
-        except (ValueError, KeyError, OSError):
-            manifest = None
+        except (ValueError, KeyError, OSError, yaml.YAMLError) as exc:
+            raise ValueError(
+                f"Invalid snapshot manifest at {target_manifest}: {exc}"
+            ) from exc
+
+    if require_manifest and manifest is None:
+        raise ValueError("OpenStates promotion requires a validated snapshot manifest")
 
     with (
         IngestionRun("openstates.legislation", parameters, mode="backfill") as run,
