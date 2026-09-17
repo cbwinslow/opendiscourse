@@ -11,6 +11,8 @@ rows into that database.
 `opendiscourse` is the owned canonical warehouse. It adopts the Open Civic Data
 entity semantics and IDs where applicable, but retains raw-source lineage and
 source-native identifiers required for reproducible federal ingestion.
+Combine Congress.gov, GovInfo, and official chamber votes in `core` by
+identifier. Do not treat the dump schema as the public contract (AD-8).
 
 ## Ownership and identifier policy
 

@@ -20,8 +20,10 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
   `cli.py`, `plans.py` HANDLERS, or `registry.sync`. Keep provider-specific
   behavior at the adapter boundary.
 - Do not write OpenStates dump tables; read `openstates_source` FDW only.
-- Do not load FEC, disclosures, elections, or crime until BioGuide identity
-  exists (Epic 3).
+  FDW is not the researcher contract; promote into `core`/`fact` (AD-8).
+- Do not name-match people. Federal person *joins* need BioGuide (Epic 3).
+  FEC/disclosure politician joins stay blocked until then. Do not start
+  Epic 7 (FEC-native/crime staging, elections) in v1.
 - Do not invent news, stocks, or corruption scores as schema domains.
 - Never commit secrets or `.env`. Capacity gate fails closed on unknown size.
 - `dlt` writes `stage` only, never `core`/`fact`.
@@ -30,7 +32,9 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
 
 - Product contract: `_bmad-output/specs/spec-opendiscourse/SPEC.md`
 - Architecture: `_bmad-output/planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md`
-- ADRs: `docs/adr/0001-postgres-system-of-record.md` (Postgres system of record)
+- ADRs: `docs/adr/0001-postgres-system-of-record.md` (Postgres system of
+  record); `docs/adr/0002-schema-invariants.md` (identity, provenance,
+  ownership, schema ≠ ingest)
 - Project skills: `.agents/skills/opendiscourse-connector`, `opendiscourse-schema-change`, `opendiscourse-provenance`, `opendiscourse-testing`
 - Data registry: `inventory/sources.yaml`, `plans.yaml`, `contracts/`
 - HTTP only: `src/opendiscourse_research/providers/`
@@ -81,6 +85,11 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
   has pgvector but promotion is a later ADR.
 - `censusdis` is Hippocratic-licensed — do not add it as a required dependency.
 - OpenStates database `openstates` is a provider snapshot; do not merge it
-  into `opendiscourse`.
+  into `opendiscourse`. Do not ingest Congress.gov/GovInfo/clerk rows into
+  the dump; combine in `core` by identifier.
+- The 10-stage Connector is current (Story 2.3), not sacred; do not redesign
+  it on the FRED branch. `docs/research/2026-09-15-chatgpt-architecture-rereview.md`
+  and `docs/research/2026-09-17-chatgpt-schema-review.md` are research, not
+  replacement epic lists. Keep-and-refine; AD-10 is the absorb.
 
 <!-- /bmad:context -->

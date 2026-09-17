@@ -28,7 +28,9 @@ not run in ordinary CI. Write tests alongside the code that needs them, not
 after; see `AGENTS.md` for the full engineering standard.
 
 Pack a repo snapshot for an external model with `npx repomix` (config:
-`repomix.config.json`).
+`repomix.config.json`). The live PostgreSQL schema-only dump used for that
+kind of review lives in `docs/schema-snapshot/` (`just export-schema`).
+See `docs/research/2026-09-17-chatgpt-review-packet.md` for the reading order.
 
 Optional extras (not required for unit tests):
 

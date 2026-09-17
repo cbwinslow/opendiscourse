@@ -33,6 +33,7 @@ class TestDocsCrossLinks(unittest.TestCase):
         text = (REPO_ROOT / "README.md").read_text()
         self.assertIn("docs/getting-started.md", text)
         self.assertIn("CONTRIBUTING.md", text)
+        self.assertIn("docs/schema-snapshot/", text)
 
     def test_adding_a_provider_explains_wiring_and_links_back(self) -> None:
         text = (REPO_ROOT / "docs" / "adding-a-provider.md").read_text()

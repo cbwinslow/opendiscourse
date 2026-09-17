@@ -11,6 +11,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     Numeric,
@@ -433,6 +434,96 @@ core_organization_identifier = Table(
 )
 
 
+core_division = Table(
+    "division",
+    SQLModel.metadata,
+    Column(
+        "division_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column("ocd_division_id", Text),
+    Column("label", Text, nullable=False),
+    Column("classification", Text, nullable=False),
+    Column("valid_from", Date),
+    Column("valid_to", Date),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+    ),
+    Column(
+        "source_payload_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.raw_payload.payload_id"),
+    ),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    CheckConstraint(
+        "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
+        name="division_check",
+    ),
+    Index(
+        "division_ocd_division_id_idx",
+        "ocd_division_id",
+        unique=True,
+        postgresql_where=text("ocd_division_id IS NOT NULL"),
+    ),
+    schema="core",
+)
+
+
+core_post = Table(
+    "post",
+    SQLModel.metadata,
+    Column(
+        "post_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column(
+        "organization_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.organization.organization_id"),
+        nullable=False,
+    ),
+    Column(
+        "division_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.division.division_id"),
+    ),
+    Column("ocd_id", Text),
+    Column("label", Text, nullable=False),
+    Column("role", Text),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+    ),
+    Column(
+        "source_payload_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.raw_payload.payload_id"),
+    ),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    CheckConstraint(
+        "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
+        name="post_check",
+    ),
+    UniqueConstraint("post_id", "organization_id", name="post_id_organization_id_key"),
+    Index("post_organization_idx", "organization_id"),
+    Index("post_division_idx", "division_id"),
+    Index(
+        "post_ocd_id_idx",
+        "ocd_id",
+        unique=True,
+        postgresql_where=text("ocd_id IS NOT NULL"),
+    ),
+    schema="core",
+)
+
+
 core_membership = Table(
     "membership",
     SQLModel.metadata,
@@ -453,6 +544,10 @@ core_membership = Table(
         PostgreSQLUUID(as_uuid=True),
         ForeignKey("core.organization.organization_id"),
         nullable=False,
+    ),
+    Column(
+        "post_id",
+        PostgreSQLUUID(as_uuid=True),
     ),
     Column(
         "legislative_session_id",
@@ -477,8 +572,14 @@ core_membership = Table(
         "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
         name="membership_check",
     ),
+    ForeignKeyConstraint(
+        ["post_id", "organization_id"],
+        ["core.post.post_id", "core.post.organization_id"],
+        name="membership_post_organization_fkey",
+    ),
     Index("membership_person_idx", "person_id"),
     Index("membership_organization_idx", "organization_id"),
+    Index("membership_post_idx", "post_id"),
     schema="core",
 )
 
@@ -529,6 +630,16 @@ def organization_table():
 def organization_identifier_table():
     """Return Alembic-adopted stable organization identifiers."""
     return core_organization_identifier
+
+
+def division_table():
+    """Return the Alembic-adopted canonical political-division table."""
+    return core_division
+
+
+def post_table():
+    """Return the Alembic-adopted canonical organization-post table."""
+    return core_post
 
 
 def membership_table():

@@ -5,8 +5,8 @@ description: 'Change OpenDiscourse warehouse schema the approved way. Use when a
 
 # OpenDiscourse schema change
 
-Read `AGENTS.md` and ADR-0001 (`docs/adr/0001-postgres-system-of-record.md`)
-first.
+Read `AGENTS.md`, ADR-0001 (`docs/adr/0001-postgres-system-of-record.md`),
+and ADR-0002 (`docs/adr/0002-schema-invariants.md`) first.
 
 ## When to use
 
@@ -22,7 +22,9 @@ first.
   `migrations/versions/`. Baseline `d207df35ca10` (`migrations/baseline/`,
   `scripts/render_baseline_ddl.py --check`).
 - Alembic for catalog/core/fact/ingest/stage contracts. Cut a reversible
-  revision; keep `repositories/` SQL-only.
+  revision; keep `repositories/` SQL-only. Follow ADR-0002
+  (`docs/adr/0002-schema-invariants.md`): UUID PKs, typed grains, source-derived
+  evidence, text session columns are compatibility only.
 - Raw psycopg only for COPY, set-based promotion, OpenStates FDW, and
   caller-supplied legislative transactions.
 - Runtime SQL lives in `sql/query/`. `sql/NNN_*.sql` is bootstrap/legacy
@@ -32,7 +34,9 @@ first.
 
 ## Do not
 
-- Invent news, stocks, or corruption-score domains.
+- Invent news, stocks, or corruption-score domains. Do not load market bars
+  because `core.instrument` / `fact.market_bar` exist. Do not promote
+  `stage.fec_row` while Epic 7 is closed.
 - Dual-write durable facts to DuckDB, Parquet, Qdrant, or files as authority.
 - Promote `core.embedding.vector_values` from `real[]` to pgvector without a
   new ADR (extension may already be installed).

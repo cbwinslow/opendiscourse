@@ -13,7 +13,8 @@ only. dbt = marts. Optional Prefect extra `ops`, not required.
 |---|---|
 | OpenSpec / Spec Kit | Operator chose BMAD+TEA as the single SDD |
 | Restart repo | Foundation is sound; god modules are the bug |
-| Copy OpenStates into `opendiscourse` | FDW `openstates_source` is the merge; dump stays refreshable |
+| Copy OpenStates into `opendiscourse` | FDW `openstates_source` is the reader; dump stays refreshable |
+| Adopt OpenStates Django dump as `core` | OCD language in owned tables; dump is a replaceable snapshot |
 | Qdrant / Weaviate | Extra ops; pgvector is enough at this scale |
 | Playwright-first TEA | Warehouse is pytest + PostGIS |
 
@@ -32,7 +33,7 @@ Lower never overrides higher.
 
 ## ChatGPT 12-story process epic (status)
 
-Stories 1, 5, 7 (partial), 8–9, 11 (partial) landed as commits on `main`
-(BMAD/TEA install, pytest/CI/Repomix/Serena, extras, Dependabot). Remaining
-process: `bmad-project-context` / AGENTS.md constitution, ADRs as files,
-OpenDiscourse-specific skills, GitHub ruleset. Product: Connector (story 12).
+Superseded by `_bmad-output/planning-artifacts/epics.md`. Process stories
+1.1–1.3 and 1.5 (ADR-0002) are done; 1.4 (GitHub ruleset) is optional.
+Product: Connector 2.1 done; 2.2/2.3 in open PRs; Epic 8 next for
+legislation. Do not use this 12-story list as the backlog.

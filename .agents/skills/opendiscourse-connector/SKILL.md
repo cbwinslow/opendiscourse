@@ -38,6 +38,9 @@ PRD. Also load `opendiscourse-provenance` and `opendiscourse-testing`.
   or `registry.sync`.
 - Treat `IngestionRun` as a Connector. It is a provenance context manager in
   `src/opendiscourse_research/ingestion/base.py`.
-- Write OpenStates dump tables; read `openstates_source` FDW only.
-- Load FEC, disclosures, elections, or crime until BioGuide identity exists
-  (Epic 3).
+- Write OpenStates dump tables; read `openstates_source` FDW only. Do not
+  treat FDW as the public schema; do not write Congress.gov/GovInfo/clerk
+  rows into database `openstates`.
+- Start Epic 7 (FEC/disclosures/elections/crime) in v1. Politician joins
+  need BioGuide (Epic 3); native FEC/crime staging is v1.1, not this epic.
+- Redesign the 10-stage Connector before Story 2.3 (FRED e2e) is the oracle.

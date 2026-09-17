@@ -2,7 +2,7 @@
 title: OpenDiscourse
 status: final
 created: 2026-09-14
-updated: 2026-09-14
+updated: 2026-09-17
 ---
 
 # PRD: OpenDiscourse
@@ -41,10 +41,10 @@ quant traders (CFA owns markets).
 
 ### 2.3 Key User Journeys
 
-- **UJ-1. Operator refreshes a reviewed plan.** Chris runs `research-db
-  plan-due` (or browse). Capacity gate runs. Artifacts land in the lake with
-  checksums. Staging is replaceable; core/fact only change through reviewed
-  transforms. Failure is actionable with a resume command.
+- **UJ-1. Operator refreshes a reviewed plan.** The operator runs
+  `research-db plan-due` (or browse). Capacity gate runs. Artifacts land in
+  the lake with checksums. Staging is replaceable; core/fact only change
+  through reviewed transforms. Failure is actionable with a resume command.
 - **UJ-2. Researcher builds a district-year panel.** They hit mart views (or
   DuckDB/Parquet export), not raw `fact.measurement` joins. Geography vintages
   are explicit. They can follow a cell back to `ingest.run` + source URL.
@@ -99,7 +99,9 @@ scraper. `[ASSUMPTION: vendor checkout is the wrap target.]`
 BioGuide as the federal deterministic key.
 
 **FR-9:** OpenStates remains an isolated snapshot; warehouse reads via FDW
-`openstates_source`; never write into the dump.
+`openstates_source`; never write into the dump. FDW is not the researcher
+contract; promote OCD-aligned rows into `core`. Combine Congress.gov,
+GovInfo, and clerk votes in `core` by identifier, not inside the dump.
 
 ### 4.4 Geography, census, macro
 
@@ -135,10 +137,19 @@ sources into PRDs.
 **FR-19:** Fast CI: `ruff check src` + non-DB pytest. DB tests stay serial
 against PostGIS.
 
+### 4.7 Schema invariants
+
+**FR-20:** Canonical schema follows AD-10: UUID PKs plus identifier tables;
+source-derived evidence; typed grains; schema support is not ingest;
+`mart` is dbt-owned; bill/roll-call text session columns are compatibility
+only. `[SOURCE: 2026-09-17 schema review absorb.]`
+
 ## 5. Non-Goals (Explicit)
 
 - Restart the repository.
-- News, Epstein, or stocks as first-class schema domains.
+- News, Epstein, or stocks as first-class schema domains. Existing
+  `core.instrument` / `fact.market_bar` are empty compatibility tables, not
+  a license to ingest prices.
 - Corruption/integrity **scores** as a product primitive (keep evidence).
 - Meltano/Singer as the foundation; Qdrant/Pinecone; FastAPI CRUD.
 - OpenSpec or Spec Kit beside BMAD.
@@ -150,14 +161,18 @@ against PostGIS.
 
 ### 6.1 In Scope
 
-Operating contract + Connector + FRED reference; identity crosswalk; wrap
-congress votes; research packs for the v1 spine; `api` schema views for
-what already exists; DuckDB export path.
+Operating contract + Connector + FRED reference (the proving vertical
+slice); identity crosswalk; wrap congress votes; research packs for the
+v1 spine; `api` schema views for what already exists; DuckDB export path.
+Existing ACS/TIGER/bill loads do not replace the Connector slice.
 
 ### 6.2 Out of Scope for MVP
 
-FEC/disclosures/elections/crime **loads** until identity crosswalk exists
-(they are v1.1, not “maybe”). Prefect/Dagster as required runtime.
+FEC/disclosure/elections-as-member **joins** until identity crosswalk exists.
+FEC-native and crime-native staging are also v1.1 (not identity-blocked, still
+not MVP). Prefect/Dagster as required runtime. Adopting the OpenStates Django
+dump as the canonical schema. Connector v2 / legislative post schema on the
+FRED branch.
 
 ## 7. Success Metrics
 
@@ -173,10 +188,15 @@ catalog size.
 
 ## 8. Open Questions
 
-1. Exact FEC grain and retention once identity exists.
-2. Whether politician investments use STOCK Act / official disclosures only.
-3. When to promote `core.embedding.vector_values` to pgvector (extension
-   already on port 5434).
+None. Closed 2026-09-17 in
+`specs/spec-opendiscourse/resolved-questions.md`:
+
+1. FEC: masters `(id, cycle)`; itemized `sub_id`+cycle; hot fact = current
+   + two prior cycles; no name joins.
+2. Politician investments: official STOCK Act / PTR filings only, via
+   `core.instrument` stub; no market bars.
+3. Embeddings: keep `real[]` until chunks + kNN story; then a new ADR.
+4. Session unique keys: Story 8.3 after `legislative_session_id` backfill.
 
 ## 9. Assumptions Index
 

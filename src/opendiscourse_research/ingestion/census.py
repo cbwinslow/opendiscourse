@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from openpyxl import load_workbook
 from sqlalchemy.dialects.postgresql import insert
 
 from ..capacity import remote_size, storage_preview
@@ -200,6 +199,13 @@ def discover_acs_tables(year: int) -> dict[str, Any]:
         mode="plan",
     ) as run:
         path = download(spec)
+        try:
+            from openpyxl import load_workbook
+        except ImportError as exc:
+            raise RuntimeError(
+                "ACS table-list discovery requires `uv sync --extra ingest`"
+            ) from exc
+
         book = load_workbook(
             filename=BytesIO(path.read_bytes()), read_only=True, data_only=True
         )

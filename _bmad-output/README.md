@@ -16,6 +16,21 @@ Sources (absorbed; do not re-ingest unless updating the spec):
 - `docs/research/2026-09-14-chatgpt-review.md`
 - `docs/research/2026-09-14-chatgpt-engineering-plan.md`
 - `docs/research/2026-09-14-chatgpt-bmad-context-plan.md`
+- `docs/research/2026-09-15-chatgpt-architecture-rereview.md` (partial; not a
+  replacement epic list; do not implement its strangler reboot)
+- `docs/research/2026-09-17-chatgpt-schema-review.md` (keep-and-refine;
+  ADR-0002 / `schema-invariants.md`)
 
-Next: Story 2.2 (FRED without HANDLERS elif), then 2.3 (FRED e2e).
-Story 1.1–1.3 and 2.1 are done. Story 1.4 (GitHub ruleset) is optional.
+Live schema snapshot for external review: `docs/schema-snapshot/`
+(reading order: `docs/research/2026-09-17-chatgpt-review-packet.md`).
+
+**Standing (2026-09-17):** Architecture approved. Stories 1.1–1.3, 1.5, 2.1
+done. Story 1.4 optional. Story 2.2 = PR #18 open; Story 2.3 = PR #20 stacked
+on 2.2. Story 8.1 spec ready-for-dev (no Alembic yet). Story 1.6
+(provenance contract tests) not started. Story 8.3 (session FK unique keys)
+deferred. FR-20 / AD-10 in the spec kernel. Kernel open questions closed in
+`resolved-questions.md`. Epic 7 closed even though
+`stage.fec_row` already has data.
+
+Next: land Connector PRs (#18 then #20) and implement 8.1 on its own branch.
+Do not start Epic 7. Do not redesign.

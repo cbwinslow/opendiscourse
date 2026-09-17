@@ -133,7 +133,10 @@ has been found, verified, loaded, put on hold, and selected next. See
 
 Legislative data follows the Open Civic Data/OpenStates interoperability model;
 the canonical mapping and safe migration plan for the existing `government`
-workspace are in `docs/model.md` and `docs/consolidation.md`.
+workspace are in `docs/model.md` and `docs/consolidation.md`. A schema-only
+dump of the live warehouse (for external review, not restore) is in
+`docs/schema-snapshot/`; reading order is
+`docs/research/2026-09-17-chatgpt-review-packet.md`.
 
 ## Design rules
 

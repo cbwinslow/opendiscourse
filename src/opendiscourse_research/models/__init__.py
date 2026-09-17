@@ -24,6 +24,7 @@ from .core import (
     bill_table,
     business_pattern_table,
     decennial_dhc_value_table,
+    division_table,
     document_chunk_table,
     document_table,
     embedding_table,
@@ -42,6 +43,7 @@ from .core import (
     person_identifier_table,
     person_table,
     population_estimate_table,
+    post_table,
     roll_call_table,
 )
 from .ingest import (
@@ -75,6 +77,7 @@ __all__ = [
     "business_pattern_table",
     "cursor_table",
     "decennial_dhc_value_table",
+    "division_table",
     "document_chunk_table",
     "document_table",
     "embedding_table",
@@ -94,6 +97,7 @@ __all__ = [
     "person_identifier_table",
     "person_table",
     "population_estimate_table",
+    "post_table",
     "raw_payload_table",
     "resume_cursor_table",
     "roll_call_table",

@@ -64,15 +64,21 @@ other refresh rule. It must not silently expand a source's scope.
 
 ## Initial delivery order
 
-1. Make the current schema and plans runnable in a local Postgres container.
-2. Complete Congress.gov collections plus GovInfo bill-status/text parser.
-3. Add TIGER geography and an FBI agency/coverage loader, then ACS/PEP/BEA/BLS
-   place-year facts.
-4. Add document chunking and a production pgvector deployment choice.
-5. Add source-family backfill plans, object-store backups, data-quality checks,
-   and research marts.
+BMAD `v1-scope.md` wins. FBI/crime and FEC are **v1.1**, not this list.
 
-For production embeddings, use a Postgres image with both PostGIS and pgvector
-or keep vectors in a dedicated compatible Postgres service. The portable base
-schema stores dimension-checked arrays so source-document ingestion is not
-blocked by that deployment decision.
+1. Make the current schema and plans runnable in a local Postgres container.
+2. Identity crosswalk (BioGuide) and legislative primitives (Epic 8), then
+   wrap Congress.gov / GovInfo / clerk votes into `core` (not the OpenStates
+   dump).
+3. TIGER geography vintages, then ACS/PEP/CBP/bounded BEA/BLS place-year
+   facts. Macro: FRED/Treasury as the Connector reference slice.
+4. dbt marts (`district_year`, `legislator_vote`) and access (`api` views,
+   DuckDB/Parquet).
+5. **v1.1 only after the v1 spine:** FEC, disclosures, elections, crime/FBI.
+   `stage.fec_row` existing is not authorization.
+
+Document chunking / pgvector column promotion remains a later ADR. For
+production embeddings, use a Postgres image with both PostGIS and pgvector
+or keep vectors in a dedicated compatible Postgres service. The portable
+base schema stores dimension-checked arrays so source-document ingestion is
+not blocked by that deployment decision.
