@@ -459,6 +459,26 @@ def test_alembic_adoptions_can_downgrade_and_reupgrade(
         with engine().connect() as connection:
             assert connection.execute(text("SELECT count(*) FROM catalog.resource")).scalar_one() >= 0
             assert connection.execute(text("SELECT count(*) FROM alembic_version")).scalar_one() == 0
+            downgraded_boundary_constraints = {
+                row[0]
+                for row in connection.execute(
+                    text(
+                        "SELECT conname FROM pg_constraint "
+                        "WHERE conrelid = 'core.geography_boundary'::regclass"
+                    )
+                )
+            }
+            downgraded_document_constraints = {
+                row[0]
+                for row in connection.execute(
+                    text(
+                        "SELECT conname FROM pg_constraint "
+                        "WHERE conrelid = 'core.document'::regclass"
+                    )
+                )
+            }
+            assert "geography_boundary_check" not in downgraded_boundary_constraints
+            assert "document_check" not in downgraded_document_constraints
     finally:
         command.upgrade(config, "head")
 

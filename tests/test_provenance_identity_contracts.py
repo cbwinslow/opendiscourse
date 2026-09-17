@@ -52,6 +52,7 @@ def catalog_database() -> Iterator[None]:
             yield
         finally:
             settings.database_url = original_url
+            _engine.cache_clear()
         return
 
     postgres = pytest.importorskip("testcontainers.postgres")
@@ -91,7 +92,7 @@ def _contract_payload(suffix: str) -> uuid.UUID:
         request=httpx.Request("GET", f"https://example.test/payload/{suffix}"),
     )
     with IngestionRun("fred.series", {"test": True, "suffix": suffix}, mode="plan") as run:
-        return run.store_payload(response, {"source": f"payload-{suffix}"})
+        return uuid.UUID(str(run.store_payload(response, {"source": f"payload-{suffix}"})))
 
 
 def _contract_person(suffix: str) -> uuid.UUID:
@@ -214,6 +215,18 @@ def test_sourceless_membership_rejected(catalog_database: None) -> None:
             )
         )
 
+    # Accept row with payload evidence
+    payload_id = _contract_payload("membership-valid-payload")
+    with session() as active_session:
+        active_session.execute(
+            insert(membership).values(
+                person_id=person_id,
+                organization_id=org_id,
+                role="member",
+                source_payload_id=payload_id,
+            )
+        )
+
 
 def test_sourceless_member_vote_rejected(catalog_database: None) -> None:
     """Class-A fact.member_vote rejects rows missing both artifact and payload evidence."""
@@ -242,6 +255,19 @@ def test_sourceless_member_vote_rejected(catalog_database: None) -> None:
                 person_id=person_id,
                 position="yea",
                 source_artifact_id=artifact_id,
+            )
+        )
+
+    # Accept row with payload evidence
+    person_id_2 = _contract_person("sourceless-vote-payload")
+    payload_id = _contract_payload("vote-valid-payload")
+    with session() as active_session:
+        active_session.execute(
+            insert(votes).values(
+                roll_call_id=roll_call_id,
+                person_id=person_id_2,
+                position="yea",
+                source_payload_id=payload_id,
             )
         )
 
@@ -351,7 +377,7 @@ def test_duplicate_person_external_id_rejected(catalog_database: None) -> None:
         )
 
     # Inserting the same namespace + external_id for another person must fail
-    with pytest.raises(IntegrityError), session() as active_session:
+    with pytest.raises(IntegrityError, match="person_identifier_pkey"), session() as active_session:
         active_session.execute(
             insert(identifiers).values(
                 person_id=person_2_id,
@@ -379,7 +405,10 @@ def test_duplicate_artifact_key_rejected(catalog_database: None) -> None:
         )
 
     # Second insert with identical dataset_id and artifact_key must fail
-    with pytest.raises(IntegrityError), session() as active_session:
+    with (
+        pytest.raises(IntegrityError, match="artifact_dataset_id_artifact_key_key"),
+        session() as active_session,
+    ):
         active_session.execute(
             insert(artifacts).values(
                 dataset_id=dataset_id,
@@ -510,7 +539,12 @@ def test_duplicate_tiger_boundary_vintage_rejected(catalog_database: None) -> No
         )
 
     # Inserting second boundary with the same geography_id and vintage 2020 must fail
-    with pytest.raises(IntegrityError), session() as active_session:
+    with (
+        pytest.raises(
+            IntegrityError, match="geography_boundary_geography_id_boundary_vintage_key"
+        ),
+        session() as active_session,
+    ):
         active_session.execute(
             insert(boundary).values(
                 geography_id=geography_id,
