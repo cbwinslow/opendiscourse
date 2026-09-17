@@ -137,6 +137,13 @@ sources into PRDs.
 **FR-19:** Fast CI: `ruff check src` + non-DB pytest. DB tests stay serial
 against PostGIS.
 
+### 4.7 Schema invariants
+
+**FR-20:** Canonical schema follows AD-10: UUID PKs plus identifier tables;
+source-derived evidence; typed grains; schema support is not ingest;
+`mart` is dbt-owned; bill/roll-call text session columns are compatibility
+only. `[SOURCE: 2026-09-17 schema review absorb.]`
+
 ## 5. Non-Goals (Explicit)
 
 - Restart the repository.
@@ -154,9 +161,10 @@ against PostGIS.
 
 ### 6.1 In Scope
 
-Operating contract + Connector + FRED reference; identity crosswalk; wrap
-congress votes; research packs for the v1 spine; `api` schema views for
-what already exists; DuckDB export path.
+Operating contract + Connector + FRED reference (the proving vertical
+slice); identity crosswalk; wrap congress votes; research packs for the
+v1 spine; `api` schema views for what already exists; DuckDB export path.
+Existing ACS/TIGER/bill loads do not replace the Connector slice.
 
 ### 6.2 Out of Scope for MVP
 

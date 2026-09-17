@@ -8,7 +8,9 @@ identity → legislation (incl. Epic 8 primitives) → TIGER/geography
 then v1.1: FEC → disclosures → elections → crime
 ```
 
-Do not start v1.1 because a staging table already exists.
+Do not start v1.1 because a staging table already exists. Do not expand
+horizontally until a Connector→mart slice is proven (FRED e2e and/or
+legislator-vote). Pre-Connector ACS/TIGER/bill loads do not count.
 
 ## v1 loadable spine
 
@@ -39,3 +41,8 @@ tables; no market-price ingest.
   via FDW. Do not merge the dump. Do not treat FDW as the researcher
   contract; promote into `core` (AD-8).
 - `vector` extension 0.8.5 installed; `core.embedding` still portable `real[]`.
+- Already loaded (pre-Connector paths): ~36k bills, ~465k member votes,
+  ACS bulk ~99 GiB, TIGER boundaries ~10 GiB, `stage.fec_row` ~74 GiB.
+- Still empty / missing: `core.legislative_session`, `core.membership`,
+  market tables; `core.post` / `core.division` not created (Story 8.1).
+- `api` schema exists with no reviewed views. Some `mart` / `leg` views exist.

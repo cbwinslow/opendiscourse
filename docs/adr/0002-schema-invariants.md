@@ -43,6 +43,10 @@ imply v1 crime or market ingest.
 8. **Vintage geography.** Never overwrite historical TIGER boundaries.
    `parent_geoid` stays a loose string in v1; `core.geography_relationship`
    is deferred.
+9. **Idempotency keys.** Ingest of the same artifact/member/ordinal or the
+   same external identifier must not create a second canonical row. Unique
+   keys and NULLS NOT DISTINCT indexes already used on legislative children
+   are the pattern; new tables follow them.
 
 ## Alternatives considered
 

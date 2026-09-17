@@ -134,8 +134,8 @@ Python: `providers/` (HTTP only) → `ingestion/` (pipelines; Connector in
   rows need direct evidence; identity/reference exceptions are listed in
   `schema-invariants.md`. Text `jurisdiction`/`legislative_session` on
   `core.bill` and `core.roll_call` are compatibility only. Schema support
-  is not authorized ingest. Typed grains. Keep-and-refine; do not redesign
-  from ChatGPT schema reviews.
+  is not authorized ingest. Typed grains. Idempotent unique keys. Keep-and-refine;
+  do not redesign from ChatGPT schema reviews.
 - **ADR:** `docs/adr/0002-schema-invariants.md`
 
 ## Consistency Conventions

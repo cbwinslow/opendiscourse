@@ -6,6 +6,7 @@ companions:
   - schema-invariants.md
   - ../../planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md
   - ../../planning-artifacts/prds/prd-opendiscourse-2026-09-14/prd.md
+  - ../../../docs/adr/0002-schema-invariants.md
 sources:
   - ../../../docs/research/2026-09-14-chatgpt-review.md
   - ../../../docs/research/2026-09-14-chatgpt-engineering-plan.md
@@ -27,7 +28,9 @@ identities, geography, and time. The repo already has the warehouse
 foundation; organic growth produced god modules and no executable SDD.
 This spec exists to **narrow the product**, **standardize ingestion behind
 Connectors**, **wrap community tools**, and **make BMAD the software process**
-so agents can implement without re-reading the ChatGPT essays.
+so agents can implement without re-reading the ChatGPT essays. The
+2026-09-17 schema review **keeps this warehouse and refines it**; it does
+not authorize a redesign.
 
 ## Capabilities
 
@@ -58,7 +61,9 @@ so agents can implement without re-reading the ChatGPT essays.
 - **CAP-6**
   - **intent:** Researcher can query reviewed data via SQL, PostgREST `api`,
     or DuckDB/Parquet without loading unbounded `fetchall()` exports.
-  - **success:** `api` schema exists; one export path streams or chunks.
+  - **success:** Reviewed read-only views in `api` cover loaded v1 spine
+    tables with no `ingest`/`stage` exposure; one export path streams or
+    chunks. (`api` schema already exists; views are Epic 6.1.)
 - **CAP-7**
   - **intent:** Agents can implement changes through BMAD sized to the work,
     with inventory remaining the data contract.
@@ -87,6 +92,9 @@ so agents can implement without re-reading the ChatGPT essays.
 - Do not require `censusdis`.
 - Lower context (chats, memory) never overrides code, tests, migrations, or
   this spec.
+- Internal UUID primary keys; external IDs (BioGuide, OCD, congress keys,
+  roll-call ids) live in identifier tables or unique columns, never as the
+  physical PK (AD-10).
 - Schema support is not authorized ingest (AD-10). `stage.fec_row` and
   empty market tables do not open Epic 7 or stock-bar loads.
 - Typed grains; do not collapse bills, votes, GIS, ACS, or money into one
@@ -118,9 +126,9 @@ so agents can implement without re-reading the ChatGPT essays.
 
 ## Success signal
 
-A later session can implement Epic 2–3 from `_bmad-output/` without opening
-the ChatGPT files, and FRED-as-Connector plus an `AGENTS.md` constitution
-merge without expanding ingest scope.
+A later session can ship Stories 2.2/2.3 and 8.1 from `_bmad-output/`
+without opening ChatGPT files, without opening Epic 7, and without treating
+text session columns or `stage.fec_row` as canonical product.
 
 ## Assumptions
 

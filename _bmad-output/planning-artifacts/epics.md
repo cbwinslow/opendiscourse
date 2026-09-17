@@ -9,6 +9,7 @@ inputDocuments:
   - specs/spec-opendiscourse/SPEC.md
   - specs/spec-opendiscourse/reuse.md
   - specs/spec-opendiscourse/v1-scope.md
+  - specs/spec-opendiscourse/schema-invariants.md
 ---
 
 # OpenDiscourse — epics and stories
@@ -17,11 +18,11 @@ Fast-path decomposition. No UX spine (CLI/TUI already exist; no new UI epic).
 
 ## Extracted requirements
 
-**FR-1..FR-19** as in the PRD. **NFR:** provenance, capacity fail-closed,
+**FR-1..FR-20** as in the PRD. **NFR:** provenance, capacity fail-closed,
 parameterized SQL, pytest+PostGIS, BMAD change-sizing, database name
-`opendiscourse`. **Architecture extras:** AD-1..AD-9, FRED as first Connector,
+`opendiscourse`. **Architecture extras:** AD-1..AD-10, FRED as first Connector,
 no Playwright-first TEA, OpenStates dump is a source snapshot (AD-8), not a
-physical merge.
+physical merge. Schema support is not ingest (AD-10).
 
 ## Epic 1 — Development substrate
 
@@ -121,6 +122,12 @@ not `openstates_source.opencivicdata_*`.
 Acceptance: Documented; at least one promote path from FDW to `core` for a
 bounded grain (jurisdiction/session or membership); dump remains replace-only.
 
+### Story 8.3 — Session identity on FKs (deferred)
+As a developer, `core.bill` and `core.roll_call` unique keys use
+`legislative_session_id`, not text `jurisdiction` + `legislative_session`.
+Acceptance: Loaders and `sql/query/legislation/upsert_bill.sql` moved; text
+columns remain readable until a later drop. Do not start in 8.1.
+
 ## Epic 4 — Wrap unitedstates/congress
 
 ### Story 4.1 — Senate + House votes producer
@@ -156,7 +163,8 @@ Acceptance: Streaming/chunked path; analytics extra.
 
 Do not start in v1. Politician *joins* still need Epic 3 / CAP-4. FEC-native
 and crime-native staging are not blocked on BioGuide; open this epic only
-when v1 spine + Epic 8 are in place. Stories TBD.
+when v1 spine + Epic 8 are in place. Existing `stage.fec_row` (~102M rows)
+is leftover staging, not a story in this epic. Stories TBD.
 
 ## Coverage
 
@@ -173,7 +181,9 @@ when v1 spine + Epic 8 are in place. Stories TBD.
 | FR-13 | 5 |
 | FR-14..16 | 6 |
 | FR-17..19 | 1 |
-| AD-10 | 1.5, 1.6 |
+| AD-10 | 1.5, 1.6, 8.3 |
+| FR-20 | 1.5, 1.6, 8.3 |
+| FR-20 | 1.5, 1.6, 8.3 |
 
 ## Suggested next build
 
