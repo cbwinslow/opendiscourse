@@ -53,6 +53,21 @@ As an operator, `main` requires PR + CI, no force-push, squash; no extra
 human approver.
 Acceptance: documented; applied if GitHub permissions allow.
 
+### Story 1.5 — Schema invariants ADR — done (this absorb)
+As an agent, I follow AD-10 / ADR-0002 instead of inferring schema rules
+from ChatGPT essays.
+Acceptance: ADR file; spec companion `schema-invariants.md`; blueprint/PRD
+persona/persistence date aligned; dual session columns marked compatibility;
+`stage.fec_row` and market tables documented as not ingest-authorized.
+Landed with the 2026-09-17 schema-review absorb.
+
+### Story 1.6 — Provenance and identity contract tests
+As an operator, class-A source-derived tables reject source-less rows, and
+duplicate external person IDs / duplicate artifacts fail.
+Acceptance: audit remaining CHECK gaps (`geography_boundary`, `document`);
+pytest db cases listed in `schema-invariants.md`. Not on the FRED branch;
+not mixed into 8.1 unless a CHECK is required for new 8.1 tables.
+
 ## Epic 2 — Connector protocol + FRED reference
 
 ### Story 2.1 — Connector Protocol — done
@@ -96,6 +111,9 @@ division for a time range, not only a chamber.
 Acceptance: Alembic adds `core.post` (or equivalent) and `core.division` (or
 equivalent, distinct from Census geography); `core.membership` can reference
 a post; existing membership rows remain valid; no OpenStates dump writes.
+Do not treat `bill.jurisdiction` / `bill.legislative_session` text as
+canonical; prefer `legislative_session_id`. Do not add
+`core.geography_relationship` here.
 
 ### Story 8.2 — OpenStates promote, not public FDW
 As a researcher, I query `core`/`fact`/`mart` for OCD-aligned state rows,
@@ -155,9 +173,20 @@ when v1 spine + Epic 8 are in place. Stories TBD.
 | FR-13 | 5 |
 | FR-14..16 | 6 |
 | FR-17..19 | 1 |
+| AD-10 | 1.5, 1.6 |
 
 ## Suggested next build
 
-`bmad-build` Story 2.2 (registry without HANDLERS), then 2.3 (FRED e2e).
-After Epic 2: Epic 8 before Epic 4. Do not implement Connector v2 or the
-2026-09-15 rereview reboot.
+Keep-and-refine (2026-09-17 schema review). Do not start Epic 7.
+
+Independent tracks (do not mix on one branch):
+
+1. **Connector vertical slice:** merge PR #18 (Story 2.2), then PR #20
+   (Story 2.3 FRED e2e, stacked on 2.2).
+2. **Legislative primitives:** Story 8.1 on `feat/8-1-legislative-primitives`
+   (spec ready-for-dev; no Alembic yet). Then 8.2 promote. Then Epic 4.
+3. **Docs absorb:** PR #19 (2026-09-15 rereview) plus this 2026-09-17
+   schema-invariants absorb. Story 1.6 (provenance contract tests) after
+   8.1 CHECKs are known.
+
+Do not implement Connector v2 or the 2026-09-15 rereview reboot.

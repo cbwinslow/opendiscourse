@@ -1,6 +1,7 @@
 # Persistence migration status
 
-Last verified: 2026-08-19
+Last verified: 2026-09-17 (schema-only snapshot in `docs/schema-snapshot/`;
+Alembic head at capture `c4f7a2d9e651`). Schema invariants: ADR-0002.
 
 A live schema-only dump of the operator warehouse (plus the OpenStates OCD
 provider tables) is checked in at `docs/schema-snapshot/` for review. That
@@ -33,7 +34,10 @@ Alembic-adopted.
 `fact.acs_bulk_estimate` is also Alembic-adopted.
 `fact.decennial_dhc_value` is also Alembic-adopted.
 `core.instrument`, `core.instrument_symbol`, and `fact.market_bar` are also
-Alembic-adopted.
+Alembic-adopted as **empty compatibility tables**. They are not v1 product
+scope; do not add market-bar ingest. `stage.fec_row` is Alembic-adopted
+staging; the operator cluster already has rows, but Epic 7 is closed and
+those rows must not be promoted to `core`/`fact`.
 
 The baseline creates new schemas directly from static DDL. For a pre-Alembic
 database, it preserves the legacy-seeded tables and indexes and records the

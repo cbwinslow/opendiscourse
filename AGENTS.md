@@ -32,7 +32,9 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
 
 - Product contract: `_bmad-output/specs/spec-opendiscourse/SPEC.md`
 - Architecture: `_bmad-output/planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md`
-- ADRs: `docs/adr/0001-postgres-system-of-record.md` (Postgres system of record)
+- ADRs: `docs/adr/0001-postgres-system-of-record.md` (Postgres system of
+  record); `docs/adr/0002-schema-invariants.md` (identity, provenance,
+  ownership, schema ≠ ingest)
 - Project skills: `.agents/skills/opendiscourse-connector`, `opendiscourse-schema-change`, `opendiscourse-provenance`, `opendiscourse-testing`
 - Data registry: `inventory/sources.yaml`, `plans.yaml`, `contracts/`
 - HTTP only: `src/opendiscourse_research/providers/`
@@ -87,6 +89,7 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
   the dump; combine in `core` by identifier.
 - The 10-stage Connector is current (Story 2.3), not sacred; do not redesign
   it on the FRED branch. `docs/research/2026-09-15-chatgpt-architecture-rereview.md`
-  is research, not a replacement epic list.
+  and `docs/research/2026-09-17-chatgpt-schema-review.md` are research, not
+  replacement epic lists. Keep-and-refine; AD-10 is the absorb.
 
 <!-- /bmad:context -->

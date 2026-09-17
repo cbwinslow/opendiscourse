@@ -1,5 +1,15 @@
 # Source sequencing
 
+Delivery order (BMAD wins over stale `docs/blueprint.md`):
+
+```text
+identity → legislation (incl. Epic 8 primitives) → TIGER/geography
+→ Census/housing/economic → marts/access
+then v1.1: FEC → disclosures → elections → crime
+```
+
+Do not start v1.1 because a staging table already exists.
+
 ## v1 loadable spine
 
 Identities, TIGER geography, legislation (Congress.gov, GovInfo, OpenStates
@@ -12,10 +22,15 @@ bounded BLS).
   BioGuide identity. Never name-match.
 - **FEC-native and crime-native staging:** not identity-blocked; still v1.1.
   Open only with Epic 7 after the v1 spine and Epic 8.
+- **`stage.fec_row` already holds ~102M rows on the operator cluster.**
+  That is leftover staging, not authorization to promote, join, or open
+  Epic 7. Schema support ≠ ingest scope (AD-10).
 
 ## Not a product domain
 
 News, stocks/CFA, Epstein-as-schema, corruption scores.
+`core.instrument` / `fact.market_bar` are retained empty compatibility
+tables; no market-price ingest.
 
 ## Already true on the cluster
 

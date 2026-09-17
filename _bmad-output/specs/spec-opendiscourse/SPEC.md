@@ -3,6 +3,7 @@ id: SPEC-opendiscourse
 companions:
   - reuse.md
   - v1-scope.md
+  - schema-invariants.md
   - ../../planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md
   - ../../planning-artifacts/prds/prd-opendiscourse-2026-09-14/prd.md
 sources:
@@ -10,6 +11,7 @@ sources:
   - ../../../docs/research/2026-09-14-chatgpt-engineering-plan.md
   - ../../../docs/research/2026-09-14-chatgpt-bmad-context-plan.md
   - ../../../docs/research/2026-09-15-chatgpt-architecture-rereview.md
+  - ../../../docs/research/2026-09-17-chatgpt-schema-review.md
 ---
 
 > **Canonical contract.** Read `companions:` with this file. ChatGPT markdown
@@ -85,6 +87,19 @@ so agents can implement without re-reading the ChatGPT essays.
 - Do not require `censusdis`.
 - Lower context (chats, memory) never overrides code, tests, migrations, or
   this spec.
+- Schema support is not authorized ingest (AD-10). `stage.fec_row` and
+  empty market tables do not open Epic 7 or stock-bar loads.
+- Typed grains; do not collapse bills, votes, GIS, ACS, or money into one
+  generic JSON facts table. `fact.measurement` is scalar series only.
+- Source-derived `core`/`fact` rows need direct evidence; identity/reference
+  exceptions are listed in `schema-invariants.md`.
+- `core.bill` / `core.roll_call` text `jurisdiction` + `legislative_session`
+  are compatibility columns; canonical session is `legislative_session_id`.
+- Alembic owns catalog/core/fact/ingest/stage; dbt owns `mart`; Epic 6 owns
+  `api` views; `leg` is compatibility.
+- Do not expand v1.1 sources until a Connector→evidence→stage→core/fact→mart
+  slice is proven (FRED e2e and/or legislator-vote). Keep-and-refine; do not
+  redesign from ChatGPT schema reviews.
 
 ## Non-goals
 
@@ -96,6 +111,10 @@ so agents can implement without re-reading the ChatGPT essays.
 - Adopting the OpenStates Django dump as the canonical schema.
 - Rewriting the Connector protocol or legislative schema on the FRED
   (Story 2.3) branch.
+- Ripping `core.instrument` / `fact.market_bar` in v1, or loading market
+  bars because those tables exist.
+- Adding `core.geography_relationship` in v1.
+- Another architectural rewrite from `docs/research/2026-09-17-chatgpt-schema-review.md`.
 
 ## Success signal
 
@@ -107,12 +126,18 @@ merge without expanding ingest scope.
 
 - Operator Fast-path authorized this distill (2026-09-14).
 - Vendor clones from `scripts/bootstrap_upstream.sh` are the wrap targets.
+- Operator accepted keep-and-refine from the 2026-09-17 schema review
+  (absorb into BMAD; do not replace epics).
 
 ## Open Questions
 
 - FEC grain/retention after CAP-4.
 - When to switch embeddings from `real[]` to pgvector columns.
 - `core.division` as its own entity vs extending `core.geography` (default:
-  separate division, linked to TIGER vintages).
+  separate division; 8.1 stores identifiers only, no `geography_id`).
 - When to physically move `instrument` / `market_bar` to CFA (default:
-  deprecate in docs first).
+  deprecate in docs first; keep empty tables).
+- When unique keys on `core.bill` / `core.roll_call` drop textual
+  jurisdiction+session in favor of `legislative_session_id`.
+- When to add `core.geography_relationship` (default: after TIGER vintages
+  need longitudinal overlap; not 8.1).

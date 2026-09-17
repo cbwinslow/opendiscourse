@@ -41,10 +41,10 @@ quant traders (CFA owns markets).
 
 ### 2.3 Key User Journeys
 
-- **UJ-1. Operator refreshes a reviewed plan.** Chris runs `research-db
-  plan-due` (or browse). Capacity gate runs. Artifacts land in the lake with
-  checksums. Staging is replaceable; core/fact only change through reviewed
-  transforms. Failure is actionable with a resume command.
+- **UJ-1. Operator refreshes a reviewed plan.** The operator runs
+  `research-db plan-due` (or browse). Capacity gate runs. Artifacts land in
+  the lake with checksums. Staging is replaceable; core/fact only change
+  through reviewed transforms. Failure is actionable with a resume command.
 - **UJ-2. Researcher builds a district-year panel.** They hit mart views (or
   DuckDB/Parquet export), not raw `fact.measurement` joins. Geography vintages
   are explicit. They can follow a cell back to `ingest.run` + source URL.
@@ -140,7 +140,9 @@ against PostGIS.
 ## 5. Non-Goals (Explicit)
 
 - Restart the repository.
-- News, Epstein, or stocks as first-class schema domains.
+- News, Epstein, or stocks as first-class schema domains. Existing
+  `core.instrument` / `fact.market_bar` are empty compatibility tables, not
+  a license to ingest prices.
 - Corruption/integrity **scores** as a product primitive (keep evidence).
 - Meltano/Singer as the foundation; Qdrant/Pinecone; FastAPI CRUD.
 - OpenSpec or Spec Kit beside BMAD.
@@ -182,6 +184,7 @@ catalog size.
 2. Whether politician investments use STOCK Act / official disclosures only.
 3. When to promote `core.embedding.vector_values` to pgvector (extension
    already on port 5434).
+4. When bill/roll-call unique keys drop textual session columns (AD-10).
 
 ## 9. Assumptions Index
 

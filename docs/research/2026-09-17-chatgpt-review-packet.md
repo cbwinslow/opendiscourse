@@ -21,7 +21,8 @@ contract.
 2. `_bmad-output/specs/spec-opendiscourse/SPEC.md` — product contract
 3. `_bmad-output/planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md`
 4. `_bmad-output/planning-artifacts/epics.md`
-5. `docs/adr/0001-postgres-system-of-record.md`
+5. `docs/adr/0001-postgres-system-of-record.md` and
+   `docs/adr/0002-schema-invariants.md`
 6. `docs/schema-snapshot/README.md` then `catalog.md`
 7. `docs/schema-snapshot/opendiscourse.schema.sql`
 8. `docs/schema-snapshot/openstates-inventory.md` and
@@ -31,6 +32,8 @@ contract.
 10. `docs/persistence-migration-status.md`
 11. `docs/schema-snapshot/spec-8-1-post-division-membership.md`
 12. `docs/schema-snapshot/related-files.md` — SQL, Alembic, models, inventory
+13. `_bmad-output/specs/spec-opendiscourse/schema-invariants.md` and
+    `docs/research/2026-09-17-chatgpt-schema-review.md` (research; absorbed)
 
 ## Live warehouse facts (this snapshot)
 
@@ -44,11 +47,16 @@ contract.
   tables are **not** in this live dump until 8.1 is implemented.
 - OpenStates `public.opencivicdata_post` already exists in the provider dump
   and is **not** currently imported through `openstates_source` FDW.
+- `stage.fec_row` already has ~102M rows. That is leftover staging, not
+  authorization for Epic 7.
+- `core.bill` / `core.roll_call` still have dual text session columns plus
+  `legislative_session_id` (AD-10 compatibility).
 
 ## Do not
 
-- Treat `docs/research/2026-09-15-chatgpt-architecture-rereview.md` as a
-  replacement epic list or implement its strangler reboot.
+- Treat `docs/research/2026-09-15-chatgpt-architecture-rereview.md` or
+  `docs/research/2026-09-17-chatgpt-schema-review.md` as a replacement epic
+  list, or implement the 09-15 strangler reboot.
 - Recommend writing OpenStates Django tables into `opendiscourse`.
 - Name-match people. Federal joins need BioGuide.
 - Invent news, stocks, or corruption-score domains.

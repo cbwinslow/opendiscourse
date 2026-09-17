@@ -14,6 +14,7 @@ sources:
   - docs/research/2026-09-14-chatgpt-engineering-plan.md
   - docs/research/2026-09-14-chatgpt-bmad-context-plan.md
   - docs/research/2026-09-15-chatgpt-architecture-rereview.md
+  - docs/research/2026-09-17-chatgpt-schema-review.md
 companions:
   - ../../../specs/spec-opendiscourse/SPEC.md
 ---
@@ -31,7 +32,11 @@ capacity, and persistence.
 provider → Connector.extract → raw lake → stage → core/fact → mart → api/export
 ```
 
-Layers map to schemas: `ingest` / `stage` / `core` / `fact` / `mart` / `api`.
+Target layers map to schemas: `ingest` / `stage` / `core` / `fact` /
+`mart` / `api`. `catalog` and `leg` also exist. `api` is created but has
+no reviewed views until Epic 6.1. Ownership: Alembic for
+`catalog`/`ingest`/`stage`/`core`/`fact`; dbt for `mart`; published SQL
+for `api`; FDW/compatibility for `leg`/`openstates_source`.
 Python: `providers/` (HTTP only) → `ingestion/` (pipelines; Connector in
 `ingestion/connector.py`) → `repositories/` (SQL only) → `cli.py`
 (coordination only).
@@ -119,6 +124,20 @@ Python: `providers/` (HTTP only) → `ingestion/` (pipelines; Connector in
   immutable evidence always, canonical keys under our control. Not absolute
   per source.
 
+### AD-10 — Schema invariants [ADOPTED]
+
+- **Binds:** CAP-1, CAP-4, CAP-5, CAP-6, CAP-8
+- **Prevents:** dual canonical session identity; treating `stage.fec_row` or
+  market tables as product scope; generic JSON facts; Alembic/dbt dual-owning
+  `mart`
+- **Rule:** Internal UUIDs + external identifier tables. Source-derived
+  rows need direct evidence; identity/reference exceptions are listed in
+  `schema-invariants.md`. Text `jurisdiction`/`legislative_session` on
+  `core.bill` and `core.roll_call` are compatibility only. Schema support
+  is not authorized ingest. Typed grains. Keep-and-refine; do not redesign
+  from ChatGPT schema reviews.
+- **ADR:** `docs/adr/0002-schema-invariants.md`
+
 ## Consistency Conventions
 
 | Concern | Convention |
@@ -174,14 +193,14 @@ flowchart LR
 
 | Capability | Lives in | Governed by |
 |---|---|---|
-| CAP-1 Provenance | `ingestion.base`, `ingest.*` | AD-3 |
+| CAP-1 Provenance | `ingestion.base`, `ingest.*` | AD-3, AD-10 |
 | CAP-2 Connector | `ingestion/connector.py`; FRED first | AD-2 |
 | CAP-3 Wrap votes | `vendor/unitedstates-congress` | AD-4 |
-| CAP-4 Identity | congress-legislators → `core.person_identifier` | AD-5 |
-| CAP-5 Marts/packs | `dbt/`, `docs/research-source-roadmap.md` | AD-1 |
-| CAP-6 Access | `api` schema, DuckDB extra | AD-1 |
+| CAP-4 Identity | congress-legislators → `core.person_identifier` | AD-5, AD-10 |
+| CAP-5 Marts/packs | `dbt/`, `docs/research-source-roadmap.md` | AD-1, AD-10 |
+| CAP-6 Access | `api` schema, DuckDB extra | AD-1, AD-10 |
 | CAP-7 SDD | BMAD + inventory | AD-6 |
-| CAP-8 Legislative primitives | `core` post/division/membership; OpenStates promote | AD-8 |
+| CAP-8 Legislative primitives | `core` post/division/membership; OpenStates promote | AD-8, AD-10 |
 
 ## Deferred
 
@@ -191,11 +210,17 @@ flowchart LR
 - Package split (`acquisition/` / `sources/` / `domains/`).
 - Dropping SQLModel; `ty`/`sqlfluff`/`ruff format` as merge gates.
 - Moving `core.instrument` / `fact.market_bar` to CFA (deprecate in docs
-  first).
+  first; tables stay empty).
 - Materializing the full OpenStates canonical subset (Epic 8 then later
   promote stories).
 - FEC-native / crime-native staging until Epic 7 is opened (not blocked on
-  BioGuide, still out of v1).
+  BioGuide, still out of v1). Existing `stage.fec_row` is not a green light.
+- Dropping textual `jurisdiction`/`legislative_session` from `core.bill` and
+  `core.roll_call` unique keys.
+- `core.geography_relationship` (typed, dated overlaps). `parent_geoid`
+  stays a loose string in v1.
+- Provenance CHECK audit for class-A tables missing constraints
+  (`geography_boundary`, `document`).
 - Prefect as required scheduler.
 - GitHub ruleset / extra human reviewers (solo operator).
 - Letta and other memory products.
