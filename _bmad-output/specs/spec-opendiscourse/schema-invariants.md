@@ -76,7 +76,7 @@ code must prefer the FK. Do not rip the text columns until unique keys and
 
 `core.legislative_session`, `core.membership`, `core.bill_action`,
 `core.bill_identifier`, `core.bill_sponsorship`, `core.bill_committee`,
-`core.bill_subject`, `fact.member_vote`.
+`core.bill_subject`, `core.division`, `core.post`, `fact.member_vote`.
 
 **A — source-derived, evidence columns present, CHECK missing**
 

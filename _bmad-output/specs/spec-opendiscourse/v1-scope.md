@@ -46,5 +46,7 @@ tables; no market-price ingest.
 - Already loaded (pre-Connector paths): ~36k bills, ~465k member votes,
   ACS bulk ~99 GiB, TIGER boundaries ~10 GiB, `stage.fec_row` ~74 GiB.
 - Still empty / missing: `core.legislative_session`, `core.membership`,
-  market tables; `core.post` / `core.division` not created (Story 8.1).
+  market tables. `core.post` / `core.division` exist in the Alembic contract
+  (Story 8.1, revision `a4f8c2e9b176`); live `opendiscourse` on 5434 may
+  still need `alembic upgrade head`.
 - `api` schema exists with no reviewed views. Some `mart` / `leg` views exist.

@@ -1,7 +1,9 @@
 # Persistence migration status
 
 Last verified: 2026-09-17 (schema-only snapshot in `docs/schema-snapshot/`;
-Alembic head at capture `c4f7a2d9e651`). Schema invariants: ADR-0002.
+Alembic head `a4f8c2e9b176` adds `core.division`, `core.post`, and nullable
+`membership.post_id`. Snapshot capture was `c4f7a2d9e651`; do not regenerate
+the live dump for this contract). Schema invariants: ADR-0002.
 
 A live schema-only dump of the operator warehouse (plus the OpenStates OCD
 provider tables) is checked in at `docs/schema-snapshot/` for review. That
@@ -27,6 +29,9 @@ Alembic-adopted, as is `core.bill_sponsorship`.
 `core.organization` and `core.organization_identifier` are also
 Alembic-adopted.
 `core.membership` is also Alembic-adopted.
+`core.division` and `core.post` are Alembic-owned (revision `a4f8c2e9b176`);
+`core.membership.post_id` is a nullable composite FK to
+`(post.post_id, post.organization_id)`.
 `core.document_chunk` and `core.embedding` are also Alembic-adopted.
 `core.roll_call` and `fact.member_vote` are also Alembic-adopted.
 `fact.population_estimate` is also Alembic-adopted.

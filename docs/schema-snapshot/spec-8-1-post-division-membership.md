@@ -9,9 +9,10 @@ story changes.
 title: 'Story 8.1 — Post, division, membership'
 type: 'feature'
 created: '2026-09-17'
-status: 'ready-for-dev'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
+baseline_commit: '7e70038c2bca4d60a0e5170b558bbede93e4dd1f'
 context:
   - '{project-root}/.agents/skills/opendiscourse-schema-change/SKILL.md'
   - '{project-root}/.agents/skills/opendiscourse-testing/SKILL.md'
@@ -57,9 +58,9 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/opendiscourse_research/models/core.py` -- add division + post tables; nullable `membership.post_id` -- owned OCD grain
-- [ ] `migrations/versions/*_legislative_posts_and_divisions.py` -- Alembic upgrade/downgrade -- reversible contract
-- [ ] `tests/test_persistence_foundation.py` (and/or a focused db test) -- null post, FK, unique ocd_id -- 8.1 ACs
+- [x] `src/opendiscourse_research/models/core.py` -- add division + post tables; nullable `membership.post_id` -- owned OCD grain
+- [x] `migrations/versions/*_legislative_posts_and_divisions.py` -- Alembic upgrade/downgrade -- reversible contract
+- [x] `tests/test_persistence_foundation.py` (and/or a focused db test) -- null post, FK, unique ocd_id -- 8.1 ACs
 
 **Acceptance Criteria:**
 - Given an existing membership with no post, when the revision runs, then the row remains valid.
@@ -79,3 +80,22 @@ Post is a seat in an organization (House district, Senate class, committee chair
 - `uv run alembic heads` / upgrade on test DB -- expected: revision applies and downgrades
 - `just check-fast` -- expected: pass (no db)
 - `just check-db` -- expected: new persistence tests pass (needs test DB or testcontainers)
+
+## Review Triage Log
+
+| Finding | Verdict | Evidence / route |
+|---|---|---|
+| membership.post_id can reference a post on a different organization | medium | Real: FK is post_id only. Occupancy of a post has one reading (that org). Route: patch — composite unique+FK. |
+| No test that duplicate `ocd_division_id` is rejected | medium | Unique partial index exists; only posts are tested. Route: patch — mirror post unique test. |
+| division_check / post_check untested | medium | CHECKs exist; no IntegrityError insert. Route: patch — provenance failure tests. |
+| AC “when the revision runs” not an upgrade-path test | medium | `test_membership_without_post_remains_valid` inserts at head. Route: patch — insert at `c4f7a2d9e651`, upgrade, assert null post_id. |
+| Upgrade inspect-and-skip vs downgrade always-drop | medium | Tables are not in baseline; skip can leave indexes/FKs missing and make downgrade drop foreign objects. Route: patch — always create/drop. |
+| Schema inspect omits post NOT NULL, nullable division_id, unique indexes, CHECKs | low | Extra asserts, everyday developers hit this. Route: patch. |
+| Occupied post `division_id` not read back | low | Fixture writes it; only chair null is asserted. Route: patch. |
+| Downgrade+reupgrade only checks alembic_version | low | After destructive downgrade, tables should be asserted present. Route: patch. |
+| Inspect `get_columns("membership")` if membership missing | false | Membership is created by earlier revisions; greenfield never reaches this revision without it. |
+| `valid_from` > `valid_to` allowed | low | Real but not in frozen matrix; extra CHECK is more than a direct correction. Reject. |
+| VA-06 fixture uses valid_from/valid_to on identity | false | Spec requires validity dates on division; fixture is example data, not a second identity. |
+| Null-OCD posts have only UUID PK | defer | Spec makes OCD ids optional; 8.2 loaders own idempotency for chairs. |
+| Docs/snapshot still name head `c4f7a2d9e651` | defer | Operator snapshot is live-cluster; regenerate after warehouse upgrade. |
+| schema-invariants class A omits new tables | low | Companion drift. Route: patch — add division/post to class A. |
