@@ -87,6 +87,10 @@ core_geography_boundary = Table(
     Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
     Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
     UniqueConstraint("geography_id", "boundary_vintage"),
+    CheckConstraint(
+        "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
+        name="geography_boundary_check",
+    ),
     Index("geography_boundary_geom_idx", "geom", postgresql_using="gist"),
     schema="core",
 )
@@ -352,6 +356,10 @@ core_document = Table(
     Column("artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     UniqueConstraint("document_type", "source_key"),
+    CheckConstraint(
+        "artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
+        name="document_check",
+    ),
     schema="core",
 )
 
