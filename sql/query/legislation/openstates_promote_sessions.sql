@@ -33,9 +33,7 @@ WITH upserted AS (
     starts_on = COALESCE(EXCLUDED.starts_on, core.legislative_session.starts_on),
     ends_on = COALESCE(EXCLUDED.ends_on, core.legislative_session.ends_on),
     active = COALESCE(EXCLUDED.active, core.legislative_session.active),
-    source_artifact_id = COALESCE(
-      core.legislative_session.source_artifact_id, EXCLUDED.source_artifact_id
-    ),
+    source_artifact_id = EXCLUDED.source_artifact_id,
     metadata = core.legislative_session.metadata || EXCLUDED.metadata
   RETURNING legislative_session_id
 )

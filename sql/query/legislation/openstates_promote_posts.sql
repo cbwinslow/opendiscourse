@@ -26,7 +26,7 @@ WITH upserted AS (
     division_id = EXCLUDED.division_id,
     label = EXCLUDED.label,
     role = COALESCE(EXCLUDED.role, core.post.role),
-    source_artifact_id = COALESCE(core.post.source_artifact_id, EXCLUDED.source_artifact_id),
+    source_artifact_id = EXCLUDED.source_artifact_id,
     metadata = core.post.metadata || EXCLUDED.metadata
   RETURNING post_id
 )

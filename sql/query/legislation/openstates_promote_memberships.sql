@@ -44,9 +44,7 @@ WITH upserted AS (
     role = EXCLUDED.role,
     start_date = COALESCE(EXCLUDED.start_date, core.membership.start_date),
     end_date = COALESCE(EXCLUDED.end_date, core.membership.end_date),
-    source_artifact_id = COALESCE(
-      core.membership.source_artifact_id, EXCLUDED.source_artifact_id
-    ),
+    source_artifact_id = EXCLUDED.source_artifact_id,
     metadata = core.membership.metadata || EXCLUDED.metadata
   RETURNING membership_id
 )

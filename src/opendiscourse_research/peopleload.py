@@ -180,26 +180,73 @@ def load_openstates_federal_organizations() -> dict[str, Any]:
     }
 
 
-def load_openstates_federal_promote() -> dict[str, Any]:
+def find_latest_openstates_manifest() -> Path | None:
+    """Discover the newest reviewed OpenStates snapshot manifest if one exists."""
+    plan_dir = (
+        Path(settings.data_root).expanduser().resolve().parent
+        / "meta"
+        / "plan"
+        / "openstates"
+    )
+    if not plan_dir.is_dir():
+        return None
+    candidates = sorted(plan_dir.glob("openstates-public-*.yaml"))
+    return candidates[-1] if candidates else None
+
+
+def load_openstates_federal_promote(
+    manifest_path: Path | str | None = None,
+) -> dict[str, Any]:
     """Promote federal OpenStates sessions and occupancy into owned core tables."""
     parameters = {
         "source": "openstates_source",
         "jurisdiction": "ocd-jurisdiction/country:us/government",
         "role": "federal_promote",
     }
+    target_manifest = Path(manifest_path) if manifest_path else find_latest_openstates_manifest()
+    manifest: dict[str, Any] | None = None
+    if target_manifest and target_manifest.is_file():
+        try:
+            from .openstatessnapshot import load_snapshot_manifest
+
+            manifest = load_snapshot_manifest(target_manifest)
+        except (ValueError, KeyError, OSError):
+            manifest = None
+
     with (
         IngestionRun("openstates.legislation", parameters, mode="backfill") as run,
         connect() as conn,
     ):
-        artifact = register_artifact(
-            "openstates.legislation",
-            "openstates_source://federal-promote",
-            "openstates_source.federal_promote",
-            "federal-promote",
-            status="loaded",
-            metadata={"jurisdiction": parameters["jurisdiction"]},
-            conn=conn,
-        )
+        if manifest:
+            artifact = register_artifact(
+                manifest["dataset"],
+                manifest["remote_url"],
+                manifest["local_path"],
+                manifest["artifact_key"],
+                status="loaded",
+                checksum_sha256=manifest["checksum_sha256"],
+                bytes_downloaded=manifest["bytes"],
+                metadata={
+                    "jurisdiction": parameters["jurisdiction"],
+                    "period": manifest["period"],
+                    "manifest": str(target_manifest.resolve()) if target_manifest else None,
+                    "role": "federal_promote",
+                },
+                conn=conn,
+            )
+        else:
+            artifact = register_artifact(
+                "openstates.dump",
+                "openstates_source://dump-snapshot",
+                "openstates_source.opencivicdata",
+                "openstates-dump-snapshot",
+                status="loaded",
+                metadata={
+                    "jurisdiction": parameters["jurisdiction"],
+                    "role": "snapshot_fdw_promote",
+                },
+                conn=conn,
+            )
         counts = promote_openstates_federal(
             str(artifact["artifact_id"]),
             str(run.run_id),
@@ -211,5 +258,7 @@ def load_openstates_federal_promote() -> dict[str, Any]:
         "schema": 1,
         "kind": "openstates_federal_promote",
         "generated_at": datetime.now(UTC).isoformat(),
+        "artifact_id": str(artifact["artifact_id"]),
+        "artifact_key": artifact.get("artifact_key"),
         **counts,
     }

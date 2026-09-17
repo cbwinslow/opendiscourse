@@ -19,9 +19,7 @@ WITH upserted AS (
   ON CONFLICT (ocd_division_id) WHERE ocd_division_id IS NOT NULL DO UPDATE SET
     label = EXCLUDED.label,
     classification = EXCLUDED.classification,
-    source_artifact_id = COALESCE(
-      core.division.source_artifact_id, EXCLUDED.source_artifact_id
-    ),
+    source_artifact_id = EXCLUDED.source_artifact_id,
     metadata = core.division.metadata || EXCLUDED.metadata
   RETURNING division_id
 )

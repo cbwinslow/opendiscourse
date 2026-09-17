@@ -603,10 +603,19 @@ def load_openstates_votes_command(
 
 
 @app.command("load-openstates-promote")
-def load_openstates_promote_command() -> None:
+def load_openstates_promote_command(
+    manifest: Path | None = typer.Option(
+        None,
+        "--manifest",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Optional reviewed OpenStates snapshot manifest to bind evidence to.",
+    ),
+) -> None:
     """Promote federal OpenStates sessions and occupancy into owned core tables."""
     with render_spinner("Promoting OpenStates federal sessions and occupancy"):
-        result = load_openstates_federal_promote()
+        result = load_openstates_federal_promote(manifest_path=manifest)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 
