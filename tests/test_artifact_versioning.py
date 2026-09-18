@@ -675,4 +675,3 @@ def test_downgrade_prunes_older_versions(catalog_database: None) -> None:
 
     # Re-upgrade to head
     command.upgrade(config, "head")
-
