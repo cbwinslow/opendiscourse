@@ -283,7 +283,7 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
             )
         }
 
-    assert revision == "a4f8c2e9b176"
+    assert revision == "b1e5c8a3d942"
     assert {
         "catalog.provider",
         "catalog.dataset",
@@ -422,6 +422,15 @@ def test_existing_schema_without_alembic_watermark_is_adopted_safely(
     """Alembic adopts an existing schema without replaying numbered SQL files."""
     with engine().begin() as connection:
         connection.execute(text("DROP TABLE alembic_version"))
+        connection.execute(
+            text(
+                "ALTER TABLE core.geography_boundary "
+                "DROP CONSTRAINT IF EXISTS geography_boundary_check"
+            )
+        )
+        connection.execute(
+            text("ALTER TABLE core.document DROP CONSTRAINT IF EXISTS document_check")
+        )
         connection.execute(text("ALTER TABLE core.membership DROP COLUMN IF EXISTS post_id"))
         connection.execute(text("DROP TABLE IF EXISTS core.post CASCADE"))
         connection.execute(text("DROP TABLE IF EXISTS core.division CASCADE"))
@@ -434,7 +443,7 @@ def test_existing_schema_without_alembic_watermark_is_adopted_safely(
     with engine().connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "a4f8c2e9b176"
+        ).scalar_one() == "b1e5c8a3d942"
         assert connection.execute(
             text("SELECT to_regclass('core.bill')")
         ).scalar_one() == "core.bill"
@@ -450,11 +459,31 @@ def test_alembic_adoptions_can_downgrade_and_reupgrade(
         with engine().connect() as connection:
             assert connection.execute(text("SELECT count(*) FROM catalog.resource")).scalar_one() >= 0
             assert connection.execute(text("SELECT count(*) FROM alembic_version")).scalar_one() == 0
+            downgraded_boundary_constraints = {
+                row[0]
+                for row in connection.execute(
+                    text(
+                        "SELECT conname FROM pg_constraint "
+                        "WHERE conrelid = 'core.geography_boundary'::regclass"
+                    )
+                )
+            }
+            downgraded_document_constraints = {
+                row[0]
+                for row in connection.execute(
+                    text(
+                        "SELECT conname FROM pg_constraint "
+                        "WHERE conrelid = 'core.document'::regclass"
+                    )
+                )
+            }
+            assert "geography_boundary_check" not in downgraded_boundary_constraints
+            assert "document_check" not in downgraded_document_constraints
     finally:
         command.upgrade(config, "head")
 
     with engine().connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "a4f8c2e9b176"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "b1e5c8a3d942"
         assert connection.execute(text("SELECT to_regclass('core.division')")).scalar_one() == "core.division"
         assert connection.execute(text("SELECT to_regclass('core.post')")).scalar_one() == "core.post"
         assert connection.execute(
@@ -464,6 +493,26 @@ def test_alembic_adoptions_can_downgrade_and_reupgrade(
                 "AND column_name = 'post_id'"
             )
         ).scalar_one() == 1
+        boundary_constraints = {
+            row[0]
+            for row in connection.execute(
+                text(
+                    "SELECT conname FROM pg_constraint "
+                    "WHERE conrelid = 'core.geography_boundary'::regclass"
+                )
+            )
+        }
+        document_constraints = {
+            row[0]
+            for row in connection.execute(
+                text(
+                    "SELECT conname FROM pg_constraint "
+                    "WHERE conrelid = 'core.document'::regclass"
+                )
+            )
+        }
+        assert "geography_boundary_check" in boundary_constraints
+        assert "document_check" in document_constraints
 
 
 def test_existing_membership_survives_post_revision(catalog_database: None) -> None:
@@ -2517,6 +2566,12 @@ def test_typed_postgis_boundary_mapping_round_trips_geometry(
     catalog_database: None,
 ) -> None:
     """GeoAlchemy maps canonical boundaries with their SRID and uniqueness intact."""
+    artifact = register_artifact(
+        "census.tiger",
+        "https://example.test/tiger-test-typed.zip",
+        "/tmp/tiger-test-typed.zip",
+        "tiger-test-spatial-typed",
+    )
     geography = geography_table()
     boundary = geography_boundary_table()
     geography_statement = insert(geography).values(
@@ -2533,11 +2588,15 @@ def test_typed_postgis_boundary_mapping_round_trips_geometry(
             geography_id=geography_id,
             boundary_vintage=2030,
             geom=WKTElement("POINT(-77.0365 38.8977)", srid=4326),
+            source_artifact_id=artifact["artifact_id"],
         )
         active_session.execute(
             boundary_statement.on_conflict_do_update(
                 index_elements=(boundary.c.geography_id, boundary.c.boundary_vintage),
-                set_={"geom": boundary_statement.excluded.geom},
+                set_={
+                    "geom": boundary_statement.excluded.geom,
+                    "source_artifact_id": boundary_statement.excluded.source_artifact_id,
+                },
             )
         )
 
