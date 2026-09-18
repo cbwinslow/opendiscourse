@@ -39,12 +39,10 @@ published or deterministically assigned by an approved mapping rule.
 | OpenStates source relation | Owned canonical relation | Federal source and deterministic identifier |
 |---|---|---|
 | `opencivicdata_jurisdiction` | `core.jurisdiction` | United States: `ocd-jurisdiction/country:us/government` |
-| `opencivicdata_legislativesession` | `core.legislative_session` | Congress number under `ocd-jurisdiction/country:us/government` |
+| `opencivicdata_legislativesession` | `core.legislative_session` | Congress number under the U.S. jurisdiction |
 | `opencivicdata_organization` | `core.organization` | Chamber/committee source code or published OCD ID |
 | `opencivicdata_person` + `personidentifier` | `core.person` + `person_identifier` | Bioguide ID; never a display-name match |
-| `opencivicdata_division` | `core.division` | Dump division `id` as `ocd_division_id`; no Census `geography_id` |
-| `opencivicdata_post` | `core.post` | Dump post `id` as `core.post.ocd_id` |
-| `opencivicdata_membership` | `core.membership` | Dump membership `id` as `ocd_id`; person join is OCD id already in `core.person_identifier`, never `person_name` |
+| `opencivicdata_membership` semantics | `core.membership` | Bioguide ID + chamber/office + bounded term evidence |
 | `opencivicdata_bill` + `billidentifier` | `core.bill` + `bill_identifier` | Congress + lower-cased type + number |
 | `opencivicdata_billaction` | `core.bill_action` | Bill key + source XML/API ordinal |
 | `opencivicdata_billsponsorship` | `core.bill_sponsorship` | Bill key + Bioguide ID + sponsorship role |
@@ -83,10 +81,7 @@ GRANT SELECT ON TABLE
   public.opencivicdata_billsponsorship,
   public.opencivicdata_billdocument,
   public.opencivicdata_voteevent,
-  public.opencivicdata_personvote,
-  public.opencivicdata_division,
-  public.opencivicdata_post,
-  public.opencivicdata_membership
+  public.opencivicdata_personvote
 TO openstates_fdw;
 ```
 
@@ -110,16 +105,6 @@ and `SELECT` on the imported `openstates_source` foreign tables. Do not copy
 this mode to a TCP, shared-host, or hosted-database deployment.
 
 ## Promotion workflow
-
-Researchers query owned `core` tables, not `openstates_source` and not the
-`openstates` dump database (AD-8). Federal people and organizations stay on
-`research-db load-openstates-people` and `research-db load-openstates-organizations`.
-After those baselines exist, `research-db load-openstates-promote` copies the
-federal-only slice of jurisdictions, legislative sessions, posts, divisions,
-and memberships into `core`. The dump remains replace-only; re-running the
-promote is idempotent on OCD ids. Memberships without a dump `person_id` or
-without a matching `core.person_identifier` namespace `ocd` are skipped and
-recorded as unresolved identity exceptions. Display names are never a join key.
 
 1. Record the source snapshot/version and verify row counts and identifiers.
 2. Map an entity grain and deterministic identifiers before writing a loader.

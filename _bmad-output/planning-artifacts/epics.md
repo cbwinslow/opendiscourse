@@ -136,14 +136,10 @@ canonical; prefer `legislative_session_id`. Do not add
 Landed on `main` via PR #21.
 
 ### Story 8.2 — OpenStates promote, not public FDW — in review
-As a researcher, I query `core` for US sessions and federal occupancy,
+As a researcher, I query `core`/`fact`/`mart` for OCD-aligned state rows,
 not `openstates_source.opencivicdata_*`.
-Acceptance: Idempotent FDW → `core` promote for US jurisdiction,
-US legislative sessions, then posts/divisions/memberships for people
-already in `core.person`. Dump remains replace-only. No name matches.
-All-state promote is later. Spec:
-`_bmad-output/implementation-artifacts/spec-8-2-openstates-promote.md`
-(tracked copy: `docs/schema-snapshot/spec-8-2-openstates-promote.md`).
+Acceptance: Documented; at least one promote path from FDW to `core` for a
+bounded grain (jurisdiction/session or membership); dump remains replace-only.
 Current implementation is PR #22; do not merge while required CI/review checks
 are unresolved.
 

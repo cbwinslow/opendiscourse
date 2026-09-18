@@ -40,7 +40,6 @@ def unresolved_congressional_identities() -> dict[str, Any]:
             func.sum(identity_exception.c.reference_count).label("references"),
         )
         .where(
-            identity_exception.c.kind == "voter",
             ~exists(
                 select(person_identifier.c.person_id).where(
                     person_identifier.c.namespace == identity_exception.c.namespace,

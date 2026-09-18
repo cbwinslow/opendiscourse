@@ -44,7 +44,6 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
   Alembic baseline `d207df35ca10` onward
 - Upstream clones: `vendor/` (gitignored); refresh `scripts/bootstrap_upstream.sh`
 - Planning index: `_bmad-output/README.md`
-- Story specs: `_bmad-output/implementation-artifacts/` (tracked)
 
 ## Running and verifying
 
@@ -94,7 +93,3 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
   replacement epic lists. Keep-and-refine; AD-10 is the absorb.
 
 <!-- /bmad:context -->
-
-Story specs, epic context, and deferred-work live in
-`_bmad-output/implementation-artifacts/` and are tracked. TEA output under
-`_bmad-output/test-artifacts/` stays gitignored.

@@ -143,7 +143,6 @@ def _congressional_health_evidence() -> dict[str, Any]:
     identity_exception = identity_exception_table()
     run = run_table()
     unresolved_voters = select(func.coalesce(func.sum(identity_exception.c.reference_count), 0)).where(
-        identity_exception.c.kind == "voter",
         ~exists(
             select(person_identifier.c.person_id).where(
                 person_identifier.c.namespace == identity_exception.c.namespace,
