@@ -34,7 +34,7 @@ from opendiscourse_research.models.core import (
 from opendiscourse_research.repositories.legislation import register_artifact
 
 
-_RUN_NS = uuid.uuid4().hex[:8]
+_RUN_NS = uuid.uuid4().hex
 
 
 def _scoped(suffix: str) -> str:
