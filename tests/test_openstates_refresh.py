@@ -431,4 +431,3 @@ class TestOpenStatesPromoteArtifactBinding(unittest.TestCase):
         ):
             load_openstates_federal_promote(require_manifest=True)
         mock_promote.assert_not_called()
-
