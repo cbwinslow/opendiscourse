@@ -91,11 +91,9 @@ Acceptance: Protocol in code; tests for the interface; no schema change.
 Landed: `ingestion/connector.py` (`Connector`, `STAGES`, `run_connector`);
 `tests/test_connector.py`.
 
-### Story 2.2 — Registry without HANDLERS if/elif — done
+### Story 2.2 — Registry without HANDLERS if/elif
 As a developer, I register FRED without adding to a hardcoded handler set.
 Acceptance: FRED path does not need a new `plans.py` elif.
-Landed: `ingestion/connectors.py`; `FredCoreConnector`; `fred_core` not in
-`HANDLERS` or `run_plan()` elif.
 
 ### Story 2.3 — Migrate FRED end-to-end
 As an operator, FRED discover/index vs observations still split; observations
