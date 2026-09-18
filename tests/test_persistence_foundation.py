@@ -7,7 +7,7 @@ import subprocess
 import sys
 import uuid
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from unittest.mock import patch
 from zipfile import ZipFile
@@ -88,7 +88,9 @@ from opendiscourse_research.models.core import (
     legislative_session_table,
     measurement_table,
     membership_table,
+    organization_identifier_table,
     organization_table,
+    person_identifier_table,
     person_table,
     post_table,
 )
@@ -117,6 +119,7 @@ from opendiscourse_research.repositories.legislation import (
     get_artifact,
     get_resume_cursor,
     loaded_artifact_members,
+    promote_openstates_federal,
     record_vote_identity_exceptions,
     register_artifact,
     resolve_bill_sponsorship_people,
@@ -283,7 +286,7 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
             )
         }
 
-    assert revision == "c5e2d1a4f783"
+    assert revision == "b8c2f1d4e390"
     assert {
         "catalog.provider",
         "catalog.dataset",
@@ -345,6 +348,7 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
         "membership_person_idx",
         "membership_organization_idx",
         "membership_post_idx",
+        "membership_ocd_id_idx",
     } <= membership_indexes
     assert "membership_check" in membership_constraints
     assert "membership_post_organization_fkey" in membership_constraints
@@ -432,6 +436,7 @@ def test_existing_schema_without_alembic_watermark_is_adopted_safely(
             text("ALTER TABLE core.document DROP CONSTRAINT IF EXISTS document_check")
         )
         connection.execute(text("ALTER TABLE core.membership DROP COLUMN IF EXISTS post_id"))
+        connection.execute(text("ALTER TABLE core.membership DROP COLUMN IF EXISTS ocd_id"))
         connection.execute(text("DROP TABLE IF EXISTS core.post CASCADE"))
         connection.execute(text("DROP TABLE IF EXISTS core.division CASCADE"))
         connection.execute(
@@ -458,7 +463,7 @@ def test_existing_schema_without_alembic_watermark_is_adopted_safely(
     with engine().connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "c5e2d1a4f783"
+        ).scalar_one() == "b8c2f1d4e390"
         assert connection.execute(
             text("SELECT to_regclass('core.bill')")
         ).scalar_one() == "core.bill"
@@ -498,7 +503,7 @@ def test_alembic_adoptions_can_downgrade_and_reupgrade(
         command.upgrade(config, "head")
 
     with engine().connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "c5e2d1a4f783"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "b8c2f1d4e390"
         assert connection.execute(text("SELECT to_regclass('core.division')")).scalar_one() == "core.division"
         assert connection.execute(text("SELECT to_regclass('core.post')")).scalar_one() == "core.post"
         assert connection.execute(
@@ -749,6 +754,44 @@ def test_post_ocd_id_is_unique_when_present(catalog_database: None) -> None:
                     organization_id=organization_id,
                     ocd_id="ocd-post/country:us/state:nc/cd:4",
                     label="NC-04 duplicate",
+                    source_artifact_id=artifact_id,
+                )
+            )
+
+
+def test_membership_ocd_id_is_unique_when_present(catalog_database: None) -> None:
+    """Two memberships cannot share the same non-null dump OCD identifier."""
+    artifact_id = _legislative_seat_artifact("unique-membership-ocd")
+    person = person_table()
+    organization = organization_table()
+    membership = membership_table()
+    with session() as active_session:
+        person_id = active_session.execute(
+            insert(person).values(full_name="8.2 Unique OCD Member").returning(person.c.person_id)
+        ).scalar_one()
+        organization_id = active_session.execute(
+            insert(organization)
+            .values(organization_type="legislature", name="8.2 Unique OCD Chamber")
+            .returning(organization.c.organization_id)
+        ).scalar_one()
+        active_session.execute(
+            insert(membership).values(
+                person_id=person_id,
+                organization_id=organization_id,
+                ocd_id="ocd-membership/8-2-unique",
+                role="member",
+                source_artifact_id=artifact_id,
+            )
+        )
+
+    with pytest.raises(IntegrityError):
+        with session() as active_session:
+            active_session.execute(
+                insert(membership).values(
+                    person_id=person_id,
+                    organization_id=organization_id,
+                    ocd_id="ocd-membership/8-2-unique",
+                    role="member",
                     source_artifact_id=artifact_id,
                 )
             )
@@ -1663,6 +1706,346 @@ def test_openstates_compatibility_view_publisher_uses_real_postgres(
             connection.execute(text("DROP VIEW IF EXISTS leg.person"))
             connection.execute(text("DROP VIEW IF EXISTS leg.bill"))
             connection.execute(text("DROP SCHEMA openstates_source CASCADE"))
+
+
+def test_openstates_federal_promote_uses_standin_fdw(
+    catalog_database: None,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Promote US sessions and occupancy from an isolated source-schema stand-in."""
+    with engine().connect() as connection:
+        source_schema_exists = connection.execute(
+            text("SELECT to_regnamespace('openstates_source') IS NOT NULL")
+        ).scalar_one()
+    if source_schema_exists:
+        pytest.skip("requires an isolated database without a provisioned OpenStates FDW")
+
+    us = "ocd-jurisdiction/country:us/government"
+    va = "ocd-jurisdiction/country:us/state:va/government"
+    person_ocd = "ocd-person/8-2-federal"
+    house_ocd = "ocd-organization/8-2-us-house"
+    unknown_org = "ocd-organization/8-2-unknown"
+    va_org = "ocd-organization/8-2-va"
+    post_ocd = "ocd-post/8-2-va-06"
+    chair_post = "ocd-post/8-2-chair"
+    va_post = "ocd-post/8-2-va-house"
+    division_ocd = "ocd-division/country:us/state:va/cd:6"
+    seat_membership = "ocd-membership/8-2-seat"
+    nameless_membership = "ocd-membership/8-2-nameless"
+    unmatched_membership = "ocd-membership/8-2-unmatched"
+    unmatched_membership_2 = "ocd-membership/8-2-unmatched-2"
+    unknown_org_membership = "ocd-membership/8-2-unknown-org"
+    va_membership = "ocd-membership/8-2-va"
+
+    artifact = register_artifact(
+        "openstates.legislation",
+        "openstates_source://federal-promote",
+        "openstates_source.federal_promote",
+        "test-federal-promote",
+        status="loaded",
+        metadata={"story": "8.2"},
+    )
+    existing_session_id = ensure_us_legislative_session(
+        134, source_artifact_id=str(artifact["artifact_id"]), metadata={"seed": True}
+    )
+    person = person_table()
+    person_identifier = person_identifier_table()
+    organization = organization_table()
+    organization_identifier = organization_identifier_table()
+    membership = membership_table()
+    with session() as active_session:
+        person_id = active_session.execute(
+            insert(person).values(full_name="8.2 Federal Occupant").returning(person.c.person_id)
+        ).scalar_one()
+        active_session.execute(
+            insert(person_identifier).values(
+                person_id=person_id, namespace="ocd", external_id=person_ocd
+            )
+        )
+        organization_id = active_session.execute(
+            insert(organization)
+            .values(organization_type="legislature", name="8.2 US House")
+            .returning(organization.c.organization_id)
+        ).scalar_one()
+        active_session.execute(
+            insert(organization_identifier).values(
+                organization_id=organization_id, namespace="ocd", external_id=house_ocd
+            )
+        )
+        pre_existing_membership_id = active_session.execute(
+            insert(membership).values(
+                person_id=person_id,
+                organization_id=organization_id,
+                post_id=None,
+                ocd_id=None,
+                role="representative",
+                start_date=date(2035, 1, 3),
+                source_artifact_id=artifact["artifact_id"],
+            ).returning(membership.c.membership_id)
+        ).scalar_one()
+
+    with engine().begin() as connection:
+        connection.execute(text("CREATE SCHEMA openstates_source"))
+        connection.execute(
+            text(
+                "CREATE TABLE openstates_source.opencivicdata_jurisdiction ("
+                "id text PRIMARY KEY, name text, classification text)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE openstates_source.opencivicdata_legislativesession ("
+                "id text PRIMARY KEY, identifier text, name text, classification text, "
+                "start_date text, end_date text, jurisdiction_id text, active boolean)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE openstates_source.opencivicdata_organization ("
+                "id text PRIMARY KEY, name text, classification text, jurisdiction_id text, "
+                "parent_id text, extras jsonb NOT NULL DEFAULT '{}'::jsonb)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE openstates_source.opencivicdata_person ("
+                "id text PRIMARY KEY, name text, given_name text, family_name text, "
+                "current_jurisdiction_id text, extras jsonb NOT NULL DEFAULT '{}'::jsonb)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE openstates_source.opencivicdata_division ("
+                "id text PRIMARY KEY, name text, country text, subtype1 text, subid1 text)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE openstates_source.opencivicdata_post ("
+                "id text PRIMARY KEY, label text, role text, division_id text, organization_id text)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE openstates_source.opencivicdata_membership ("
+                "id text PRIMARY KEY, person_name text, role text, start_date text, end_date text, "
+                "organization_id text, person_id text, post_id text)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO openstates_source.opencivicdata_jurisdiction "
+                "(id, name, classification) VALUES "
+                "(:us, 'United States', 'country'), "
+                "(:va, 'Virginia', 'state')"
+            ),
+            {"us": us, "va": va},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO openstates_source.opencivicdata_legislativesession "
+                "(id, identifier, name, classification, start_date, end_date, jurisdiction_id, active) "
+                "VALUES "
+                "('sess-134', '134', '134th Congress', 'congress', '2035-01-03', '2037-01-03', :us, true), "
+                "('sess-135', '135', '135th Congress', 'congress', '2037-01-03', '2039-01-03', :us, true), "
+                "('sess-va', '2024', '2024', 'primary', '2024-01-01', '2024-12-31', :va, true)"
+            ),
+            {"us": us, "va": va},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO openstates_source.opencivicdata_organization "
+                "(id, name, classification, jurisdiction_id) VALUES "
+                "(:house, 'United States House of Representatives', 'legislature', :us), "
+                "(:unknown, 'Unknown Federal Org', 'committee', :us), "
+                "(:va_org, 'Virginia House', 'legislature', :va)"
+            ),
+            {"house": house_ocd, "unknown": unknown_org, "va_org": va_org, "us": us, "va": va},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO openstates_source.opencivicdata_division "
+                "(id, name, country, subtype1, subid1) VALUES "
+                "(:division, 'VA-06', 'us', 'cd', '6'), "
+                "('ocd-division/country:us/state:va', 'Virginia', 'us', 'state', 'va')"
+            ),
+            {"division": division_ocd},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO openstates_source.opencivicdata_post "
+                "(id, label, role, division_id, organization_id) VALUES "
+                "(:post, 'VA-06', 'member', :division, :house), "
+                "(:chair, 'Committee Chair', 'chair', NULL, :house), "
+                "(:va_post, 'VA House seat', 'member', 'ocd-division/country:us/state:va', :va_org)"
+            ),
+            {
+                "post": post_ocd,
+                "chair": chair_post,
+                "va_post": va_post,
+                "division": division_ocd,
+                "house": house_ocd,
+                "va_org": va_org,
+            },
+        )
+        connection.execute(
+            text(
+                "INSERT INTO openstates_source.opencivicdata_membership "
+                "(id, person_name, role, start_date, end_date, organization_id, person_id, post_id) VALUES "
+                "(:seat, '8.2 Federal Occupant', 'representative', '2035-01-03', '', :house, :person, :post), "
+                "(:nameless, '8.2 Federal Occupant', 'member', '', '', :house, NULL, :post), "
+                "(:unmatched, 'Unmatched Member', 'member', '', '', :house, 'ocd-person/8-2-missing', :post), "
+                "(:unmatched2, 'Unmatched Member', 'member', '', '', :house, 'ocd-person/8-2-missing', :chair), "
+                "(:unknown_m, '8.2 Federal Occupant', 'member', '', '', :unknown, :person, NULL), "
+                "(:va_m, '8.2 Federal Occupant', 'member', '', '', :va_org, :person, :va_post)"
+            ),
+            {
+                "seat": seat_membership,
+                "nameless": nameless_membership,
+                "unmatched": unmatched_membership,
+                "unmatched2": unmatched_membership_2,
+                "unknown_m": unknown_org_membership,
+                "chair": chair_post,
+                "va_m": va_membership,
+                "house": house_ocd,
+                "unknown": unknown_org,
+                "va_org": va_org,
+                "person": person_ocd,
+                "post": post_ocd,
+                "va_post": va_post,
+            },
+        )
+
+    try:
+        with IngestionRun(
+            "openstates.legislation",
+            {"role": "federal_promote", "story": "8.2"},
+            mode="backfill",
+        ) as run, connect() as conn:
+            first = promote_openstates_federal(str(artifact["artifact_id"]), str(run.run_id), conn)
+            conn.commit()
+            second = promote_openstates_federal(str(artifact["artifact_id"]), str(run.run_id), conn)
+            conn.commit()
+
+        legislative_session = legislative_session_table()
+        membership = membership_table()
+        post = post_table()
+        division = division_table()
+        identity_exception = identity_exception_table()
+        with session() as active_session:
+            session_rows = list(
+                active_session.execute(
+                    select(
+                        legislative_session.c.legislative_session_id,
+                        legislative_session.c.identifier,
+                        legislative_session.c.starts_on,
+                    ).where(legislative_session.c.jurisdiction_id == us)
+                ).mappings()
+            )
+            identifiers = {row["identifier"] for row in session_rows}
+            kept = next(row for row in session_rows if row["identifier"] == "134")
+            membership_rows = list(
+                active_session.execute(
+                    select(
+                        membership.c.membership_id,
+                        membership.c.ocd_id,
+                        membership.c.post_id,
+                        membership.c.person_id,
+                    ).where(membership.c.ocd_id.in_((
+                        seat_membership,
+                        nameless_membership,
+                        unmatched_membership,
+                        unmatched_membership_2,
+                        unknown_org_membership,
+                        va_membership,
+                    )))
+                ).mappings()
+            )
+            post_ids = {
+                row["ocd_id"]: row["post_id"]
+                for row in active_session.execute(
+                    select(post.c.ocd_id, post.c.post_id).where(
+                        post.c.ocd_id.in_((post_ocd, chair_post, va_post))
+                    )
+                ).mappings()
+            }
+            division_ids = list(
+                active_session.execute(
+                    select(division.c.ocd_division_id).where(
+                        division.c.ocd_division_id.in_(
+                            (division_ocd, "ocd-division/country:us/state:va")
+                        )
+                    )
+                ).scalars()
+            )
+            exceptions = list(
+                active_session.execute(
+                    select(
+                        identity_exception.c.external_id,
+                        identity_exception.c.reason,
+                        identity_exception.c.kind,
+                    ).where(identity_exception.c.kind == "membership")
+                ).mappings()
+            )
+            voter_kind_ids = set(
+                active_session.execute(
+                    select(identity_exception.c.external_id).where(
+                        identity_exception.c.kind == "voter"
+                    )
+                ).scalars()
+            )
+
+        assert {"134", "135"} <= identifiers
+        assert "2024" not in identifiers
+        assert str(kept["legislative_session_id"]) == existing_session_id
+        assert kept["starts_on"] is not None
+        assert first["sessions"] >= 2
+        assert first["reconciled_memberships"] == 1
+        assert second["memberships"] == first["memberships"]
+        assert [row["ocd_id"] for row in membership_rows] == [seat_membership]
+        assert membership_rows[0]["membership_id"] == pre_existing_membership_id
+        assert str(membership_rows[0]["person_id"]) == str(person_id)
+        assert membership_rows[0]["post_id"] == post_ids[post_ocd]
+        assert post_ocd in post_ids
+        assert chair_post in post_ids
+        assert va_post not in post_ids
+        assert division_ids == [division_ocd]
+        reasons = {(row["external_id"], row["reason"]) for row in exceptions}
+        assert (nameless_membership, "missing_ocd_person_id") in reasons
+        assert ("ocd-person/8-2-missing", "no_canonical_person_identifier") in reasons
+        assert first["unresolved_memberships"] >= 2
+        membership_external_ids = {row["external_id"] for row in exceptions}
+
+        monkeypatch.setattr(settings, "data_root", str(tmp_path / "data"))
+        monkeypatch.setattr(
+            congresshealth,
+            "reconcile_openstates_votes",
+            lambda congress: {
+                "congress": congress,
+                "source": {},
+                "canonical": {},
+                "duplicate_identifiers": [],
+            },
+        )
+        identity_report = unresolved_congressional_identities()
+        voter_external_ids = {
+            row["external_id"]
+            for row in identity_report["exceptions"]
+            if row["kind"] == "voter"
+        }
+        health = congresshealth.congressional_health()
+        assert membership_external_ids.isdisjoint(voter_external_ids)
+        assert membership_external_ids.isdisjoint(voter_kind_ids)
+        assert nameless_membership not in voter_external_ids
+        assert "ocd-person/8-2-missing" not in voter_external_ids
+        assert nameless_membership not in voter_kind_ids
+        assert health["canonical"]["unresolved_voters"] == health["identity_exceptions"][
+            "unresolved_voters"
+        ]
+    finally:
+        with engine().begin() as connection:
+            connection.execute(text("DROP SCHEMA IF EXISTS openstates_source CASCADE"))
 
 
 def test_congress_api_bill_upsert_uses_typed_canonical_mapping(

@@ -582,8 +582,9 @@ migration path, bootstrap script, or restore kit.
 | `catalog.md` | Columns, constraints, indexes, views, sizes |
 | `openstates-inventory.md` | All OpenStates dump tables + OCD column lists |
 | `related-files.md` | In-repo SQL, Alembic, models, inventory, specs |
-| `spec-8-1-post-division-membership.md` | Copy of Story 8.1 (BMAD impl artifact is gitignored) |
-| `epic-8-context.md` | Copy of Epic 8 context for the same reason |
+| `spec-8-1-post-division-membership.md` | Convenience copy of Story 8.1; canonical is `_bmad-output/implementation-artifacts/` |
+| `spec-8-2-openstates-promote.md` | Convenience copy of Story 8.2 |
+| `epic-8-context.md` | Convenience copy of Epic 8 context |
 | `metadata.json` | Capture metadata |
 
 Regenerate (needs the live DSN, default `postgresql:///opendiscourse?port=5434`):

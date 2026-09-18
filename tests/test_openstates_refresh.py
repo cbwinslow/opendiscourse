@@ -28,7 +28,10 @@ from opendiscourse_research.openstatesstage import (
     build_stage_validation,
     publish_openstates_compatibility_views,
 )
-from opendiscourse_research.peopleload import load_openstates_votes
+from opendiscourse_research.peopleload import (
+    load_openstates_federal_promote,
+    load_openstates_votes,
+)
 
 
 def contract() -> dict:
@@ -315,3 +318,116 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
         incomplete = build_stage_validation("openstates_stage_202607", set(), [], [])
         self.assertFalse(incomplete["valid"])
         self.assertIn("public.opencivicdata_voteevent", incomplete["missing_required_tables"])
+
+
+class TestOpenStatesPromoteArtifactBinding(unittest.TestCase):
+    @patch("opendiscourse_research.peopleload.promote_openstates_federal")
+    @patch("opendiscourse_research.peopleload.register_artifact")
+    @patch("opendiscourse_research.peopleload.connect")
+    @patch("opendiscourse_research.peopleload.IngestionRun")
+    def test_load_openstates_federal_promote_uses_manifest_when_provided(
+        self,
+        mock_ingestion_run: MagicMock,
+        mock_connect: MagicMock,
+        mock_register_artifact: MagicMock,
+        mock_promote: MagicMock,
+    ) -> None:
+        mock_promote.return_value = {"sessions": 2, "memberships": 5}
+        mock_register_artifact.return_value = {
+            "artifact_id": "11111111-1111-1111-1111-111111111111",
+            "artifact_key": "openstates-public-2099-01",
+        }
+        with TemporaryDirectory() as temp_dir:
+            manifest_file = Path(temp_dir) / "openstates-public-2099-01.yaml"
+            manifest_file.write_text(
+                yaml.safe_dump(
+                    {
+                        "schema": 1,
+                        "provider": "openstates",
+                        "dataset": "openstates.dump",
+                        "artifact_key": "openstates-public-2099-01",
+                        "remote_url": "https://example.test/2099-01-public.pgdump",
+                        "local_path": str(Path(temp_dir) / "snapshot.pgdump"),
+                        "period": "2099-01",
+                        "bytes": 4096,
+                        "checksum_sha256": "fc17afe4af56fca9d2943b7901e7517611b37a36db7a7775b3e341e7d20a6ba0",
+                        "expected_tables": [
+                            "public.opencivicdata_legislativesession",
+                            "public.opencivicdata_personvote",
+                            "public.opencivicdata_voteevent",
+                        ],
+                    }
+                )
+            )
+
+            result = load_openstates_federal_promote(manifest_path=manifest_file)
+
+        self.assertEqual(result["kind"], "openstates_federal_promote")
+        self.assertEqual(result["artifact_id"], "11111111-1111-1111-1111-111111111111")
+        self.assertEqual(result["artifact_key"], "openstates-public-2099-01")
+        mock_register_artifact.assert_called_once()
+        call_kwargs = mock_register_artifact.call_args.kwargs
+        call_args = mock_register_artifact.call_args.args
+        dataset = call_args[0] if call_args else call_kwargs.get("dataset_id")
+        remote_url = call_args[1] if len(call_args) > 1 else call_kwargs.get("remote_url")
+        self.assertEqual(dataset, "openstates.dump")
+        self.assertEqual(remote_url, "https://example.test/2099-01-public.pgdump")
+        self.assertEqual(
+            call_kwargs.get("checksum_sha256"),
+            "fc17afe4af56fca9d2943b7901e7517611b37a36db7a7775b3e341e7d20a6ba0",
+        )
+        self.assertEqual(call_kwargs.get("bytes_downloaded"), 4096)
+
+    @patch("opendiscourse_research.peopleload.find_latest_openstates_manifest", return_value=None)
+    @patch("opendiscourse_research.peopleload.promote_openstates_federal")
+    @patch("opendiscourse_research.peopleload.register_artifact")
+    @patch("opendiscourse_research.peopleload.connect")
+    @patch("opendiscourse_research.peopleload.IngestionRun")
+    def test_load_openstates_federal_promote_fallback_without_manifest(
+        self,
+        mock_ingestion_run: MagicMock,
+        mock_connect: MagicMock,
+        mock_register_artifact: MagicMock,
+        mock_promote: MagicMock,
+        mock_find_manifest: MagicMock,
+    ) -> None:
+        mock_promote.return_value = {"sessions": 0, "memberships": 0}
+        mock_register_artifact.return_value = {
+            "artifact_id": "22222222-2222-2222-2222-222222222222",
+            "artifact_key": "openstates-dump-snapshot",
+        }
+        result = load_openstates_federal_promote()
+        self.assertEqual(result["artifact_key"], "openstates-dump-snapshot")
+        call_args = mock_register_artifact.call_args.args
+        dataset = call_args[0]
+        self.assertEqual(dataset, "openstates.dump")
+
+    @patch("opendiscourse_research.peopleload.promote_openstates_federal")
+    def test_load_openstates_federal_promote_fails_on_missing_manifest_path(
+        self, mock_promote: MagicMock
+    ) -> None:
+        with self.assertRaisesRegex(ValueError, "Snapshot manifest not found"):
+            load_openstates_federal_promote(manifest_path="/nonexistent/openstates-manifest.yaml")
+        mock_promote.assert_not_called()
+
+    @patch("opendiscourse_research.peopleload.promote_openstates_federal")
+    def test_load_openstates_federal_promote_fails_on_invalid_manifest_content(
+        self, mock_promote: MagicMock
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            manifest_file = Path(temp_dir) / "corrupt-manifest.yaml"
+            manifest_file.write_text("not a valid manifest content: [}")
+            with self.assertRaisesRegex(ValueError, "Invalid snapshot manifest"):
+                load_openstates_federal_promote(manifest_path=manifest_file)
+        mock_promote.assert_not_called()
+
+    @patch("opendiscourse_research.peopleload.find_latest_openstates_manifest", return_value=None)
+    @patch("opendiscourse_research.peopleload.promote_openstates_federal")
+    def test_load_openstates_federal_promote_require_manifest_fails_when_none_found(
+        self, mock_promote: MagicMock, mock_find_manifest: MagicMock
+    ) -> None:
+        with self.assertRaisesRegex(
+            ValueError, "OpenStates promotion requires a validated snapshot manifest"
+        ):
+            load_openstates_federal_promote(require_manifest=True)
+        mock_promote.assert_not_called()

@@ -7,11 +7,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from .config import settings
 from .db import connect
 from .ingestion.base import IngestionRun
 from .repositories.legislation import (
     get_resume_cursor,
+    promote_openstates_federal,
     record_vote_identity_exceptions,
     register_artifact,
     resolve_bill_sponsorship_people,
@@ -176,4 +179,104 @@ def load_openstates_federal_organizations() -> dict[str, Any]:
         "kind": "openstates_organizations_load",
         "organizations": organizations,
         "generated_at": datetime.now(UTC).isoformat(),
+    }
+
+
+def find_latest_openstates_manifest() -> Path | None:
+    """Discover the newest reviewed OpenStates snapshot manifest if one exists."""
+    plan_dir = (
+        Path(settings.data_root).expanduser().resolve().parent
+        / "meta"
+        / "plan"
+        / "openstates"
+    )
+    if not plan_dir.is_dir():
+        return None
+    candidates = sorted(plan_dir.glob("openstates-public-*.yaml"))
+    return candidates[-1] if candidates else None
+
+
+def load_openstates_federal_promote(
+    manifest_path: Path | str | None = None,
+    *,
+    require_manifest: bool = False,
+) -> dict[str, Any]:
+    """Promote federal OpenStates sessions and occupancy into owned core tables."""
+    parameters = {
+        "source": "openstates_source",
+        "jurisdiction": "ocd-jurisdiction/country:us/government",
+        "role": "federal_promote",
+    }
+    target_manifest: Path | None = None
+    if manifest_path:
+        target_manifest = Path(manifest_path)
+        if not target_manifest.is_file():
+            raise ValueError(f"Snapshot manifest not found: {target_manifest}")
+    else:
+        target_manifest = find_latest_openstates_manifest()
+        if require_manifest and not target_manifest:
+            raise ValueError("OpenStates promotion requires a validated snapshot manifest")
+
+    manifest: dict[str, Any] | None = None
+    if target_manifest:
+        from .openstatessnapshot import load_snapshot_manifest
+
+        try:
+            manifest = load_snapshot_manifest(target_manifest)
+        except (ValueError, KeyError, OSError, yaml.YAMLError) as exc:
+            raise ValueError(
+                f"Invalid snapshot manifest at {target_manifest}: {exc}"
+            ) from exc
+
+    if require_manifest and manifest is None:
+        raise ValueError("OpenStates promotion requires a validated snapshot manifest")
+
+    with (
+        IngestionRun("openstates.legislation", parameters, mode="backfill") as run,
+        connect() as conn,
+    ):
+        if manifest:
+            artifact = register_artifact(
+                manifest["dataset"],
+                manifest["remote_url"],
+                manifest["local_path"],
+                manifest["artifact_key"],
+                status="loaded",
+                checksum_sha256=manifest["checksum_sha256"],
+                bytes_downloaded=manifest["bytes"],
+                metadata={
+                    "jurisdiction": parameters["jurisdiction"],
+                    "period": manifest["period"],
+                    "manifest": str(target_manifest.resolve()) if target_manifest else None,
+                    "role": "federal_promote",
+                },
+                conn=conn,
+            )
+        else:
+            artifact = register_artifact(
+                "openstates.dump",
+                "openstates_source://dump-snapshot",
+                "openstates_source.opencivicdata",
+                "openstates-dump-snapshot",
+                status="loaded",
+                metadata={
+                    "jurisdiction": parameters["jurisdiction"],
+                    "role": "snapshot_fdw_promote",
+                },
+                conn=conn,
+            )
+        counts = promote_openstates_federal(
+            str(artifact["artifact_id"]),
+            str(run.run_id),
+            conn,
+        )
+        run.record_count = counts.get("memberships", 0) + counts.get("sessions", 0)
+        conn.commit()
+    return {
+        "schema": 1,
+        "kind": "openstates_federal_promote",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "artifact_id": str(artifact["artifact_id"]),
+        "artifact_key": artifact.get("artifact_key"),
+        **counts,
     }
