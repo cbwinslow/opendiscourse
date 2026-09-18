@@ -175,7 +175,7 @@ Python: `providers/` (HTTP only) → `ingestion/` (pipelines; Connector in
 ```text
 src/opendiscourse_research/
   providers/      # HTTP only
-  ingestion/      # plan/preview/load; future Connector
+  ingestion/      # pipelines; Connector protocol + handler registry
   repositories/   # PostgreSQL only
   cli.py          # coordination
 inventory/        # data SDD
