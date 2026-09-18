@@ -6,11 +6,7 @@ import inspect
 import unittest
 from unittest.mock import MagicMock, patch
 
-from opendiscourse_research.ingestion.connector import (
-    Connector,
-    ConnectorContext,
-    run_connector,
-)
+from opendiscourse_research.ingestion.connector import Connector, ConnectorContext
 from opendiscourse_research.ingestion.connectors import get, handlers, register
 from opendiscourse_research.ingestion.fred import FredCoreConnector
 from opendiscourse_research.plans import (
@@ -20,7 +16,6 @@ from opendiscourse_research.plans import (
     run_plan,
     validate_plans,
 )
-from opendiscourse_research.registry import sync as registry_sync
 
 
 class TestFredConnectorRegistry(unittest.TestCase):
@@ -120,194 +115,6 @@ class TestFredConnectorRegistry(unittest.TestCase):
             )
         self.assertEqual(count, 1)
         self.assertEqual(failures, {"DGS2": "boom"})
-
-    def test_discover_index_does_not_ingest_observations(self) -> None:
-        indexed = {"state": "paused", "statistics": {"series": 4}, "run_pages": 1}
-        with (
-            patch(
-                "opendiscourse_research.providers.fred.index_batch",
-                return_value=indexed,
-            ) as index_batch,
-            patch(
-                "opendiscourse_research.ingestion.fred.ingest_manifest",
-            ) as manifest,
-        ):
-            ctx = run_connector(
-                FredCoreConnector(),
-                ConnectorContext(
-                    source_id="fred.series",
-                    extras={"index_pages": 1, "index_seconds": None},
-                ),
-            )
-        index_batch.assert_called_once_with(1, None, None)
-        manifest.assert_not_called()
-        self.assertEqual(ctx.extras["phase"], "discover")
-        self.assertEqual(ctx.extras["count"], 4)
-        self.assertEqual(ctx.extras["discovery"], indexed)
-
-    def test_discover_catalog_does_not_ingest_observations(self) -> None:
-        catalog = {"resources": 12, "state": "synced"}
-        with (
-            patch(
-                "opendiscourse_research.browser.sync_fred",
-                return_value=catalog,
-            ) as sync_fred,
-            patch(
-                "opendiscourse_research.ingestion.fred.ingest_manifest",
-            ) as manifest,
-        ):
-            ctx = run_connector(
-                FredCoreConnector(),
-                ConnectorContext(
-                    source_id="fred.series",
-                    extras={"catalog": True, "refresh": False},
-                ),
-            )
-        sync_fred.assert_called_once_with(False)
-        manifest.assert_not_called()
-        self.assertEqual(ctx.extras["phase"], "discover")
-        self.assertEqual(ctx.extras["discovery"], catalog)
-        self.assertEqual(ctx.extras["count"], 12)
-
-    def test_discover_full_and_preview_skip_observations(self) -> None:
-        full = {"state": "synced", "resources": 9, "series_memberships": 11}
-        preview = {"state": "preview", "series_memberships": 7}
-        with (
-            patch(
-                "opendiscourse_research.browser.sync_fred_full",
-                return_value=full,
-            ) as sync_full,
-            patch(
-                "opendiscourse_research.ingestion.fred.ingest_manifest",
-            ) as manifest,
-        ):
-            ctx = run_connector(
-                FredCoreConnector(),
-                ConnectorContext(source_id="fred.series", extras={"full": True}),
-            )
-        sync_full.assert_called_once()
-        manifest.assert_not_called()
-        self.assertEqual(ctx.extras["count"], 9)
-        with (
-            patch(
-                "opendiscourse_research.browser.preview_fred_full",
-                return_value=preview,
-            ) as preview_full,
-            patch(
-                "opendiscourse_research.ingestion.fred.ingest_manifest",
-            ) as manifest,
-        ):
-            ctx = run_connector(
-                FredCoreConnector(),
-                ConnectorContext(
-                    source_id="fred.series",
-                    extras={"full": True, "preview": True},
-                ),
-            )
-        preview_full.assert_called_once()
-        manifest.assert_not_called()
-        self.assertEqual(ctx.extras["count"], 7)
-
-    def test_discover_failure_skips_observations(self) -> None:
-        with (
-            patch(
-                "opendiscourse_research.providers.fred.index_batch",
-                side_effect=ValueError("already running"),
-            ),
-            patch(
-                "opendiscourse_research.ingestion.fred.ingest_manifest",
-            ) as manifest,self.assertRaises(ValueError)
-        ):
-            run_connector(
-                FredCoreConnector(),
-                ConnectorContext(
-                    source_id="fred.series",
-                    extras={"index_pages": 1},
-                ),
-            )
-        manifest.assert_not_called()
-
-    def test_registry_sync_fred_has_no_provider_elif(self) -> None:
-        source = inspect.getsource(registry_sync)
-        self.assertNotIn("index_batch", source)
-        self.assertNotIn("sync_fred_full", source)
-        self.assertNotIn("preview_fred_full", source)
-        self.assertIn("run_connector", source)
-        self.assertIn("fred_core", source)
-
-    def test_registry_sync_index_uses_connector_and_returns_early(self) -> None:
-        discovery = {"state": "paused", "statistics": {"series": 2}}
-        with patch(
-            "opendiscourse_research.registry.run_connector",
-            return_value=ConnectorContext(
-                source_id="fred.series",
-                extras={"discovery": discovery, "count": 2, "phase": "discover"},
-            ),
-        ) as runner:
-            result = registry_sync(
-                sources={"fred", "bls"},
-                index_pages=1,
-                index_seconds=None,
-            )
-        runner.assert_called_once()
-        extras = runner.call_args.args[1].extras
-        self.assertEqual(extras["index_pages"], 1)
-        self.assertIsNone(extras["index_seconds"])
-        self.assertEqual(result["results"]["fred"], discovery)
-        self.assertNotIn("bls", result["results"])
-
-    def test_registry_sync_index_drives_real_connector(self) -> None:
-        indexed = {"state": "paused", "statistics": {"series": 3}}
-        with (
-            patch(
-                "opendiscourse_research.providers.fred.index_batch",
-                return_value=indexed,
-            ) as index_batch,
-            patch(
-                "opendiscourse_research.ingestion.fred.ingest_manifest",
-            ) as manifest,
-        ):
-            result = registry_sync(sources={"fred"}, index_pages=2)
-        index_batch.assert_called_once_with(2, None, None)
-        manifest.assert_not_called()
-        self.assertEqual(result["results"]["fred"], indexed)
-
-    def test_registry_sync_index_seconds_forwards_budget(self) -> None:
-        indexed = {"state": "paused", "statistics": {"series": 1}}
-        with patch(
-            "opendiscourse_research.providers.fred.index_batch",
-            return_value=indexed,
-        ) as index_batch:
-            registry_sync(sources={"fred"}, index_pages=None, index_seconds=30)
-        index_batch.assert_called_once_with(None, 30, None)
-
-    def test_registry_sync_current_snapshot_skips_connector(self) -> None:
-        with (
-            patch(
-                "opendiscourse_research.registry._has_snapshot",
-                return_value=True,
-            ),
-            patch("opendiscourse_research.registry.run_connector") as runner,
-        ):
-            result = registry_sync(sources={"fred"}, refresh=False)
-        runner.assert_not_called()
-        self.assertEqual(result["results"]["fred"], {"state": "current"})
-
-    def test_registry_sync_refresh_forwards_catalog(self) -> None:
-        catalog = {"resources": 5, "state": "synced"}
-        with (
-            patch(
-                "opendiscourse_research.browser.sync_fred",
-                return_value=catalog,
-            ) as sync_fred,
-            patch(
-                "opendiscourse_research.ingestion.fred.ingest_manifest",
-            ) as manifest,
-        ):
-            result = registry_sync(sources={"fred"}, refresh=True)
-        sync_fred.assert_called_once_with(True)
-        manifest.assert_not_called()
-        self.assertEqual(result["results"]["fred"], catalog)
 
     def test_execute_handler_requires_count_after_checkpoint(self) -> None:
         class Silent:

@@ -121,43 +121,15 @@ def ingest_manifest(
 
 
 class FredCoreConnector:
-    """FRED catalog/index discover and contract-gated observations.
+    """FRED observations via the Connector registry (Story 2.2).
 
-    ``discover`` runs metadata only when extras request index/full/catalog.
-    ``publish`` loads ``core_fred_series.yaml`` observations otherwise.
-    The two paths stay split: indexing never ingest_manifest.
+    Discover/index vs observations split is Story 2.3. Until then ``publish``
+    calls the existing ``ingest_manifest`` path.
     """
 
     source_id = "fred.series"
 
     def discover(self, ctx: ConnectorContext) -> ConnectorContext:
-        extras = ctx.extras
-        if extras.get("index_pages") is not None or extras.get("index_seconds") is not None:
-            from ..providers.fred import index_batch
-
-            result = index_batch(
-                extras.get("index_pages"),
-                extras.get("index_seconds"),
-                extras.get("report"),
-            )
-            stats = result.get("statistics") or {}
-            extras["count"] = int(stats.get("series") or 0)
-        elif extras.get("full"):
-            from ..browser import preview_fred_full, sync_fred_full
-
-            result = preview_fred_full() if extras.get("preview") else sync_fred_full()
-            extras["count"] = int(
-                result.get("resources") or result.get("series_memberships") or 0
-            )
-        elif extras.get("catalog"):
-            from ..browser import sync_fred
-
-            result = sync_fred(bool(extras.get("refresh")))
-            extras["count"] = int(result.get("resources") or 0)
-        else:
-            return ctx
-        extras["phase"] = "discover"
-        extras["discovery"] = result
         return ctx
 
     def select(self, ctx: ConnectorContext) -> ConnectorContext:
@@ -182,8 +154,6 @@ class FredCoreConnector:
         return ctx
 
     def publish(self, ctx: ConnectorContext) -> ConnectorContext:
-        if ctx.extras.get("phase") == "discover" or "discovery" in ctx.extras:
-            return ctx
         params = ctx.extras.get("parameters") or {}
         successes, failures = ingest_manifest(
             category=params.get("category"),
