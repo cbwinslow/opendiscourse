@@ -63,14 +63,15 @@ persona/persistence date aligned; dual session columns marked compatibility;
 `stage.fec_row` and market tables documented as not ingest-authorized.
 Landed with the 2026-09-17 schema-review absorb.
 
-### Story 1.6 — Provenance and identity contract tests
+### Story 1.6 — Provenance and identity contract tests — done
 As an operator, class-A source-derived tables reject source-less rows, and
 duplicate external person IDs / duplicate artifacts fail.
 Acceptance: audit remaining CHECK gaps (`geography_boundary`, `document`);
 pytest db cases listed in `schema-invariants.md`. Not on the FRED branch;
 not mixed into 8.1 unless a CHECK is required for new 8.1 tables.
+Landed on `main` via PR #24.
 
-### Story 1.7 — Immutable artifact versions
+### Story 1.7 — Immutable artifact versions — in review
 As a researcher, an evidence identifier always means the same bytes even after
 a remote bulk file is refreshed in place.
 Acceptance: changing `checksum_sha256` for the same logical
@@ -81,6 +82,7 @@ to evidence that supports their current values; tests cover unchanged retry,
 changed-content refresh, and rollback/replay. Do not implement as a silent
 `register_artifact()` behavior change without an Alembic migration and loader
 compatibility tests.
+PR #25 was reverted pending a corrected implementation and review.
 
 ## Epic 2 — Connector protocol + FRED reference
 
