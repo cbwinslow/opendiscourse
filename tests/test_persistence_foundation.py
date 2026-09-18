@@ -283,7 +283,7 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
             )
         }
 
-    assert revision == "c5e2d1a4f783"
+    assert revision == "b1e5c8a3d942"
     assert {
         "catalog.provider",
         "catalog.dataset",
@@ -434,21 +434,6 @@ def test_existing_schema_without_alembic_watermark_is_adopted_safely(
         connection.execute(text("ALTER TABLE core.membership DROP COLUMN IF EXISTS post_id"))
         connection.execute(text("DROP TABLE IF EXISTS core.post CASCADE"))
         connection.execute(text("DROP TABLE IF EXISTS core.division CASCADE"))
-        connection.execute(
-            text(
-                "ALTER TABLE ingest.artifact "
-                "DROP CONSTRAINT IF EXISTS artifact_dataset_id_artifact_key_version_key"
-            )
-        )
-        connection.execute(
-            text("ALTER TABLE ingest.artifact DROP COLUMN IF EXISTS artifact_version")
-        )
-        connection.execute(
-            text(
-                "ALTER TABLE ingest.artifact "
-                "ADD CONSTRAINT artifact_dataset_id_artifact_key_key UNIQUE (dataset_id, artifact_key)"
-            )
-        )
         assert connection.execute(
             text("SELECT to_regclass('core.bill')")
         ).scalar_one() == "core.bill"
@@ -458,7 +443,7 @@ def test_existing_schema_without_alembic_watermark_is_adopted_safely(
     with engine().connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "c5e2d1a4f783"
+        ).scalar_one() == "b1e5c8a3d942"
         assert connection.execute(
             text("SELECT to_regclass('core.bill')")
         ).scalar_one() == "core.bill"
@@ -498,7 +483,7 @@ def test_alembic_adoptions_can_downgrade_and_reupgrade(
         command.upgrade(config, "head")
 
     with engine().connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "c5e2d1a4f783"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "b1e5c8a3d942"
         assert connection.execute(text("SELECT to_regclass('core.division')")).scalar_one() == "core.division"
         assert connection.execute(text("SELECT to_regclass('core.post')")).scalar_one() == "core.post"
         assert connection.execute(
@@ -535,15 +520,8 @@ def test_existing_membership_survives_post_revision(catalog_database: None) -> N
     config = _alembic_config()
     command.downgrade(config, "c4f7a2d9e651")
     try:
+        artifact_id = _legislative_seat_artifact("pre-post-upgrade")
         with engine().begin() as connection:
-            artifact_id = connection.execute(
-                text(
-                    "INSERT INTO ingest.artifact (dataset_id, remote_url, local_path, artifact_key, status) "
-                    "VALUES ('congress.govinfo_billstatus', 'https://example.test/legislative-posts-pre-post-upgrade.zip', "
-                    "'/tmp/legislative-posts-pre-post-upgrade.zip', 'test-legislative-posts-pre-post-upgrade', 'downloaded') "
-                    "RETURNING artifact_id"
-                )
-            ).scalar_one()
             person_id = connection.execute(
                 text(
                     "INSERT INTO core.person (full_name) "
