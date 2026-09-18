@@ -30,12 +30,9 @@ contract.
    `opencivicdata_post` / membership / division)
 9. `docs/model.md` and `docs/openstates-integration.md`
 10. `docs/persistence-migration-status.md`
-11. `_bmad-output/implementation-artifacts/` — story specs, epic context,
-    deferred-work (canonical; includes 8.1 done and 8.2 done)
-12. `docs/schema-snapshot/spec-8-1-post-division-membership.md` and
-    `spec-8-2-openstates-promote.md` (convenience copies in this snapshot)
-13. `docs/schema-snapshot/related-files.md` — SQL, Alembic, models, inventory
-14. `_bmad-output/specs/spec-opendiscourse/schema-invariants.md` and
+11. `docs/schema-snapshot/spec-8-1-post-division-membership.md`
+12. `docs/schema-snapshot/related-files.md` — SQL, Alembic, models, inventory
+13. `_bmad-output/specs/spec-opendiscourse/schema-invariants.md` and
     `docs/research/2026-09-17-chatgpt-schema-review.md` (research; absorbed)
 
 ## Live warehouse facts (this snapshot)

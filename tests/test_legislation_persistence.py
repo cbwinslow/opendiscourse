@@ -8,16 +8,12 @@ from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 from zipfile import ZipFile
 
-from typer.testing import CliRunner
-
-from opendiscourse_research.cli import app
 from opendiscourse_research.ingestion.base import IngestionRun
 from opendiscourse_research.legload import load_billstatus
 from opendiscourse_research.repositories.legislation import (
     ensure_us_legislative_session,
     loaded_artifact_members,
     parse_billstatus_xml,
-    promote_openstates_federal,
     resolve_bill_sponsorship_people,
     save_billstatus_bill,
     sync_openstates_federal_people,
@@ -313,45 +309,6 @@ class TestLegislationPersistence(unittest.TestCase):
         self.assertIn(
             "UPDATE core.bill_sponsorship", mock_cur.execute.call_args.args[0]
         )
-
-    def test_openstates_promote_sql_is_federal_and_read_only_on_the_dump(self) -> None:
-        query_root = Path(__file__).resolve().parents[1] / "sql" / "query" / "legislation"
-        files = sorted(query_root.glob("openstates_promote_*.sql"))
-        self.assertGreaterEqual(len(files), 5)
-        for path in files:
-            sql = path.read_text()
-            lowered = sql.lower()
-            self.assertIn("openstates_source.", lowered)
-            self.assertIn("%(jurisdiction_id)s", sql)
-            self.assertNotIn("insert into openstates.", lowered)
-            self.assertNotIn("update openstates.", lowered)
-            self.assertNotIn("delete from openstates.", lowered)
-            self.assertNotIn("insert into public.", lowered)
-
-    def test_openstates_promote_binds_the_us_jurisdiction_filter(self) -> None:
-        mock_conn = MagicMock()
-        mock_cur = MagicMock()
-        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
-        mock_cur.fetchone.return_value = {"n": 0}
-
-        result = promote_openstates_federal("artifact", "run", mock_conn)
-
-        self.assertEqual(result["sessions"], 0)
-        ensure_params = mock_cur.execute.call_args_list[0].args[1]
-        self.assertEqual(
-            ensure_params["jurisdiction_id"],
-            "ocd-jurisdiction/country:us/government",
-        )
-        promote_params = mock_cur.execute.call_args_list[1].args[1]
-        self.assertEqual(
-            promote_params["jurisdiction_id"],
-            "ocd-jurisdiction/country:us/government",
-        )
-
-    def test_load_openstates_promote_command_is_registered(self) -> None:
-        result = CliRunner().invoke(app, ["load-openstates-promote", "--help"])
-        self.assertEqual(result.exit_code, 0)
-        self.assertIn("Promote federal OpenStates sessions", result.output)
 
 
 if __name__ == "__main__":

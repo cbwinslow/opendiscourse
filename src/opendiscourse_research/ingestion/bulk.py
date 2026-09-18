@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from sqlalchemy import func, select, update
+from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 
 from ..config import settings
@@ -45,103 +45,38 @@ def artifact_path(spec: ArtifactSpec) -> Path:
 
 def _upsert(spec: ArtifactSpec, path: Path, status: str, **values: object) -> None:
     table = artifact_table()
-    bytes_val = values.get("bytes")
-    checksum_val = values.get("checksum")
-    content_type_val = values.get("content_type")
-    error_val = values.get("error")
-
+    statement = insert(table).values(
+        dataset_id=spec.dataset_id,
+        remote_url=spec.url,
+        local_path=str(path),
+        artifact_key=spec.artifact_key,
+        period_start=spec.period_start,
+        period_end=spec.period_end,
+        status=status,
+        metadata=spec.metadata or {},
+        bytes_downloaded=values.get("bytes"),
+        checksum_sha256=values.get("checksum"),
+        content_type=values.get("content_type"),
+        downloaded_at=func.now() if status == "downloaded" else None,
+        error_message=values.get("error"),
+    )
     with session() as active_session:
-        latest = active_session.execute(
-            select(
-                table.c.artifact_id,
-                table.c.artifact_version,
-                table.c.status,
-                table.c.checksum_sha256,
-                table.c.metadata,
+        active_session.execute(
+            statement.on_conflict_do_update(
+                index_elements=(table.c.dataset_id, table.c.artifact_key),
+                set_={
+                    "remote_url": statement.excluded.remote_url,
+                    "local_path": statement.excluded.local_path,
+                    "status": statement.excluded.status,
+                    "bytes_downloaded": statement.excluded.bytes_downloaded,
+                    "checksum_sha256": statement.excluded.checksum_sha256,
+                    "content_type": statement.excluded.content_type,
+                    "downloaded_at": statement.excluded.downloaded_at,
+                    "error_message": statement.excluded.error_message,
+                    "metadata": statement.excluded.metadata,
+                },
             )
-            .where(
-                table.c.dataset_id == spec.dataset_id,
-                table.c.artifact_key == spec.artifact_key,
-            )
-            .order_by(table.c.artifact_version.desc())
-            .limit(1)
-            .with_for_update()
-        ).mappings().first()
-
-        if latest is None:
-            active_session.execute(
-                insert(table).values(
-                    dataset_id=spec.dataset_id,
-                    remote_url=spec.url,
-                    local_path=str(path),
-                    artifact_key=spec.artifact_key,
-                    artifact_version=1,
-                    period_start=spec.period_start,
-                    period_end=spec.period_end,
-                    status=status,
-                    metadata=spec.metadata or {},
-                    bytes_downloaded=bytes_val,
-                    checksum_sha256=checksum_val,
-                    content_type=content_type_val,
-                    downloaded_at=func.now() if status == "downloaded" else None,
-                    error_message=error_val,
-                )
-            )
-        elif (
-            checksum_val is not None
-            and latest["checksum_sha256"] is not None
-            and checksum_val != latest["checksum_sha256"]
-        ):
-            active_session.execute(
-                insert(table).values(
-                    dataset_id=spec.dataset_id,
-                    remote_url=spec.url,
-                    local_path=str(path),
-                    artifact_key=spec.artifact_key,
-                    artifact_version=latest["artifact_version"] + 1,
-                    period_start=spec.period_start,
-                    period_end=spec.period_end,
-                    status=status,
-                    metadata=spec.metadata or {},
-                    bytes_downloaded=bytes_val,
-                    checksum_sha256=checksum_val,
-                    content_type=content_type_val,
-                    downloaded_at=func.now() if status == "downloaded" else None,
-                    error_message=error_val,
-                )
-            )
-        elif (
-            latest["checksum_sha256"] is not None
-            and latest["status"] in ("downloaded", "loaded")
-            and checksum_val is None
-            and status in ("planned", "downloading", "failed")
-        ):
-            return
-        else:
-            merged_metadata = dict(latest["metadata"] or {})
-            if spec.metadata:
-                merged_metadata.update(spec.metadata)
-            update_vals: dict[str, Any] = {
-                "remote_url": spec.url,
-                "local_path": str(path),
-                "status": status,
-                "metadata": merged_metadata,
-            }
-            if bytes_val is not None:
-                update_vals["bytes_downloaded"] = bytes_val
-            if checksum_val is not None:
-                update_vals["checksum_sha256"] = checksum_val
-            if content_type_val is not None:
-                update_vals["content_type"] = content_type_val
-            if status == "downloaded":
-                update_vals["downloaded_at"] = func.now()
-            if error_val is not None:
-                update_vals["error_message"] = error_val
-            active_session.execute(
-                update(table)
-                .where(table.c.artifact_id == latest["artifact_id"])
-                .values(**update_vals)
-            )
+        )
 
 
 def download(

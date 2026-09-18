@@ -49,7 +49,6 @@ _artifact = Table(
     Column("remote_url", Text, nullable=False),
     Column("local_path", Text, nullable=False),
     Column("artifact_key", Text, nullable=False),
-    Column("artifact_version", Integer, nullable=False, server_default=text("1")),
     Column("period_start", Date),
     Column("period_end", Date),
     Column("content_type", Text),
@@ -61,12 +60,7 @@ _artifact = Table(
     Column("loaded_at", DateTime(timezone=True)),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     Column("error_message", Text),
-    UniqueConstraint(
-        "dataset_id",
-        "artifact_key",
-        "artifact_version",
-        name="artifact_dataset_id_artifact_key_version_key",
-    ),
+    UniqueConstraint("dataset_id", "artifact_key"),
     CheckConstraint(
         "status IN ('planned', 'downloading', 'downloaded', 'loaded', 'failed', 'skipped')",
         name="artifact_status_check",

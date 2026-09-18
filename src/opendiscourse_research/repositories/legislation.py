@@ -8,7 +8,7 @@ from typing import Any
 from xml.etree import ElementTree
 
 from psycopg.types.json import Jsonb
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from ..db import session
@@ -242,7 +242,7 @@ def register_artifact(
     metadata: dict[str, Any] | None = None,
     conn: Any | None = None,
 ) -> dict[str, Any]:
-    """Register or update an artifact safely with immutable versioning."""
+    """Register or update a local bulk artifact safely in ingest.artifact."""
     params = {
         "dataset_id": dataset_id,
         "remote_url": remote_url,
@@ -263,166 +263,76 @@ def register_artifact(
             return dict(row) if row else {}
 
     table = artifact_table()
+    statement = insert(table).values(
+        dataset_id=dataset_id,
+        remote_url=remote_url,
+        local_path=local_path,
+        artifact_key=artifact_key,
+        period_start=period_start,
+        period_end=period_end,
+        content_type=content_type or "application/zip",
+        bytes_downloaded=bytes_downloaded,
+        checksum_sha256=checksum_sha256,
+        status=status,
+        metadata=metadata or {},
+    )
     with session() as active_session:
-        latest = active_session.execute(
-            select(
-                table.c.artifact_id,
-                table.c.dataset_id,
-                table.c.remote_url,
-                table.c.local_path,
-                table.c.artifact_key,
-                table.c.artifact_version,
-                table.c.status,
-                table.c.checksum_sha256,
-                table.c.metadata,
-            )
-            .where(
-                table.c.dataset_id == dataset_id,
-                table.c.artifact_key == artifact_key,
-            )
-            .order_by(table.c.artifact_version.desc())
-            .limit(1)
-            .with_for_update()
-        ).mappings().first()
-
-        if latest is None:
-            stmt = insert(table).values(
-                dataset_id=dataset_id,
-                remote_url=remote_url,
-                local_path=local_path,
-                artifact_key=artifact_key,
-                artifact_version=1,
-                period_start=period_start,
-                period_end=period_end,
-                content_type=content_type or "application/zip",
-                bytes_downloaded=bytes_downloaded,
-                checksum_sha256=checksum_sha256,
-                status=status,
-                metadata=metadata or {},
+        row = active_session.execute(
+            statement.on_conflict_do_update(
+                index_elements=(table.c.dataset_id, table.c.artifact_key),
+                set_={
+                    "remote_url": statement.excluded.remote_url,
+                    "local_path": statement.excluded.local_path,
+                    "period_start": func.coalesce(statement.excluded.period_start, table.c.period_start),
+                    "period_end": func.coalesce(statement.excluded.period_end, table.c.period_end),
+                    "content_type": func.coalesce(statement.excluded.content_type, table.c.content_type),
+                    "bytes_downloaded": func.coalesce(statement.excluded.bytes_downloaded, table.c.bytes_downloaded),
+                    "checksum_sha256": func.coalesce(statement.excluded.checksum_sha256, table.c.checksum_sha256),
+                    "status": statement.excluded.status,
+                    "metadata": table.c.metadata.op("||")(statement.excluded.metadata),
+                },
             ).returning(
                 table.c.artifact_id,
                 table.c.dataset_id,
                 table.c.remote_url,
                 table.c.local_path,
                 table.c.artifact_key,
-                table.c.artifact_version,
                 table.c.status,
                 table.c.checksum_sha256,
-                table.c.metadata,
             )
-            row = active_session.execute(stmt).mappings().one()
-        elif (
-            checksum_sha256 is not None
-            and latest["checksum_sha256"] is not None
-            and checksum_sha256 != latest["checksum_sha256"]
-        ):
-            stmt = insert(table).values(
-                dataset_id=dataset_id,
-                remote_url=remote_url,
-                local_path=local_path,
-                artifact_key=artifact_key,
-                artifact_version=latest["artifact_version"] + 1,
-                period_start=period_start,
-                period_end=period_end,
-                content_type=content_type or "application/zip",
-                bytes_downloaded=bytes_downloaded,
-                checksum_sha256=checksum_sha256,
-                status=status,
-                metadata=metadata or {},
-            ).returning(
-                table.c.artifact_id,
-                table.c.dataset_id,
-                table.c.remote_url,
-                table.c.local_path,
-                table.c.artifact_key,
-                table.c.artifact_version,
-                table.c.status,
-                table.c.checksum_sha256,
-                table.c.metadata,
-            )
-            row = active_session.execute(stmt).mappings().one()
-        elif (
-            latest["checksum_sha256"] is not None
-            and latest["status"] in ("downloaded", "loaded")
-            and checksum_sha256 is None
-            and status in ("planned", "downloading", "failed")
-        ):
-            return dict(latest)
-        else:
-            merged_metadata = dict(latest["metadata"] or {})
-            if metadata:
-                merged_metadata.update(metadata)
-            stmt = (
-                update(table)
-                .where(table.c.artifact_id == latest["artifact_id"])
-                .values(
-                    remote_url=remote_url,
-                    local_path=local_path,
-                    period_start=func.coalesce(period_start, table.c.period_start),
-                    period_end=func.coalesce(period_end, table.c.period_end),
-                    content_type=func.coalesce(content_type, table.c.content_type),
-                    bytes_downloaded=func.coalesce(bytes_downloaded, table.c.bytes_downloaded),
-                    checksum_sha256=func.coalesce(checksum_sha256, table.c.checksum_sha256),
-                    status=status,
-                    metadata=merged_metadata,
-                )
-                .returning(
-                    table.c.artifact_id,
-                    table.c.dataset_id,
-                    table.c.remote_url,
-                    table.c.local_path,
-                    table.c.artifact_key,
-                    table.c.artifact_version,
-                    table.c.status,
-                    table.c.checksum_sha256,
-                    table.c.metadata,
-                )
-            )
-            row = active_session.execute(stmt).mappings().one()
+        ).mappings().one()
     return dict(row)
 
 
 def get_artifact(
     dataset_id: str,
     artifact_key: str,
-    version: int | None = None,
     conn: Any | None = None,
 ) -> dict[str, Any] | None:
     """Retrieve an existing artifact record by dataset_id and artifact_key."""
-    params = {
-        "dataset_id": dataset_id,
-        "artifact_key": artifact_key,
-        "version": version,
-    }
     if conn is not None:
         with conn.cursor() as cur:
-            cur.execute(_query("get_artifact"), params)
+            cur.execute(
+                _query("get_artifact"),
+                {"dataset_id": dataset_id, "artifact_key": artifact_key},
+            )
             row = cur.fetchone()
             return dict(row) if row else None
 
     table = artifact_table()
     with session() as active_session:
-        stmt = (
+        row = active_session.execute(
             select(
                 table.c.artifact_id,
                 table.c.dataset_id,
                 table.c.remote_url,
                 table.c.local_path,
                 table.c.artifact_key,
-                table.c.artifact_version,
                 table.c.status,
                 table.c.checksum_sha256,
                 table.c.metadata,
-            )
-            .where(
-                table.c.dataset_id == dataset_id,
-                table.c.artifact_key == artifact_key,
-            )
-        )
-        if version is not None:
-            stmt = stmt.where(table.c.artifact_version == version)
-        stmt = stmt.order_by(table.c.artifact_version.desc()).limit(1)
-        row = active_session.execute(stmt).mappings().first()
+            ).where(table.c.dataset_id == dataset_id, table.c.artifact_key == artifact_key)
+        ).mappings().first()
     return dict(row) if row else None
 
 
@@ -670,44 +580,6 @@ def load_openstates_votes(
                     },
                 )
                 counts["member_votes"] += 1
-    return counts
-
-
-def promote_openstates_federal(
-    artifact_id: str,
-    run_id: str,
-    conn: Any,
-) -> dict[str, int]:
-    """Promote US sessions, posts, divisions, and memberships from the OpenStates FDW."""
-    jurisdiction_id = "ocd-jurisdiction/country:us/government"
-    params = {
-        "jurisdiction_id": jurisdiction_id,
-        "source_artifact_id": artifact_id,
-        "run_id": run_id,
-    }
-    counts: dict[str, int] = {}
-    with conn.cursor() as cur:
-        cur.execute(
-            _query("ensure_jurisdiction"),
-            {
-                "jurisdiction_id": jurisdiction_id,
-                "name": "United States Congress",
-                "classification": "government",
-                "metadata": Jsonb({"country": "us"}),
-            },
-        )
-        for name, key in (
-            ("openstates_promote_jurisdiction", "jurisdictions"),
-            ("openstates_promote_sessions", "sessions"),
-            ("openstates_promote_divisions", "divisions"),
-            ("openstates_promote_posts", "posts"),
-            ("openstates_reconcile_memberships", "reconciled_memberships"),
-            ("openstates_promote_memberships", "memberships"),
-            ("openstates_promote_unresolved_memberships", "unresolved_memberships"),
-        ):
-            cur.execute(_query(name), params)
-            row = cur.fetchone()
-            counts[key] = int(row["n"]) if row else 0
     return counts
 
 

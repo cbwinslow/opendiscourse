@@ -11,7 +11,6 @@ from ..config import settings
 from ..db import session
 from ..models.core import measurement_table
 from .base import IngestionRun, client, json_response
-from .connector import ConnectorContext
 
 # providers/fred.py already paces its own (metadata-only) requests at this
 # rate; ingest_manifest's back-to-back series fetches never had the same
@@ -118,81 +117,3 @@ def ingest_manifest(
         if report:
             report(f"{series_id}: {successes[series_id]} observations")
     return successes, failures
-
-
-class FredCoreConnector:
-    """FRED catalog/index discover and contract-gated observations.
-
-    ``discover`` runs metadata only when extras request index/full/catalog.
-    ``publish`` loads ``core_fred_series.yaml`` observations otherwise.
-    The two paths stay split: indexing never ingest_manifest.
-    """
-
-    source_id = "fred.series"
-
-    def discover(self, ctx: ConnectorContext) -> ConnectorContext:
-        extras = ctx.extras
-        if extras.get("index_pages") is not None or extras.get("index_seconds") is not None:
-            from ..providers.fred import index_batch
-
-            result = index_batch(
-                extras.get("index_pages"),
-                extras.get("index_seconds"),
-                extras.get("report"),
-            )
-            stats = result.get("statistics") or {}
-            extras["count"] = int(stats.get("series") or 0)
-        elif extras.get("full"):
-            from ..browser import preview_fred_full, sync_fred_full
-
-            result = preview_fred_full() if extras.get("preview") else sync_fred_full()
-            extras["count"] = int(
-                result.get("resources") or result.get("series_memberships") or 0
-            )
-        elif extras.get("catalog"):
-            from ..browser import sync_fred
-
-            result = sync_fred(bool(extras.get("refresh")))
-            extras["count"] = int(result.get("resources") or 0)
-        else:
-            return ctx
-        extras["phase"] = "discover"
-        extras["discovery"] = result
-        return ctx
-
-    def select(self, ctx: ConnectorContext) -> ConnectorContext:
-        return ctx
-
-    def plan(self, ctx: ConnectorContext) -> ConnectorContext:
-        return ctx
-
-    def extract(self, ctx: ConnectorContext) -> ConnectorContext:
-        return ctx
-
-    def evidence(self, ctx: ConnectorContext) -> ConnectorContext:
-        return ctx
-
-    def stage(self, ctx: ConnectorContext) -> ConnectorContext:
-        return ctx
-
-    def normalize(self, ctx: ConnectorContext) -> ConnectorContext:
-        return ctx
-
-    def validate(self, ctx: ConnectorContext) -> ConnectorContext:
-        return ctx
-
-    def publish(self, ctx: ConnectorContext) -> ConnectorContext:
-        if ctx.extras.get("phase") == "discover" or "discovery" in ctx.extras:
-            return ctx
-        params = ctx.extras.get("parameters") or {}
-        successes, failures = ingest_manifest(
-            category=params.get("category"),
-            priority=params.get("max_priority", 1),
-            report=ctx.extras.get("report"),
-        )
-        ctx.extras["count"] = sum(successes.values())
-        ctx.extras["failures"] = failures
-        return ctx
-
-    def checkpoint(self, ctx: ConnectorContext) -> ConnectorContext:
-        return ctx

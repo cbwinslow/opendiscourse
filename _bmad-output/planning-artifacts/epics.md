@@ -71,7 +71,7 @@ pytest db cases listed in `schema-invariants.md`. Not on the FRED branch;
 not mixed into 8.1 unless a CHECK is required for new 8.1 tables.
 Landed on `main` via PR #24.
 
-### Story 1.7 — Immutable artifact versions — done
+### Story 1.7 — Immutable artifact versions — in review
 As a researcher, an evidence identifier always means the same bytes even after
 a remote bulk file is refreshed in place.
 Acceptance: changing `checksum_sha256` for the same logical
@@ -82,7 +82,7 @@ to evidence that supports their current values; tests cover unchanged retry,
 changed-content refresh, and rollback/replay. Do not implement as a silent
 `register_artifact()` behavior change without an Alembic migration and loader
 compatibility tests.
-Landed on `main` via PR #25.
+PR #25 was reverted pending a corrected implementation and review.
 
 ## Epic 2 — Connector protocol + FRED reference
 
@@ -93,19 +93,14 @@ Acceptance: Protocol in code; tests for the interface; no schema change.
 Landed: `ingestion/connector.py` (`Connector`, `STAGES`, `run_connector`);
 `tests/test_connector.py`.
 
-### Story 2.2 — Registry without HANDLERS if/elif — done
+### Story 2.2 — Registry without HANDLERS if/elif
 As a developer, I register FRED without adding to a hardcoded handler set.
 Acceptance: FRED path does not need a new `plans.py` elif.
-Landed: `ingestion/connectors.py`; `FredCoreConnector`; `fred_core` not in
-`HANDLERS` or `run_plan()` elif.
 
-### Story 2.3 — Migrate FRED end-to-end — done
+### Story 2.3 — Migrate FRED end-to-end
 As an operator, FRED discover/index vs observations still split; observations
 still contract-gated.
 Acceptance: Existing FRED tests pass; provenance unchanged.
-Landed: `FredCoreConnector.discover` for catalog/index/full; `registry.sync`
-FRED path uses `run_connector`; observations stay `fredcore` +
-`ingest_manifest`.
 
 ## Epic 3 — Identity crosswalk
 
@@ -137,16 +132,13 @@ canonical; prefer `legislative_session_id`. Do not add
 `core.geography_relationship` here.
 Landed on `main` via PR #21.
 
-### Story 8.2 — OpenStates promote, not public FDW — done
-As a researcher, I query `core` for US sessions and federal occupancy,
+### Story 8.2 — OpenStates promote, not public FDW — in review
+As a researcher, I query `core`/`fact`/`mart` for OCD-aligned state rows,
 not `openstates_source.opencivicdata_*`.
-Acceptance: Idempotent FDW → `core` promote for US jurisdiction,
-US legislative sessions, then posts/divisions/memberships for people
-already in `core.person`. Dump remains replace-only. No name matches.
-All-state promote is later. Spec:
-`_bmad-output/implementation-artifacts/spec-8-2-openstates-promote.md`
-(tracked copy: `docs/schema-snapshot/spec-8-2-openstates-promote.md`).
-Landed on `main` via PR #22.
+Acceptance: Documented; at least one promote path from FDW to `core` for a
+bounded grain (jurisdiction/session or membership); dump remains replace-only.
+Current implementation is PR #22; do not merge while required CI/review checks
+are unresolved.
 
 ### Story 8.3 — Session identity on FKs (deferred)
 As a developer, `core.bill` and `core.roll_call` unique keys use

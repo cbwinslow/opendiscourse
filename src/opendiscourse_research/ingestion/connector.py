@@ -1,7 +1,7 @@
 """Typed Connector lifecycle for adding a source without dispatcher branches.
 
 Story 2.1: the protocol and an ordered runner. FRED registration is 2.2;
-FRED discover vs observations is 2.3. Adapters must not add ``if``/``elif`` to
+end-to-end FRED migration is 2.3. Adapters must not add ``if``/``elif`` to
 ``cli.py``, ``plans.py`` ``run_plan()``, or ``registry.sync``.
 """
 

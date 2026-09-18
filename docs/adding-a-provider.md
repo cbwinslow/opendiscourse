@@ -2,10 +2,7 @@
 
 A provider is a plain Python module under
 `src/opendiscourse_research/providers/` that talks to one external data
-source. HTTP stays in `providers/`. Ingest plans register a Connector in
-`src/opendiscourse_research/ingestion/connectors.py` — do not add
-`plans.py` `HANDLERS` members or `run_plan()` elif branches. Providers
-intentionally do **not** share a common base class or
+source. Providers intentionally do **not** share a common base class or
 function signature — FRED, Census, and Congress each expose different
 shapes (paced search plus resumable indexing; multi-dataset bulk-package
 sync; one-shot sync) because their upstream APIs are genuinely different.
@@ -50,16 +47,18 @@ Then fill in each of the required behaviors below.
    error messages. *FRED example:* `providers/fred.py`'s `_get()` does
    exactly this.
 
-6. **Wire the module into a Connector, not a dispatcher branch.** Register
-   the adapter in `ingestion/connectors.py` (`register` / `get`) and put
-   provider-specific HTTP in `providers/`. FRED catalog/index runs through
-   `FredCoreConnector.discover`; observations through `publish` via plan
-   `fredcore`. Do not add `if "<id>" in requested` to `registry.py`
-   `sync()`, `plans.py` `HANDLERS`, or `cli.py`. Existing census/congress/bls
-   arms in `registry.sync` are legacy; new sources follow FRED. Some providers still
-   have dedicated CLI commands (e.g. `census-health`) — that is not a
-   substitute for a Connector. Skipping registration leaves a module nothing
-   calls.
+6. **Wire the module into a caller.** A provider's `sync()` is not
+   discovered automatically — `registry.py`'s `sync()` dispatches to each
+   provider through an explicit `if "<id>" in requested:` block against a
+   hardcoded default set (`requested = sources or {"acs", "census", "fred",
+   "congress"}`). Add your provider's id to that set and a matching `if`
+   block that imports and calls your provider's function, the same way
+   `registry.py` already imports `index_batch` from `providers/fred.py` and
+   `sync` from `providers/congress.py`. Some providers instead get their
+   own dedicated CLI command (e.g. `census-health`/`congress-health` in
+   `cli.py`) — use whichever matches how the provider is meant to be
+   invoked. Skipping this step leaves a correctly-written provider that
+   nothing ever calls.
 
 ## Worked example: FRED end to end
 
@@ -79,7 +78,7 @@ Then fill in each of the required behaviors below.
   register → contract → discovery → staging → canonical-transform sequence
   this project follows once a provider goes beyond metadata discovery.
 
-Note: FRED plan dispatch is covered by `tests/test_fred_connector.py`. For a
+Note: FRED does not yet have a dedicated `tests/test_fred*.py` file. For a
 worked example of this project's actual test style (real
 `unittest.TestCase` classes, `unittest.mock.patch`, temp directories, no
 live network calls), read `tests/test_census_bulk.py` or

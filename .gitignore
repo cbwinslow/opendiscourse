@@ -17,12 +17,11 @@ dbt/.user.yml
 repomix-output.*
 .repomix/
 
-# BMAD: personal overrides and generated TEA/render output.
-# Story specs under _bmad-output/implementation-artifacts/ are tracked so
-# GitHub/ChatGPT review can see the working specs, not only snapshot copies.
+# BMAD: personal overrides and generated artifacts
 _bmad/config.user.toml
 _bmad/custom/config.user.toml
 _bmad-output/test-artifacts/
+_bmad-output/implementation-artifacts/
 
 # BMAD skill launchers that duplicate .agents/skills (Grok/Codex/Cursor/Hermes/Kilo
 # share that directory). Claude Code uses .claude/skills; Antigravity uses .agent/skills;

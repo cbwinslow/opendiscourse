@@ -150,7 +150,7 @@ ingest_identity_exception = Table(
     Column("reference_count", Integer, nullable=False, server_default=text("1")),
     Column("first_seen_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     Column("last_seen_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
-    CheckConstraint("kind IN ('voter', 'membership')", name="identity_exception_kind_check"),
+    CheckConstraint("kind IN ('voter')", name="identity_exception_kind_check"),
     CheckConstraint(
         "reference_count > 0", name="identity_exception_reference_count_check"
     ),

@@ -76,12 +76,10 @@ from .ingestion.census import (
     search_acs_tables,
 )
 from .ingestion.congress import ingest_bill
-from .ingestion.connector import ConnectorContext, run_connector
-from .ingestion.connectors import get as get_connector
 from .ingestion.dhc_bulk import preview_dhc_bulk_plan, write_dhc_bulk_plan
 from .ingestion.dhc_load import load_dhc, stage_dhc
 from .ingestion.fec_bulk import preview_family, register_family, stage_family
-from .ingestion.fred import ingest_series
+from .ingestion.fred import ingest_manifest, ingest_series
 from .ingestion.openstates import download_monthly_dump
 from .ingestion.pep_bulk import preview_pep_bulk_plan, write_pep_bulk_plan
 from .ingestion.pep_load import load_pep, stage_pep
@@ -100,7 +98,6 @@ from .openstatesstage import (
 from .peopleload import (
     load_openstates_federal_organizations,
     load_openstates_federal_people,
-    load_openstates_federal_promote,
     load_openstates_votes,
 )
 from .plans import due_plans, load_plans, run_plan
@@ -599,31 +596,6 @@ def load_openstates_votes_command(
     """Load bounded OpenStates congressional roll calls and member positions."""
     with render_spinner("Loading OpenStates congressional votes"):
         result = load_openstates_votes(congress, limit, resume=resume)
-    typer.echo(json.dumps(result, indent=2, sort_keys=True))
-
-
-@app.command("load-openstates-promote")
-def load_openstates_promote_command(
-    manifest: Path | None = typer.Option(
-        None,
-        "--manifest",
-        exists=True,
-        dir_okay=False,
-        readable=True,
-        help="Optional reviewed OpenStates snapshot manifest to bind evidence to.",
-    ),
-    require_manifest: bool = typer.Option(
-        False,
-        "--require-manifest",
-        help="Fail if a validated snapshot manifest is not available.",
-    ),
-) -> None:
-    """Promote federal OpenStates sessions and occupancy into owned core tables."""
-    with render_spinner("Promoting OpenStates federal sessions and occupancy"):
-        result = load_openstates_federal_promote(
-            manifest_path=manifest,
-            require_manifest=require_manifest,
-        )
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 
@@ -1408,26 +1380,13 @@ def fred_core(
     max_priority: int = typer.Option(1, min=1, max=3),
 ) -> None:
     """Backfill curated FRED macro, rate, market, commodity, and FX series."""
-    connector = get_connector("fred_core")
-    if connector is None:
-        raise RuntimeError("fred_core Connector is not registered")
     with render_spinner("Backfilling curated FRED series") as update:
-        ctx = run_connector(
-            connector,
-            ConnectorContext(
-                source_id=connector.source_id,
-                extras={
-                    "parameters": {
-                        "max_priority": max_priority,
-                        "category": category,
-                    },
-                    "report": update,
-                },
-            ),
+        successes, failures = ingest_manifest(
+            category=category, priority=max_priority, report=update
         )
-    failures = ctx.extras.get("failures") or {}
-    count = int(ctx.extras.get("count") or 0)
-    typer.echo(f"Ingested {count} FRED observations.")
+    typer.echo(
+        f"Ingested {len(successes)} FRED series and {sum(successes.values())} observations."
+    )
     if failures:
         typer.echo(f"{len(failures)} series failed: {', '.join(failures)}")
         raise typer.Exit(1)
