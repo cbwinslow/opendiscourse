@@ -32,6 +32,7 @@ from .catalog import sync_inventory, validate_inventory
 from .censushealth import census_health
 from .congresshealth import congressional_health, recover_stale_congressional_runs
 from .contracts import load_contracts, validate_contracts
+from .coverage import coverage_report, format_table
 from .db import apply_migrations
 from .exports import available_exports, export_relation
 from .feedback import (
@@ -585,6 +586,21 @@ def loaded_command(
 ) -> None:
     """Show what is loaded: newest successful run per dataset, target and coverage key."""
     typer.echo(json.dumps(loaded_coverage(dataset), indent=2, sort_keys=True, default=str))
+
+
+@app.command("coverage")
+def coverage_command(
+    congress: list[int] = typer.Option(None, help="Limit to a Congress (repeatable), 108-119."),
+    refresh_official: bool = typer.Option(False, help="Refetch official counts, ignoring the cache."),
+    json_output: bool = typer.Option(False, "--json", help="Print the full JSON report."),
+) -> None:
+    """Compare official expected counts to loaded rows per Congress (read-only)."""
+    with render_progress("Comparing coverage", len(congress or range(108, 120))) as advance:
+        result = coverage_report(congress or None, refresh_official, advance)
+    if json_output:
+        typer.echo(json.dumps(result, indent=2, sort_keys=True, default=str))
+    else:
+        typer.echo(format_table(result))
 
 
 @app.command("person-join-status")

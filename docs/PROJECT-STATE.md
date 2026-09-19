@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2 merged; 3.1 and 9.2 live; performance audit done). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2 merged; 9.3 built on `feat/9-3-coverage-comparator`; 3.1 and 9.2 live; performance audit done). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -78,7 +78,33 @@ ledger, load strategies, coverage checks) that later models can sit on.
 | Treasury yields | 29 ok, 24 failed | parser broke ("no recognizable rate table") |
 | Census ACS/CBP/TIGER/PEP/DHC | loaded (ACS 281M rows) | no coverage check; most complete area |
 
-No coverage measurement exists anywhere; Story 9.3 creates it.
+Story 9.3 adds `research-db coverage` (first measurement below).
+
+## Coverage report (Story 9.3, first measurement 2026-09-19)
+
+`research-db coverage [--congress N] [--refresh-official] [--json]` is read-only. Expected counts are
+official: GovInfo BILLSTATUS manifests (bills), Senate.gov vote menus and House Clerk index (roll
+calls). Actions (`lake_archive`, counted in the unverified BILLSTATUS zips) and members
+(`legislators_yaml`, term overlap by BioGuide id) have no official manifest and are labelled so.
+Official counts are cached in `data-lake/opendiscourse/meta/coverage/official.json` (current
+Congress and year expire after a day); `latest.json` holds the last report.
+
+- **The 108th start is confirmed:** GovInfo's BILLSTATUS root lists Congress folders 108-119 only.
+- **Bills:** 108-117 loaded 0 of 10,637-17,828 each (about 134K bills in total); 118 is complete
+  (19,315); 119 has 18,058 of 18,956 (898 missing).
+- **Lake vs official:** the BILLSTATUS zips match the official manifest exactly for 108-112, 114,
+  116, 118; short by 1 (113, 115), 11 (117) and 904 (119). This replaces the earlier "2,831
+  missing" figure for the 119th.
+- **Actions:** 118 and 119 equal the lake counts; 108-117 not loaded.
+- **Roll calls:** House 118 has 912 of 1,241 and 119 has 488 of 676; Senate 118 has 176 of 691 and
+  119 has 251 of 897. Senate member votes: 118 has 407 (49 Senate roll calls with none), 119 has 0.
+- **Members:** `core.membership` is empty: 0 of about 545-560 members per Congress. People are loaded
+  (Story 3.1) but no terms.
+- **Unattributed:** 286 of 287 runs have no `code_version`; `stage.fec_row` about 101.7M rows.
+
+Roll-call "expected" is the highest number on the official index, so it counts every recorded
+call, including ones the source loaders may legitimately skip; check that before treating the
+House gap as a loader bug.
 
 ## Large tables and database sizing (measured 2026-09-19)
 
@@ -184,7 +210,7 @@ each passing the 9.1 harness, and only after the 17 cluster is restarted with th
    in `opendiscourse`. Optional: cap `autovacuum_work_mem` on the 16 cluster.
 2. Rerun `scripts/bench/benchmark_load_strategies.py` (about 8 minutes) and refresh the ADR-0003
    tables with the tuned-settings numbers.
-3. Story 9.3 coverage comparator (Congresses 108-119; count the unattributed FEC staging).
+3. Story 9.3 coverage comparator: built (see "Coverage report"); merge, then use it after every backfill.
 4. Backfill Congress bills/actions/members, then votes, through Connectors with the harness.
 5. Then: FRED/OpenStates redo (2.2, 2.3, 8.2), Treasury and FRED failures, FEC promotion.
 6. Decide the `fact.acs_bulk_estimate` redesign (docs/performance-audit-2026-09-19.md) when Epics 5-6
