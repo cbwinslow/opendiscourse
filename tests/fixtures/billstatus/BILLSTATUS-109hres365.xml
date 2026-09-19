@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<billStatus>
+  <version>3.0.0</version>
+  <bill>
+    <number>365</number>
+    <updateDate>2023-01-13T04:50:28Z</updateDate>
+    <updateDateIncludingText>2023-01-13T04:50:28Z</updateDateIncludingText>
+    <originChamber>House</originChamber>
+    <originChamberCode>H</originChamberCode>
+    <type>HRES</type>
+    <introducedDate>2005-07-18</introducedDate>
+    <congress>109</congress>
+    <committees>
+      <item>
+        <systemCode>hsru00</systemCode>
+        <name>Rules Committee</name>
+        <chamber>House</chamber>
+        <type>Standing</type>
+        <activities>
+          <item>
+            <name>Reported original measure</name>
+            <date>2005-07-19T03:24:37Z</date>
+          </item>
+        </activities>
+      </item>
+    </committees>
+    <committeeReports>
+      <committeeReport>
+        <citation>H. Rept. 109-175</citation>
+      </committeeReport>
+    </committeeReports>
+    <relatedBills>
+      <item>
+        <title>Foreign Relations Authorization Act, Fiscal Years 2006 and 2007</title>
+        <congress>109</congress>
+        <number>2601</number>
+        <type>HR</type>
+        <latestAction>
+          <actionDate>2005-07-22</actionDate>
+          <text>Received in the Senate. Read twice. Placed on Senate Legislative Calendar under General Orders. Calendar No. 172.</text>
+        </latestAction>
+        <relationshipDetails>
+          <item>
+            <type>Procedurally-related</type>
+            <identifiedBy>House</identifiedBy>
+          </item>
+        </relationshipDetails>
+      </item>
+    </relatedBills>
+    <actions>
+      <item>
+        <actionDate>2005-07-19</actionDate>
+        <actionTime>13:20:59</actionTime>
+        <text>Motion to reconsider laid on the table Agreed to without objection.</text>
+        <type>Floor</type>
+        <actionCode>H38310</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2005-07-19</actionDate>
+        <actionTime>13:20:57</actionTime>
+        <text>On agreeing to the resolution Agreed to by recorded vote: 228 - 190 (Roll no. 384).</text>
+        <type>Floor</type>
+        <actionCode>H37100</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+        <recordedVotes>
+          <recordedVote>
+            <rollNumber>384</rollNumber>
+            <url>https://clerk.house.gov/evs/2005/roll384.xml</url>
+            <chamber>House</chamber>
+            <congress>109</congress>
+            <date>2005-07-19T17:20:57Z</date>
+            <sessionNumber>1</sessionNumber>
+          </recordedVote>
+        </recordedVotes>
+      </item>
+      <item>
+        <actionDate>2005-07-19</actionDate>
+        <actionTime>13:20:57</actionTime>
+        <text>Passed/agreed to in House: On agreeing to the resolution Agreed to by recorded vote: 228 - 190 (Roll no. 384).</text>
+        <type>Floor</type>
+        <actionCode>8000</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+        <recordedVotes>
+          <recordedVote>
+            <rollNumber>384</rollNumber>
+            <url>https://clerk.house.gov/evs/2005/roll384.xml</url>
+            <chamber>House</chamber>
+            <congress>109</congress>
+            <date>2005-07-19T17:20:57Z</date>
+            <sessionNumber>1</sessionNumber>
+          </recordedVote>
+        </recordedVotes>
+      </item>
+      <item>
+        <actionDate>2005-07-19</actionDate>
+        <actionTime>11:55:59</actionTime>
+        <text>DEBATE - The House proceeded with one hour of debate on H. Res. 365.</text>
+        <type>Floor</type>
+        <actionCode>H8D000</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2005-07-19</actionDate>
+        <actionTime>11:52:12</actionTime>
+        <text>Considered as privileged matter. (consideration: CR H5972-5982)</text>
+        <type>Floor</type>
+        <actionCode>H30000</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2005-07-18</actionDate>
+        <text>Placed on the House Calendar, Calendar No. 62.</text>
+        <type>Calendars</type>
+        <actionCode>H12420</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+        <calendarNumber>
+          <calendar>H00062</calendar>
+        </calendarNumber>
+      </item>
+      <item>
+        <actionDate>2005-07-18</actionDate>
+        <actionTime>23:24:38</actionTime>
+        <text>Rule provides for consideration of H.R. 2601. Previous question shall be considered as ordered without intervening motions except motion to recommit with or without instructions. Measure will be considered read. Specified amendments are in order.</text>
+        <type>Floor</type>
+        <actionCode>H12700</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2005-07-18</actionDate>
+        <text>The House Committee on Rules reported an original measure, H. Rept. 109-175, by Mr. Bishop (UT).</text>
+        <type>Committee</type>
+        <actionCode>H12100</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+        <committees>
+          <item>
+            <systemCode>hsru00</systemCode>
+            <name>Rules Committee</name>
+          </item>
+        </committees>
+      </item>
+      <item>
+        <actionDate>2005-07-18</actionDate>
+        <text>The House Committee on Rules reported an original measure, H. Rept. 109-175, by Mr. Bishop (UT).</text>
+        <type>Committee</type>
+        <actionCode>5000</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+        <committees>
+          <item>
+            <systemCode>hsru00</systemCode>
+            <name>Rules Committee</name>
+          </item>
+        </committees>
+      </item>
+      <item>
+        <actionDate>2005-07-18</actionDate>
+        <text>Introduced in House</text>
+        <type>IntroReferral</type>
+        <actionCode>1000</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+      </item>
+    </actions>
+    <sponsors>
+      <item>
+        <bioguideId>B001250</bioguideId>
+        <fullName>Rep. Bishop, Rob [R-UT-1]</fullName>
+        <firstName>Rob</firstName>
+        <lastName>Bishop</lastName>
+        <party>R</party>
+        <state>UT</state>
+        <district>1</district>
+        <isByRequest>N</isByRequest>
+      </item>
+    </sponsors>
+    <policyArea>
+      <name>Congress</name>
+    </policyArea>
+    <subjects>
+      <legislativeSubjects>
+        <item>
+          <name>House rules and procedure</name>
+        </item>
+        <item>
+          <name>International Affairs</name>
+        </item>
+      </legislativeSubjects>
+      <policyArea>
+        <name>Congress</name>
+      </policyArea>
+    </subjects>
+    <summaries>
+      <summary>
+        <versionCode>00</versionCode>
+        <actionDate>2005-07-18</actionDate>
+        <actionDesc>Introduced in House</actionDesc>
+        <updateDate>2005-07-27T19:18:56Z</updateDate>
+        <text><![CDATA[ Sets forth the rule for consideration of the bill (H.R. 2601) to authorize appropriations for the Department of State for FY2006-FY2007.]]></text>
+      </summary>
+      <summary>
+        <versionCode>79</versionCode>
+        <actionDate>2005-07-18</actionDate>
+        <actionDesc>Reported to House without amendment</actionDesc>
+        <updateDate>2005-07-27T19:17:46Z</updateDate>
+        <text><![CDATA[ <p><b>(This measure has not been amended since it was introduced. The summary of that version is repeated here.)</b></p> <p>Sets forth the rule for consideration of the bill (H.R. 2601) to authorize appropriations for the Department of State for FY2006-FY2007. </p>]]></text>
+      </summary>
+      <summary>
+        <versionCode>36</versionCode>
+        <actionDate>2005-07-19</actionDate>
+        <actionDesc>Passed House amended</actionDesc>
+        <updateDate>2005-07-27T19:17:24Z</updateDate>
+        <text><![CDATA[ <p>Sets forth the rule for consideration of the bill (H.R. 2601) to authorize appropriations for the Department of State for FY2006-FY2007. </p>]]></text>
+      </summary>
+    </summaries>
+    <title>Providing for consideration of the bill (H.R. 2601) to authorize appropriations for the Department of State for the fiscal years 2006 and 2007, and for other purposes.</title>
+    <titles>
+      <item>
+        <titleType>Display Title</titleType>
+        <title>Providing for consideration of the bill (H.R. 2601) to authorize appropriations for the Department of State for the fiscal years 2006 and 2007, and for other purposes.</title>
+      </item>
+      <item>
+        <titleType>Official Title as Introduced</titleType>
+        <title>Providing for consideration of the bill (H.R. 2601) to authorize appropriations for the Department of State for the fiscal years 2006 and 2007, and for other purposes.</title>
+      </item>
+    </titles>
+    <amendments>
+      <amendment>
+        <number>453</number>
+        <congress>109</congress>
+        <type>HAMDT</type>
+        <description>Amendment is technical in nature.</description>
+        <purpose>An amendment to clarify the form and debate time of certain amendments to the bill H.R. 2601.</purpose>
+        <updateDate>2022-02-03T05:35:45Z</updateDate>
+        <latestAction>
+          <actionDate>2005-07-19</actionDate>
+          <text>On agreeing to the Bishop (UT) amendment (A001) Agreed to by voice vote.</text>
+          <actionTime>13:13:15</actionTime>
+        </latestAction>
+        <sponsors>
+          <item>
+            <bioguideId>B001250</bioguideId>
+            <fullName>Rep. Bishop, Rob [R-UT-1]</fullName>
+            <firstName>Rob</firstName>
+            <lastName>Bishop</lastName>
+            <party>R</party>
+            <state>UT</state>
+            <district>1</district>
+          </item>
+        </sponsors>
+        <submittedDate>2005-07-19T04:00:00Z</submittedDate>
+        <chamber>House of Representatives</chamber>
+        <amendedBill>
+          <congress>109</congress>
+          <type>HRES</type>
+          <originChamber>House</originChamber>
+          <originChamberCode>H</originChamberCode>
+          <number>365</number>
+          <title>Providing for consideration of the bill (H.R. 2601) to authorize appropriations for the Department of State for the fiscal years 2006 and 2007, and for other purposes.</title>
+          <updateDateIncludingText>2023-01-13T04:50:28Z</updateDateIncludingText>
+        </amendedBill>
+        <links>
+          <link>
+            <name>H.R. 2601</name>
+            <url>https://www.congress.gov/bill/109th-congress/house-bill/2601</url>
+          </link>
+        </links>
+        <actions>
+          <count>9</count>
+          <actions>
+            <item>
+              <actionDate>2005-07-19</actionDate>
+              <actionTime>13:13:15</actionTime>
+              <text>On agreeing to the Bishop (UT) amendment (A001) Agreed to by voice vote.</text>
+              <type>Floor</type>
+              <actionCode>H34111</actionCode>
+              <sourceSystem>
+                <code>2</code>
+                <name>House floor actions</name>
+              </sourceSystem>
+            </item>
+            <item>
+              <actionDate>2005-07-19</actionDate>
+              <actionTime>13:13:14</actionTime>
+              <text>On ordering the previous question on the amendment (A001) and on the resolution Agreed to by the Yeas and Nays: 226 - 196 (Roll no. 383). (consideration: CR H5982)</text>
+              <type>Floor</type>
+              <actionCode>H34180</actionCode>
+              <sourceSystem>
+                <code>2</code>
+                <name>House floor actions</name>
+              </sourceSystem>
+              <recordedVotes>
+                <recordedVote>
+                  <rollNumber>383</rollNumber>
+                  <chamber>House</chamber>
+                  <congress>109</congress>
+                  <date>2005-07-19T17:13:14Z</date>
+                  <sessionNumber>1</sessionNumber>
+                  <url>https://clerk.house.gov/evs/2005/roll383.xml</url>
+                </recordedVote>
+              </recordedVotes>
+            </item>
+            <item>
+              <actionDate>2005-07-19</actionDate>
+              <actionTime>12:48:24</actionTime>
+              <text>Amendment (A001) offered by Mr. Bishop (UT). (consideration: CR H5980-5982; text: CR H5980)</text>
+              <type>Floor</type>
+              <actionCode>H3A100</actionCode>
+              <sourceSystem>
+                <code>2</code>
+                <name>House floor actions</name>
+              </sourceSystem>
+            </item>
+            <item>
+              <actionDate>2005-07-19</actionDate>
+              <actionTime>12:48:24</actionTime>
+              <text>House amendment offered/reported by : Amendment (A001) offered by Mr. Bishop (UT).(consideration: CR H5980-5982; text: CR H5980)</text>
+              <type>NotUsed</type>
+              <actionCode>71500</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+            <item>
+              <actionDate>2005-07-19</actionDate>
+              <actionTime>13:13:14</actionTime>
+              <text>Roll call votes on amendments in House</text>
+              <type>Floor</type>
+              <actionCode>75000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+              <recordedVotes>
+                <recordedVote>
+                  <rollNumber>383</rollNumber>
+                  <chamber>House</chamber>
+                  <congress>109</congress>
+                  <date>2005-07-19T17:13:14Z</date>
+                  <sessionNumber>1</sessionNumber>
+                  <url>https://clerk.house.gov/evs/2005/roll383.xml</url>
+                </recordedVote>
+              </recordedVotes>
+            </item>
+            <item>
+              <actionDate>2005-07-19</actionDate>
+              <actionTime>13:13:15</actionTime>
+              <text>Amendment agreed to by House: On agreeing to the Bishop (UT) amendment (A001) Agreed to by voice vote.</text>
+              <type>NotUsed</type>
+              <actionCode>79000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+            <item>
+              <actionDate>2005-07-19</actionDate>
+              <actionTime>13:13:15</actionTime>
+              <text>House amendment agreed to: On agreeing to the Bishop (UT) amendment (A001) Agreed to by voice vote.</text>
+              <type>Floor</type>
+              <actionCode>72000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+            <item>
+              <actionDate>2005-07-19</actionDate>
+              <text>House amendment offered</text>
+              <type>Floor</type>
+              <actionCode>71000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+          </actions>
+        </actions>
+      </amendment>
+    </amendments>
+    <textVersions>
+      <item>
+        <type>Engrossed in House</type>
+        <date>2005-07-27T04:00:00Z</date>
+        <formats/>
+      </item>
+      <item>
+        <type>Reported in House</type>
+        <date>2005-07-18T04:00:00Z</date>
+        <formats>
+          <item>
+            <url>https://www.govinfo.gov/content/pkg/BILLS-109hres365rh/xml/BILLS-109hres365rh.xml</url>
+          </item>
+        </formats>
+      </item>
+    </textVersions>
+    <latestAction>
+      <actionDate>2005-07-19</actionDate>
+      <text>Motion to reconsider laid on the table Agreed to without objection.</text>
+      <actionTime>13:20:59</actionTime>
+    </latestAction>
+  </bill>
+  <dublinCore xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:format>text/xml</dc:format>
+    <dc:language>EN</dc:language>
+    <dc:rights>Pursuant to Title 17 Section 105 of the United States Code, this file is not subject to copyright protection and is in the public domain.</dc:rights>
+    <dc:contributor>Congressional Research Service, Library of Congress</dc:contributor>
+    <dc:description>This file contains bill summaries and statuses for federal legislation. A bill summary describes the most significant provisions of a piece of legislation and details the effects the legislative text may have on current law and federal programs. Bill summaries are authored by the Congressional Research Service (CRS) of the Library of Congress. As stated in Public Law 91-510 (2 USC 166 (d)(6)), one of the duties of CRS is "to prepare summaries and digests of bills and resolutions of a public general nature introduced in the Senate or House of Representatives". For more information, refer to the User Guide that accompanies this file.</dc:description>
+  </dublinCore>
+</billStatus>

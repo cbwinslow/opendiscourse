@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<billStatus>
+  <version>3.0.0</version>
+  <bill>
+    <number>1839</number>
+    <updateDate>2023-01-15T09:03:31Z</updateDate>
+    <updateDateIncludingText>2023-01-15T09:03:31Z</updateDateIncludingText>
+    <originChamber>Senate</originChamber>
+    <originChamberCode>S</originChamberCode>
+    <type>S</type>
+    <introducedDate>2003-11-07</introducedDate>
+    <congress>108</congress>
+    <committees>
+      <item>
+        <systemCode>ssfi00</systemCode>
+        <name>Finance Committee</name>
+        <chamber>Senate</chamber>
+        <type>Standing</type>
+        <activities>
+          <item>
+            <name>Referred to</name>
+            <date>2003-11-07T20:49:45Z</date>
+          </item>
+        </activities>
+      </item>
+    </committees>
+    <relatedBills>
+      <item>
+        <title>Workers Assistance Extension Act</title>
+        <congress>108</congress>
+        <number>3270</number>
+        <type>HR</type>
+        <latestAction>
+          <actionDate>2003-10-14</actionDate>
+          <text>Referred to the Subcommittee on Human Resources.</text>
+        </latestAction>
+        <relationshipDetails>
+          <item>
+            <type>Identical bill</type>
+            <identifiedBy>CRS</identifiedBy>
+          </item>
+        </relationshipDetails>
+      </item>
+    </relatedBills>
+    <actions>
+      <item>
+        <actionDate>2003-11-07</actionDate>
+        <committees>
+          <item>
+            <systemCode>ssfi00</systemCode>
+            <name>Finance Committee</name>
+          </item>
+        </committees>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Read twice and referred to the Committee on Finance.</text>
+        <type>IntroReferral</type>
+      </item>
+      <item>
+        <actionDate>2003-11-07</actionDate>
+        <text>Introduced in Senate</text>
+        <type>IntroReferral</type>
+        <actionCode>10000</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+      </item>
+    </actions>
+    <sponsors>
+      <item>
+        <bioguideId>S001142</bioguideId>
+        <fullName>Sen. Smith, Gordon H. [R-OR]</fullName>
+        <firstName>GORDON</firstName>
+        <lastName>SMITH</lastName>
+        <party>R</party>
+        <state>OR</state>
+        <middleName>H.</middleName>
+        <isByRequest>N</isByRequest>
+      </item>
+    </sponsors>
+    <cosponsors>
+      <item>
+        <bioguideId>C001041</bioguideId>
+        <fullName>Sen. Clinton, Hillary Rodham [D-NY]</fullName>
+        <firstName>HILLARY</firstName>
+        <lastName>CLINTON</lastName>
+        <party>D</party>
+        <state>NY</state>
+        <middleName>R</middleName>
+        <sponsorshipDate>2003-11-24</sponsorshipDate>
+        <isOriginalCosponsor>False</isOriginalCosponsor>
+      </item>
+    </cosponsors>
+    <policyArea>
+      <name>Labor and Employment</name>
+    </policyArea>
+    <subjects>
+      <legislativeSubjects>
+        <item>
+          <name>Unemployment insurance</name>
+        </item>
+      </legislativeSubjects>
+      <policyArea>
+        <name>Labor and Employment</name>
+      </policyArea>
+    </subjects>
+    <summaries>
+      <summary>
+        <versionCode>00</versionCode>
+        <actionDate>2003-11-07</actionDate>
+        <actionDesc>Introduced in Senate</actionDesc>
+        <updateDate>2004-04-21T16:19:56Z</updateDate>
+        <text><![CDATA[ <p>Workers Assistance Extension Act - Amends the Temporary Extended Unemployment Compensation Act of 2002 (TEUCA) to extend the TEUCA program through June 30, 2004, with a phase-out period through September 30, 2004.</p> <p>(The TEUCA program provides: (1) an additional 13 weeks of unemployment benefits (TEUC) to jobless workers who have exhausted their regular unemployment benefits; and (2) another additional 13 weeks of benefits (TEUC-X), for a total of 26 additional weeks, for such workers in high unemployment States.)]]></text>
+      </summary>
+    </summaries>
+    <title>Workers Assistance Extension Act</title>
+    <titles>
+      <item>
+        <titleType>Display Title</titleType>
+        <title>Workers Assistance Extension Act</title>
+      </item>
+      <item>
+        <titleType>Official Title as Introduced</titleType>
+        <title>A bill to extend the Temporary Extended Unemployment Compensation Act of 2002.</title>
+        <billTextVersionName>Introduced in Senate</billTextVersionName>
+        <billTextVersionCode>IS</billTextVersionCode>
+      </item>
+      <item>
+        <titleType>Short Titles as Introduced</titleType>
+        <title>Workers Assistance Extension Act</title>
+      </item>
+      <item>
+        <titleType>Popular Titles</titleType>
+        <title>Unemployment Compensation Extension bill</title>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+      </item>
+    </titles>
+    <amendments>
+      <amendment>
+        <number>2224</number>
+        <congress>108</congress>
+        <type>SAMDT</type>
+        <purpose>To provide extended unemployment benefits to displaced workers.</purpose>
+        <updateDate>2021-09-30T00:43:13Z</updateDate>
+        <latestAction>
+          <actionDate>2003-11-25</actionDate>
+          <text>Referred to the Committee on Finance.</text>
+        </latestAction>
+        <sponsors>
+          <item>
+            <bioguideId>C000127</bioguideId>
+            <fullName>Sen. Cantwell, Maria [D-WA]</fullName>
+            <firstName>Maria</firstName>
+            <lastName>Cantwell</lastName>
+            <party>D</party>
+            <state>WA</state>
+          </item>
+        </sponsors>
+        <submittedDate>2003-11-25T05:00:00Z</submittedDate>
+        <chamber>Senate</chamber>
+        <amendedBill>
+          <congress>108</congress>
+          <type>S</type>
+          <originChamber>Senate</originChamber>
+          <originChamberCode>S</originChamberCode>
+          <number>1839</number>
+          <title>Workers Assistance Extension Act</title>
+          <updateDateIncludingText>2023-01-15T09:03:31Z</updateDateIncludingText>
+        </amendedBill>
+        <actions>
+          <count>3</count>
+          <actions>
+            <item>
+              <actionDate>2003-11-25</actionDate>
+              <committees>
+                <item>
+                  <systemCode>ssfi00</systemCode>
+                  <name>Finance Committee</name>
+                </item>
+              </committees>
+              <sourceSystem>
+                <code>0</code>
+                <name>Senate</name>
+              </sourceSystem>
+              <text>Referred to the Committee on Finance.</text>
+              <type>IntroReferral</type>
+            </item>
+            <item>
+              <actionDate>2003-11-25</actionDate>
+              <text>Senate amendment submitted</text>
+              <type>Floor</type>
+              <actionCode>91000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+          </actions>
+        </actions>
+      </amendment>
+    </amendments>
+    <textVersions>
+      <item>
+        <type>Introduced in Senate</type>
+        <date>2003-11-07T05:00:00Z</date>
+        <formats/>
+      </item>
+    </textVersions>
+    <latestAction>
+      <actionDate>2003-11-07</actionDate>
+      <text>Read twice and referred to the Committee on Finance.</text>
+    </latestAction>
+  </bill>
+  <dublinCore xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:format>text/xml</dc:format>
+    <dc:language>EN</dc:language>
+    <dc:rights>Pursuant to Title 17 Section 105 of the United States Code, this file is not subject to copyright protection and is in the public domain.</dc:rights>
+    <dc:contributor>Congressional Research Service, Library of Congress</dc:contributor>
+    <dc:description>This file contains bill summaries and statuses for federal legislation. A bill summary describes the most significant provisions of a piece of legislation and details the effects the legislative text may have on current law and federal programs. Bill summaries are authored by the Congressional Research Service (CRS) of the Library of Congress. As stated in Public Law 91-510 (2 USC 166 (d)(6)), one of the duties of CRS is "to prepare summaries and digests of bills and resolutions of a public general nature introduced in the Senate or House of Representatives". For more information, refer to the User Guide that accompanies this file.</dc:description>
+  </dublinCore>
+</billStatus>

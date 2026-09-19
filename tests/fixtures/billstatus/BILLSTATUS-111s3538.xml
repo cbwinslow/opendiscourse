@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<billStatus>
+  <version>3.0.0</version>
+  <bill>
+    <number>3538</number>
+    <updateDate>2023-01-11T13:19:46Z</updateDate>
+    <updateDateIncludingText>2023-01-11T13:19:46Z</updateDateIncludingText>
+    <originChamber>Senate</originChamber>
+    <originChamberCode>S</originChamberCode>
+    <type>S</type>
+    <introducedDate>2010-06-24</introducedDate>
+    <congress>111</congress>
+    <committees>
+      <item>
+        <systemCode>ssga00</systemCode>
+        <name>Homeland Security and Governmental Affairs Committee</name>
+        <chamber>Senate</chamber>
+        <type>Standing</type>
+        <activities>
+          <item>
+            <name>Referred to</name>
+            <date>2010-06-25T00:10:59Z</date>
+          </item>
+        </activities>
+      </item>
+    </committees>
+    <actions>
+      <item>
+        <actionDate>2010-06-24</actionDate>
+        <committees>
+          <item>
+            <systemCode>ssga00</systemCode>
+            <name>Homeland Security and Governmental Affairs Committee</name>
+          </item>
+        </committees>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Read twice and referred to the Committee on Homeland Security and Governmental Affairs.</text>
+        <type>IntroReferral</type>
+      </item>
+      <item>
+        <actionDate>2010-06-24</actionDate>
+        <text>Sponsor introductory remarks on measure. (CR S5445-5447)</text>
+        <type>IntroReferral</type>
+        <actionCode>B00100</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2010-06-24</actionDate>
+        <text>Introduced in Senate</text>
+        <type>IntroReferral</type>
+        <actionCode>10000</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+      </item>
+    </actions>
+    <sponsors>
+      <item>
+        <bioguideId>B000611</bioguideId>
+        <fullName>Sen. Bond, Christopher S. [R-MO]</fullName>
+        <firstName>CHRISTOPHER</firstName>
+        <lastName>BOND</lastName>
+        <party>R</party>
+        <state>MO</state>
+        <middleName>S.</middleName>
+        <isByRequest>N</isByRequest>
+      </item>
+    </sponsors>
+    <cosponsors>
+      <item>
+        <bioguideId>H000338</bioguideId>
+        <fullName>Sen. Hatch, Orrin G. [R-UT]</fullName>
+        <firstName>ORRIN</firstName>
+        <lastName>HATCH</lastName>
+        <party>R</party>
+        <state>UT</state>
+        <middleName>GRANT</middleName>
+        <sponsorshipDate>2010-06-24</sponsorshipDate>
+        <isOriginalCosponsor>True</isOriginalCosponsor>
+      </item>
+    </cosponsors>
+    <policyArea>
+      <name>Science, Technology, Communications</name>
+    </policyArea>
+    <subjects>
+      <legislativeSubjects>
+        <item>
+          <name>Budget process</name>
+        </item>
+        <item>
+          <name>Computer security and identity theft</name>
+        </item>
+        <item>
+          <name>Congressional oversight</name>
+        </item>
+        <item>
+          <name>Department of Defense</name>
+        </item>
+        <item>
+          <name>Executive agency funding and structure</name>
+        </item>
+        <item>
+          <name>Government information and archives</name>
+        </item>
+        <item>
+          <name>Infrastructure development</name>
+        </item>
+        <item>
+          <name>Intelligence activities, surveillance, classified information</name>
+        </item>
+        <item>
+          <name>Public-private cooperation</name>
+        </item>
+        <item>
+          <name>Research administration and funding</name>
+        </item>
+      </legislativeSubjects>
+      <policyArea>
+        <name>Science, Technology, Communications</name>
+      </policyArea>
+    </subjects>
+    <summaries>
+      <summary>
+        <versionCode>00</versionCode>
+        <actionDate>2010-06-24</actionDate>
+        <actionDesc>Introduced in Senate</actionDesc>
+        <updateDate>2010-12-07T19:16:41Z</updateDate>
+        <text><![CDATA[ <p>National Cyber Infrastructure Protection Act of 2010 - Establishes within the Department of Defense (DOD) a National Cyber Center, headed by a Director who shall report directly to the President. Includes among the Director's duties: (1) coordinating federal government defensive operations, intelligence collection and analysis, and activities to protect and defend government information networks; (2) acting as the principal adviser to the President, the National Security Council, and the heads of federal agencies on matters relating to the protection and defense of such networks; and (3) keeping appropriate congressional committees fully informed of the Center's activities. </p> <p>Grants the Director access to all intelligence relating to cyber security collected by any federal agency, with specified exceptions. Provides for annual submissions to the Director of cyber budget requests by the head of each federal agency with responsibilities for matters relating to the protection and defense of federal information networks. Establishes within the National Cyber Security Program Budget a National Cyber Defense Contingency Fund. </p> <p> Directs the Secretary of Energy (DOE) to determine the appropriate location for, and to establish within a National Laboratory, a public and private partnership for sharing cyber threat information and exchanging technical assistance, advice, and support, to be known as the Cyber Defense Alliance. Sets forth guidelines regarding the uses of shared information. Requires the Director of National Intelligence (DNI) to: (1) facilitate certain information sharing and declassification activities; and (2) establish uniform procedures for the receipt, care, and storage by agencies of information that is voluntarily submitted to the government through the Alliance. </p> <p>Establishes penalties for federal officers or employees who knowingly disclose cyber threat information protected from disclosure by this Act. Authorizes the federal government to provide warnings regarding potential threats to information networks. Terminates the Alliance on December 31, 2020.</p>]]></text>
+      </summary>
+    </summaries>
+    <title>National Cyber Infrastructure Protection Act of 2010</title>
+    <titles>
+      <item>
+        <titleType>Display Title</titleType>
+        <title>National Cyber Infrastructure Protection Act of 2010</title>
+      </item>
+      <item>
+        <titleType>Official Title as Introduced</titleType>
+        <title>A bill to improve the cyber security of the United States and for other purposes.</title>
+        <billTextVersionName>Introduced in Senate</billTextVersionName>
+        <billTextVersionCode>IS</billTextVersionCode>
+      </item>
+      <item>
+        <titleType>Short Titles as Introduced</titleType>
+        <title>National Cyber Infrastructure Protection Act of 2010</title>
+      </item>
+    </titles>
+    <amendments>
+      <amendment>
+        <number>4695</number>
+        <congress>111</congress>
+        <type>SAMDT</type>
+        <updateDate>2017-12-13T22:24:28Z</updateDate>
+        <sponsors>
+          <item>
+            <bioguideId>B000611</bioguideId>
+            <fullName>Sen. Bond, Christopher S. [R-MO]</fullName>
+            <firstName>CHRISTOPHER</firstName>
+            <lastName>BOND</lastName>
+            <party>R</party>
+            <state>MO</state>
+            <middleName>S.</middleName>
+          </item>
+        </sponsors>
+        <cosponsors>
+          <countIncludingWithdrawnCosponsors>1</countIncludingWithdrawnCosponsors>
+          <count>1</count>
+          <item>
+            <bioguideId>H000338</bioguideId>
+            <fullName>Sen. Hatch, Orrin G. [R-UT]</fullName>
+            <firstName>ORRIN</firstName>
+            <lastName>HATCH</lastName>
+            <party>R</party>
+            <state>UT</state>
+            <middleName>GRANT</middleName>
+            <sponsorshipDate>2010-11-17</sponsorshipDate>
+            <isOriginalCosponsor>True</isOriginalCosponsor>
+          </item>
+        </cosponsors>
+        <submittedDate>2010-11-17T05:00:00Z</submittedDate>
+        <chamber>Senate</chamber>
+        <amendedBill>
+          <congress>111</congress>
+          <type>S</type>
+          <originChamber>Senate</originChamber>
+          <originChamberCode>S</originChamberCode>
+          <number>3538</number>
+          <title>National Cyber Infrastructure Protection Act of 2010</title>
+          <updateDateIncludingText>2023-01-11T13:19:46Z</updateDateIncludingText>
+        </amendedBill>
+        <actions>
+          <count>2</count>
+          <actions>
+            <item>
+              <actionDate>2010-11-17</actionDate>
+              <text>Senate amendment submitted</text>
+              <type>Floor</type>
+              <actionCode>91000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+          </actions>
+        </actions>
+      </amendment>
+    </amendments>
+    <textVersions>
+      <item>
+        <type>Introduced in Senate</type>
+        <date>2010-06-24T04:00:00Z</date>
+        <formats>
+          <item>
+            <url>https://www.govinfo.gov/content/pkg/BILLS-111s3538is/xml/BILLS-111s3538is.xml</url>
+          </item>
+        </formats>
+      </item>
+    </textVersions>
+    <latestAction>
+      <actionDate>2010-06-24</actionDate>
+      <text>Read twice and referred to the Committee on Homeland Security and Governmental Affairs.</text>
+    </latestAction>
+  </bill>
+  <dublinCore xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:format>text/xml</dc:format>
+    <dc:language>EN</dc:language>
+    <dc:rights>Pursuant to Title 17 Section 105 of the United States Code, this file is not subject to copyright protection and is in the public domain.</dc:rights>
+    <dc:contributor>Congressional Research Service, Library of Congress</dc:contributor>
+    <dc:description>This file contains bill summaries and statuses for federal legislation. A bill summary describes the most significant provisions of a piece of legislation and details the effects the legislative text may have on current law and federal programs. Bill summaries are authored by the Congressional Research Service (CRS) of the Library of Congress. As stated in Public Law 91-510 (2 USC 166 (d)(6)), one of the duties of CRS is "to prepare summaries and digests of bills and resolutions of a public general nature introduced in the Senate or House of Representatives". For more information, refer to the User Guide that accompanies this file.</dc:description>
+  </dublinCore>
+</billStatus>
