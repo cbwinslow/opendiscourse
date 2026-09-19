@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.2 merged to main; 3.1 loaded live). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.2 merged and live). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -140,8 +140,10 @@ in the repo checkout (gitignored), the same root the other loaders use.
    the blocker: 1,532 people carry an FEC candidate id. Open: a reviewed join
    contract per source, and FEC cn/cm/ccl linkage files for committee-only rows.
    `research-db person-join-status` shows the gates.
-3c. Story 9.2 run ledger: merged (#33); Alembic `c8e2a4f6d915` and the 3.2 catalog
-   metadata are NOT yet applied to the live DB (run `research-db init-db`). `ingest.run_target`
+3c. Story 9.2 run ledger: merged (#33) and applied live (2026-09-19): Alembic head
+   `c8e2a4f6d915`, `person_join` gates synced to `catalog.dataset`. `research-db loaded`
+   shows the legislators load (a rerun populated the ledger: 0 created, 12,770 people /
+   97,319 identifiers already present; baseline rows re-verified unchanged). `ingest.run_target`
    + `ingest.loaded_coverage` view, `IngestionRun.record_target`, `code_version` = git SHA
    (`-dirty` for tracked edits) on every new run, `research-db loaded [--dataset]`.
    Only the legislators Connector records targets so far; migrate each loader as it is
