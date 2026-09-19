@@ -44,7 +44,9 @@ def validate_inventory() -> list[str]:
             if dataset_id in ids:
                 errors.append(f"duplicate dataset id: {dataset_id}")
             ids.add(dataset_id)
-    return errors + validate_plans()
+    from .identitygate import validate_person_joins  # avoids a catalog import cycle
+
+    return errors + validate_plans() + validate_person_joins(inventory)
 
 
 def sync_inventory() -> None:

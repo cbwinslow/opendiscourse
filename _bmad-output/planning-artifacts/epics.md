@@ -118,10 +118,14 @@ Built on `feat/3-1-bioguide-identity` (Connector `congress.legislators`,
 
 ### Story 3.2 — Gate politician-join sources
 As an operator, FEC/disclosure/elections-as-member *joins* stay disabled
-until Story 3.1 is green.
-Acceptance: Inventory/progress states say identity-blocked for those joins.
-Crime-native and FEC-native staging are not identity-blocked; they stay
-v1.1 (Epic 7) and must not start here.
+until a reviewed contract opens them (Story 3.1, the identity prerequisite, is
+done; that alone does not open a join).
+Acceptance: each source declares `person_join` (state, key=bioguide, via,
+blocked_by) in `inventory/sources.yaml`; `init-db` validation and
+`identitygate.require_person_join` enforce it; `research-db person-join-status`
+reports it. Crime-native and FEC-native staging are not identity-blocked; they
+stay v1.1 (Epic 7) and must not start here.
+Built on `feat/3-2-gate-politician-joins`; pending review.
 
 ## Epic 8 — Legislative primitives (blocks Epic 4)
 

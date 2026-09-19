@@ -255,6 +255,18 @@ providers:
         identifiers: [candidate_id, committee_id, filing_id, transaction_id]
         cadence: daily_and_filing_schedule
         priority: 2
+        person_join:
+          state: blocked
+          key: bioguide
+          via: fec
+          blocked_by: [reviewed_join_contract, fec_candidate_committee_linkage_files]
+          notes: >-
+            Identity prerequisite met by Story 3.1: core.person_identifier holds
+            FEC candidate ids (namespace fec) for the people in
+            congress-legislators. Still blocked: no reviewed contract says how
+            candidate-keyed rows join, and committee-only rows need the FEC
+            cn/cm/ccl linkage files, which are not on disk. Never join on
+            candidate or committee names.
       - id: disclosures.financial
         title: Congressional financial disclosures and periodic transaction reports
         access: Official House and Senate disclosure portals, where bulk export is offered
@@ -264,6 +276,15 @@ providers:
         cadence: filing_schedule
         priority: 2
         notes: Retain source document URLs and filing amendments; do not infer precise values from disclosed ranges.
+        person_join:
+          state: blocked
+          key: bioguide
+          via: null
+          blocked_by: [filer_identifier_bridge, reviewed_join_contract]
+          notes: >-
+            Disclosure portals identify filers by name and district, not by an
+            id we hold. A bridge must come from an identifier source; matching
+            display names is not allowed.
       - id: elections.results
         title: Election results and precinct/district crosswalks
         access: State authorities, MIT Election Lab, and VEST where licensing permits
@@ -272,6 +293,15 @@ providers:
         identifiers: [election_id, contest_id, precinct_id, GEOID]
         cadence: per_election
         priority: 2
+        person_join:
+          state: blocked
+          key: bioguide
+          via: null
+          blocked_by: [epic_7_not_started, candidate_identifier_bridge, reviewed_join_contract]
+          notes: >-
+            Candidate-to-member joins (elections-as-member) wait for Epic 7 and
+            an identifier bridge such as FEC candidate ids. Results themselves
+            (contest x unit) carry no person key and are not gated.
   - id: markets
     name: Market-data providers
     auth: provider_specific

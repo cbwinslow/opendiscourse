@@ -22,7 +22,9 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
 - Do not write OpenStates dump tables; read `openstates_source` FDW only.
   FDW is not the researcher contract; promote into `core`/`fact` (AD-8).
 - Do not name-match people. Federal person *joins* need BioGuide (Epic 3).
-  FEC/disclosure politician joins stay blocked until then. Do not start
+  FEC/disclosure/elections politician joins stay gated by `person_join` in
+  `inventory/sources.yaml`; call `identitygate.require_person_join` before promoting
+  person-keyed rows. Do not start
   Epic 7 (FEC-native/crime staging, elections) in v1.
 - Do not invent news, stocks, or corruption scores as schema domains.
   Politician scorecards are allowed later only as derived `mart` outputs over

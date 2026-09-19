@@ -97,9 +97,11 @@ items:
       fecoth, fecoppexp contracts already drafted, disabled). indiv is the
       payoff run (2024 cycle alone is 11 GB uncompressed) -- run it after
       pas2 has been spot-checked for correctness. No fact-table transform
-      exists yet; committee/candidate identity resolution against
-      core.organization/core.person is a separate, reviewed decision before
-      any contract here can be enabled.
+      exists yet. The BioGuide identity prerequisite is met (Story 3.1; FEC
+      candidate ids are in core.person_identifier, namespace fec). The person
+      join stays gated (person_join on fec.campaign_finance, Story 3.2) until a
+      reviewed contract opens it; committee-only rows also need the FEC
+      cn/cm/ccl linkage files, which are not on disk.
   - id: acshome
     dataset: census.acs_5_bulk
     state: loaded

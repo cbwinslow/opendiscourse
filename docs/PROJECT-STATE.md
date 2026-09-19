@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19 (Story 3.1 loaded live; PR open). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Story 3.1 loaded live, PR #30; Story 3.2 built). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -134,7 +134,13 @@ in the repo checkout (gitignored), the same root the other loaders use.
 2. Story 9.1 load contract + harness, then 9.2 run ledger.
 3. Story 3.1 BioGuide identity: **done and loaded live** (branch
    `feat/3-1-bioguide-identity`, spec `spec-3-1-bioguide-identity.md`); independent
-   review fixes applied; awaiting CI and operator merge. Next: Story 3.2.
+   review fixes applied; awaiting CI and operator merge.
+3b. Story 3.2 politician-join gate: built (branch `feat/3-2-gate-politician-joins`,
+   stacked on 3.1). `person_join` gates on `fec.campaign_finance`,
+   `disclosures.financial`, `elections.results`; all `blocked`. Identity is no longer
+   the blocker: 1,532 people carry an FEC candidate id. Open: a reviewed join
+   contract per source, and FEC cn/cm/ccl linkage files for committee-only rows.
+   `research-db person-join-status` shows the gates.
 4. Story 9.3 coverage comparator; backfill Congresses 108-119 via Connectors, each
    passing the 9.1 harness.
 5. Redo 2.2 -> 2.3 (FRED) and 8.2 (OpenStates); fix Treasury and FRED failures.
