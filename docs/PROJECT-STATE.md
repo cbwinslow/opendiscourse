@@ -71,7 +71,7 @@ ledger, load strategies, coverage checks) that later models can sit on.
 | Congress bills | 118th, 119th only (37,373) | 10 more Congresses needed (108-117) |
 | Roll calls / member votes | 118th-119th only (1,827 / 473,490) | 108-117; Senate source is "idea" |
 | People | 12,771 (12,770 with BioGuide; loaded 2026-09-19, Story 3.1) | 1 baseline person has no BioGuide; politician joins still gated (Story 3.2) |
-| FEC | 102M rows in `stage.fec_row` | staging only; not promoted; person join gated (3.2): needs reviewed contract + cn/cm/ccl files; v1.1 |
+| FEC | 102M rows in `stage.fec_row` (pas2, oppexp, oth complete; indiv 2000-2016 only; unattributed, see above) | staging only; not promoted; person join gated (3.2): needs reviewed contract + cn/cm/ccl files; v1.1 |
 | GovInfo BILLSTATUS cache | Congresses 108-119, unverified legacy | 119th missing 2,831 XML; re-fetch from official source |
 | OpenStates | 10 ok, 5 partial, 3 failed runs | coverage unmeasured; promotion reverted |
 | FRED | 135 ok, 6 failed (HTTP 400/500) | some series missing |
@@ -79,6 +79,33 @@ ledger, load strategies, coverage checks) that later models can sit on.
 | Census ACS/CBP/TIGER/PEP/DHC | loaded (ACS 281M rows) | no coverage check; most complete area |
 
 No coverage measurement exists anywhere; Story 9.3 creates it.
+
+## Large tables and database sizing (measured 2026-09-19)
+
+Nothing is partitioned. Disk is not the constraint (2.0 TB free of 2.9 TB); speed is.
+Static loaded sources (ACS, CBP, TIGER, PEP, DHC) stay as they are: no rewrite, no wipe.
+`fact.acs_bulk_estimate` 36 GB heap + 63 GB indexes (usage unknown: counters are empty),
+`stage.fec_row` 66 GB + 8.6 GB, `stage.cbp_row` 19 GB, `fact.business_pattern` 5.9 GB +
+6.2 GB, `stage.tiger_feature` 10 GB, `core.geography_boundary` 10 GB. Stage copies that
+duplicate loaded data (cbp, tiger, acs, about 37 GB) are rebuildable but not worth wiping.
+
+The cluster runs on defaults for a 125 GB / 40-core host: `shared_buffers` 128 MB,
+`maintenance_work_mem` 64 MB, autovacuum scale factor 0.2 (56M dead rows before vacuum
+on the ACS table). Recommended (needs a superuser and a restart; not applied): 
+`shared_buffers` 24GB, `effective_cache_size` 80GB, `maintenance_work_mem` 4GB,
+`work_mem` 64MB, `max_parallel_workers_per_gather` 8, `max_parallel_maintenance_workers` 8.
+
+Design points for ADR-0003 (Story 9.1), before the next large load: partition new large
+tables by their natural slice (cycle/year/congress) so reload-one-slice is drop and
+attach; stage rows are keyed jsonb at about 600 bytes each, too wide for the remaining
+FEC volume, so use a compact layout.
+
+**FEC staging is not the pas2 pilot the progress register describes.** `stage.fec_row`
+holds `pas2` all 13 cycles (5.6M rows), `oppexp` all 11 (18M), `oth` all 13 (40.9M; 2024
+alone 18.7M) and `indiv` only 2000-2016 (39M); **`indiv` 2018, 2020, 2022, 2024 are not
+staged.** All 50 FEC artifacts are `downloaded`, none `loaded`, and no ledger detail
+exists, so this staging is unattributed (possibly written by reverted code). Treat as
+unverified: Story 9.3 must count it, and it may be wiped and re-staged (operator policy).
 
 ## What is already on disk (measured 2026-09-19)
 

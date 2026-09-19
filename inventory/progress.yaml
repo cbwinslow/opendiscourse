@@ -93,8 +93,13 @@ items:
       note in inventory/contracts/fecbulk.yaml before treating one as an
       error.
     next: >-
-      Register and stage indiv, oth, and oppexp the same way (fecindiv,
-      fecoth, fecoppexp contracts already drafted, disabled). indiv is the
+      NOTE (2026-09-19 measurement): stage.fec_row already holds pas2, oppexp
+      and oth for every cycle and indiv for 2000-2016 only (102M rows), with no
+      ledger detail or loaded artifacts, so provenance is unverified. Stage the
+      missing indiv cycles (2018-2024) only after the compact-layout and
+      partitioning decision in ADR-0003 (Story 9.1).
+      Original note: register and stage indiv, oth, and oppexp the same way
+      (fecindiv, fecoth, fecoppexp contracts already drafted, disabled). indiv is the
       payoff run (2024 cycle alone is 11 GB uncompressed) -- run it after
       pas2 has been spot-checked for correctness. No fact-table transform
       exists yet. The BioGuide identity prerequisite is met (Story 3.1; FEC
