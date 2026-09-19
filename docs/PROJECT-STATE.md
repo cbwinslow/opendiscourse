@@ -321,7 +321,7 @@ data on the RAID volume; keep only one database backup. Explain results in plain
    untrack `.agent/` (Antigravity copy of the skills); commit or drop `docs/data-inventory-2026-09-19.md`.
    Debt found: FEC (20 GB) and 16 BILLSTATUS rows still point at `/mnt/storage`, so **FEC is not rebuildable from
    an empty `DATA_ROOT` yet** (the rebuild kit must close this); 96 stale `.lock` files; mixed verb and module names.
-1. **Rebuild kit** (spec written: `_bmad-output/specs/spec-rebuild-kit/SPEC.md`; includes OpenStates restore and promotion per AD-8, and FEC as the last phase; next: build phase 1). (operator condition for dropping `stage` duplicates, and for portability): one documented,
+1. **Rebuild kit** (proof done for Congress 108 bills: identical to live, idempotent, see `docs/rebuild-proof-2026-09-19.md`; spec written: `_bmad-output/specs/spec-rebuild-kit/SPEC.md`; includes OpenStates restore and promotion per AD-8, and FEC as the last phase; next: build phase 1). (operator condition for dropping `stage` duplicates, and for portability): one documented,
    tested command sequence that downloads and ingests every loaded source from an empty `DATA_ROOT`; then a small
    project skill `opendiscourse-rebuild` that points agents at it. Commands are the portable part; skills only guide.
 2. Story 9.6 (proposed number): expand `inventory/sources.yaml` into the source catalog described in ADR-0004
