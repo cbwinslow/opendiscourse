@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19. Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Story 3.1 built, not yet applied to the live DB). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -100,11 +100,32 @@ table to benchmark for the load strategy (Story 9.1), not to load votes alone.
 Story 9.3 must inventory the lake the same way it inventories the database and
 official manifests, so "have it" vs "need it" is a report, not a guess.
 
+## Live database drift (found 2026-09-19, blocks applying any migration)
+
+`alembic_version` on the live `opendiscourse` DB is `b8c2f1d4e390`, a revision from
+the reverted OpenStates promote (#22) that no longer exists in `migrations/`, so
+`research-db init-db` fails with "Can't locate revision". The physical schema
+also disagrees with the stamp: `core.membership.ocd_id` and the widened
+`identity_exception_kind_check` (from `b8c2f1d4e390`) are present, but
+`ingest.artifact` has no `artifact_version` column and still has the old
+`(dataset_id, artifact_key)` unique key, i.e. the reverted Story 1.7 migration
+`c5e2d1a4f783` is stamped but its changes are absent (its downgrade deletes
+superseded artifact rows, so do not run it). Both reverted objects are empty
+(0 memberships, 0 `membership` exceptions). Nothing was changed by the failed
+attempt (fingerprints of `core.person` and `core.person_identifier` verified).
+**Needs an operator-approved reconciliation before Story 3.1 can load live:**
+drop the empty `ocd_id` column/index, restore the voter-only check, `alembic
+stamp b1e5c8a3d942`, then `init-db` (applies `d9e4f1a7b632`, `a3c7e9b1d254`).
+Record what is dropped here when done.
+
 ## Roadmap (also in `epics.md`, "Suggested next build")
 
 1. Merge Story 1.7 (after the operator sees the review).
 2. Story 9.1 load contract + harness, then 9.2 run ledger.
-3. Story 3.1 BioGuide identity (local `congress-legislators` files exist).
+3. Story 3.1 BioGuide identity: **built and green on a fresh DB** (branch
+   `feat/3-1-bioguide-identity`, spec `spec-3-1-bioguide-identity.md`); needs
+   independent review, the live-DB reconciliation above, then `research-db
+   load-legislators`.
 4. Story 9.3 coverage comparator; backfill Congresses 108-119 via Connectors, each
    passing the 9.1 harness.
 5. Redo 2.2 -> 2.3 (FRED) and 8.2 (OpenStates); fix Treasury and FRED failures.

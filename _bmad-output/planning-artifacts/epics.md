@@ -113,6 +113,8 @@ Acceptance: Existing FRED tests pass; provenance unchanged.
 As a researcher, BioGuide IDs land in `core.person` / `person_identifier`
 from `vendor/congress-legislators`.
 Acceptance: Idempotent load; provenance artifact; no name matching.
+Built on `feat/3-1-bioguide-identity` (Connector `congress.legislators`,
+`core.person_identifier.source_artifact_id`); pending review and live apply.
 
 ### Story 3.2 — Gate politician-join sources
 As an operator, FEC/disclosure/elections-as-member *joins* stay disabled

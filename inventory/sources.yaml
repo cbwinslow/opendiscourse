@@ -195,6 +195,15 @@ providers:
         identifiers: [bioguide_id, congress, bill_type, bill_number, roll_call]
         cadence: daily_when_in_session
         priority: 1
+      - id: congress.legislators
+        title: Federal legislators since 1789 and their external identifiers (BioGuide crosswalk)
+        access: unitedstates/congress-legislators YAML checkout under vendor/
+        client: pyyaml; git checkout via scripts/bootstrap_upstream.sh
+        grain: legislator × external identifier
+        identifiers: [bioguide, fec, govtrack, opensecrets, icpsr, wikidata]
+        cadence: on_upstream_change
+        priority: 1
+        notes: Public-domain CC0 upstream. Person joins use BioGuide only, never names.
       - id: congress.govinfo_billstatus
         title: GovInfo bulk bill status and bill text
         access: GovInfo bulk XML/JSON directory manifests
