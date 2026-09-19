@@ -32,7 +32,7 @@ runs one command per source and gets the same database.
 
 ## Keeping the database current
 
-One command per source (and one to run them all), `research-db update [--source ...]`, runs
+One command per source (and one to run them all), `research-db update [--source ...]` (**planned; not built yet**, each source still has its own command, see the rebuild kit), runs
 each Connector's stages: **check** the origin for anything new or changed (manifests,
 sitemaps, `Last-Modified`), **download** only that, **inventory** it, **ingest** it. It is
 idempotent and safe to re-run, records when it last checked and what it changed

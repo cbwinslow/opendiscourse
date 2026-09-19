@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from opendiscourse_research.config import settings
+
 _DB_FILES = {
     "test_persistence_foundation.py",
     "test_census_bulk_integration.py",
@@ -26,3 +28,15 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         if path.name in _DB_FILES:
             item.add_marker(db_marker)
             item.add_marker(integration_marker)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_data_root(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Point DATA_ROOT at a scratch folder so no test writes into the operator's real lake.
+
+    Tests that download or retain artifacts used to inherit ``.env``'s DATA_ROOT and left
+    dozens of tiny fixture files (and unregistered ``.zip`` stubs) beside real evidence.
+    A test that needs a specific root still sets its own with ``monkeypatch``; module- or
+    session-scoped fixtures run before this one and may read the real root read-only.
+    """
+    monkeypatch.setattr(settings, "data_root", str(tmp_path_factory.mktemp("lake") / "raw"))
