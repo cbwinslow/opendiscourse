@@ -94,3 +94,15 @@ def test_connector_implements_protocol_with_all_stages() -> None:
     assert isinstance(connector, Connector)
     assert all(callable(getattr(connector, stage)) for stage in STAGES)
     assert FILES == ("legislators-current.yaml", "legislators-historical.yaml")
+
+
+def test_default_retention_path_is_absolute_even_for_relative_data_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    from opendiscourse_research.config import settings
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(settings, "data_root", "./lake/raw")
+    retain_dir = LegislatorsConnector().retain_dir
+    assert retain_dir.is_absolute()
+    assert retain_dir == (tmp_path / "lake" / "raw" / "congress" / "legislators").resolve()

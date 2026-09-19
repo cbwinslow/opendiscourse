@@ -100,23 +100,35 @@ table to benchmark for the load strategy (Story 9.1), not to load votes alone.
 Story 9.3 must inventory the lake the same way it inventories the database and
 official manifests, so "have it" vs "need it" is a report, not a guess.
 
-## Live database drift (found 2026-09-19, blocks applying any migration)
+## Live database reconciliation (done 2026-09-19)
 
-`alembic_version` on the live `opendiscourse` DB is `b8c2f1d4e390`, a revision from
-the reverted OpenStates promote (#22) that no longer exists in `migrations/`, so
-`research-db init-db` fails with "Can't locate revision". The physical schema
-also disagrees with the stamp: `core.membership.ocd_id` and the widened
-`identity_exception_kind_check` (from `b8c2f1d4e390`) are present, but
-`ingest.artifact` has no `artifact_version` column and still has the old
-`(dataset_id, artifact_key)` unique key, i.e. the reverted Story 1.7 migration
-`c5e2d1a4f783` is stamped but its changes are absent (its downgrade deletes
-superseded artifact rows, so do not run it). Both reverted objects are empty
-(0 memberships, 0 `membership` exceptions). Nothing was changed by the failed
-attempt (fingerprints of `core.person` and `core.person_identifier` verified).
-**Needs an operator-approved reconciliation before Story 3.1 can load live:**
-drop the empty `ocd_id` column/index, restore the voter-only check, `alembic
-stamp b1e5c8a3d942`, then `init-db` (applies `d9e4f1a7b632`, `a3c7e9b1d254`).
-Record what is dropped here when done.
+The live `opendiscourse` DB was stamped `b8c2f1d4e390` (a revision from the
+reverted OpenStates promote, #22) and was physically at `a4f8c2e9b176`: it also
+lacked the Story 1.6 evidence checks and Story 1.7's `artifact_version`.
+Operator approved the reconciliation. Done in one transaction after read-only
+pre-checks (all reverted objects empty; no rows violated the 1.6 checks):
+dropped `core.membership.ocd_id` and `membership_ocd_id_idx` (0 rows had a value),
+restored `identity_exception_kind_check` to `kind = 'voter'` (0 `membership`
+rows), stamped `a4f8c2e9b176`, then `init-db` applied `b1e5c8a3d942`,
+`d9e4f1a7b632`, `a3c7e9b1d254`. Live head is now `a3c7e9b1d254`;
+`ingest.artifact` still has 2,555 rows.
+
+## Story 3.1 live load (done 2026-09-19)
+
+`research-db load-legislators` at upstream commit `8a3c7e6987f8`: 12,770
+legislators, 12,045 new people, 89,527 new identifiers, 0 conflicts, 0 possible
+duplicate people. Pre-existing rows verified unchanged by fingerprint (9,841
+identifiers, 726 people). Rerun created 0 rows and no new artifact versions.
+People now 12,771 (12,770 with a BioGuide id; 1 baseline person has none).
+Every new identifier carries `source_artifact_id` and `source_run_id`.
+Open item: the first load stored the two artifact `local_path` values as
+relative paths (bug, fixed in code afterwards: paths are now absolute like other
+loaders). The files are intact under `data-lake/opendiscourse/raw/congress/
+legislators/` in the repo checkout (gitignored). The two rows still hold the
+relative path until they are updated to the absolute path (`UPDATE ingest.artifact
+SET local_path = '<repo>/' || local_path WHERE dataset_id='congress.legislators'
+AND local_path LIKE 'data-lake/%'`); until then, a load run from another working
+directory would append a second artifact version instead of reusing this one.
 
 ## Roadmap (also in `epics.md`, "Suggested next build")
 

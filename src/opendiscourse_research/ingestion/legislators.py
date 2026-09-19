@@ -185,7 +185,11 @@ class LegislatorsConnector:
     ) -> None:
         self.vendor_dir = vendor_dir
         self.expected_origin = expected_origin
-        self.retain_dir = retain_dir or (Path(settings.data_root).expanduser() / "congress" / "legislators")
+        # Absolute, like the other loaders: artifact.local_path is evidence and must
+        # not depend on the working directory of whoever runs the load.
+        self.retain_dir = (
+            retain_dir or Path(settings.data_root).expanduser() / "congress" / "legislators"
+        ).resolve()
         self._report = report or (lambda phase: None)
         self._run: IngestionRun | None = None
         self._commit = ""
