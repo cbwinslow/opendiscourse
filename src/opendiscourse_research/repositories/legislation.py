@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from functools import cache
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
@@ -39,8 +40,9 @@ def _text_or_none(value: str | None) -> str | None:
     return value.strip() if value and value.strip() else None
 
 
+@cache
 def _query(name: str) -> str:
-    """Read a named, version-controlled legislation query template."""
+    """Read a named, version-controlled legislation query template (once per process)."""
     return (_QUERY_ROOT / f"{name}.sql").read_text()
 
 
@@ -1004,8 +1006,13 @@ def save_billstatus_bill(
     source_payload_id: str | None = None,
     source_member: str | None = None,
     conn: Any | None = None,
+    person_cache: dict[tuple[str, str], str | None] | None = None,
 ) -> str:
-    """Upsert core.bill plus identifiers, actions, sponsorships, committees, subjects, and documents."""
+    """Upsert core.bill plus identifiers, actions, sponsorships, committees, subjects, and documents.
+
+    ``person_cache`` (connection path only) memoizes sponsor identifier lookups for a
+    caller that loads many bills in one run: the same members sponsor thousands of them.
+    """
     if source_artifact_id is None and source_payload_id is None:
         raise ValueError(
             "Persistence requires source_artifact_id or source_payload_id lineage"
@@ -1073,15 +1080,18 @@ def save_billstatus_bill(
                 )
 
             for sp in bill_data.get("sponsorships", []):
-                cur.execute(
-                    _query("find_person_by_identifier"),
-                    {
-                        "namespace": sp["member_namespace"],
-                        "external_id": sp["member_external_id"],
-                    },
-                )
-                p_row = cur.fetchone()
-                person_id = str(p_row["person_id"]) if p_row else None
+                lookup = (sp["member_namespace"], sp["member_external_id"])
+                if person_cache is not None and lookup in person_cache:
+                    person_id = person_cache[lookup]
+                else:
+                    cur.execute(
+                        _query("find_person_by_identifier"),
+                        {"namespace": lookup[0], "external_id": lookup[1]},
+                    )
+                    p_row = cur.fetchone()
+                    person_id = str(p_row["person_id"]) if p_row else None
+                    if person_cache is not None:
+                        person_cache[lookup] = person_id
 
                 cur.execute(
                     _query("upsert_bill_sponsorship"),
