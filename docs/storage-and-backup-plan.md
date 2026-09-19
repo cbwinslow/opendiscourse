@@ -1,11 +1,60 @@
-# Storage and backup plan (proposal, 2026-09-19)
+# Storage and backup plan (decided and implemented, 2026-09-19)
 
-Status: **proposal; nothing here has been changed.** Facts marked (measured) were read from the
-live server on 2026-09-19. Items marked (not verified) are inferences. Decisions marked
-*Operator* need the operator's answer before anything is built. Server layout and sizes come
-from `docs/data-inventory-2026-09-19.md` and `docs/performance-audit-2026-09-19.md`.
+Status: **the operator decided; the backup is built, scheduled and proven** (see "What is in place").
+Facts marked (measured) were read from the live server on 2026-09-19. Items marked (not verified) are
+inferences. Server layout and sizes come from `docs/data-inventory-2026-09-19.md` and
+`docs/performance-audit-2026-09-19.md`.
 
-## What we found
+## Decisions (operator, 2026-09-19)
+
+1. **One backup copy only**, because the database will keep growing. The database is rebuilt from the
+   downloaded raw files rather than backed up in full: keep the schema plus the small hard-to-rebuild data.
+   An off-machine copy (for example Google Drive through `rclone`) is welcome but optional and needs the
+   operator to sign in once (`rclone config`); not done.
+2. **No point-in-time recovery.** "Rebuild `fact` and `stage` from raw" is acceptable.
+3. **Fix the backup job**, keeping one copy and keeping the root disk in mind. Done, see below.
+4. **Rebuildable duplicates in `stage` may be dropped** once the backup is proven (done: the drill passed)
+   **and** there are scripts that make re-downloading and re-ingesting easy. The second condition is not met
+   yet (see "Still to do"), so nothing has been dropped.
+
+## What is in place
+
+- **`scripts/ops/backup_opendiscourse.sh`**: dumps the whole schema plus the rows of everything hard to rebuild
+  (identities, bills, terms, the artifact registry, the run ledger, small fact tables). It leaves out the rows
+  (not the empty tables) of `stage.*`, `fact.acs_bulk_estimate`, `fact.business_pattern` and
+  `core.geography_boundary`, which loaders rebuild from raw. Result: **about 0.75 GB instead of 238 GB**, in about
+  2 minutes. It writes to `/mnt/storage/data-lake/backups/opendiscourse/` (a different volume from the
+  workspace, on the same RAID pool, 817 GB free), refuses any target on the root disk, uses the right `pg_dump`
+  version (the default one on this machine is older than the server), and holds **exactly one copy**: the new
+  dump is written beside the old one, checked, then renamed over it, so a failed run keeps the old backup.
+  Files are readable only by their owner.
+- **Nightly at 03:30** from the operator's crontab (log: `~/workspace/data-lake/opendiscourse/meta/backup.log`).
+  The older infra jobs (`validated_backup.sh`) still cover PostgreSQL 16 only and were not touched.
+- **`scripts/ops/restore_drill.sh`**: restores the dump into a throwaway PostGIS container and compares row counts
+  with the manifest. **Passed 2026-09-19** (172,709 bills, 172,703 records, 45,535 memberships, 12,771 people,
+  99,368 identifiers, 2,655 artifacts, 301 runs; migration head matches). It is also the recipe for restoring on a
+  new machine.
+
+## Power cuts and restarts (measured 2026-09-19)
+
+PostgreSQL 17 is set up to survive a sudden power loss: `fsync`, `synchronous_commit` and `full_page_writes` are
+on, so after a cut it replays its write-ahead log and starts clean. The cluster starts automatically at boot
+(`start.conf` = auto), and systemd mounts local disks before regular services. The RAID 5 array is healthy (5 of 5
+disks, write-intent bitmap on), the filesystems are ext4, and WAL is capped at 16 GB (`max_wal_size`) on a root disk
+with 120 GB free. What remains, in order of value:
+
+- **A UPS** is the real protection. Without one, a cut during heavy writes can leave a RAID 5 stripe inconsistent
+  (the "write hole"); it only matters if a disk also fails before the next resync, but it is why hardware
+  matters more than settings. (not verified whether a UPS is present)
+- **Optional hardening, needs sudo (not applied):** tell systemd explicitly that PostgreSQL 17 needs the workspace
+  mount (its data is on it), by adding a drop-in `RequiresMountsFor=/home/cbwinslow/workspace` for
+  `postgresql@17-main`. The default ordering already mounts it first, so this is belt and braces.
+- `data_checksums` is off, so silent disk corruption would go unnoticed; turning it on needs the cluster stopped and
+  is a maintenance-window job, not urgent.
+- Keep watching the root disk (77% used); it holds the WAL. A full root disk stops the database (no corruption; free
+  space and it restarts).
+
+## What we found (before the fix)
 
 1. **The OpenDiscourse database appears to have no working backup.** (measured, from the script and
    the monitor log; not run by us) The cron job `~/workspace/infra/scripts/validated_backup.sh`
@@ -35,25 +84,14 @@ from `docs/data-inventory-2026-09-19.md` and `docs/performance-audit-2026-09-19.
 | `fact` (mostly ACS 99 GB) and `stage` (mostly FEC 74 GB, CBP, TIGER) | 222 GB | rebuildable from raw by rerunning the loaders (hours to days); AGENTS.md already allows wiping and reloading derived rows |
 | Legacy lake `/mnt/storage/data-lake/government` | 692 GB | unverified copy; `epstein` (658 GB) is a hold corpus, not ours to move or delete |
 
-## Proposal (in order of value per byte)
+## How the tiers were decided
 
-**Tier A: small and important, back up nightly to the RAID pool and off the machine.** Logical dumps of
-the `core`, `ingest` and `catalog` schemas (about 15 GB, compresses well), the `raw/congress` and
-`raw/openstates` folders, and `~/workspace/data-lake/opendiscourse/meta/`. Target
-`/mnt/storage/backups/opendiscourse/` (817 GB free), never `/`. Keep the last seven daily and four
-weekly. *Operator: choose an off-machine target (an external disk, or an encrypted cloud bucket) for
-at least the weekly copy; without one this is protection against mistakes, not against losing the array.*
+Tier A (small, hard to rebuild: `core`, `ingest`, `catalog`, small `fact` tables) is what the nightly dump holds.
+Tier B (big and rebuildable: `fact` and `stage`) is deliberately not dumped; the raw files and the registry are its
+backup, and reloading is the restore. Tier C (physical backup with WAL archiving for point-in-time recovery) was
+declined by the operator.
 
-**Tier B: big and rebuildable, do not dump.** `fact` and `stage`. Protect them by keeping the raw
-files and the registry safe (Tier A), and by keeping loaders idempotent, which the load contract
-(ADR-0003) already tests. Reloading is the backup.
-
-**Tier C: whole-cluster recovery, only if point-in-time recovery is wanted.** A physical backup with WAL
-archiving (a tool such as pgBackRest, compressed and incremental) to the RAID pool. It covers all
-238 GB and lets us roll back to any moment, but costs disk and setup. *Operator: is roll-back to a
-moment in time worth it, or is "rebuild from raw" enough for `fact` and `stage`?*
-
-## Ways to make the database smaller (measure first; none is authorized yet)
+## Ways to make the database smaller (measure first; nothing dropped yet)
 
 - `stage` holds copies of data already loaded into `fact`/`core` (about 37 GB across CBP, TIGER and ACS
   staging, per `PROJECT-STATE.md`). They are rebuildable and duplicate loaded data.
@@ -74,10 +112,12 @@ moment in time worth it, or is "rebuild from raw" enough for `fact` and `stage`?
 - Do not delete `stage` copies, indexes or old artifact versions to save space without the
   operator's approval and a measured reason; retained artifact files are never deleted.
 
-## Open decisions for the operator
+## Still to do
 
-1. Off-machine target for Tier A (which device or service).
-2. Is point-in-time recovery (Tier C) wanted, or is "rebuild `fact` and `stage` from raw" acceptable?
-3. May we fix or replace the infra backup job so it covers port 5434 and writes to the RAID pool?
-   (It lives outside this repository, in `~/workspace/infra`.)
-4. Approval to drop rebuildable duplicates in `stage` once Tier A exists.
+1. **A rebuild kit**, which is the condition for dropping the `stage` duplicates: one documented command sequence
+   that downloads and ingests every loaded source on a fresh machine (`research-db sync-billstatus`,
+   `load-legislators`, the Census `*-bulk-*` commands, and so on), tested from an empty `DATA_ROOT`. A project skill
+   (`opendiscourse-rebuild`) can then point agents at it. Until this exists and works, `stage` stays.
+2. Optional off-machine copy of the 0.75 GB dump (Google Drive via `rclone`; needs the operator to sign in once).
+3. Optional: the systemd mount drop-in above; a UPS if none is present.
+4. Re-measure the dump size each month; if it passes about 5 GB, revisit the exclusion list.
