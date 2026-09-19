@@ -1,6 +1,6 @@
 # ADR-0005: Shared-entity identity and attributes are order-independent (source assertions, deterministic precedence)
 
-- Status: Accepted with changes (2026-09-19). Independent review by Fable 5.1 (read-only, against code and live data). A Codex review was attempted and could not run (its sandbox rejected all shell commands); it gave no verdict.
+- Status: Accepted with changes (2026-09-19). Two independent reviews: Fable 5.1 (read-only, against code and live data) and Codex (accept with changes, code only; its sandbox could not query the database, so live counts are Fable-verified).
 - Date: 2026-09-19
 - Spine: AD-3 (provenance), AD-8; ADR-0002 (identity, provenance, ownership)
 - Evidence: `docs/rebuild-proof-2026-09-19.md`; the loader code cited below; live queries recorded in the review
@@ -26,7 +26,7 @@ writers shows design defects, not bad luck. There are two problems, and identity
 | Entity column | Writers | Effective rule |
 |---|---|---|
 | `core.person.full_name`, `given_name`, `family_name`, `metadata` | legislators, OpenStates, Congress.gov | **first writer wins**, never updated (live: 12,045 legislators-first, 723 OpenStates-first, 3 other; `metadata.canonical_baseline` differs by the same split) |
-| `core.geography.name` | TIGER (`tiger_load.py:144`, overwrite), PEP (`pep_load.py:119`, first non-null), **ACS `ingestion/census.py:50-61` (overwrite, "Autauga County, Alabama")**, ACS bulk, DHC, CBP (none) | six writers, three rules |
+| `core.geography.name` | three writers: TIGER (`tiger_load.py:141-145`, overwrite), PEP (`pep_load.py`, first non-null), **ACS API `ingestion/census.py:50-62` (overwrite, "Autauga County, Alabama")**. ACS bulk, DHC and CBP create the row and fill FIPS but write no name | three writers, three rules |
 | `core.geography.state_fips`, `county_fips` | TIGER overwrite; PEP and CBP `COALESCE`; ACS bulk and DHC `DO NOTHING` | same values today; still three rules |
 
 Consequences seen: a more authoritative source cannot correct an earlier value; 11,379 long-form geoid rows
@@ -47,7 +47,13 @@ ones ("Mike Lawler" to "Michael Lawler"; a given name "Scott" to "C."), so offic
   (ADR-0002 unchanged). An OCD-only record merges into the BioGuide person when both identifiers are asserted by
   sources; contradictory assertions stay unresolved and visible (existing conflict report), not silently split.
 - Every person creator and identifier writer takes the same advisory lock (precedent: `repositories/people.py`).
-- Existing duplicate persons (Stutzman) are merged by a reviewed one-off, recorded in the run ledger.
+- "Any known identifier" must resolve to **exactly one** person. If two existing persons own the identifiers, the
+  association is aborted and a conflict record is written (never guessed).
+- A duplicate merge is one transaction under the person lock: repoint `core.person_identifier`, `core.bill_sponsorship`,
+  `core.membership` and `fact.member_vote` (`models/core.py` lines 198, 261, 647, 732) from the duplicate to the survivor;
+  where `fact.member_vote` collides on `(roll_call_id, person_id)` the losing row is preserved in a merge-audit table
+  before deletion; then delete the duplicate. The transaction records survivor, duplicate, every repointed row count and
+  every collision in the run ledger, and is rehearsed on a scratch copy first.
 - An **identity order test** loads legislators and OpenStates in both orders and asserts the same person and
   identifier sets.
 
@@ -85,8 +91,10 @@ Initial precedence:
 
 `core.person.full_name/given_name/family_name` and `core.geography.name` stay as materialised results, plus a
 `name_source_id` FK to the winning assertion, so "every displayed name is traceable" is a join-free fact and verify is a
-comparison. Only the resolver updates them, enforced by a `BEFORE UPDATE` trigger that rejects changes unless the
-resolver's `SET LOCAL` flag is set (not by a text scan of SQL files). `state_fips`/`county_fips` come from one shared
+comparison. Only the resolver updates them. Enforcement is layered and honest about its limits: the application role
+has column-level `UPDATE` revoked on the resolved columns, and the resolver is a narrowly owned function that holds the
+privilege; a `BEFORE UPDATE` trigger with a `SET LOCAL` flag is only an accidental-write guard (any SQL-capable role can
+set a custom setting, and an `UPDATE` trigger does not cover inserts, which the creation rule below covers). `state_fips`/`county_fips` come from one shared
 derivation from the geoid, not five write rules. A view was rejected: `core.person` and `core.geography` are foreign-key
 targets and are read by `dbt` and the fingerprint queries; with 12.8K people and about 50K geographies cost is not a factor.
 
@@ -95,7 +103,10 @@ targets and are read by `dbt` and the fingerprint queries; with 12.8K people and
 The resolver runs as its own short transaction after the loader commits (not inside it), under
 `pg_advisory_xact_lock(hashtextextended('resolve:<entity>', 0))`, ordering updates by primary key, writing only rows whose
 result changed and reporting them from `RETURNING`. It updates non-key columns only, so it does not block foreign-key
-inserts. `research-db resolve [--dry-run]` reruns it.
+inserts. `research-db resolve [--dry-run]` reruns it. The resolver's lock serializes resolvers only, not concurrently
+committed assertion inserts, so consistency is **eventual by design**: a resolve is a pure function of the assertions
+committed when it runs, each loader resolves after its own commit, and the rebuild kit's verify step runs one final global
+`resolve --dry-run` that must report zero changes.
 
 ### 6. Tests
 
@@ -108,7 +119,10 @@ Do not source assertions from `stage.*`: the rebuild kit drops the roughly 37 GB
 `tiger_feature`. Make each loader write assertions idempotently and **rerun the loaders as the backfill**, before any
 stage drop. Save a pre-image CSV of changed rows, run `resolve --dry-run`, assert the expected diff (the 246 people; no
 geography name changes; `full_name` added), then apply and record it in the run ledger and `PROJECT-STATE.md`. Rollback is
-a precedence flip: ranking OpenStates above legislators reproduces today's live names.
+a precedence flip: ranking OpenStates above legislators reproduces today's live names. That restores *values*, not the
+old schema or old-loader compatibility: the migration is expand/contract and forward-only, with a guarded downgrade and a
+documented restore from the nightly dump plus the pre-image CSV. The expected diff is 246 person names and the addition
+of full-name assertions (`core.person.full_name` already exists and is NOT NULL); no geography name changes.
 
 ### 8. Rule for the future
 
@@ -128,8 +142,8 @@ decided, the resolver's default reproduces today's live names.
 
 - Two rebuilds give the same identity and display values in any load order; a better source added later wins on the next resolve.
 - Losing values are kept, and every displayed name points at the artifact or payload that asserted it.
-- Cost: two assertion tables, a precedence table and file, a resolver, a trigger, an identity fix, loader edits (six geography
-  writers, three person writers), a duplicate-merge, and a backfill. This is an M-to-L change; it precedes the rebuild kit's
+- Cost: two assertion tables, a precedence table and file, a resolver, a trigger, an identity fix, loader edits (three geography
+  name writers, six geography row writers for FIPS, three person writers), a duplicate-merge, and a backfill. This is an M-to-L change; it precedes the rebuild kit's
   verify step, which can then compare resolved values with no exclusions.
 - The kit's verify step compares only the datasets actually loaded.
 
