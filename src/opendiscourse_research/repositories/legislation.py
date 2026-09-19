@@ -806,6 +806,19 @@ def ensure_us_legislative_session(
     return str(result)
 
 
+def bill_type_and_number(bill: ElementTree.Element) -> tuple[str | None, str | None]:
+    """A ``<bill>``'s type and number text.
+
+    Most GovInfo files spell them ``<type>`` and ``<number>``; a few (for example the
+    House's reserved numbers, such as H.R. 9 in the 117th) use ``<billType>`` and
+    ``<billNumber>`` and are otherwise identical.
+    """
+    return (
+        bill.findtext("type") or bill.findtext("billType"),
+        bill.findtext("number") or bill.findtext("billNumber"),
+    )
+
+
 def parse_billstatus_xml(
     content: bytes | str, member_name: str | None = None
 ) -> dict[str, Any]:
@@ -818,8 +831,9 @@ def parse_billstatus_xml(
         raise ValueError("Invalid BILLSTATUS XML: missing <bill> element")
 
     congress_text = bill.findtext("congress")
-    bill_type = (bill.findtext("type") or "").strip().lower()
-    bill_number = (bill.findtext("number") or "").strip()
+    raw_type, raw_number = bill_type_and_number(bill)
+    bill_type = (raw_type or "").strip().lower()
+    bill_number = (raw_number or "").strip()
 
     if not congress_text or not bill_type or not bill_number:
         raise ValueError("Missing core bill identity in BILLSTATUS XML")

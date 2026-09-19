@@ -13,7 +13,7 @@ from xml.etree import ElementTree
 
 from .config import settings
 from .legarchive import billstatus_groups
-from .repositories.legislation import bill_keys
+from .repositories.legislation import bill_keys, bill_type_and_number
 
 
 def _output() -> Path:
@@ -32,11 +32,8 @@ def _bill_details(content: bytes) -> dict[str, Any] | None:
     bill = root.find("bill")
     if bill is None:
         return None
-    congress, bill_type, number = (
-        bill.findtext("congress"),
-        bill.findtext("type"),
-        bill.findtext("number"),
-    )
+    congress = bill.findtext("congress")
+    bill_type, number = bill_type_and_number(bill)
     if not congress or not bill_type or not number:
         return None
     sponsors = [

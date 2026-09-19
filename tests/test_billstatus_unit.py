@@ -115,3 +115,37 @@ def test_cli_exit_codes_distinguish_success_partial_and_failure(
     assert out.exit_code == code, out.output
     if code == 1:
         assert "sync-billstatus failed" in out.output and "rerun" in out.output
+
+
+# GovInfo spells the identity of a few files <billType>/<billNumber> (the House's reserved
+# numbers, e.g. H.R. 9 of the 117th). They are real bills; skipping them left 13 gaps.
+VARIANT_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<billStatus><bill>
+  <billNumber>9</billNumber><billType>HR</billType><congress>117</congress>
+  <introducedDate>2021-01-03</introducedDate><title>Reserved for the Speaker.</title>
+  <actions><item><actionDate>2021-01-03</actionDate><text>Reserved.</text></item></actions>
+</bill></billStatus>"""
+
+
+def test_the_billnumber_billtype_variant_parses_as_the_bill_it_is() -> None:
+    from opendiscourse_research.repositories.legislation import parse_billstatus_xml
+
+    parsed = parse_billstatus_xml(VARIANT_XML, member_name="BILLSTATUS-117hr9.xml")
+    assert (parsed["congress"], parsed["bill_type"], parsed["bill_number"]) == (117, "hr", "9")
+    assert {i["external_id"] for i in parsed["identifiers"]} >= {"117-hr-9"}
+    assert parsed["title"] == "Reserved for the Speaker." and len(parsed["actions"]) == 1
+
+
+def test_the_reconciliation_counter_reads_the_variant_too() -> None:
+    from opendiscourse_research.legreconcile import _bill_details
+
+    details = _bill_details(VARIANT_XML.encode())
+    assert details is not None
+    assert (details["bill_type"], details["bill_number"], details["actions"]) == ("hr", "9", 1)
+
+
+def test_a_file_with_no_identity_at_all_is_still_refused() -> None:
+    from opendiscourse_research.repositories.legislation import parse_billstatus_xml
+
+    with pytest.raises(ValueError, match="core bill identity"):
+        parse_billstatus_xml("<billStatus><bill><congress>117</congress></bill></billStatus>")
