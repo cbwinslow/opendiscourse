@@ -321,6 +321,13 @@ data on the RAID volume; keep only one database backup. Explain results in plain
    untrack `.agent/` (Antigravity copy of the skills); commit or drop `docs/data-inventory-2026-09-19.md`.
    Debt found: FEC (20 GB) and 16 BILLSTATUS rows still point at `/mnt/storage`, so **FEC is not rebuildable from
    an empty `DATA_ROOT` yet** (the rebuild kit must close this); 96 stale `.lock` files; mixed verb and module names.
+0b. **Order-independent identity and names (ADR-0005, accepted with changes; must precede the kit's verify step).**
+   Rebuild proof found that people and geography names depend on which loader runs first, and that person identity
+   does too (OpenStates matches by OCD id only, so loading legislators first would create up to ~722 duplicate
+   people; live already has one, Marlin Stutzman, `b8b58549…` beside `67e9e162…`). Stories, in order: identity fix,
+   lock and duplicate merge; assertion tables, precedence file, resolver, trigger; geography loaders (six writers,
+   including ACS in `ingestion/census.py`); person loaders; backfill by rerunning loaders; kit verify. Open: whether
+   `full_name` is the common or the official name (recommend common).
 1. **Rebuild kit** (proof done for Congress 108 bills: identical to live, idempotent, see `docs/rebuild-proof-2026-09-19.md`; spec written: `_bmad-output/specs/spec-rebuild-kit/SPEC.md`; includes OpenStates restore and promotion per AD-8, and FEC as the last phase; next: build phase 1). (operator condition for dropping `stage` duplicates, and for portability): one documented,
    tested command sequence that downloads and ingests every loaded source from an empty `DATA_ROOT`; then a small
    project skill `opendiscourse-rebuild` that points agents at it. Commands are the portable part; skills only guide.
