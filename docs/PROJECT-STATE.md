@@ -72,7 +72,7 @@ ledger, load strategies, coverage checks) that later models can sit on.
 | Roll calls / member votes | 118th-119th only (1,827 / 473,490) | 108-117; Senate source is "idea" |
 | People | 12,771 (12,770 with BioGuide; loaded 2026-09-19, Story 3.1) | 1 baseline person has no BioGuide; politician joins still gated (Story 3.2) |
 | FEC | 102M rows in `stage.fec_row` (pas2, oppexp, oth complete; indiv 2000-2016 only; unattributed, see above) | staging only; not promoted; person join gated (3.2): needs reviewed contract + cn/cm/ccl files; v1.1 |
-| GovInfo BILLSTATUS zips | 96 zips (591 MB) downloaded from govinfo.gov into `DATA_ROOT` and registered (Story 9.5); every zip matches GovInfo's directory manifest | none; the legacy lake copy is no longer an input |
+| GovInfo BILLSTATUS zips | 96 zips, 574,316,859 bytes (574 MB, 548 MiB; measured 2026-09-19 from the current registry rows) downloaded from govinfo.gov into `DATA_ROOT` and registered (Story 9.5); every zip matches GovInfo's directory manifest | none; the legacy lake copy is no longer an input |
 | OpenStates | 10 ok, 5 partial, 3 failed runs | coverage unmeasured; promotion reverted |
 | FRED | 135 ok, 6 failed (HTTP 400/500) | some series missing |
 | Treasury yields | 29 ok, 24 failed | parser broke ("no recognizable rate table") |
@@ -149,7 +149,7 @@ coverage incomplete.
   session; the Connector replaced 294,354 rows for 15,931 bills. **Known cost:** a refresh reloads
   every bill in the zip (about 4.5 minutes for the 119th), not only the changed ones; skipping
   members by content hash is the next optimization if it matters.
-- **Live result:** 96 zips (572 MB downloaded), 172,703 XML files in the official manifests;
+- **Live result:** 96 zips (the first pass fetched 572,533,669 bytes; GovInfo has since regenerated the 119th zips, so the current total is the 574,316,859 above and drifts; `du` on the folder also counts superseded versions, 591 MB), 172,703 XML files in the official manifests;
   172,709 bills, 929,756 actions and 2,272,151 sponsorships (every one resolved to a person by BioGuide) loaded for Congresses 108-119 at about 60 bills/s. `research-db
   coverage`: bills loaded equal expected for every Congress 108-118, and every Congress's
   actions equal the zips. A no-op rerun downloads nothing and loads nothing (about 2 minutes,
@@ -170,6 +170,16 @@ coverage incomplete.
 - **Speed:** the first real load ran at 15 bills/s. A profile showed 27% of the time re-reading SQL
   files and a third of the round trips repeating sponsor lookups; `_query` is now cached and
   sponsor lookups are memoized per run (2.1x in the same profile).
+- **Ledger and locking:** every committed batch updates the run's `ingest.run_target` for that
+  Congress (`partial` until all of its zips finish, then `succeeded`), so a killed or failed run
+  shows the work it really did in `research-db loaded`. A session advisory lock allows one
+  `sync-billstatus` at a time (a second fails at once with a clear message). Only strictly older
+  artifact versions are ever superseded.
+- **Known limitations:** `core.bill_document` (text-version links) has no artifact provenance, so a
+  refresh adds text versions but cannot retract one a newer BILLSTATUS file drops; upstream only
+  adds text versions, so this is accepted for now (a provenance column is the fix if it ever
+  matters). A refresh reloads the whole zip (see above). Concurrent `sync-billstatus` is refused
+  rather than merged.
 - `ingest.run.code_version` on the backfill runs reads `<sha>-dirty` because docs were being
   edited (tracked files differ); the SHA is the right commit. Runs before 9.2 stay unattributed.
 

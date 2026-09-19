@@ -16,19 +16,14 @@ def _query(name: str) -> str:
     return (_QUERY_ROOT / f"{name}.sql").read_text()
 
 
-def superseded_artifact_ids(
-    conn: Any, dataset_id: str, artifact_key: str, keep_artifact_id: UUID | str
-) -> list[UUID]:
-    """Ids of every other version of one logical artifact (empty on a first load)."""
+def superseded_artifact_ids(conn: Any, artifact_id: UUID | str) -> list[UUID]:
+    """Ids of the versions of this artifact's logical file that are older than it.
+
+    Only older versions: a newer one (committed by another process) is never superseded by
+    loading this one. Empty on a first load.
+    """
     with conn.cursor() as cur:
-        cur.execute(
-            _query("superseded_artifact_ids"),
-            {
-                "dataset_id": dataset_id,
-                "artifact_key": artifact_key,
-                "keep_artifact_id": keep_artifact_id,
-            },
-        )
+        cur.execute(_query("superseded_artifact_ids"), {"artifact_id": artifact_id})
         return [row["artifact_id"] for row in cur.fetchall()]
 
 

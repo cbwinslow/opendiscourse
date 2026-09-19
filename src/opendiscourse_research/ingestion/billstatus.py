@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import time
 import zipfile
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from email.utils import parsedate_to_datetime
@@ -52,6 +52,7 @@ from .bulk import ArtifactSpec, artifact_path, download
 from .connector import ConnectorContext
 
 SOURCE_ID = "congress.govinfo_billstatus"
+LOCK_KEY = f"{SOURCE_ID}:sync"
 BATCH_SIZE = 500
 # The whole source is about 600 MB; keep a small floor instead of the 100 GiB default.
 CAPACITY_RESERVE_BYTES = 10 * GiB
@@ -137,6 +138,7 @@ class BillStatusConnector:
         self._sleep = sleep
         self._pace = download_pace_seconds
         self._run: IngestionRun | None = None
+        self._lock: Any = None
         self._items: list[_Item] = []
         self._finished = False
         self._partial = False
@@ -147,6 +149,7 @@ class BillStatusConnector:
     # -- stages -----------------------------------------------------------
     def discover(self, ctx: ConnectorContext) -> ConnectorContext:
         """Ask the origin which Congresses exist and each zip's size and modified time."""
+        self._acquire_lock()
         self._run = IngestionRun(
             SOURCE_ID,
             {
@@ -305,9 +308,7 @@ class BillStatusConnector:
                 artifact_id = item.artifact["artifact_id"]
                 done = loaded_artifact_members(str(artifact_id), conn)
                 item.todo = [m for m in item.members if m not in done]
-                item.older_versions = superseded_artifact_ids(
-                    conn, SOURCE_ID, item.key, artifact_id
-                )
+                item.older_versions = superseded_artifact_ids(conn, artifact_id)
         self._report(f"{sum(len(i.todo) for i in self._items)} bills left to load")
         return ctx
 
@@ -336,45 +337,64 @@ class BillStatusConnector:
         """Load each zip's remaining bills in batched transactions, then mark it loaded."""
         totals: dict[str, int] = defaultdict(int)
         per_congress: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        zips_left = Counter(i.remote.congress for i in self._items)
         malformed: dict[str, list[str]] = {}
         summaries: list[dict[str, Any]] = []
+
+        def record(congress: int) -> None:
+            """Write the Congress's running totals; only a finished, clean Congress is 'succeeded'."""
+            if self._run is None:
+                return
+            slice_ = per_congress[congress]
+            unfinished = zips_left[congress] > 0
+            partial = (
+                unfinished
+                or slice_["malformed"]
+                or any(
+                    i.coverage.get("status") == "partial"
+                    for i in self._items
+                    if i.remote.congress == congress
+                )
+            )
+            status = "partial" if partial else "succeeded"
+            self._run.record_target(
+                "core.bill",
+                f"congress={congress}",
+                inserted=slice_["bills"],
+                skipped=slice_["skipped"],
+                status=status,
+            )
+            self._run.record_target(
+                "core.bill_action", f"congress={congress}", inserted=slice_["actions"], status=status
+            )
+
         for item in self._items:
             if self.download_only:
                 summaries.append(self._summary(item, 0, 0, 0, [], download_only=True))
                 continue
-            counts, bad = self._load_item(item, ctx)
-            malformed.update({item.key: bad} if bad else {})
-            summaries.append(
-                self._summary(item, counts["bills"], counts["actions"], counts["superseded"], bad)
-            )
-            slice_ = per_congress[item.remote.congress]
-            slice_["bills"] += counts["bills"]
-            slice_["actions"] += counts["actions"]
+            congress = item.remote.congress
+            slice_ = per_congress[congress]
             slice_["skipped"] += len(item.members) - len(item.todo)
+            here = {"bills": 0, "actions": 0, "superseded": 0}
+
+            def committed(bills: int, actions: int, superseded: int, here=here, congress=congress) -> None:
+                for name, value in (("bills", bills), ("actions", actions), ("superseded", superseded)):
+                    here[name] += value
+                    totals[name] += value
+                per_congress[congress]["bills"] += bills
+                per_congress[congress]["actions"] += actions
+                if self._run is not None:
+                    self._run.record_count += bills
+                record(congress)
+
+            bad = self._load_item(item, ctx, committed)
+            malformed.update({item.key: bad} if bad else {})
             slice_["malformed"] += len(bad)
-            for name in ("bills", "actions", "superseded"):
-                totals[name] += counts[name]
-            if self._run is not None:
-                self._run.record_count += counts["bills"]
-                partial = slice_["malformed"] or any(
-                    i.coverage.get("status") == "partial"
-                    for i in self._items
-                    if i.remote.congress == item.remote.congress
-                )
-                status = "partial" if partial else "succeeded"
-                self._run.record_target(
-                    "core.bill",
-                    f"congress={item.remote.congress}",
-                    inserted=slice_["bills"],
-                    skipped=slice_["skipped"],
-                    status=status,
-                )
-                self._run.record_target(
-                    "core.bill_action",
-                    f"congress={item.remote.congress}",
-                    inserted=slice_["actions"],
-                    status=status,
-                )
+            zips_left[congress] -= 1
+            record(congress)
+            summaries.append(
+                self._summary(item, here["bills"], here["actions"], here["superseded"], bad)
+            )
         self._partial = self._partial or bool(malformed)
         self._finished = True
         self.result = {
@@ -413,10 +433,28 @@ class BillStatusConnector:
             if self._run is not None:
                 self._run.__exit__(type(failure) if failure else None, failure, None)
                 self._run = None
+            if self._lock is not None:
+                self._lock.close()  # a session advisory lock ends with its connection
+                self._lock = None
         self._report("checkpointed")
         return ctx
 
     # -- helpers ----------------------------------------------------------
+    def _acquire_lock(self) -> None:
+        """One sync at a time: two would race on artifact versions and on the same bills."""
+        conn = connect()
+        conn.autocommit = True  # never sit idle in a transaction for the length of a sync
+        row = conn.execute(
+            "SELECT pg_try_advisory_lock(hashtextextended(%s, 0)) AS acquired", (LOCK_KEY,)
+        ).fetchone()
+        if not row or not row["acquired"]:
+            conn.close()
+            raise RuntimeError(
+                "another sync-billstatus run is in progress (it holds the database lock); "
+                "wait for it to finish, then rerun"
+            )
+        self._lock = conn
+
     def _decide(self, item: _Item) -> tuple[str, str]:
         row = get_current_artifact(item.key, dataset_id=SOURCE_ID)
         if row is None or not row["checksum_sha256"]:
@@ -448,11 +486,19 @@ class BillStatusConnector:
         if partial.stat().st_mtime < changed:
             partial.unlink()
 
-    def _load_item(self, item: _Item, ctx: ConnectorContext) -> tuple[dict[str, int], list[str]]:
-        """Load one zip's remaining members; return counts and any malformed member names."""
+    def _load_item(
+        self,
+        item: _Item,
+        ctx: ConnectorContext,
+        committed: Callable[[int, int, int], None],
+    ) -> list[str]:
+        """Load one zip's remaining members; return any malformed member names.
+
+        ``committed(bills, actions, superseded_rows)`` is called after every batch commit, so
+        the run ledger reflects committed work even if a later batch fails or the run is killed.
+        """
         assert item.artifact is not None
         artifact = item.artifact
-        counts = {"bills": 0, "actions": 0, "superseded": 0}
         malformed: list[str] = []
         people: dict[tuple[str, str], str | None] = {}
         with connect() as conn:
@@ -467,6 +513,7 @@ class BillStatusConnector:
                 with zipfile.ZipFile(artifact["local_path"]) as bundle:
                     for start in range(0, len(item.todo), self.batch_size):
                         bill_ids: list[str] = []
+                        batch_actions = 0
                         for member in item.todo[start : start + self.batch_size]:
                             try:
                                 data = parse_billstatus_xml(bundle.read(member), member_name=member)
@@ -490,11 +537,10 @@ class BillStatusConnector:
                                     person_cache=people,
                                 )
                             )
-                            counts["actions"] += len(data["actions"])
+                            batch_actions += len(data["actions"])
                         removed = supersede_bill_children(conn, bill_ids, item.older_versions)
                         conn.commit()
-                        counts["bills"] += len(bill_ids)
-                        counts["superseded"] += sum(removed.values())
+                        committed(len(bill_ids), batch_actions, sum(removed.values()))
                         self._report(
                             f"loading {item.label}: {min(start + self.batch_size, len(item.todo))}"
                             f"/{len(item.todo)} bills"
@@ -519,7 +565,7 @@ class BillStatusConnector:
                     conn=conn,
                 )
                 conn.commit()
-        return counts, malformed
+        return malformed
 
     @staticmethod
     def _identity_problem(item: _Item, member: str, data: dict[str, Any]) -> str | None:

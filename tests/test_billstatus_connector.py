@@ -451,6 +451,66 @@ def test_an_interrupt_mid_load_still_closes_the_run_as_failed(origin: FakeOrigin
     assert _bills() == 3 and origin.downloads == [KEY]
 
 
+def test_a_killed_load_leaves_its_committed_work_in_the_ledger_and_the_rerun_replaces_it(
+    tmp_path: Path,
+) -> None:
+    origin = FakeOrigin(tmp_path, _members(range(1, 6)))
+    with _die_on_save(3), pytest.raises(RuntimeError, match="killed"):
+        _sync(origin, batch_size=2)  # the first batch of two bills committed, the second did not
+
+    assert _run_status()[0] == "failed" and _bills() == 2
+    ledger = _rows(
+        "SELECT t.status, t.rows_inserted, t.rows_skipped FROM ingest.run_target t "
+        "JOIN ingest.run r USING (run_id) WHERE r.parameters->'congresses' @> '[998]' "
+        "AND t.target = 'core.bill'"
+    )
+    assert ledger == [("partial", 2, 0)]  # what the failed run really wrote
+
+    _sync(origin, batch_size=2)
+    view = _rows(
+        "SELECT status, rows_inserted, rows_skipped FROM ingest.loaded_coverage "
+        "WHERE dataset_id = 'congress.govinfo_billstatus' AND coverage_key = 'congress=998' "
+        "AND target = 'core.bill'"
+    )
+    assert view == [("succeeded", 3, 2)]  # the rerun wrote the other 3 and skipped the first 2
+
+
+def test_a_second_sync_while_one_is_running_is_refused(origin: FakeOrigin) -> None:
+    holder = connect()
+    holder.autocommit = True
+    holder.execute("SELECT pg_advisory_lock(hashtextextended(%s, 0))", (billstatus.LOCK_KEY,))
+    try:
+        with pytest.raises(RuntimeError, match="another sync-billstatus"):
+            _sync(origin)
+    finally:
+        holder.close()
+    assert origin.downloads == [] and _bills() == 0
+    _sync(origin)  # once the holder is gone the lock is free again
+    assert _bills() == 3
+
+
+def test_a_finished_sync_releases_its_lock_even_when_it_fails(origin: FakeOrigin) -> None:
+    origin.truncate = True
+    with pytest.raises(RuntimeError, match="reports"):
+        _sync(origin)
+    origin.truncate = False
+    _sync(origin)  # would raise "another sync-billstatus" if the failed run kept the lock
+    assert _bills() == 3
+
+
+def test_only_strictly_older_versions_are_superseded(origin: FakeOrigin) -> None:
+    from opendiscourse_research.repositories.billstatus import superseded_artifact_ids
+
+    _sync(origin)
+    first = _artifact()
+    origin.publish(_members(range(1, 5)), LATER)
+    _sync(origin)
+    second = _artifact()
+    with connect() as conn:
+        assert superseded_artifact_ids(conn, second["artifact_id"]) == [first["artifact_id"]]
+        assert superseded_artifact_ids(conn, first["artifact_id"]) == []  # never a newer one
+
+
 def test_capacity_gate_stops_before_any_download(origin: FakeOrigin) -> None:
     refusal = {
         "approved": False,
