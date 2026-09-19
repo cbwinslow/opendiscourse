@@ -8,10 +8,12 @@
 ## Context
 
 The operator asked for a review of the data sources and tools we use and for a plan to know every
-source available. A ChatGPT review proposed a catalog of about 26 domains (legislation through
-disaster and transport data) and a standard Python stack. We are the decision maker: the review
-is a map of leads, and every factual claim in it is a model's summary that we have not checked.
-`AGENTS.md` ranks it below code, specs and ADRs.
+source available, without limiting ourselves. A ChatGPT review proposed a catalog of about 26 domains
+(legislation through disaster and transport data) and a standard Python stack. It is a good review: most
+of it is sound and is adopted below. Its claims about external sources are checked one source at a time
+when that source's story begins (a few minutes each, recorded as `verified_on`); that is normal
+engineering care, not doubt. `AGENTS.md` ranks any model's summary below code, specs and ADRs, so the
+review guides the plan and the code and tests settle the facts.
 
 What is already true: raw bytes are immutable and checksummed; the database is PostgreSQL 17
 with PostGIS as the system of record (ADR-0001); each source is a Connector doing download,
@@ -38,7 +40,8 @@ audits every existing Connector against the catalog.
 review names. The standing rule is unchanged: before writing acquisition, parse or export code,
 check `sources.yaml` and `reuse.md`.
 
-**4. Scope gates come from `v1-scope.md`, not from the review.** The review's list is a catalog. Sequencing
+**4. The catalog is broad; the build order is `v1-scope.md`.** Every source in the review goes into the
+catalog: we do not limit what we track. Only the order of building is gated, by the operator's own spec. Sequencing
 stays: identity, legislation, geography, census/economic, marts; then v1.1 in the order FEC,
 disclosures, elections, crime. `v1-scope.md` also forbids expanding horizontally until a
 Connector-to-mart slice is proven, and the legislator-vote slice is the named proof. So the next
@@ -54,17 +57,17 @@ operator ranks them and a SPEC change opens each. SEC Form 4, 13F and market pri
 | Tool or idea from the review | Decision |
 |---|---|
 | Reuse upstream acquisition (`unitedstates/congress`, `congress-legislators`, OpenStates, Census libraries) | **Accepted**; already policy |
-| `censusdis` as a standard tool | **Rejected as a dependency**: Hippocratic licence (`AGENTS.md`). Optional convenience only |
-| `pygris`, `datamade/census` | `REFERENCE` until licence, maintenance and fit are checked; the Census loaders we have work |
+| `censusdis` | Not a *required* dependency, because of the project's rule about its Hippocratic licence (`AGENTS.md`); usable as an optional convenience. If the operator lifts that rule we can use it freely |
+| `pygris` (TIGER), `datamade/census` | **Evaluate when the source's story starts**; adopt if the licence and maintenance are fine. Our current Census loaders keep working meanwhile |
 | `fredapi` | Already an optional extra; our FRED client stays |
-| Disclosure and trading repos (`congress-trading-pipeline`, PoliTracker, Quantgress, `us-congress-stock-transactions-retrieval`), `pyCFR` | `REFERENCE` only: small projects, unverified. Official House, Senate and eCFR sources are canonical |
-| Prefect | Not adopted: an optional `ops` extra that no code imports (the review's claim that we already use it is wrong). No second orchestrator either |
-| Pandera | Candidate for validating frames before promotion; adopt when a loader needs it, not before |
-| Polars, DuckDB, PyArrow | Already optional (`analytics` extra); used where a loader benefits |
+| Disclosure and trading repos (`congress-trading-pipeline`, PoliTracker, Quantgress, `us-congress-stock-transactions-retrieval`), `pyCFR` | **Evaluate when the source's story starts**: try them, keep what is maintained and correct, wrap behind provenance. Official House, Senate and eCFR sources stay canonical |
+| Prefect | Not needed yet, and not because it is a poor tool: idempotent commands plus cron cover today's needs. The review's claim that we already use it is wrong (an optional extra no code imports). Revisit when many sources need scheduling. No second orchestrator |
+| Pandera | **Adopt** when the first loader needs frame validation |
+| Polars, DuckDB, PyArrow | Already optional (`analytics` extra); use where a loader benefits |
 | `dlt` | REST to `stage` only (unchanged) |
-| Parquet "normalized lake" between raw files and Postgres | **Not adopted as authority.** ADR-0001 keeps Postgres the system of record, and the schema-change skill forbids a second source of truth. Allowed later as a derived, rebuildable side cache for very large sources, only after its own ADR with a benchmark (settle it by measurement). It is also worth testing as a fix for table size (see the storage plan) |
-| Data.gov | Discovery only; ingest from the publisher's own endpoint |
-| Disclosures keep the reported range (no invented midpoint) | **Accepted** (already in `sources.yaml` notes) |
+| Parquet "normalized lake" | **Plan a benchmark story soon**, because database size is a real constraint (see the storage plan). If it wins, adopt it as a derived, rebuildable layer for the largest sources. Postgres stays the system of record (ADR-0001); Parquet is never the authority |
+| Data.gov | Discovery only; ingest from the publisher's endpoint |
+| Disclosures keep the reported range (no invented midpoint) | **Accepted** |
 | Crime: store agency participation alongside counts | **Accepted** as a design rule when crime opens |
 | Do not write another Congress scraper | **Accepted**; votes wrap `unitedstates/congress` |
 
@@ -76,8 +79,10 @@ target volume and how it is backed up (`docs/storage-and-backup-plan.md`).
 
 - One artifact (the catalog) answers "what exists and what do we do about it", and it can be
   audited against the Connectors.
-- We do not chase 26 domains at once. The review's best idea, a source registry plus a community-tool
-  inventory, is adopted; its build order is not.
+- We track every source but do not build 26 domains at once. The review's best idea, a source registry plus a
+  community-tool inventory, is adopted; the build order stays the operator's `v1-scope.md`.
 - Facts in the review are checked one source at a time when that source's story begins, and the
   result is written into the catalog (`verified_on`).
-- Rejected or deferred items are recorded here, so no later session re-litigates them without new evidence.
+- Deferred or conditional items are recorded here with their trigger, so no later session re-litigates them
+  without new evidence. Revised 2026-09-19 (same day) after the operator asked for less caution about tools:
+  the tool decisions above moved from "reference only" to "evaluate and adopt if good".
