@@ -89,11 +89,18 @@ Static loaded sources (ACS, CBP, TIGER, PEP, DHC) stay as they are: no rewrite, 
 6.2 GB, `stage.tiger_feature` 10 GB, `core.geography_boundary` 10 GB. Stage copies that
 duplicate loaded data (cbp, tiger, acs, about 37 GB) are rebuildable but not worth wiping.
 
-The cluster runs on defaults for a 125 GB / 40-core host: `shared_buffers` 128 MB,
-`maintenance_work_mem` 64 MB, autovacuum scale factor 0.2 (56M dead rows before vacuum
-on the ACS table). Recommended (needs a superuser and a restart; not applied): 
-`shared_buffers` 24GB, `effective_cache_size` 80GB, `maintenance_work_mem` 4GB,
-`work_mem` 64MB, `max_parallel_workers_per_gather` 8, `max_parallel_maintenance_workers` 8.
+Two clusters share this 125 GB / 40-core host: PostgreSQL 16 on port 5432 (`mlb`,
+`govdata`; already tuned: `shared_buffers` 40 GB, `maintenance_work_mem` 4 GB,
+`work_mem` 128 MB, 10 autovacuum workers) and PostgreSQL 17 on port 5434
+(`opendiscourse`, `openstates`; still on defaults: `shared_buffers` 128 MB,
+`maintenance_work_mem` 64 MB, autovacuum scale factor 0.2). Memory settings belong to a
+cluster, not a database. The 17 cluster's `pg_wal` is on `/` (122 GB free), so
+`max_wal_size` is capped at 16 GB. Proposed values, a dry-run memory budget and an
+apply/revert path are in `scripts/ops/tune_postgres_17.sh` (dry run by default; only ever
+writes to the 17 cluster; needs sudo to apply; `shared_buffers` and `max_worker_processes`
+need a restart, the rest a reload). Not applied yet. The budget shows the 16 cluster alone
+can theoretically exceed RAM if all 10 autovacuum workers use 4 GB at once; a
+`autovacuum_work_mem='1GB'` on the 16 cluster would cap that (reload only; not changed).
 
 Design points for ADR-0003 (Story 9.1), before the next large load: partition new large
 tables by their natural slice (cycle/year/congress) so reload-one-slice is drop and
