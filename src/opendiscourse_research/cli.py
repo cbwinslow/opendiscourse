@@ -30,6 +30,7 @@ from .browser import (
 from .capacity import GiB, remote_size, storage_preview
 from .catalog import sync_inventory, validate_inventory
 from .censushealth import census_health
+from .config import settings
 from .congresshealth import congressional_health, recover_stale_congressional_runs
 from .contracts import load_contracts, validate_contracts
 from .coverage import coverage_report, format_table, normalize_congresses
@@ -90,6 +91,8 @@ from .ingestion.pep_load import load_pep, stage_pep
 from .ingestion.tiger_bulk import preview_tiger_bulk_plan, write_tiger_bulk_plan
 from .ingestion.tiger_load import load_tiger, stage_tiger
 from .ingestion.treasury import ingest_yield_curve
+from .lake import LakeError, format_inventory
+from .lake import inventory as lake_inventory
 from .legload import load_billstatus
 from .legreconcile import reconcile_billstatus
 from .legvalidate import validate_billstatus
@@ -108,6 +111,7 @@ from .plans import due_plans, load_plans, run_plan
 from .progress import load_progress, validate_progress
 from .registry import status as registry_status
 from .registry import sync as registry_sync
+from .repositories.artifacts import registered_local_paths
 from .repositories.runs import loaded_coverage
 from .scaffold import ScaffoldError, new_provider
 from .votereconcile import reconcile_openstates_votes
@@ -115,9 +119,11 @@ from .votereconcile import reconcile_openstates_votes
 app = typer.Typer(help="Research database setup and ingestion commands.")
 ingest_app = typer.Typer(help="Provider ingestion commands.")
 bootstrap_app = typer.Typer(help="Resumable bulk download and bootstrap commands.")
+lake_app = typer.Typer(help="Where data lives: lake roots, locations and dispositions.")
 catalog_app = typer.Typer(
     help="Browse provider offerings, select resources, and create review-only drafts."
 )
+app.add_typer(lake_app, name="lake")
 app.add_typer(ingest_app, name="ingest", hidden=True)
 app.add_typer(bootstrap_app, name="bootstrap", hidden=True)
 # Compatibility entry point for earlier scripts. The normal operator surface is
@@ -606,6 +612,39 @@ def coverage_command(
     with render_progress("Comparing coverage", len(selected)) as advance:
         result = coverage_report(selected, refresh_official, advance)
     typer.echo(format_table(result))
+
+
+@lake_app.command("inventory")
+def lake_inventory_command(
+    root: str | None = typer.Option(None, help="Only this logical root (active, legacy, project)."),
+    disposition: list[str] = typer.Option(None, help="Only these dispositions (repeatable)."),
+    measure_hold: bool = typer.Option(False, help="Also measure hold (sensitive) areas; slow."),
+    json_output: bool = typer.Option(False, "--json", help="Print the full JSON report."),
+) -> None:
+    """Report every lake root against inventory/lake_layout.yaml (read-only, no hashing)."""
+    try:
+        if json_output:
+            result = lake_inventory(
+                registered=registered_local_paths(), measure_hold=measure_hold, only_root=root
+            )
+        else:
+            with render_spinner("Inventorying the lake") as report:
+                result = lake_inventory(
+                    registered=registered_local_paths(),
+                    measure_hold=measure_hold,
+                    only_root=root,
+                    progress=report,
+                )
+    except LakeError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    meta = Path(settings.data_root).expanduser().resolve().parent / "meta" / "inventory"
+    meta.mkdir(parents=True, exist_ok=True)
+    (meta / "latest.json").write_text(json.dumps(result, indent=2, sort_keys=True))
+    typer.echo(
+        json.dumps(result, indent=2, sort_keys=True)
+        if json_output
+        else format_inventory(result, disposition or None)
+    )
 
 
 @app.command("person-join-status")

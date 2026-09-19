@@ -1,0 +1,161 @@
+# Lake layout: where data lives, and what to do with it.
+#
+# No machine paths here. Roots are logical names resolved from settings
+# (see src/opendiscourse_research/lake.py): `active` is the parent of DATA_ROOT,
+# `legacy` is LEGACY_LAKE_ROOT, `project` is LEGACY_PROJECT_ROOT. A root that is
+# not configured is simply absent. To move a folder, edit its path here.
+#
+# `locations`: named locators, first existing candidate wins ({keys} are filled
+# by lake.locate(name, **keys)).
+# `areas`: every directory or file (wildcards allowed per path segment) that the
+# inventory should recognise; anything else is reported as unclassified.
+#   disposition: adopt   use after verification (register into the active lake)
+#                keep    useful or unknown value; leave alone
+#                hold    sensitive/restricted; never descended, hashed or moved
+#                review  not yet judged
+#                prune   re-downloadable or empty and out of scope: safe to delete
+#                        (refused if it contains registered artifacts)
+#   kind: raw | derived | upstream_checkout | code | database | scratch | link
+#   trust: verified (matches the official source) | unverified | n/a
+
+version: 1
+
+roots:
+  active: {description: parent of DATA_ROOT; holds raw/, meta/, hold/, database tablespace}
+  legacy: {description: earlier data lake (LEGACY_LAKE_ROOT), optional}
+  project: {description: earlier project checkout (LEGACY_PROJECT_ROOT), optional}
+
+locations:
+  govinfo.billstatus.dir:
+    dataset_id: congress.govinfo_billstatus
+    candidates:
+      - {root: legacy, path: "epstein/raw-files/govinfo_bulk/billstatus"}
+  govinfo.billstatus.zip:
+    dataset_id: congress.govinfo_billstatus
+    candidates:
+      - {root: legacy, path: "epstein/raw-files/govinfo_bulk/billstatus/{congress}/{bill_type}/BILLSTATUS-{congress}-{bill_type}.zip"}
+  fec.bulk.dir:
+    dataset_id: fec.campaign_finance
+    candidates:
+      - {root: legacy, path: "fec_bulk_data"}
+  # Legacy caches read by `research-db audit` (unverified, read-only).
+  audit.congcache:
+    dataset_id: congress.legislation
+    trust: legacy_cache_unverified
+    candidates: [{root: legacy, path: "epstein/raw-files/congress"}]
+  audit.conghist:
+    dataset_id: congress.legislation
+    trust: legacy_cache_unverified
+    candidates: [{root: legacy, path: "epstein/raw-files/congress_historical"}]
+  audit.govcache:
+    dataset_id: govinfo.bulk
+    trust: legacy_cache_unverified
+    candidates: [{root: legacy, path: "epstein/raw-files/govinfo"}]
+  audit.govbulk:
+    dataset_id: govinfo.bulk
+    trust: legacy_cache_unverified
+    candidates: [{root: legacy, path: "epstein/raw-files/govinfo_bulk"}]
+  audit.congdata:
+    dataset_id: congress.legislation
+    trust: legacy_cache_unverified
+    candidates: [{root: legacy, path: "congress/congress-data"}]
+  audit.congled:
+    dataset_id: congress.legislation
+    trust: legacy_ledger_unverified
+    candidates: [{root: legacy, path: "ledgers/congress"}]
+  audit.govled:
+    dataset_id: govinfo.bulk
+    trust: legacy_ledger_unverified
+    candidates: [{root: legacy, path: "ledgers/govinfo"}]
+
+areas:
+  # ---- active lake ----
+  - {root: active, path: raw/census, dataset_id: census.*, kind: raw, disposition: adopt, trust: verified, reason: "registered Census artifacts"}
+  - {root: active, path: raw/openstates, dataset_id: openstates.dump, kind: raw, disposition: adopt, trust: verified, reason: "registered OpenStates dump"}
+  - {root: active, path: raw/congress, dataset_id: congress.legislators, kind: raw, disposition: adopt, trust: verified, reason: "registered legislators YAML"}
+  - {root: active, path: meta, kind: derived, disposition: keep, reason: "reports, plans, coverage caches; rebuildable"}
+  - {root: active, path: curate, kind: derived, disposition: keep, reason: "rebuildable curated outputs"}
+  - {root: active, path: stage, kind: scratch, disposition: keep, reason: "rebuildable staging outputs"}
+  - {root: active, path: hold, kind: raw, disposition: hold, reason: "approved restricted material only"}
+  - {root: active, path: postgres, kind: database, disposition: hold, reason: "PostgreSQL support files; never touch as files"}
+  - {root: active, path: pg17, kind: database, disposition: hold, reason: "active PostgreSQL tablespace (odspace); never touch as files"}
+
+  # ---- legacy lake: congressional bulk data ----
+  - {root: legacy, path: epstein/raw-files/govinfo_bulk/billstatus, dataset_id: congress.govinfo_billstatus, kind: raw, disposition: adopt, trust: verified, reason: "77 of 96 zips byte-identical to GovInfo and 2 more content-identical (2026-09-19 check); 118-119 are registered artifacts"}
+  - {root: legacy, path: epstein/raw-files/govinfo_bulk/bills, dataset_id: govinfo.bulk, kind: raw, disposition: adopt, trust: unverified, reason: "bill text XML; verify like BILLSTATUS before use"}
+  - {root: legacy, path: epstein/raw-files/govinfo_bulk/billsum, dataset_id: govinfo.bulk, kind: raw, disposition: adopt, trust: unverified, reason: "CRS bill summaries; verify before use"}
+  - {root: legacy, path: epstein/raw-files/govinfo_bulk/fr, dataset_id: govinfo.bulk, kind: raw, disposition: keep, trust: unverified, reason: "Federal Register; out of v1 scope, re-downloadable"}
+  - {root: legacy, path: epstein/raw-files/govinfo_bulk/*, kind: raw, disposition: review, reason: "other GovInfo bulk collection"}
+  - {root: legacy, path: epstein/raw-files/congress, kind: scratch, disposition: prune, reason: "Congress.gov API test pulls (118th bill chunks, api_test_results); partial, re-downloadable"}
+  - {root: legacy, path: epstein/raw-files/congress_historical, kind: scratch, disposition: prune, reason: "partial Congress.gov API JSON for 105-119; superseded by BILLSTATUS; re-downloadable"}
+  - {root: legacy, path: epstein/raw-files/govinfo, kind: scratch, disposition: prune, reason: "GovInfo API test listings; re-downloadable"}
+  - {root: legacy, path: epstein/raw-files/govinfo_historical, kind: scratch, disposition: prune, reason: "partial GovInfo API listings; re-downloadable"}
+  - {root: legacy, path: epstein/raw-files/senate_votes, kind: scratch, disposition: prune, reason: "28 small files (vote menus, not member votes); re-downloadable from senate.gov"}
+  - {root: legacy, path: epstein/raw-files/fec_committees, kind: scratch, disposition: prune, reason: "partial FEC master extracts (2020-2024); superseded by epstein/fec/cm*.zip and cn*.zip"}
+  - {root: legacy, path: epstein/raw-files/fec, kind: raw, disposition: prune, reason: "one indiv24 archive, sha256 identical to the registered fec-indiv-2024 (2026-09-19 hash check)"}
+  - {root: legacy, path: congress/congress-data, dataset_id: congress.legislation, kind: raw, disposition: keep, trust: unverified, reason: "per-bill JSON scrape for Congresses 93-113; 108-113 redundant with BILLSTATUS but 93-107 predate GovInfo and may not be re-downloadable"}
+  - {root: legacy, path: congress/congress-legislators, kind: upstream_checkout, disposition: prune, reason: "git checkout; vendor/ and the registered artifact replace it"}
+  - {root: legacy, path: "congress/*", kind: upstream_checkout, disposition: review, reason: "upstream GitHub checkouts (GPO/LoC docs, unitedstates/congress tool); re-cloneable, inspect before pruning"}
+  - {root: legacy, path: ledgers, kind: derived, disposition: review, reason: "previous downloader ledgers (54 MB)"}
+
+  # ---- legacy lake: FEC ----
+  - {root: legacy, path: fec_bulk_data, dataset_id: fec.campaign_finance, kind: raw, disposition: adopt, trust: verified, reason: "50 registered FEC archives; relocate into the active lake before moving"}
+  - {root: legacy, path: "epstein/fec/cm*.zip", dataset_id: fec.campaign_finance, kind: raw, disposition: adopt, trust: unverified, reason: "committee masters 2000-2024 (the linkage files 9.x thought missing)"}
+  - {root: legacy, path: "epstein/fec/cn*.zip", dataset_id: fec.campaign_finance, kind: raw, disposition: adopt, trust: unverified, reason: "candidate masters 2000-2024"}
+  - {root: legacy, path: "epstein/fec/indiv*.zip", dataset_id: fec.campaign_finance, kind: raw, disposition: prune, reason: "duplicates of the registered fec_bulk_data archives (sha256 identical for 2000-2018 and 2024); indiv20 is a truncated 2.5 GB copy of a 5.9 GB file and indiv22 differs from the registered file (2026-09-19 hash check)"}
+  - {root: legacy, path: "epstein/fec/cm.txt", kind: derived, disposition: prune, reason: "extracted copy of a committee master"}
+  - {root: legacy, path: "epstein/fec/cn.txt", kind: derived, disposition: prune, reason: "extracted copy of a candidate master"}
+  - {root: legacy, path: "epstein/fec/itcont.txt", kind: derived, disposition: prune, reason: "11 GB extraction of an indiv zip; re-extractable"}
+  - {root: legacy, path: "epstein/fec/by_date", kind: derived, disposition: prune, reason: "30 GB re-split of individual contributions; re-derivable from the archives"}
+  - {root: legacy, path: epstein/raw-files/financial_disclosures, kind: raw, disposition: keep, trust: unverified, reason: "House/Senate disclosure downloads (661 MB); needs its own contract (person_join gated)"}
+
+  # ---- legacy lake: other, out of v1 scope ----
+  - {root: legacy, path: epstein/gdelt, kind: raw, disposition: prune, reason: "161 GB of raw GDELT 2019-07 export zips (final/ and reconstructed/ are empty); news is a non-goal for the schema; re-downloadable"}
+  - {root: legacy, path: "epstein/raw-files/data*", kind: raw, disposition: hold, reason: "Epstein document sets; sensitive"}
+  - {root: legacy, path: epstein/hf-parquet, kind: raw, disposition: hold, reason: "Epstein document corpus; sensitive"}
+  - {root: legacy, path: epstein/hf-new-datasets, kind: raw, disposition: hold, reason: "Epstein document corpus; sensitive"}
+  - {root: legacy, path: epstein/backups, kind: derived, disposition: hold, reason: "Epstein database dumps; sensitive"}
+  - {root: legacy, path: epstein/parquet, kind: derived, disposition: hold, reason: "Epstein derived data"}
+  - {root: legacy, path: epstein/pg-dumps, kind: derived, disposition: hold, reason: "Epstein derived data"}
+  - {root: legacy, path: epstein/pg-parquet, kind: derived, disposition: hold, reason: "Epstein derived data"}
+  - {root: legacy, path: epstein/epstein, kind: derived, disposition: hold, reason: "Epstein derived data"}
+  - {root: legacy, path: epstein-meta, kind: derived, disposition: hold, reason: "Epstein metadata and scripts"}
+  - {root: legacy, path: epstein/raw-files/whitehouse, kind: raw, disposition: keep, trust: unverified, reason: "White House releases (966 MB); out of v1 scope"}
+  - {root: legacy, path: "epstein/raw-files/*", kind: raw, disposition: keep, trust: unverified, reason: "small out-of-scope downloads (FARA, lobbying, SEC, USAspending, logs)"}
+  - {root: legacy, path: "epstein/*", kind: raw, disposition: review, reason: "unlisted Epstein-project directory"}
+  - {root: legacy, path: "raw/*", kind: raw, disposition: review, reason: "small earlier downloads (Congress.gov, FEC, OpenStates); inspect"}
+  - {root: legacy, path: govdata, kind: raw, disposition: review, reason: "small mixed extracts (census, fda, fec, fred, nasa, treasury)"}
+  - {root: legacy, path: manifests, kind: derived, disposition: keep, reason: "earlier manifest of the lake"}
+  - {root: legacy, path: "bronze", kind: scratch, disposition: prune, reason: "empty scaffolding"}
+  - {root: legacy, path: "silver", kind: scratch, disposition: prune, reason: "empty scaffolding"}
+  - {root: legacy, path: "gold", kind: scratch, disposition: prune, reason: "empty scaffolding"}
+  - {root: legacy, path: "staging", kind: scratch, disposition: prune, reason: "empty scaffolding"}
+  - {root: legacy, path: "processed", kind: scratch, disposition: prune, reason: "empty scaffolding"}
+  - {root: legacy, path: "ocr", kind: scratch, disposition: prune, reason: "empty scaffolding"}
+  - {root: legacy, path: "vector-ready", kind: scratch, disposition: prune, reason: "empty scaffolding"}
+  - {root: legacy, path: "openstates", kind: scratch, disposition: prune, reason: "empty scaffolding"}
+  - {root: legacy, path: "gdelt", kind: scratch, disposition: prune, reason: "empty scaffolding"}
+  - {root: legacy, path: ".env", kind: scratch, disposition: hold, reason: "environment file at the lake root; may contain secrets, never read or moved by tooling"}
+  - {root: legacy, path: ".refact", kind: scratch, disposition: prune, reason: "empty tool directory"}
+  - {root: legacy, path: "courtlistener", kind: scratch, disposition: review, reason: "empty here; project link target"}
+  - {root: legacy, path: "financial-disclosures", kind: scratch, disposition: review, reason: "empty here; project link target"}
+
+  # ---- earlier project checkout ----
+  - {root: project, path: data/gdelt, kind: raw, disposition: prune, reason: "GDELT export samples; non-goal, re-downloadable"}
+  - {root: project, path: data/openstates/2026-07-public.pgdump, dataset_id: openstates.dump, kind: raw, disposition: prune, reason: "10 GB OpenStates public dump, sha256 identical to the registered active-lake artifact data-2026-07 (2026-09-19 hash check)"}
+  - {root: project, path: data/openstates/2026-07-schema.pgdump, dataset_id: openstates.dump, kind: raw, disposition: keep, reason: "OpenStates schema dump; differs byte-wise from the registered schema artifact, so kept until compared"}
+  - {root: project, path: data/openstates, dataset_id: openstates.dump, kind: raw, disposition: review, reason: "10 GB OpenStates pg_dumps; likely duplicates of the registered active-lake dump, compare checksums"}
+  - {root: project, path: data/BioguideProfiles.zip, kind: raw, disposition: keep, trust: unverified, reason: "BioGuide profile bulk file (21 MB); candidate biographical source"}
+  - {root: project, path: data-lake, kind: scratch, disposition: prune, reason: "near-empty"}
+  - {root: project, path: "epstein", kind: raw, disposition: hold, reason: "Epstein pipeline and outputs (29 GB); sensitive"}
+  - {root: project, path: "epstein_backup_*.tar.gz", kind: derived, disposition: hold, reason: "Epstein backup"}
+  - {root: project, path: openstates-monorepo, kind: upstream_checkout, disposition: review, reason: "9 GB OpenStates upstream checkout; re-cloneable"}
+  - {root: project, path: "*.log", kind: scratch, disposition: prune, reason: "restore logs"}
+  - {root: project, path: logs, kind: scratch, disposition: prune, reason: "logs"}
+  - {root: project, path: "congress", kind: link, disposition: keep, reason: "symlink into the legacy lake"}
+  - {root: project, path: "courtlistener", kind: link, disposition: keep, reason: "symlink into the legacy lake"}
+  - {root: project, path: "fec_bulk_data", kind: link, disposition: keep, reason: "symlink into the legacy lake"}
+  - {root: project, path: "financial-disclosures", kind: link, disposition: keep, reason: "symlink into the legacy lake"}
+  # Code and documentation: kept until their useful parts are absorbed into opendiscourse.
+  - {root: project, path: ".git", kind: code, disposition: keep, reason: "repository history"}
+  - {root: project, path: "*", kind: code, disposition: keep, reason: "earlier project code, docs and config (unverified; AGY/Gemini-era)"}

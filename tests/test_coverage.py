@@ -216,12 +216,14 @@ def test_scan_lake_counts_and_caches(tmp_path, monkeypatch):
         bundle.writestr("BILLSTATUS-108hr1.xml", xml.format(n=1))
         bundle.writestr("BILLSTATUS-108hr2.xml", xml.format(n=2))
         bundle.writestr("BILLSTATUS-108hr3.xml", "<broken")
-    monkeypatch.setattr(coverage, "BILLSTATUS_ROOT", root)
+    def where(congress, bill_type):
+        return root / str(congress) / bill_type / f"BILLSTATUS-{congress}-{bill_type}.zip"
+
     cache = tmp_path / "lake.json"
-    assert scan_lake(108, cache) == {"hr": {"bills": 2, "actions": 4, "malformed": 1}}
+    assert scan_lake(108, cache, where) == {"hr": {"bills": 2, "actions": 4, "malformed": 1}}
     monkeypatch.setattr(coverage, "_bill_details", lambda content: pytest.fail("rescanned"))
-    assert scan_lake(108, cache)["hr"]["bills"] == 2
-    assert scan_lake(109, cache) is None
+    assert scan_lake(108, cache, where)["hr"]["bills"] == 2
+    assert scan_lake(109, cache, where) is None
 
 
 def _response(url: str, status: int = 200, **kwargs: Any) -> httpx.Response:
@@ -401,8 +403,11 @@ def test_scan_lake_survives_a_corrupt_archive_and_reports_it(tmp_path, monkeypat
     archive = root / "108" / "hr" / "BILLSTATUS-108-hr.zip"
     archive.parent.mkdir(parents=True)
     archive.write_bytes(b"not a zip")
-    monkeypatch.setattr(coverage, "BILLSTATUS_ROOT", root)
-    found = scan_lake(108, tmp_path / "lake.json")
+    found = scan_lake(
+        108,
+        tmp_path / "lake.json",
+        lambda c, t: root / str(c) / t / f"BILLSTATUS-{c}-{t}.zip",
+    )
     assert "unreadable" in found["hr"]
     lake = {t: found.get(t, {"bills": 0, "actions": 0}) for t in BILL_TYPES}
     result, _ = _report(tmp_path, official=FakeOfficial(bills=0, fail={"x"}), lake=lambda c: lake)

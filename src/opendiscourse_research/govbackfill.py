@@ -13,7 +13,7 @@ import httpx
 
 from .contracts import get_contract
 from .govplan import _meta_path
-from .legvalidate import BILLSTATUS_ROOT, PACE_SECONDS, _validate_xml
+from .legvalidate import PACE_SECONDS, _validate_xml, billstatus_root
 
 
 def pending_archive_files(
@@ -56,7 +56,7 @@ def backfill_billstatus_missing(
     last_request = 0.0
     for position, (bill_type, files) in enumerate(sorted(groups.items()), start=1):
         listing_path = next(
-            BILLSTATUS_ROOT.rglob(f"BILLSTATUS_{congress}_{bill_type}_listing.json"),
+            billstatus_root().rglob(f"BILLSTATUS_{congress}_{bill_type}_listing.json"),
             None,
         )
         if listing_path is None:

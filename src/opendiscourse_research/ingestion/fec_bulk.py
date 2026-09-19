@@ -21,6 +21,7 @@ from sqlalchemy import Integer, cast, select
 
 from ..capacity import RemoteObject, storage_preview
 from ..db import connect, session
+from ..lake import require_location
 from ..repositories.artifacts import current_artifact_table
 from .bulk import ArtifactSpec, register_local
 
@@ -138,9 +139,9 @@ INNER_MEMBER = {
     "oppexp": "oppexp.txt",
 }
 
-# Legacy local cache: 50 official FEC bulk archives (~19.7 GiB), already
-# downloaded, unregistered (see inventory/progress.yaml id `fecbulk`).
-LEGACY_ROOT = Path("/mnt/storage/data-lake/government/fec_bulk_data")
+def default_root() -> Path:
+    """Local FEC bulk archives (~19.7 GiB, already downloaded) from the lake registry."""
+    return require_location("fec.bulk.dir")
 
 _CYCLE_FILE = re.compile(r"^([a-z0-9]+?)(\d{2})\.zip$")
 
@@ -156,10 +157,11 @@ def parse_row(family: str, fields: list[str]) -> dict[str, str]:
     return dict(zip(schema, fields, strict=False))
 
 
-def discover_family(family: str, root: Path = LEGACY_ROOT) -> list[dict[str, Any]]:
+def discover_family(family: str, root: Path | None = None) -> list[dict[str, Any]]:
     """List local cycle archives for one family, without opening or parsing them."""
     if family not in FIELDS:
         raise ValueError(f"Unknown FEC bulk family: {family!r}")
+    root = root or default_root()
     found = []
     for path in sorted(root.glob(f"{family}[0-9][0-9].zip")):
         match = _CYCLE_FILE.match(path.name)
@@ -179,7 +181,7 @@ def discover_family(family: str, root: Path = LEGACY_ROOT) -> list[dict[str, Any
     return found
 
 
-def preview_family(family: str, root: Path = LEGACY_ROOT) -> dict[str, Any]:
+def preview_family(family: str, root: Path | None = None) -> dict[str, Any]:
     """Run the standard capacity gate against this family's local archives.
 
     No download happens (the files are already on disk); this measures the
@@ -191,7 +193,7 @@ def preview_family(family: str, root: Path = LEGACY_ROOT) -> dict[str, Any]:
 
 
 def register_family(
-    family: str, root: Path = LEGACY_ROOT, update: Callable[[str], None] | None = None
+    family: str, root: Path | None = None, update: Callable[[str], None] | None = None
 ) -> list[str]:
     """Checksum and register every local cycle archive for one family."""
     registered = []

@@ -13,44 +13,23 @@ from pathlib import Path
 from typing import Any
 
 from .config import settings
+from .lake import load_layout, locate
 
-ROOTS: dict[str, tuple[str, str, str]] = {
-    "congcache": (
-        "/mnt/storage/data-lake/government/epstein/raw-files/congress",
-        "congress.legislation",
-        "legacy_cache_unverified",
-    ),
-    "conghist": (
-        "/mnt/storage/data-lake/government/epstein/raw-files/congress_historical",
-        "congress.legislation",
-        "legacy_cache_unverified",
-    ),
-    "govcache": (
-        "/mnt/storage/data-lake/government/epstein/raw-files/govinfo",
-        "govinfo.bulk",
-        "legacy_cache_unverified",
-    ),
-    "govbulk": (
-        "/mnt/storage/data-lake/government/epstein/raw-files/govinfo_bulk",
-        "govinfo.bulk",
-        "legacy_cache_unverified",
-    ),
-    "congdata": (
-        "/mnt/storage/data-lake/government/congress/congress-data",
-        "congress.legislation",
-        "legacy_cache_unverified",
-    ),
-    "congled": (
-        "/mnt/storage/data-lake/government/ledgers/congress",
-        "congress.legislation",
-        "legacy_ledger_unverified",
-    ),
-    "govled": (
-        "/mnt/storage/data-lake/government/ledgers/govinfo",
-        "govinfo.bulk",
-        "legacy_ledger_unverified",
-    ),
-}
+
+def audit_roots() -> dict[str, tuple[str, str, str]]:
+    """Legacy caches to audit, from the lake registry (`audit.*` locations)."""
+    layout = load_layout()
+    found: dict[str, tuple[str, str, str]] = {}
+    for name, location in layout.locations.items():
+        if not name.startswith("audit."):
+            continue
+        path = locate(name, layout=layout)
+        found[name.removeprefix("audit.")] = (
+            str(path) if path else "",
+            location.dataset_id or "",
+            location.trust or "legacy_cache_unverified",
+        )
+    return found
 
 
 def _checksum(path: Path) -> str:
@@ -123,8 +102,8 @@ def audit_leg(
     entries: list[dict[str, Any]] = []
     roots: list[dict[str, Any]] = []
     all_files: list[tuple[str, Path, str, str]] = []
-    for root_id, (raw_path, dataset_id, provenance) in ROOTS.items():
-        root = Path(raw_path)
+    for root_id, (raw_path, dataset_id, provenance) in audit_roots().items():
+        root = Path(raw_path or os.devnull)
         files = _files(root) if root.is_dir() else []
         roots.append(
             {

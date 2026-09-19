@@ -104,3 +104,15 @@ def report_artifacts(keys: list[str]) -> list[dict[str, Any]]:
         ).mappings():
             rows.setdefault(row["artifact_key"], dict(row))
     return list(rows.values())
+
+
+def registered_local_paths() -> list[str]:
+    """Every ``local_path`` the artifact registry refers to (all versions)."""
+    base = artifact_table()
+    with session() as active_session:
+        return [
+            row[0]
+            for row in active_session.execute(
+                select(base.c.local_path).where(base.c.local_path.is_not(None))
+            )
+        ]

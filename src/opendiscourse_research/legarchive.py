@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import settings
-from .legvalidate import BILLSTATUS_ROOT, LISTING
+from .legvalidate import LISTING, billstatus_root
 
 
 def billstatus_groups(
@@ -46,7 +46,7 @@ def billstatus_groups(
         )
     groups: list[dict[str, Any]] = []
     for listing in sorted(
-        BILLSTATUS_ROOT.rglob(f"BILLSTATUS_{congress}_*_listing.json")
+        billstatus_root().rglob(f"BILLSTATUS_{congress}_*_listing.json")
     ):
         match = LISTING.search(listing.name)
         if match is None or match.group(2) not in comparisons:

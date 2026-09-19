@@ -26,8 +26,8 @@ from sqlalchemy import select
 
 from .config import settings
 from .db import session
+from .lake import locate
 from .legreconcile import _bill_details
-from .legvalidate import BILLSTATUS_ROOT
 from .providers.official_counts import OfficialCountError, OfficialCounts
 from .repositories.artifacts import current_artifact_table
 from .repositories.coverage import loaded_counts
@@ -149,7 +149,16 @@ class OfficialCache:
         _write_json(self.path, {"schema": 1, "entries": self.entries})
 
 
-def scan_lake(congress: int, cache_path: Path) -> dict[str, Any] | None:
+def _locate_zip(congress: int, bill_type: str) -> Path | None:
+    """Find one BILLSTATUS zip through the lake registry (any configured root)."""
+    return locate("govinfo.billstatus.zip", congress=congress, bill_type=bill_type)
+
+
+def scan_lake(
+    congress: int,
+    cache_path: Path,
+    locate_zip: Callable[[int, str], Path | None] = _locate_zip,
+) -> dict[str, Any] | None:
     """Count XML bills and actions per type in the (unverified) BILLSTATUS zips.
 
     Results are cached per archive keyed by path, size and mtime, so reruns are
@@ -158,13 +167,8 @@ def scan_lake(congress: int, cache_path: Path) -> dict[str, Any] | None:
     cache = _read_json(cache_path).get("archives", {})
     by_type: dict[str, dict[str, Any]] = {}
     for bill_type in BILL_TYPES:
-        archive = (
-            BILLSTATUS_ROOT
-            / str(congress)
-            / bill_type
-            / f"BILLSTATUS-{congress}-{bill_type}.zip"
-        )
-        if not archive.is_file():
+        archive = locate_zip(congress, bill_type)
+        if archive is None or not archive.is_file():
             continue
         stat = archive.stat()
         key = f"{archive}:{stat.st_size}:{int(stat.st_mtime)}"

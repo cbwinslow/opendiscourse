@@ -16,14 +16,17 @@ from xml.etree import ElementTree
 import httpx
 
 from .config import settings
+from .lake import require_location
 
-BILLSTATUS_ROOT = Path(
-    "/mnt/storage/data-lake/government/epstein/raw-files/govinfo_bulk/billstatus"
-)
 LISTING = re.compile(
     r"BILLSTATUS_(\d+)_(hconres|hjres|hr|hres|s|sconres|sjres|sres)_listing\.json$"
 )
 PACE_SECONDS = 1.0
+
+
+def billstatus_root() -> Path:
+    """Return the local BILLSTATUS cache directory from the lake registry."""
+    return require_location("govinfo.billstatus.dir")
 
 
 def _output() -> Path:
@@ -124,7 +127,7 @@ def validate_billstatus(
         raise ValueError("sample must be positive")
     listings = sorted(
         path
-        for path in BILLSTATUS_ROOT.rglob("*_listing.json")
+        for path in billstatus_root().rglob("*_listing.json")
         if LISTING.search(path.name)
     )
     groups: list[dict[str, Any]] = []

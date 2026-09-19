@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2 merged; 9.3 built (PR pending); 3.1 and 9.2 live; performance audit done). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2 merged; 9.3 and 9.4 built (PRs pending); 3.1 and 9.2 live; performance audit done). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -79,6 +79,46 @@ ledger, load strategies, coverage checks) that later models can sit on.
 | Census ACS/CBP/TIGER/PEP/DHC | loaded (ACS 281M rows) | no coverage check; most complete area |
 
 Story 9.3 adds `research-db coverage` (first measurement below).
+
+## Lake inventory (Story 9.4, 2026-09-19)
+
+`research-db lake inventory [--root NAME] [--json]` classifies every root against
+`inventory/lake_layout.yaml` (roots come from `DATA_ROOT`, `LEGACY_LAKE_ROOT`,
+`LEGACY_PROJECT_ROOT`; no machine paths in code). It is read-only, never hashes, does not
+descend into `hold` areas, and flags any `prune` area that contains a registered artifact.
+`scripts/ops/prune_lake.py` deletes the `prune` areas (dry run unless `--yes`).
+
+**Findings**
+
+- **The legacy lake's congressional data hides under `epstein/`**: BILLSTATUS/BILLS/BILLSUM
+  (`epstein/raw-files/govinfo_bulk`), FEC masters (`epstein/fec`), disclosures
+  (`epstein/raw-files/financial_disclosures`, 661 MB). The registered 118th-119th BILLSTATUS
+  artifacts and all 50 FEC archives live in the legacy lake, so those paths must never be moved
+  or deleted by hand; relocating registered artifacts into the active lake needs a verified
+  copy plus a `local_path` update (Story 9.6).
+- **BILLSTATUS is trustworthy**: all 96 zips checked against GovInfo: 77 byte-identical,
+  117/hr identical content (zip timestamps differ), 111/s one member changed, the rest are
+  118th/119th files updated since. Compare by zip-member CRC, not whole-file hash.
+- **Bad copies found**: `epstein/fec/indiv20.zip` is a truncated 2.5 GB copy of a 5.9 GB file
+  and `indiv22.zip` differs from the registered file; `indiv00`-`18` and `24` are identical
+  duplicates of the registered archives.
+- **Two lakes existed by accident**: `data_root` defaulted to a path relative to the caller's
+  directory, so commands run from the checkout wrote `data-lake/` inside the repo (the 9.6 MB
+  legislators artifacts, test artifacts, early caches) while Census/OpenStates live in
+  `~/workspace/data-lake/opendiscourse`. `data_root` and the env file are now anchored to the
+  project root, and `.env` sets `DATA_ROOT` to the real lake.
+- **Roll-call votes for 108-117 are on no disk** (`senate_votes` was vote menus only).
+- Areas by disposition: adopt 163 GB, keep 17 GB, review 10 GB, hold (Epstein corpus, database
+  files, a stray `.env` at the legacy root; not measured), **prune 246.7 GB**.
+
+**Pending operator action:** the prune list (GDELT 2019-07 raw exports 172 GB, `epstein/fec/by_date`
+and `itcont.txt` 43 GB of re-derivable copies, hash-verified duplicate archives, OpenStates
+public dump duplicate 10.7 GB, API test pulls, empty scaffolding) was blocked by the harness as
+irreversible; run `uv run python scripts/ops/prune_lake.py --yes` yourself (`! ` prefix) after
+`research-db lake inventory`. Nothing has been deleted yet.
+
+The acquisition strategy (offerings, efficient fetching, adopt-don't-redownload, state-first
+geography) is in `docs/data-acquisition-plan.md`.
 
 ## Coverage report (Story 9.3, first measurement 2026-09-19)
 
