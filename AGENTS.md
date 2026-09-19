@@ -82,7 +82,8 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
   in #26 after independent review (operator, 2026-09-19). Any AGY-authored code
   still in the tree (e.g. Story 1.6 tests) is unverified: re-run the gates and
   get independent review before building on it. Never trust its "tests passed".
-- Never merge a PR the operator has not seen reviewed. Open PRs; do not merge.
+- Merge PRs when the operator asks and CI is green. Reproduce CI failures locally
+  (CI runs all DB tests against one shared database) instead of dismissing them.
 
 ## Known pitfalls
 
@@ -100,8 +101,9 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
   `ORDER BY artifact_version DESC LIMIT 1` in a loader: a failed refresh appends
   a provisional version that would shadow verified bytes (Story 1.7).
 - Retained artifact files are evidence: never overwrite or delete one to fix an
-  error. Wiping and re-ingesting *untrustworthy derived rows* is authorized by
-  the operator; list what will be deleted and get a yes first.
+  error. Wiping and re-ingesting untrustworthy *derived rows* is authorized by the
+  operator; do it when it is the right fix, and record what you wiped in
+  `docs/PROJECT-STATE.md` or the run ledger. No need to ask first.
 - The 10-stage Connector is current (Story 2.3), not sacred; do not redesign
   it on the FRED branch. `docs/research/2026-09-15-chatgpt-architecture-rereview.md`
   and `docs/research/2026-09-17-chatgpt-schema-review.md` are research, not
