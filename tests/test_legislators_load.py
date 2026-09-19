@@ -51,10 +51,31 @@ def catalog_database() -> Iterator[None]:
         sync_inventory()
         yield
     finally:
+        # CI runs every DB module against one shared database, and later tests
+        # downgrade the schema; the person_identifier downgrade guard refuses
+        # while evidence pointers exist. Leave the database as we found it.
+        _remove_loaded_rows()
         settings.database_url = original
         _engine.cache_clear()
         if container is not None:
             container.stop()
+
+
+def _remove_loaded_rows() -> None:
+    """Delete rows this module's loads created, children before parents."""
+    with connect() as conn:
+        for statement in (
+            (
+                "DELETE FROM core.person_identifier WHERE source_artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE dataset_id = 'congress.legislators') "
+                "OR source_run_id IN (SELECT run_id FROM ingest.run WHERE dataset_id = 'congress.legislators')"
+            ),
+            "DELETE FROM core.person WHERE metadata->>'canonical_baseline' = 'congress-legislators'",
+            "DELETE FROM ingest.run WHERE dataset_id = 'congress.legislators'",
+            "DELETE FROM ingest.artifact WHERE dataset_id = 'congress.legislators'",
+        ):
+            conn.execute(statement)
+        conn.commit()
 
 
 def _yaml(entries: list[dict]) -> str:
