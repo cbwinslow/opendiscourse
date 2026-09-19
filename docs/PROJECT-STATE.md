@@ -70,8 +70,8 @@ ledger, load strategies, coverage checks) that later models can sit on.
 |---|---|---|
 | Congress bills | 118th, 119th only (37,373) | 10 more Congresses needed (108-117) |
 | Roll calls / member votes | 118th-119th only (1,827 / 473,490) | 108-117; Senate source is "idea" |
-| People | 726 | BioGuide load (Story 3.1) not done; blocks politician joins |
-| FEC | 102M rows in `stage.fec_row` | staging only; not promoted; blocked on 3.1; v1.1 |
+| People | 12,771 (12,770 with BioGuide; loaded 2026-09-19, Story 3.1) | 1 baseline person has no BioGuide; politician joins still gated (Story 3.2) |
+| FEC | 102M rows in `stage.fec_row` | staging only; not promoted; person join gated (3.2): needs reviewed contract + cn/cm/ccl files; v1.1 |
 | GovInfo BILLSTATUS cache | Congresses 108-119, unverified legacy | 119th missing 2,831 XML; re-fetch from official source |
 | OpenStates | 10 ok, 5 partial, 3 failed runs | coverage unmeasured; promotion reverted |
 | FRED | 135 ok, 6 failed (HTTP 400/500) | some series missing |
