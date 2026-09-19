@@ -10,12 +10,13 @@ import pytest
 
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
-from opendiscourse_research.coverage import OfficialCache, build_report
+from opendiscourse_research.coverage import OfficialCache, build_report, congress_span
 from opendiscourse_research.db import _engine, apply_migrations, connect
 from opendiscourse_research.repositories.coverage import loaded_counts
 
 TEST_JURISDICTION = "ocd-jurisdiction/country:zz/coverage-test"
 CONGRESS = "9999"  # far outside any real Congress; cleaned up afterwards
+TERM_CONGRESS = "4000"  # the last Congress whose dates Python can represent (year 9787)
 TABLES = ("core.bill", "core.roll_call", "fact.member_vote", "core.membership", "ingest.run")
 
 
@@ -50,6 +51,16 @@ def database() -> Iterator[None]:
 
 def _cleanup() -> None:
     with connect() as conn:
+        term_people = [
+            row["person_id"]
+            for row in conn.execute(
+                "SELECT person_id FROM core.person_identifier "
+                "WHERE namespace = 'bioguide' AND external_id LIKE 'COVTERM%'"
+            ).fetchall()
+        ]
+        conn.execute("DELETE FROM core.membership WHERE person_id = ANY(%s)", (term_people,))
+        conn.execute("DELETE FROM core.person_identifier WHERE person_id = ANY(%s)", (term_people,))
+        conn.execute("DELETE FROM core.person WHERE person_id = ANY(%s)", (term_people,))
         conn.execute(
             "DELETE FROM fact.member_vote WHERE roll_call_id IN "
             "(SELECT roll_call_id FROM core.roll_call WHERE legislative_session = %s)",
@@ -211,4 +222,65 @@ def test_loaded_counts_read_actions_votes_and_memberships(database):
         assert loaded["memberships"][number] == {"COVTEST1"}
         assert "COVTEST1" in loaded["bioguide_ids"]
     finally:
+        _cleanup()
+
+
+def test_a_term_counts_for_every_congress_it_overlaps_by_date(database):
+    """Story 3.3 stores one membership per term (no session id); coverage reads it by dates.
+
+    The expectation side (`expected_members`) counts a person for a Congress when a term
+    overlaps it, so the loaded side must too: a six-year Senate term covers three Congresses.
+    """
+    _cleanup()
+    first, after = congress_span(int(TERM_CONGRESS))
+    year = first.year
+    with connect() as conn:
+        artifact = conn.execute(
+            "INSERT INTO ingest.artifact (dataset_id, remote_url, local_path, artifact_key, status) "
+            "VALUES ('congress.legislators', 'x', '/x', 'coverage-term-test', 'downloaded') "
+            "RETURNING artifact_id"
+        ).fetchone()["artifact_id"]
+        conn.execute(
+            "INSERT INTO core.jurisdiction (jurisdiction_id, name, classification) "
+            "VALUES (%s, 'Coverage Test', 'country') ON CONFLICT DO NOTHING",
+            (TEST_JURISDICTION,),
+        )
+        conn.execute(
+            "INSERT INTO core.legislative_session (jurisdiction_id, identifier, classification, source_artifact_id) "
+            "VALUES (%s, %s, 'congress', %s)",
+            (TEST_JURISDICTION, TERM_CONGRESS, artifact),
+        )
+        organization = conn.execute(
+            "INSERT INTO core.organization (organization_type, name) VALUES ('legislature', 'Coverage Term Org') "
+            "RETURNING organization_id"
+        ).fetchone()["organization_id"]
+        terms = {
+            "COVTERM1": (date(year - 4, 1, 3), date(year + 2, 1, 3)),  # a six-year term covering this Congress
+            "COVTERM2": (date(year + 1, 6, 1), None),  # started mid-Congress, no end date recorded
+            "COVTERM3": (date(year - 2, 1, 3), first),  # ended on the first day: not in this Congress
+            "COVTERM4": (after, date(year + 6, 1, 3)),  # started the day after it ended
+        }
+        for bioguide, (start, end) in terms.items():
+            person = conn.execute(
+                "INSERT INTO core.person (full_name) VALUES (%s) RETURNING person_id", (bioguide,)
+            ).fetchone()["person_id"]
+            conn.execute(
+                "INSERT INTO core.person_identifier (person_id, namespace, external_id) VALUES (%s, 'bioguide', %s)",
+                (person, bioguide),
+            )
+            conn.execute(
+                "INSERT INTO core.membership (person_id, organization_id, role, start_date, end_date, source_artifact_id) "
+                "VALUES (%s, %s, 'senator', %s, %s, %s)",
+                (person, organization, start, end, artifact),
+            )
+        conn.commit()
+    try:
+        assert loaded_counts()["memberships"][int(TERM_CONGRESS)] == {"COVTERM1", "COVTERM2"}
+    finally:
+        with connect() as conn:  # children first; the module cleanup then removes the people
+            conn.execute("DELETE FROM core.membership WHERE organization_id = %s", (organization,))
+            conn.execute("DELETE FROM core.organization WHERE organization_id = %s", (organization,))
+            conn.execute("DELETE FROM core.legislative_session WHERE identifier = %s", (TERM_CONGRESS,))
+            conn.execute("DELETE FROM ingest.artifact WHERE artifact_key = 'coverage-term-test'")
+            conn.commit()
         _cleanup()

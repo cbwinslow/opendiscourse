@@ -81,7 +81,7 @@ weights (never assign a ZIP to one district without weights).
    implementation of the update flow above: a HEAD per zip detects change, an unchanged zip is not
    fetched again, exit code 0 / 1 (failed, rerun resumes) / 2 (loaded, coverage incomplete).
    `research-db coverage` reads what it fetched through the artifact registry.
-2. Member terms and state posts.
+2. Member terms and state posts (built, Story 3.3: `research-db load-legislators` loads terms, posts and divisions with the identifiers; committee membership still to do).
 3. Votes Connector (wrapping `unitedstates/congress`), then amendments and bill text.
 4. FEC Connector with the masters; districts and crosswalks.
 5. Remove the leftover loaders that read fixed local paths (below).

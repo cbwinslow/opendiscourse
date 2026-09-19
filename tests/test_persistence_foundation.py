@@ -283,7 +283,7 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
             )
         }
 
-    assert revision == "e2b7d4a9c815"
+    assert revision == "f3a8c5d1b7e2"
     assert {
         "catalog.provider",
         "catalog.dataset",
@@ -443,7 +443,7 @@ def test_existing_schema_without_alembic_watermark_is_adopted_safely(
     with engine().connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "e2b7d4a9c815"
+        ).scalar_one() == "f3a8c5d1b7e2"
         assert connection.execute(
             text("SELECT to_regclass('core.bill')")
         ).scalar_one() == "core.bill"
@@ -483,7 +483,7 @@ def test_alembic_adoptions_can_downgrade_and_reupgrade(
         command.upgrade(config, "head")
 
     with engine().connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "e2b7d4a9c815"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "f3a8c5d1b7e2"
         assert connection.execute(text("SELECT to_regclass('core.division')")).scalar_one() == "core.division"
         assert connection.execute(text("SELECT to_regclass('core.post')")).scalar_one() == "core.post"
         assert connection.execute(
