@@ -13,6 +13,7 @@ _DB_FILES = {
     "test_legislators_load.py",
     "test_run_ledger.py",
     "test_coverage_db.py",
+    "test_billstatus_connector.py",
 }
 
 

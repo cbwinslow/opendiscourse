@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from functools import cache
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
@@ -39,8 +40,9 @@ def _text_or_none(value: str | None) -> str | None:
     return value.strip() if value and value.strip() else None
 
 
+@cache
 def _query(name: str) -> str:
-    """Read a named, version-controlled legislation query template."""
+    """Read a named, version-controlled legislation query template (once per process)."""
     return (_QUERY_ROOT / f"{name}.sql").read_text()
 
 
@@ -804,6 +806,19 @@ def ensure_us_legislative_session(
     return str(result)
 
 
+def bill_type_and_number(bill: ElementTree.Element) -> tuple[str | None, str | None]:
+    """A ``<bill>``'s type and number text.
+
+    Most GovInfo files spell them ``<type>`` and ``<number>``; a few (for example the
+    House's reserved numbers, such as H.R. 9 in the 117th) use ``<billType>`` and
+    ``<billNumber>`` and are otherwise identical.
+    """
+    return (
+        bill.findtext("type") or bill.findtext("billType"),
+        bill.findtext("number") or bill.findtext("billNumber"),
+    )
+
+
 def parse_billstatus_xml(
     content: bytes | str, member_name: str | None = None
 ) -> dict[str, Any]:
@@ -816,8 +831,9 @@ def parse_billstatus_xml(
         raise ValueError("Invalid BILLSTATUS XML: missing <bill> element")
 
     congress_text = bill.findtext("congress")
-    bill_type = (bill.findtext("type") or "").strip().lower()
-    bill_number = (bill.findtext("number") or "").strip()
+    raw_type, raw_number = bill_type_and_number(bill)
+    bill_type = (raw_type or "").strip().lower()
+    bill_number = (raw_number or "").strip()
 
     if not congress_text or not bill_type or not bill_number:
         raise ValueError("Missing core bill identity in BILLSTATUS XML")
@@ -1004,8 +1020,13 @@ def save_billstatus_bill(
     source_payload_id: str | None = None,
     source_member: str | None = None,
     conn: Any | None = None,
+    person_cache: dict[tuple[str, str], str | None] | None = None,
 ) -> str:
-    """Upsert core.bill plus identifiers, actions, sponsorships, committees, subjects, and documents."""
+    """Upsert core.bill plus identifiers, actions, sponsorships, committees, subjects, and documents.
+
+    ``person_cache`` (connection path only) memoizes sponsor identifier lookups for a
+    caller that loads many bills in one run: the same members sponsor thousands of them.
+    """
     if source_artifact_id is None and source_payload_id is None:
         raise ValueError(
             "Persistence requires source_artifact_id or source_payload_id lineage"
@@ -1073,15 +1094,18 @@ def save_billstatus_bill(
                 )
 
             for sp in bill_data.get("sponsorships", []):
-                cur.execute(
-                    _query("find_person_by_identifier"),
-                    {
-                        "namespace": sp["member_namespace"],
-                        "external_id": sp["member_external_id"],
-                    },
-                )
-                p_row = cur.fetchone()
-                person_id = str(p_row["person_id"]) if p_row else None
+                lookup = (sp["member_namespace"], sp["member_external_id"])
+                if person_cache is not None and lookup in person_cache:
+                    person_id = person_cache[lookup]
+                else:
+                    cur.execute(
+                        _query("find_person_by_identifier"),
+                        {"namespace": lookup[0], "external_id": lookup[1]},
+                    )
+                    p_row = cur.fetchone()
+                    person_id = str(p_row["person_id"]) if p_row else None
+                    if person_cache is not None:
+                        person_cache[lookup] = person_id
 
                 cur.execute(
                     _query("upsert_bill_sponsorship"),

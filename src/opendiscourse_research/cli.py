@@ -7,6 +7,7 @@ from pathlib import Path
 import psycopg
 import typer
 import yaml
+from sqlalchemy.exc import SQLAlchemyError
 
 from .audit import audit_leg
 from .browser import (
@@ -55,6 +56,7 @@ from .ingestion.acs_load import (
     stage_acs_bulk,
     stage_acs_bulk_parallel,
 )
+from .ingestion.billstatus import BillStatusConnector
 from .ingestion.bls import ingest_manifest as ingest_bls_manifest
 from .ingestion.bls import ingest_series as ingest_bls_series
 from .ingestion.bulk import (
@@ -106,6 +108,7 @@ from .peopleload import (
 )
 from .plans import due_plans, load_plans, run_plan
 from .progress import load_progress, validate_progress
+from .providers.govinfo import BILL_TYPES
 from .registry import status as registry_status
 from .registry import sync as registry_sync
 from .repositories.runs import loaded_coverage
@@ -570,6 +573,45 @@ def load_billstatus_command(
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from None
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("sync-billstatus")
+def sync_billstatus_command(
+    congress: list[int] = typer.Option(
+        None, help="Congress to sync (repeatable); default is every Congress GovInfo lists."
+    ),
+    bill_type: list[str] = typer.Option(
+        None, help="Bill type (repeatable): hr, s, hres, sres, hjres, sjres, hconres, sconres."
+    ),
+    download_only: bool = typer.Option(
+        False, help="Download and register the zips without loading bills."
+    ),
+    batch_size: int = typer.Option(
+        500, min=1, max=5000, help="Bills per committed transaction; reruns resume."
+    ),
+) -> None:
+    """Download GovInfo BILLSTATUS into DATA_ROOT, inventory it, and load bills (idempotent).
+
+    Exit code 0: complete. 1: failed (a rerun resumes). 2: loaded, but coverage is
+    incomplete (see `incomplete_zips` and `malformed_members` in the output).
+    """
+    try:
+        with render_spinner("Syncing GovInfo BILLSTATUS") as report:
+            connector = BillStatusConnector(
+                congress or None,
+                tuple(bill_type) if bill_type else BILL_TYPES,
+                batch_size=batch_size,
+                download_only=download_only,
+                report=report,
+            )
+            run_connector(connector)
+    except (OSError, RuntimeError, ValueError, psycopg.Error, SQLAlchemyError) as exc:
+        typer.secho(f"sync-billstatus failed: {exc}", err=True, fg=typer.colors.RED)
+        typer.echo("Nothing is lost: rerun the same command to resume.", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(connector.result, indent=2, sort_keys=True, default=str))
+    if connector.result.get("partial"):
+        raise typer.Exit(2)
 
 
 @app.command("load-openstates-people")
