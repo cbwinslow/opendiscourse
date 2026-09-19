@@ -26,9 +26,9 @@ ledger, load strategies, coverage checks) that later models can sit on.
    useful but later; crime is Epic 7 (not v1).
 2. **Wipe and re-ingest is allowed** for untrustworthy derived data (unverified
    legacy caches, partial/failed-run output, rows written by reverted AGY code).
-   List what will be deleted and get a yes first. Do not redo the loaded
+   No need to ask first; record what was wiped. Do not redo the loaded
    Census/CBP/TIGER/PEP/DHC data without cause. Never delete or overwrite retained
-   artifact files.
+   artifact files (raw evidence).
 3. **Idempotency and speed:** load strategy depends on grain (Story 9.1 / ADR-0003,
    pending a benchmark on one real dataset):
    - bulk facts and staging: reload by partition (COPY to a temp table, validate,
@@ -48,8 +48,9 @@ ledger, load strategies, coverage checks) that later models can sit on.
    were reverted after Codex review. Verify independently; do not delegate to it.
 8. **Process:** BMAD is the software SDD; `inventory/` is the data SDD; ADRs record
    decisions. LLMs propose, the operator decides; disagreements are settled by tests
-   or benchmarks, not by asking another model. Never merge without the operator
-   seeing review results.
+   or benchmarks, not by asking another model. The operator delegates judgment:
+   do the right thing rather than adding restrictions or asking permission for
+   routine engineering steps. Merge when asked and CI is green.
 
 ## What happened (so nobody repeats it)
 
@@ -79,11 +80,31 @@ ledger, load strategies, coverage checks) that later models can sit on.
 
 No coverage measurement exists anywhere; Story 9.3 creates it.
 
+## What is already on disk (measured 2026-09-19)
+
+Two lakes. The warehouse's own (`~/workspace/data-lake/opendiscourse`, 131 GB;
+`config.data_root`) holds Census and OpenStates raw files. The legacy lake
+(`/mnt/storage/data-lake/government`, 692 GB) is referenced by `inventory/` as
+`legacy_cache_unverified`: usable only after verification against official sources.
+
+| Need | On disk | Missing |
+|---|---|---|
+| Legislators / BioGuide | `congress/congress-legislators/` current + `legislators-historical.yaml` | nothing: Story 3.1 can start now |
+| Bills, amendments | `congress/congress-data/<N>/` (unitedstates/congress layout) for Congresses 93-113 (108: 10.7k files, 112: 12.3k, 113: 8.5k, likely partial); GovInfo BILLSTATUS cache 108-119 per inventory | 114-117 in that layout; 119th BILLSTATUS incomplete (2,831 XML) |
+| Roll-call votes | only the 118th (`congress/congress/data/118/votes`) | **108-117 votes are not on disk** (`congress_historical/*/votes` are empty); fetch with `unitedstates/congress` (both chambers) |
+| FEC | `fec_bulk_data/`: `indiv` 13 cycles, `oth` 13, `pas` 13, `oppexp` 11 | no `cm`/`cn`/`ccl` (candidate/committee masters) found there; needed to link money to candidates |
+
+Bills and votes are loaded together: bills are the parent that votes and
+sponsorships attach to. The earlier "start with the votes table" only meant which
+table to benchmark for the load strategy (Story 9.1), not to load votes alone.
+Story 9.3 must inventory the lake the same way it inventories the database and
+official manifests, so "have it" vs "need it" is a report, not a guess.
+
 ## Roadmap (also in `epics.md`, "Suggested next build")
 
 1. Merge Story 1.7 (after the operator sees the review).
 2. Story 9.1 load contract + harness, then 9.2 run ledger.
-3. Story 3.1 BioGuide identity.
+3. Story 3.1 BioGuide identity (local `congress-legislators` files exist).
 4. Story 9.3 coverage comparator; backfill Congresses 108-119 via Connectors, each
    passing the 9.1 harness.
 5. Redo 2.2 -> 2.3 (FRED) and 8.2 (OpenStates); fix Treasury and FRED failures.
