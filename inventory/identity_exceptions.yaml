@@ -3,13 +3,13 @@ description: >-
   Reviewed, evidence-backed identity decisions that no shared identifier can make.
   Never name matching: each entry is a human decision with sources, applied by the
   identity story (ADR-0005, Decision 1) through the merge procedure. Nothing reads
-  this file yet; `applied: false` means the live warehouse is unchanged.
+  this file except the loaders and `research-db merge-people`; `applied` records whether the live warehouse has it.
 exceptions:
   - id: stutzman-openstates-placeholder
     decision: same_person
     decided: 2026-09-19
     decided_by: operator (asked to record it; apply with the identity story)
-    applied: false
+    applied: true   # 2026-09-19 by `research-db merge-people`; audit row in ingest.person_merge
     survivor: {namespace: bioguide, external_id: S001188}
     duplicate: {namespace: ocd, external_id: ocd-person/21f03982-e598-4407-a0c6-3451f62afcf9}
     live_records:
