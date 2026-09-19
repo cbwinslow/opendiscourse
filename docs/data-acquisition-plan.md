@@ -3,6 +3,16 @@
 Status: proposal, 2026-09-19. Facts marked (measured) were checked against the live
 service; (verify) means confirm against current documentation when implementing.
 
+## What this project is
+
+A toolkit built from established Python libraries and official APIs that lets anyone build
+their own research database: streamlined, flexible functions download large datasets from
+the original sources into a folder the user sets in the global config (`DATA_ROOT`),
+organised by dataset; validate and inventory what is there (what we have, what we need,
+progress, resume after any interruption); ingest it into the normalised data model; and
+keep it current. It ships no code for local housekeeping or for copying data from any
+person's older projects or servers.
+
 ## The workflow every source follows
 
 **download -> inventory -> ingest**, on anyone's machine:
@@ -19,6 +29,16 @@ service; (verify) means confirm against current documentation when implementing.
 
 Each source is a Connector (SPEC CAP-2) implementing those stages, so a new researcher
 runs one command per source and gets the same database.
+
+## Keeping the database current
+
+One command per source (and one to run them all), `research-db update [--source ...]`, runs
+each Connector's stages: **check** the origin for anything new or changed (manifests,
+sitemaps, `Last-Modified`), **download** only that, **inventory** it, **ingest** it. It is
+idempotent and safe to re-run, records when it last checked and what it changed
+(`ingest.run` / `run_target`), and exits non-zero on failure so any scheduler (cron, a
+systemd timer, CI) can run it and alert. Scheduling is the user's choice, not part of the
+code.
 
 ## What is needed and where it comes from
 
