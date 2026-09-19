@@ -53,7 +53,9 @@ not authorize a redesign.
   - **intent:** Researcher can join people across sources on BioGuide (and
     preserved OCD IDs), never display name.
   - **success:** `core.person_identifier` populated from congress-legislators;
-    politician joins to FEC/disclosure blocked until this exists.
+    politician joins to FEC/disclosure/elections stay gated (`person_join` in
+    `inventory/sources.yaml`, enforced by `identitygate`) until a reviewed,
+    approved contract opens them through an identifier, never a name.
 - **CAP-5**
   - **intent:** Researcher can start from named research packs and dbt marts
     instead of assembling `fact.measurement` joins.

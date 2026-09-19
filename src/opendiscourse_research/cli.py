@@ -46,6 +46,7 @@ from .feedback import (
 from .govbackfill import backfill_billstatus_missing
 from .govplan import plan_billstatus_backfill
 from .identityexceptions import unresolved_congressional_identities
+from .identitygate import status as person_join_status
 from .ingestion.acs_bulk import preview_acs5_bulk_plan, write_acs5_bulk_plan
 from .ingestion.acs_load import (
     load_acs_bulk,
@@ -575,6 +576,12 @@ def load_openstates_people_command() -> None:
     with render_spinner("Loading OpenStates federal people baseline"):
         result = load_openstates_federal_people()
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("person-join-status")
+def person_join_status_command() -> None:
+    """Show which politician-join sources are still gated, and why."""
+    typer.echo(json.dumps(person_join_status(), indent=2, sort_keys=True))
 
 
 @app.command("load-legislators")
