@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<billStatus>
+  <version>3.0.0</version>
+  <bill>
+    <number>412</number>
+    <updateDate>2026-03-12T15:09:21Z</updateDate>
+    <updateDateIncludingText>2026-03-12T15:09:21Z</updateDateIncludingText>
+    <originChamber>Senate</originChamber>
+    <originChamberCode>S</originChamberCode>
+    <type>SRES</type>
+    <introducedDate>2025-09-18</introducedDate>
+    <congress>119</congress>
+    <legislationUrl>https://www.congress.gov/bill/119th-congress/senate-resolution/412</legislationUrl>
+    <actions>
+      <item>
+        <actionDate>2025-10-03</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Resolution agreed to in Senate without amendment by Yea-Nay Vote. 51 - 46. Record Vote Number: 541.</text>
+        <type>Floor</type>
+        <recordedVotes>
+          <recordedVote>
+            <rollNumber>541</rollNumber>
+            <url>https://www.senate.gov/legislative/LIS/roll_call_votes/vote1191/vote_119_1_00541.xml</url>
+            <chamber>Senate</chamber>
+            <congress>119</congress>
+            <date>2025-10-03T18:04:30Z</date>
+            <sessionNumber>1</sessionNumber>
+          </recordedVote>
+        </recordedVotes>
+      </item>
+      <item>
+        <actionDate>2025-10-03</actionDate>
+        <text>Passed/agreed to in Senate: Resolution agreed to in Senate without amendment by Yea-Nay Vote. 51 - 46. Record Vote Number: 541.</text>
+        <type>Floor</type>
+        <actionCode>17000</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+        <recordedVotes>
+          <recordedVote>
+            <rollNumber>541</rollNumber>
+            <url>https://www.senate.gov/legislative/LIS/roll_call_votes/vote1191/vote_119_1_00541.xml</url>
+            <chamber>Senate</chamber>
+            <congress>119</congress>
+            <date>2025-10-03T18:04:30Z</date>
+            <sessionNumber>1</sessionNumber>
+          </recordedVote>
+        </recordedVotes>
+      </item>
+      <item>
+        <actionDate>2025-10-03</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Considered by Senate. (consideration: CR S6929-6930)</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2025-10-02</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>By unanimous consent agreement, debate 10/3/2025.</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2025-10-02</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Considered by Senate. (consideration: CR S6909-6916)</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2025-10-01</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>By unanimous consent agreement, debate 10/2/2025.</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2025-10-01</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Considered by Senate. (consideration: CR S6899-6903)</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2025-10-01</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Cloture on the measure invoked in Senate by Yea-Nay Vote. 53 - 46. Record Vote Number: 540.</text>
+        <type>Floor</type>
+        <recordedVotes>
+          <recordedVote>
+            <rollNumber>540</rollNumber>
+            <url>https://www.senate.gov/legislative/LIS/roll_call_votes/vote1191/vote_119_1_00540.xml</url>
+            <chamber>Senate</chamber>
+            <congress>119</congress>
+            <date>2025-10-01T19:00:02Z</date>
+            <sessionNumber>1</sessionNumber>
+          </recordedVote>
+        </recordedVotes>
+      </item>
+      <item>
+        <actionDate>2025-10-01</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>By unanimous consent agreement, mandatory quorum required under Rule XXII waived.</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2025-09-29</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Cloture motion on the measure presented in Senate.</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2025-09-29</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Measure laid before Senate by motion.</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2025-09-29</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Motion to proceed to executive session to consideration of measure agreed to in Senate by Voice Vote.</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2025-09-18</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Placed on Senate Executive Calendar under Over, Under the Rule. Calendar No. 2.</text>
+        <type>Calendars</type>
+      </item>
+      <item>
+        <actionDate>2025-09-18</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Submitted in the Senate. Placed on Senate Executive Calendar under Over, Under the Rule. (text: CR S6741)</text>
+        <type>IntroReferral</type>
+      </item>
+      <item>
+        <actionDate>2025-09-18</actionDate>
+        <text>Introduced in Senate</text>
+        <type>IntroReferral</type>
+        <actionCode>10000</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+      </item>
+    </actions>
+    <sponsors>
+      <item>
+        <bioguideId>T000250</bioguideId>
+        <fullName>Sen. Thune, John [R-SD]</fullName>
+        <firstName>John</firstName>
+        <lastName>Thune</lastName>
+        <party>R</party>
+        <state>SD</state>
+        <isByRequest>N</isByRequest>
+      </item>
+    </sponsors>
+    <policyArea>
+      <name>Congress</name>
+    </policyArea>
+    <subjects>
+      <legislativeSubjects>
+        <item>
+          <name>Legislative rules and procedure</name>
+          <updateDate>2025-09-30T19:49:30Z</updateDate>
+        </item>
+        <item>
+          <name>Senate</name>
+          <updateDate>2025-09-30T19:49:26Z</updateDate>
+        </item>
+      </legislativeSubjects>
+      <policyArea>
+        <name>Congress</name>
+        <updateDate>2025-11-13T17:06:08Z</updateDate>
+      </policyArea>
+    </subjects>
+    <title>An executive resolution authorizing the en bloc consideration in Executive Session of certain nominations on the Executive Calendar.</title>
+    <titles>
+      <item>
+        <titleType>Official Title as Introduced</titleType>
+        <titleTypeCode>6</titleTypeCode>
+        <title>An executive resolution authorizing the en bloc consideration in Executive Session of certain nominations on the Executive Calendar.</title>
+        <updateDate>2025-09-19T13:48:17Z</updateDate>
+        <billTextVersionName>Introduced in Senate</billTextVersionName>
+        <billTextVersionCode>IS</billTextVersionCode>
+      </item>
+      <item>
+        <titleType>Display Title</titleType>
+        <titleTypeCode>45</titleTypeCode>
+        <title>An executive resolution authorizing the en bloc consideration in Executive Session of certain nominations on the Executive Calendar.</title>
+        <updateDate>2025-09-19T10:56:26Z</updateDate>
+      </item>
+    </titles>
+    <amendments>
+      <amendment>
+        <number>3919</number>
+        <congress>119</congress>
+        <type>SAMDT</type>
+        <updateDate>2025-09-30T16:22:45Z</updateDate>
+        <sponsors>
+          <item>
+            <bioguideId>T000250</bioguideId>
+            <fullName>Sen. Thune, John [R-SD]</fullName>
+            <firstName>John</firstName>
+            <lastName>Thune</lastName>
+            <party>R</party>
+            <state>SD</state>
+          </item>
+        </sponsors>
+        <submittedDate>2025-09-30T04:00:00Z</submittedDate>
+        <chamber>Senate</chamber>
+        <amendedBill>
+          <congress>119</congress>
+          <type>SRES</type>
+          <originChamber>Senate</originChamber>
+          <originChamberCode>S</originChamberCode>
+          <number>412</number>
+          <title>An executive resolution authorizing the en bloc consideration in Executive Session of certain nominations on the Executive Calendar.</title>
+          <updateDateIncludingText>2026-03-12</updateDateIncludingText>
+        </amendedBill>
+        <amendedAmendment>
+          <number>3918</number>
+          <congress>119</congress>
+          <type>SAMDT</type>
+          <updateDate>2025-10-01T11:08:15Z</updateDate>
+        </amendedAmendment>
+        <actions>
+          <count>2</count>
+          <actions>
+            <item>
+              <actionDate>2025-09-30</actionDate>
+              <type>IntroReferral</type>
+              <actionCode>Intro-S</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+            <item>
+              <actionDate>2025-09-30</actionDate>
+              <text>Senate amendment submitted</text>
+              <type>Floor</type>
+              <actionCode>91000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+          </actions>
+        </actions>
+        <textVersions>
+          <count>1</count>
+        </textVersions>
+      </amendment>
+      <amendment>
+        <number>3918</number>
+        <congress>119</congress>
+        <type>SAMDT</type>
+        <updateDate>2025-09-30T16:22:33Z</updateDate>
+        <sponsors>
+          <item>
+            <bioguideId>T000250</bioguideId>
+            <fullName>Sen. Thune, John [R-SD]</fullName>
+            <firstName>John</firstName>
+            <lastName>Thune</lastName>
+            <party>R</party>
+            <state>SD</state>
+          </item>
+        </sponsors>
+        <submittedDate>2025-09-30T04:00:00Z</submittedDate>
+        <chamber>Senate</chamber>
+        <amendedBill>
+          <congress>119</congress>
+          <type>SRES</type>
+          <originChamber>Senate</originChamber>
+          <originChamberCode>S</originChamberCode>
+          <number>412</number>
+          <title>An executive resolution authorizing the en bloc consideration in Executive Session of certain nominations on the Executive Calendar.</title>
+          <updateDateIncludingText>2026-03-12</updateDateIncludingText>
+        </amendedBill>
+        <amendmentsToAmendment>
+          <count>1</count>
+        </amendmentsToAmendment>
+        <actions>
+          <count>2</count>
+          <actions>
+            <item>
+              <actionDate>2025-09-30</actionDate>
+              <type>IntroReferral</type>
+              <actionCode>Intro-S</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+            <item>
+              <actionDate>2025-09-30</actionDate>
+              <text>Senate amendment submitted</text>
+              <type>Floor</type>
+              <actionCode>91000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+          </actions>
+        </actions>
+        <textVersions>
+          <count>1</count>
+        </textVersions>
+      </amendment>
+    </amendments>
+    <textVersions>
+      <item>
+        <type>Agreed to Senate</type>
+        <date>2025-10-03T04:00:00Z</date>
+        <formats>
+          <item>
+            <url>https://www.govinfo.gov/content/pkg/BILLS-119sres412ats/xml/BILLS-119sres412ats.xml</url>
+          </item>
+        </formats>
+      </item>
+      <item>
+        <type>Introduced in Senate</type>
+        <date>2025-09-18T04:00:00Z</date>
+        <formats>
+          <item>
+            <url>https://www.govinfo.gov/content/pkg/BILLS-119sres412is/xml/BILLS-119sres412is.xml</url>
+          </item>
+        </formats>
+      </item>
+    </textVersions>
+    <latestAction>
+      <actionDate>2025-10-03</actionDate>
+      <text>Resolution agreed to in Senate without amendment by Yea-Nay Vote. 51 - 46. Record Vote Number: 541.</text>
+    </latestAction>
+  </bill>
+  <dublinCore xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:format>text/xml</dc:format>
+    <dc:language>EN</dc:language>
+    <dc:rights>Pursuant to Title 17 Section 105 of the United States Code, this file is not subject to copyright protection and is in the public domain.</dc:rights>
+    <dc:contributor>Congressional Research Service, Library of Congress</dc:contributor>
+    <dc:description>This file contains bill summaries and statuses for federal legislation. A bill summary describes the most significant provisions of a piece of legislation and details the effects the legislative text may have on current law and federal programs. Bill summaries are authored by the Congressional Research Service (CRS) of the Library of Congress. As stated in Public Law 91-510 (2 USC 166 (d)(6)), one of the duties of CRS is "to prepare summaries and digests of bills and resolutions of a public general nature introduced in the Senate or House of Representatives". For more information, refer to the User Guide that accompanies this file.</dc:description>
+  </dublinCore>
+</billStatus>

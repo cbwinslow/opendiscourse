@@ -1,0 +1,671 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<billStatus>
+  <version>3.0.0</version>
+  <bill>
+    <number>3336</number>
+    <updateDate>2023-01-11T13:33:34Z</updateDate>
+    <updateDateIncludingText>2023-01-11T13:33:34Z</updateDateIncludingText>
+    <originChamber>Senate</originChamber>
+    <type>S</type>
+    <introducedDate>2016-09-15</introducedDate>
+    <congress>114</congress>
+    <committees>
+      <item>
+        <systemCode>ssas00</systemCode>
+        <name>Armed Services Committee</name>
+        <chamber>Senate</chamber>
+        <type>Standing</type>
+        <activities>
+          <item>
+            <name>Discharged from</name>
+            <date>2016-12-10T07:32:43Z</date>
+          </item>
+          <item>
+            <name>Referred to</name>
+            <date>2016-09-15T16:14:07Z</date>
+          </item>
+        </activities>
+      </item>
+    </committees>
+    <relatedBills>
+      <item>
+        <title>To provide installation reutilization authority for arsenals, depots, and plants.</title>
+        <congress>114</congress>
+        <number>6153</number>
+        <type>HR</type>
+        <latestAction>
+          <actionDate>2016-10-19</actionDate>
+          <text>Referred to the Subcommittee on Readiness.</text>
+        </latestAction>
+        <relationshipDetails>
+          <item>
+            <type>Related bill</type>
+            <identifiedBy>CRS</identifiedBy>
+          </item>
+        </relationshipDetails>
+      </item>
+    </relatedBills>
+    <actions>
+      <item>
+        <actionDate>2016-12-12</actionDate>
+        <actionTime>16:50:45</actionTime>
+        <text>Held at the desk.</text>
+        <type>Floor</type>
+        <actionCode>H15000</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2016-12-12</actionDate>
+        <actionTime>15:06:23</actionTime>
+        <text>Received in the House.</text>
+        <type>Floor</type>
+        <actionCode>H14000</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2016-12-12</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Message on Senate action sent to the House.</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2016-12-10</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Passed Senate with amendments and an amendment to the Title by Unanimous Consent. (text as passed Senate: CR S7102-7103)</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2016-12-10</actionDate>
+        <text>Passed/agreed to in Senate: Passed Senate with amendments and an amendment to the Title by Unanimous Consent.(text as passed Senate: CR S7102-7103)</text>
+        <type>Floor</type>
+        <actionCode>17000</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2016-12-10</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Measure laid before Senate by unanimous consent. (consideration: CR S7102-7103)</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2016-12-10</actionDate>
+        <committees>
+          <item>
+            <systemCode>ssas00</systemCode>
+            <name>Armed Services Committee</name>
+          </item>
+        </committees>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Senate Committee on Armed Services discharged by Unanimous Consent.</text>
+        <type>Discharge</type>
+      </item>
+      <item>
+        <actionDate>2016-12-10</actionDate>
+        <text>Senate Committee on Armed Services discharged by Unanimous Consent.</text>
+        <type>Committee</type>
+        <actionCode>14500</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+        <committees>
+          <item>
+            <systemCode>ssas00</systemCode>
+            <name>Armed Services Committee</name>
+          </item>
+        </committees>
+      </item>
+      <item>
+        <actionDate>2016-12-05</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Senate vitiated previous discharge from the Senate Committee on Armed Services.</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2016-12-05</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Senate vitiated previous passage. (consideration: CR S6688, S6716)</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2016-12-05</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Passed Senate with amendments and an amendment to the Title by Unanimous Consent.</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2016-12-05</actionDate>
+        <text>Passed/agreed to in Senate: Passed Senate with amendments and an amendment to the Title by Unanimous Consent.</text>
+        <type>Floor</type>
+        <actionCode>17000</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2016-12-05</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Measure laid before Senate by unanimous consent. (consideration: CR S6684)</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2016-12-05</actionDate>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Senate Committee on Armed Services discharged by Unanimous Consent.</text>
+        <type>Floor</type>
+      </item>
+      <item>
+        <actionDate>2016-09-15</actionDate>
+        <committees>
+          <item>
+            <systemCode>ssas00</systemCode>
+            <name>Armed Services Committee</name>
+          </item>
+        </committees>
+        <sourceSystem>
+          <name>Senate</name>
+        </sourceSystem>
+        <text>Read twice and referred to the Committee on Armed Services.</text>
+        <type>IntroReferral</type>
+      </item>
+      <item>
+        <actionDate>2016-09-15</actionDate>
+        <text>Introduced in Senate</text>
+        <type>IntroReferral</type>
+        <actionCode>10000</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+      </item>
+    </actions>
+    <sponsors>
+      <item>
+        <bioguideId>E000295</bioguideId>
+        <fullName>Sen. Ernst, Joni [R-IA]</fullName>
+        <firstName>Joni</firstName>
+        <lastName>Ernst</lastName>
+        <party>R</party>
+        <state>IA</state>
+        <isByRequest>N</isByRequest>
+      </item>
+    </sponsors>
+    <cosponsors>
+      <item>
+        <bioguideId>D000563</bioguideId>
+        <fullName>Sen. Durbin, Richard J. [D-IL]</fullName>
+        <firstName>Richard</firstName>
+        <lastName>Durbin</lastName>
+        <party>D</party>
+        <state>IL</state>
+        <middleName>J.</middleName>
+        <sponsorshipDate>2016-09-15</sponsorshipDate>
+        <isOriginalCosponsor>True</isOriginalCosponsor>
+      </item>
+      <item>
+        <bioguideId>G000386</bioguideId>
+        <fullName>Sen. Grassley, Chuck [R-IA]</fullName>
+        <firstName>Charles</firstName>
+        <lastName>Grassley</lastName>
+        <party>R</party>
+        <state>IA</state>
+        <middleName>E.</middleName>
+        <sponsorshipDate>2016-09-15</sponsorshipDate>
+        <isOriginalCosponsor>True</isOriginalCosponsor>
+      </item>
+      <item>
+        <bioguideId>K000360</bioguideId>
+        <fullName>Sen. Kirk, Mark Steven [R-IL]</fullName>
+        <firstName>MARK</firstName>
+        <lastName>KIRK</lastName>
+        <party>R</party>
+        <state>IL</state>
+        <middleName>STEVEN</middleName>
+        <sponsorshipDate>2016-09-15</sponsorshipDate>
+        <isOriginalCosponsor>True</isOriginalCosponsor>
+      </item>
+      <item>
+        <bioguideId>G000555</bioguideId>
+        <fullName>Sen. Gillibrand, Kirsten E. [D-NY]</fullName>
+        <firstName>Kirsten</firstName>
+        <lastName>Gillibrand</lastName>
+        <party>D</party>
+        <state>NY</state>
+        <middleName>E.</middleName>
+        <sponsorshipDate>2016-09-15</sponsorshipDate>
+        <isOriginalCosponsor>True</isOriginalCosponsor>
+      </item>
+    </cosponsors>
+    <notes>
+      <item>
+        <text><![CDATA[The Senate passed the bill on 12/5/2016, then vitiated its passage on 12/5/2016, then passed the bill on 12/10/2016.]]></text>
+      </item>
+    </notes>
+    <policyArea>
+      <name>Armed Forces and National Security</name>
+    </policyArea>
+    <subjects>
+      <legislativeSubjects>
+        <item>
+          <name>Industrial facilities</name>
+        </item>
+        <item>
+          <name>Manufacturing</name>
+        </item>
+        <item>
+          <name>Military command and structure</name>
+        </item>
+        <item>
+          <name>Military facilities and property</name>
+        </item>
+        <item>
+          <name>Military procurement, research, weapons development</name>
+        </item>
+        <item>
+          <name>Public contracts and procurement</name>
+        </item>
+        <item>
+          <name>Public-private cooperation</name>
+        </item>
+      </legislativeSubjects>
+      <policyArea>
+        <name>Armed Forces and National Security</name>
+      </policyArea>
+    </subjects>
+    <summaries>
+      <summary>
+        <versionCode>00</versionCode>
+        <actionDate>2016-09-15</actionDate>
+        <actionDesc>Introduced in Senate</actionDesc>
+        <updateDate>2016-11-29T20:17:18Z</updateDate>
+        <text><![CDATA[ <p>This bill authorizes the military department concerned, in the case of a military manufacturing arsenal (a government-owned, government-operated defense plant of the Department of Defense that manufactures weapons, weapon components, or both), to authorize leases of and contracts for non-excess military property for a term of up to 25 years if it determines that such a lease or contract will promote the national defense or be in the public interest for the purpose of:</p> <ul> <li> helping to maintain the viability of such arsenal and any military installations on which it is located; </li> <li> eliminating, or at least reducing, the cost of government ownership of the arsenal; and </li> <li> leveraging private investment at the arsenal through long-term facility use contracts, property management contracts, leases, or other agreements that support and advance the preceding purposes.</li> </ul> <p>The department concerned may delegate such authority to the commander of the major subordinate command of the Army responsible for the arsenal or installation. The commander may approve such a lease or contract on a case-by-case or class basis. Any lease or contract approved utilizing such authority is subject to a 90-day hold period so that the Army real property manager may review it. If such manager disapproves of it, the agreement shall be null and void upon transmittal to the delegating authority of a written disapproval, including a justification, within the hold period. If no such disapproval is transmitted within such period, the agreement shall be deemed approved. </p> <p> If, by 60 days after receiving a disapproval, the delegating authority submits a new contract or lease that addresses the manager's concerns, it shall be deemed approved unless the manager transmits a disapproval within 30 days of submission. </p> <p> The authority under this bill shall terminate at the close of September 30, 2019. </p>]]></text>
+      </summary>
+      <summary>
+        <versionCode>35</versionCode>
+        <actionDate>2016-12-10</actionDate>
+        <actionDesc>Passed Senate amended</actionDesc>
+        <updateDate>2017-03-14T21:53:25Z</updateDate>
+        <text><![CDATA[ <p>(Sec. 1) This bill authorizes the Army, in the case of a military manufacturing arsenal, depot, or plant (a government-owned, government-operated defense plant of the Army that manufactures weapons, weapon components, or both), to authorize leases of and contracts for non-excess military property for a term of up to 25 years if it determines that such a lease or contract will promote the national defense or be in the public interest for the purpose of:</p> <ul> <li> helping to maintain the viability of such arsenal, depot, or plant and any military installations on which it is located; </li> <li> eliminating, or at least reducing, the cost of government ownership of the arsenal, depot, or plant; and </li> <li> leveraging private investment at the arsenal, depot, or plant through long-term facility use contracts, property management contracts, leases, or other agreements that support and advance the preceding purposes.</li> </ul> <p>The Army may delegate such authority to the commander of the major subordinate command of the Army responsible for the arsenal, depot, or plant, or if part of a larger military installation, the installation as a whole. The commander may approve such a lease or contract on a case-by-case or class basis. Any lease or contract approved utilizing such authority is subject to a 90-day hold period so that the Army real property manager may review it. If such manager disapproves of it, the agreement shall be null and void upon transmittal to the delegating authority of a written disapproval, including a justification, within the hold period. If no such disapproval is transmitted within such period, the agreement shall be deemed approved. </p> <p> If, by 60 days after receiving a disapproval, the delegating authority submits a new contract or lease that addresses the manager's concerns, it shall be deemed approved unless the manager transmits a disapproval within 30 days of submission. </p> <p> The authority under this bill shall terminate at the close of September 30, 2019. </p>]]></text>
+      </summary>
+    </summaries>
+    <title>A bill to provide installation reutilization authority for arsenals, depots, and plants.</title>
+    <titles>
+      <item>
+        <titleType>Display Title</titleType>
+        <title>A bill to provide installation reutilization authority for arsenals, depots, and plants.</title>
+      </item>
+      <item>
+        <titleType>Official Titles as Amended by Senate</titleType>
+        <title>A bill to provide installation reutilization authority for arsenals, depots, and plants.</title>
+        <chamberCode>S</chamberCode>
+        <chamberName>Senate</chamberName>
+      </item>
+      <item>
+        <titleType>Official Title as Introduced</titleType>
+        <title>A bill to provide arsenal installation reutilization authority.</title>
+      </item>
+    </titles>
+    <amendments>
+      <amendment>
+        <number>5129</number>
+        <congress>114</congress>
+        <type>SAMDT</type>
+        <purpose>To amend the title.</purpose>
+        <updateDate>2020-12-15T19:40:23Z</updateDate>
+        <latestAction>
+          <actionDate>2016-12-10</actionDate>
+          <text>Amendment SA 5129 agreed to in Senate by Unanimous Consent.</text>
+          <links>
+            <link>
+              <name>SA 5129</name>
+              <url>https://www.congress.gov/amendment/114th-congress/senate-amendment/5129</url>
+            </link>
+          </links>
+        </latestAction>
+        <sponsors>
+          <item>
+            <bioguideId>E000295</bioguideId>
+            <fullName>Sen. Ernst, Joni [R-IA]</fullName>
+            <firstName>Joni</firstName>
+            <lastName>Ernst</lastName>
+            <party>R</party>
+            <state>IA</state>
+          </item>
+        </sponsors>
+        <proposedDate>2016-12-10T05:00:00Z</proposedDate>
+        <submittedDate>2016-12-05T05:00:00Z</submittedDate>
+        <chamber>Senate</chamber>
+        <amendedBill>
+          <congress>114</congress>
+          <type>S</type>
+          <originChamber>Senate</originChamber>
+          <originChamberCode>S</originChamberCode>
+          <number>3336</number>
+          <title>A bill to provide installation reutilization authority for arsenals, depots, and plants.</title>
+          <updateDateIncludingText>2023-01-11T13:33:34Z</updateDateIncludingText>
+        </amendedBill>
+        <notes>
+          <item>
+            <text><![CDATA[The Senate agreed to the amendment on 12/5/2016, then vitiated its adoption on 12/5/2016, then agreed to the amendment on 12/10/2016.]]></text>
+            <links/>
+          </item>
+        </notes>
+        <actions>
+          <count>11</count>
+          <actions>
+            <item>
+              <actionDate>2016-12-10</actionDate>
+              <sourceSystem>
+                <code>0</code>
+                <name>Senate</name>
+              </sourceSystem>
+              <text>Amendment SA 5129 agreed to in Senate by Unanimous Consent.</text>
+              <type>Floor</type>
+            </item>
+            <item>
+              <actionDate>2016-12-10</actionDate>
+              <sourceSystem>
+                <code>0</code>
+                <name>Senate</name>
+              </sourceSystem>
+              <text>Amendment SA 5129 proposed by Senator Boozman for Senator Ernst. (consideration: CR S7102-7103; text: CR S7103)</text>
+              <type>Floor</type>
+            </item>
+            <item>
+              <actionDate>2016-12-05</actionDate>
+              <committees>
+                <item>
+                  <systemCode>ssas00</systemCode>
+                  <name>Armed Services Committee</name>
+                </item>
+              </committees>
+              <sourceSystem>
+                <code>0</code>
+                <name>Senate</name>
+              </sourceSystem>
+              <text>Referred to the Committee on Armed Services.</text>
+              <type>IntroReferral</type>
+            </item>
+            <item>
+              <actionDate>2016-12-05</actionDate>
+              <sourceSystem>
+                <code>0</code>
+                <name>Senate</name>
+              </sourceSystem>
+              <text>Senate vitiated previous adoption of amendment SA 5129. (consideration: CR S6688, S6716)</text>
+              <type>Floor</type>
+            </item>
+            <item>
+              <actionDate>2016-12-05</actionDate>
+              <sourceSystem>
+                <code>0</code>
+                <name>Senate</name>
+              </sourceSystem>
+              <text>Amendment SA 5129 agreed to in Senate by Unanimous Consent.</text>
+              <type>Floor</type>
+            </item>
+            <item>
+              <actionDate>2016-12-05</actionDate>
+              <sourceSystem>
+                <code>0</code>
+                <name>Senate</name>
+              </sourceSystem>
+              <text>Amendment SA 5129 proposed by Senator Boozman for Senator Ernst. To amend the title.</text>
+              <type>Floor</type>
+            </item>
+            <item>
+              <actionDate>2016-12-05</actionDate>
+              <text>Senate amendment agreed to: Amendment SA 5129 agreed to in Senate by Unanimous Consent.</text>
+              <type>Floor</type>
+              <actionCode>94000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+            <item>
+              <actionDate>2016-12-10</actionDate>
+              <text>Senate amendment proposed (on the floor): Amendment SA 5129 proposed by Senator Boozman for Senator Ernst.(consideration: CR S7102-7103; text: CR S7103)</text>
+              <type>Floor</type>
+              <actionCode>93000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+            <item>
+              <actionDate>2016-12-10</actionDate>
+              <text>Senate amendment agreed to: Amendment SA 5129 agreed to in Senate by Unanimous Consent.</text>
+              <type>Floor</type>
+              <actionCode>94000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+            <item>
+              <actionDate>2016-12-05</actionDate>
+              <text>Senate amendment submitted</text>
+              <type>Floor</type>
+              <actionCode>91000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+          </actions>
+        </actions>
+      </amendment>
+      <amendment>
+        <number>5128</number>
+        <congress>114</congress>
+        <type>SAMDT</type>
+        <purpose>To improve the bill.</purpose>
+        <updateDate>2020-12-15T19:40:23Z</updateDate>
+        <latestAction>
+          <actionDate>2016-12-10</actionDate>
+          <text>Amendment SA 5128 agreed to in Senate by Unanimous Consent.</text>
+          <links>
+            <link>
+              <name>SA 5128</name>
+              <url>https://www.congress.gov/amendment/114th-congress/senate-amendment/5128</url>
+            </link>
+          </links>
+        </latestAction>
+        <sponsors>
+          <item>
+            <bioguideId>E000295</bioguideId>
+            <fullName>Sen. Ernst, Joni [R-IA]</fullName>
+            <firstName>Joni</firstName>
+            <lastName>Ernst</lastName>
+            <party>R</party>
+            <state>IA</state>
+          </item>
+        </sponsors>
+        <proposedDate>2016-12-10T05:00:00Z</proposedDate>
+        <submittedDate>2016-12-05T05:00:00Z</submittedDate>
+        <chamber>Senate</chamber>
+        <amendedBill>
+          <congress>114</congress>
+          <type>S</type>
+          <originChamber>Senate</originChamber>
+          <originChamberCode>S</originChamberCode>
+          <number>3336</number>
+          <title>A bill to provide installation reutilization authority for arsenals, depots, and plants.</title>
+          <updateDateIncludingText>2023-01-11T13:33:34Z</updateDateIncludingText>
+        </amendedBill>
+        <notes>
+          <item>
+            <text><![CDATA[The Senate agreed to the amendment on 12/5/2016, then vitiated its adoption on 12/5/2016, then agreed to the amendment on 12/10/2016.]]></text>
+            <links/>
+          </item>
+        </notes>
+        <actions>
+          <count>11</count>
+          <actions>
+            <item>
+              <actionDate>2016-12-10</actionDate>
+              <sourceSystem>
+                <code>0</code>
+                <name>Senate</name>
+              </sourceSystem>
+              <text>Amendment SA 5128 agreed to in Senate by Unanimous Consent.</text>
+              <type>Floor</type>
+            </item>
+            <item>
+              <actionDate>2016-12-10</actionDate>
+              <sourceSystem>
+                <code>0</code>
+                <name>Senate</name>
+              </sourceSystem>
+              <text>Amendment SA 5128 proposed by Senator Boozman for Senator Ernst. (consideration: CR S7102; text: CR S7102)</text>
+              <type>Floor</type>
+            </item>
+            <item>
+              <actionDate>2016-12-05</actionDate>
+              <committees>
+                <item>
+                  <systemCode>ssas00</systemCode>
+                  <name>Armed Services Committee</name>
+                </item>
+              </committees>
+              <sourceSystem>
+                <code>0</code>
+                <name>Senate</name>
+              </sourceSystem>
+              <text>Referred to the Committee on Armed Services.</text>
+              <type>IntroReferral</type>
+            </item>
+            <item>
+              <actionDate>2016-12-05</actionDate>
+              <sourceSystem>
+                <code>0</code>
+                <name>Senate</name>
+              </sourceSystem>
+              <text>Senate vitiated previous adoption of amendment SA 5128.</text>
+              <type>Floor</type>
+            </item>
+            <item>
+              <actionDate>2016-12-05</actionDate>
+              <sourceSystem>
+                <code>0</code>
+                <name>Senate</name>
+              </sourceSystem>
+              <text>Amendment SA 5128 agreed to in Senate by Unanimous Consent.</text>
+              <type>Floor</type>
+            </item>
+            <item>
+              <actionDate>2016-12-05</actionDate>
+              <sourceSystem>
+                <code>0</code>
+                <name>Senate</name>
+              </sourceSystem>
+              <text>Amendment SA 5128 proposed by Senator McConnell for Senator Ernst. To improve the bill.</text>
+              <type>Floor</type>
+            </item>
+            <item>
+              <actionDate>2016-12-05</actionDate>
+              <text>Senate amendment agreed to: Amendment SA 5128 agreed to in Senate by Unanimous Consent.</text>
+              <type>Floor</type>
+              <actionCode>94000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+            <item>
+              <actionDate>2016-12-10</actionDate>
+              <text>Senate amendment proposed (on the floor): Amendment SA 5128 proposed by Senator Boozman for Senator Ernst.(consideration: CR S7102; text: CR S7102)</text>
+              <type>Floor</type>
+              <actionCode>93000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+            <item>
+              <actionDate>2016-12-10</actionDate>
+              <text>Senate amendment agreed to: Amendment SA 5128 agreed to in Senate by Unanimous Consent.</text>
+              <type>Floor</type>
+              <actionCode>94000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+            <item>
+              <actionDate>2016-12-05</actionDate>
+              <text>Senate amendment submitted</text>
+              <type>Floor</type>
+              <actionCode>91000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+          </actions>
+        </actions>
+      </amendment>
+    </amendments>
+    <textVersions>
+      <item>
+        <type>Engrossed in Senate</type>
+        <date>2016-12-10T05:00:00Z</date>
+        <formats>
+          <item>
+            <url>https://www.govinfo.gov/content/pkg/BILLS-114s3336es/xml/BILLS-114s3336es.xml</url>
+          </item>
+        </formats>
+      </item>
+      <item>
+        <type>Introduced in Senate</type>
+        <date>2016-09-15T04:00:00Z</date>
+        <formats>
+          <item>
+            <url>https://www.govinfo.gov/content/pkg/BILLS-114s3336is/xml/BILLS-114s3336is.xml</url>
+          </item>
+        </formats>
+      </item>
+    </textVersions>
+    <latestAction>
+      <actionDate>2016-12-12</actionDate>
+      <text>Held at the desk.</text>
+      <actionTime>16:50:45</actionTime>
+    </latestAction>
+  </bill>
+  <dublinCore xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:format>text/xml</dc:format>
+    <dc:language>EN</dc:language>
+    <dc:rights>Pursuant to Title 17 Section 105 of the United States Code, this file is not subject to copyright protection and is in the public domain.</dc:rights>
+    <dc:contributor>Congressional Research Service, Library of Congress</dc:contributor>
+    <dc:description>This file contains bill summaries and statuses for federal legislation. A bill summary describes the most significant provisions of a piece of legislation and details the effects the legislative text may have on current law and federal programs. Bill summaries are authored by the Congressional Research Service (CRS) of the Library of Congress. As stated in Public Law 91-510 (2 USC 166 (d)(6)), one of the duties of CRS is "to prepare summaries and digests of bills and resolutions of a public general nature introduced in the Senate or House of Representatives". For more information, refer to the User Guide that accompanies this file.</dc:description>
+  </dublinCore>
+</billStatus>

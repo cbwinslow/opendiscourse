@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<billStatus>
+  <version>3.0.0</version>
+  <bill>
+    <number>110</number>
+    <updateDate>2023-01-15T22:03:53Z</updateDate>
+    <updateDateIncludingText>2023-01-15T22:03:53Z</updateDateIncludingText>
+    <originChamber>House</originChamber>
+    <originChamberCode>H</originChamberCode>
+    <type>HRES</type>
+    <introducedDate>2003-02-27</introducedDate>
+    <congress>108</congress>
+    <committees>
+      <item>
+        <systemCode>hsha00</systemCode>
+        <name>Committee on House Administration</name>
+        <chamber>House</chamber>
+        <type>Standing</type>
+        <activities>
+          <item>
+            <name>Reported by</name>
+            <date>2003-05-08T20:04:00Z</date>
+          </item>
+          <item>
+            <name>Referred to</name>
+            <date>2003-02-27T18:07:50Z</date>
+          </item>
+        </activities>
+      </item>
+    </committees>
+    <committeeReports>
+      <committeeReport>
+        <citation>H. Rept. 108-93</citation>
+      </committeeReport>
+    </committeeReports>
+    <actions>
+      <item>
+        <actionDate>2003-05-08</actionDate>
+        <actionTime>18:11:20</actionTime>
+        <text>The title of the measure was amended. Agreed to without objection.</text>
+        <type>Floor</type>
+        <actionCode>H38800</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2003-05-08</actionDate>
+        <actionTime>18:11:06</actionTime>
+        <text>Motion to reconsider laid on the table Agreed to without objection.</text>
+        <type>Floor</type>
+        <actionCode>H38310</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2003-05-08</actionDate>
+        <actionTime>18:11:00</actionTime>
+        <text>On agreeing to the resolution Agreed to by voice vote. (text:  CR H3827)</text>
+        <type>Floor</type>
+        <actionCode>H37100</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2003-05-08</actionDate>
+        <actionTime>18:11:00</actionTime>
+        <text>Passed/agreed to in House: On agreeing to the resolution Agreed to by voice vote.(text:  CR H3827)</text>
+        <type>Floor</type>
+        <actionCode>8000</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2003-05-08</actionDate>
+        <actionTime>18:10:56</actionTime>
+        <text>The previous question was ordered pursuant to a previous  order of the House.</text>
+        <type>Floor</type>
+        <actionCode>H35000</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2003-05-08</actionDate>
+        <actionTime>18:06:55</actionTime>
+        <text>DEBATE - The House proceeded with one hour of debate on H. Res. 110.</text>
+        <type>Floor</type>
+        <actionCode>H8D000</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2003-05-08</actionDate>
+        <actionTime>18:06:00</actionTime>
+        <text>Consideration initiated pursuant to a previous order. (consideration:  CR H3821-3822, H3827-3828)</text>
+        <type>Floor</type>
+        <actionCode>H30800</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2003-05-08</actionDate>
+        <text>Placed on the House Calendar, Calendar No. 37.</text>
+        <type>Calendars</type>
+        <actionCode>H12420</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+        <calendarNumber>
+          <calendar>H00037</calendar>
+        </calendarNumber>
+      </item>
+      <item>
+        <actionDate>2003-05-08</actionDate>
+        <text>Reported (Amended) by the Committee on House Administration. H. Rept. 108-93. (text of measure as reported in House:  CR H3821)</text>
+        <type>Committee</type>
+        <actionCode>H12200</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+        <committees>
+          <item>
+            <systemCode>hsha00</systemCode>
+            <name>Committee on House Administration</name>
+          </item>
+        </committees>
+      </item>
+      <item>
+        <actionDate>2003-05-08</actionDate>
+        <text>Reported (Amended) by the Committee on House Administration. H. Rept. 108-93.(text of measure as reported in House:  CR H3821)</text>
+        <type>Committee</type>
+        <actionCode>5000</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+        <committees>
+          <item>
+            <systemCode>hsha00</systemCode>
+            <name>Committee on House Administration</name>
+          </item>
+        </committees>
+      </item>
+      <item>
+        <actionDate>2003-02-27</actionDate>
+        <text>Referred to the House Committee on House Administration.</text>
+        <type>IntroReferral</type>
+        <actionCode>H11100</actionCode>
+        <sourceSystem>
+          <code>2</code>
+          <name>House floor actions</name>
+        </sourceSystem>
+        <committees>
+          <item>
+            <systemCode>hsha00</systemCode>
+            <name>Committee on House Administration</name>
+          </item>
+        </committees>
+      </item>
+      <item>
+        <actionDate>2003-02-27</actionDate>
+        <text>Introduced in House</text>
+        <type>IntroReferral</type>
+        <actionCode>Intro-H</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+      </item>
+      <item>
+        <actionDate>2003-02-27</actionDate>
+        <text>Introduced in House</text>
+        <type>IntroReferral</type>
+        <actionCode>1000</actionCode>
+        <sourceSystem>
+          <code>9</code>
+          <name>Library of Congress</name>
+        </sourceSystem>
+      </item>
+    </actions>
+    <sponsors>
+      <item>
+        <bioguideId>C000830</bioguideId>
+        <fullName>Rep. Cox, Christopher [R-CA-48]</fullName>
+        <firstName>CHRISTOPHER</firstName>
+        <lastName>COX</lastName>
+        <party>R</party>
+        <state>CA</state>
+        <district>48</district>
+        <isByRequest>N</isByRequest>
+      </item>
+    </sponsors>
+    <policyArea>
+      <name>Congress</name>
+    </policyArea>
+    <subjects>
+      <legislativeSubjects>
+        <item>
+          <name>Congressional committees (House)</name>
+        </item>
+        <item>
+          <name>House Homeland Security</name>
+        </item>
+      </legislativeSubjects>
+      <policyArea>
+        <name>Congress</name>
+      </policyArea>
+    </subjects>
+    <summaries>
+      <summary>
+        <versionCode>00</versionCode>
+        <actionDate>2003-02-27</actionDate>
+        <actionDesc>Introduced in House</actionDesc>
+        <updateDate>2003-08-04T15:08:50Z</updateDate>
+        <text><![CDATA[ Provides amounts for expenses of the Select Committee on Homeland Security for the 108th Congress.]]></text>
+      </summary>
+      <summary>
+        <versionCode>81</versionCode>
+        <actionDate>2003-05-08</actionDate>
+        <actionDesc>Passed House without amendment</actionDesc>
+        <updateDate>2003-08-04T15:07:50Z</updateDate>
+        <text><![CDATA[ <b>(This measure has not been amended since it was introduced. The summary of that version is repeated here.)</b> <p>Provides amounts for expenses of the Select Committee on Homeland Security for the 108th Congress.]]></text>
+      </summary>
+    </summaries>
+    <title>Providing amounts for the expenses of the Select Committee on Homeland Security.</title>
+    <titles>
+      <item>
+        <titleType>Display Title</titleType>
+        <title>Providing amounts for the expenses of the Select Committee on Homeland Security.</title>
+      </item>
+      <item>
+        <titleType>Official Title as Introduced</titleType>
+        <title>Providing amounts for the expenses of the Committee on Homeland Security in the One Hundred Eighth Congress.</title>
+        <billTextVersionName>Introduced in House</billTextVersionName>
+        <billTextVersionCode>IH</billTextVersionCode>
+      </item>
+      <item>
+        <titleType>Official Titles as Amended by House</titleType>
+        <title>Providing amounts for the expenses of the Select Committee on Homeland Security.</title>
+        <chamberCode>H</chamberCode>
+        <chamberName>House</chamberName>
+      </item>
+    </titles>
+    <amendments>
+      <amendment>
+        <number>128</number>
+        <congress>108</congress>
+        <type>HAMDT</type>
+        <description>Amendment in the nature of a substitute provides for the expenses of the Committee on Homeland Security in the One Hundred Eighth Congress.</description>
+        <updateDate>2022-02-03T04:58:54Z</updateDate>
+        <sponsors>
+          <item>
+            <name>Committee on House Administration</name>
+          </item>
+        </sponsors>
+        <submittedDate>2003-05-08T04:00:00Z</submittedDate>
+        <chamber>House of Representatives</chamber>
+        <amendedBill>
+          <congress>108</congress>
+          <type>HRES</type>
+          <originChamber>House</originChamber>
+          <originChamberCode>H</originChamberCode>
+          <number>110</number>
+          <title>Providing amounts for the expenses of the Select Committee on Homeland Security.</title>
+          <updateDateIncludingText>2023-01-15T22:03:53Z</updateDateIncludingText>
+        </amendedBill>
+        <actions>
+          <count>2</count>
+          <actions>
+            <item>
+              <actionDate>2003-05-08</actionDate>
+              <text>House amendment offered</text>
+              <type>Floor</type>
+              <actionCode>71000</actionCode>
+              <sourceSystem>
+                <code>9</code>
+                <name>Library of Congress</name>
+              </sourceSystem>
+            </item>
+          </actions>
+        </actions>
+      </amendment>
+    </amendments>
+    <textVersions>
+      <item>
+        <type>Engrossed in House</type>
+        <date>2003-05-08T04:00:00Z</date>
+        <formats/>
+      </item>
+      <item>
+        <type>Reported in House</type>
+        <date>2003-05-08T04:00:00Z</date>
+        <formats/>
+      </item>
+      <item>
+        <type>Introduced in House</type>
+        <date>2003-02-27T05:00:00Z</date>
+        <formats/>
+      </item>
+    </textVersions>
+    <latestAction>
+      <actionDate>2003-05-08</actionDate>
+      <text>The title of the measure was amended. Agreed to without objection.</text>
+      <actionTime>18:11:20</actionTime>
+    </latestAction>
+  </bill>
+  <dublinCore xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:format>text/xml</dc:format>
+    <dc:language>EN</dc:language>
+    <dc:rights>Pursuant to Title 17 Section 105 of the United States Code, this file is not subject to copyright protection and is in the public domain.</dc:rights>
+    <dc:contributor>Congressional Research Service, Library of Congress</dc:contributor>
+    <dc:description>This file contains bill summaries and statuses for federal legislation. A bill summary describes the most significant provisions of a piece of legislation and details the effects the legislative text may have on current law and federal programs. Bill summaries are authored by the Congressional Research Service (CRS) of the Library of Congress. As stated in Public Law 91-510 (2 USC 166 (d)(6)), one of the duties of CRS is "to prepare summaries and digests of bills and resolutions of a public general nature introduced in the Senate or House of Representatives". For more information, refer to the User Guide that accompanies this file.</dc:description>
+  </dublinCore>
+</billStatus>

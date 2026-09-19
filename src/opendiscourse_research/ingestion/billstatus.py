@@ -39,10 +39,13 @@ from ..providers.govinfo import (
     member_identity,
 )
 from ..repositories.artifacts import get_current_artifact
-from ..repositories.billstatus import supersede_bill_children, superseded_artifact_ids
+from ..repositories.billstatus import (
+    loaded_record_members,
+    supersede_bill_children,
+    superseded_artifact_ids,
+)
 from ..repositories.legislation import (
     ensure_us_legislative_session,
-    loaded_artifact_members,
     parse_billstatus_xml,
     register_artifact,
     save_billstatus_bill,
@@ -299,14 +302,18 @@ class BillStatusConnector:
         return ctx
 
     def normalize(self, ctx: ConnectorContext) -> ConnectorContext:
-        """Work out what is left to load: members not yet loaded from this artifact version."""
+        """Work out what is left to load: members with no record row from this artifact version.
+
+        The record row is written last in a bill's transaction, so a member without one is not
+        fully loaded; that includes every bill loaded before records existed.
+        """
         if self.download_only:
             return ctx
         with connect() as conn:
             for item in self._items:
                 assert item.artifact is not None
                 artifact_id = item.artifact["artifact_id"]
-                done = loaded_artifact_members(str(artifact_id), conn)
+                done = loaded_record_members(conn, artifact_id)
                 item.todo = [m for m in item.members if m not in done]
                 item.older_versions = superseded_artifact_ids(conn, artifact_id)
         self._report(f"{sum(len(i.todo) for i in self._items)} bills left to load")

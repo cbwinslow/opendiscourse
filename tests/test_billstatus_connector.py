@@ -67,11 +67,16 @@ def catalog_database() -> Iterator[None]:
 _BILL_IDS = "(SELECT bill_id FROM core.bill WHERE jurisdiction = 'us' AND legislative_session = '998')"
 
 
+PROMOTED = ("bill_source_record", "bill_summary", "bill_law", "bill_related_bill", "bill_amendment")
+_PROMOTED_DELETES = tuple(f"DELETE FROM core.{t} WHERE bill_id IN {_BILL_IDS}" for t in PROMOTED)
+
+
 def _remove_rows() -> None:
     """Delete everything Congress 998 created, children before parents."""
     with connect() as conn:
         for statement in (
             f"DELETE FROM core.bill_document WHERE bill_id IN {_BILL_IDS}",
+            *_PROMOTED_DELETES,
             f"DELETE FROM core.bill_action WHERE bill_id IN {_BILL_IDS}",
             f"DELETE FROM core.bill_sponsorship WHERE bill_id IN {_BILL_IDS}",
             f"DELETE FROM core.bill_committee WHERE bill_id IN {_BILL_IDS}",
@@ -116,7 +121,14 @@ def _rows(sql: str, *params: object) -> list[tuple]:
 
 
 # -- synthetic origin ---------------------------------------------------------
-def _bill_xml(number: int, *, actions: int = 2, congress: int = CONGRESS, title: str | None = None) -> str:
+def _bill_xml(
+    number: int,
+    *,
+    actions: int = 2,
+    congress: int = CONGRESS,
+    title: str | None = None,
+    summary: str = "Summary",
+) -> str:
     items = "".join(
         f"<item><actionDate>2024-01-{a + 1:02d}</actionDate><text>Action {a + 1} on {number}</text>"
         f"<type>Floor</type><actionCode>H{a}</actionCode></item>"
@@ -140,6 +152,29 @@ def _bill_xml(number: int, *, actions: int = 2, congress: int = CONGRESS, title:
     <formats><item><url>https://www.govinfo.gov/content/pkg/BILLS-998hr{number}ih/xml/BILLS-998hr{number}ih.xml</url></item></formats>
   </item></textVersions>
   <latestAction><actionDate>2024-01-02</actionDate><text>Latest on {number}</text></latestAction>
+  <summaries>
+    <summary><versionCode>00</versionCode><actionDate>2024-01-01</actionDate>
+      <actionDesc>Introduced in House</actionDesc><updateDate>2024-01-03T05:00:00Z</updateDate>
+      <text><![CDATA[ <p>{summary} of {number}</p> ]]></text></summary>
+    <summary><versionCode>49</versionCode><actionDate>2024-01-04</actionDate>
+      <actionDesc>Reported to House</actionDesc><updateDate>2024-01-05T05:00:00Z</updateDate>
+      <cdata><text><![CDATA[<p>Second {summary} of {number}</p>]]></text></cdata></summary>
+  </summaries>
+  <laws><item><type>Public Law</type><number>998-{number}</number></item></laws>
+  <relatedBills><item><congress>998</congress><number>{number + 100}</number><type>HR</type>
+    <title>Related to {number}</title>
+    <latestAction><actionDate>2024-01-05</actionDate><text>Referred to committee</text></latestAction>
+    <relationshipDetails><item><type>Identical bill</type><identifiedBy>CRS</identifiedBy></item></relationshipDetails>
+  </item></relatedBills>
+  <amendments><amendment><number>{number + 500}</number><congress>998</congress><type>HAMDT</type>
+    <chamber>House of Representatives</chamber><purpose>Purpose {number}</purpose>
+    <submittedDate>2024-01-06T05:00:00Z</submittedDate><updateDate>2024-01-07T05:00:00Z</updateDate>
+    <sponsors><item><bioguideId>T998001</bioguideId><fullName>Rep. Test</fullName></item></sponsors>
+    <latestAction><actionDate>2024-01-06</actionDate><text>Amendment offered</text></latestAction>
+  </amendment></amendments>
+  <cboCostEstimates><item><title>CBO estimate {number}</title><pubDate>2024-02-01T05:00:00Z</pubDate>
+    <url>https://www.cbo.gov/publication/{number}</url></item></cboCostEstimates>
+  <futureField><nested>nothing models this yet</nested></futureField>
 </bill></billStatus>"""
 
 
@@ -311,9 +346,9 @@ def test_changed_origin_appends_a_version_and_replaces_the_old_rows(origin: Fake
     # bill 1 now has 3 actions, the others 2: no duplicates from the older version
     assert _one("SELECT count(*) AS n FROM core.bill_action a JOIN core.bill b USING (bill_id) "
                 "WHERE b.legislative_session = '998'") == 3 + 2 + 2 + 2
-    for table in ("bill_action", "bill_sponsorship", "bill_committee", "bill_subject"):
+    for table in ("bill_action", "bill_sponsorship", "bill_committee", "bill_subject", *PROMOTED):
         assert _one(f"SELECT count(*) AS n FROM core.{table} WHERE source_artifact_id = %s",
-                    first["artifact_id"]) == 0
+                    first["artifact_id"]) == 0, table
     assert connector.result["superseded_rows_replaced"] > 0
     # the older version's bytes are evidence and stay registered and on disk
     assert _one("SELECT count(*) AS n FROM ingest.artifact WHERE artifact_id = %s", first["artifact_id"]) == 1
@@ -536,6 +571,136 @@ def test_retained_bytes_are_never_overwritten_by_a_refresh(origin: FakeOrigin) -
     assert first_path.read_bytes() == before
 
 
+# -- Story 9.5b: lossless record and promoted sections ---------------------------
+def _count(table: str) -> int:
+    return _one(
+        f"SELECT count(*) AS n FROM core.{table} t JOIN core.bill b USING (bill_id) "
+        "WHERE b.legislative_session = '998'"
+    )
+
+
+def test_first_sync_stores_the_whole_record_and_promotes_the_sections(origin: FakeOrigin) -> None:
+    from xml.etree import ElementTree
+
+    from opendiscourse_research.ingestion.billstatus_record import record_problems, xml_to_record
+
+    _sync(origin)
+    artifact = _artifact()
+
+    assert _count("bill_source_record") == 3
+    rows = _rows(
+        "SELECT r.source_member, r.record, r.source_artifact_id FROM core.bill_source_record r "
+        "JOIN core.bill b USING (bill_id) WHERE b.legislative_session = '998' ORDER BY 1"
+    )
+    for member, record, artifact_id in rows:
+        root = ElementTree.fromstring(origin.members[member])
+        assert record == xml_to_record(root)  # the row is exactly the file, as JSON
+        assert record_problems(root, record) == []
+        assert artifact_id == artifact["artifact_id"]
+        # what nothing models yet is still stored and queryable
+        assert record["bill"]["futureField"] == {"nested": "nothing models this yet"}
+        assert record["bill"]["cboCostEstimates"]["item"][0]["url"].startswith("https://www.cbo.gov/")
+    assert _one(
+        "SELECT r.record #>> '{bill,futureField,nested}' AS v FROM core.bill_source_record r "
+        "JOIN core.bill b USING (bill_id) WHERE b.bill_number = '1' AND b.legislative_session = '998'"
+    ) == "nothing models this yet"
+
+    assert (_count("bill_summary"), _count("bill_law")) == (6, 3)
+    assert (_count("bill_related_bill"), _count("bill_amendment")) == (3, 3)
+    summary = _rows(
+        "SELECT s.source_ordinal, s.version_code, s.action_date, s.action_description, s.text, "
+        "s.update_date, s.source_member FROM core.bill_summary s JOIN core.bill b USING (bill_id) "
+        "WHERE b.bill_number = '1' AND b.legislative_session = '998' ORDER BY 1"
+    )
+    assert [r[1] for r in summary] == ["00", "49"]
+    assert str(summary[0][2]) == "2024-01-01" and summary[0][3] == "Introduced in House"
+    assert summary[0][4] == "<p>Summary of 1</p>"  # layout whitespace stripped, HTML kept
+    assert summary[1][4] == "<p>Second Summary of 1</p>"  # the <cdata><text> spelling
+    assert summary[0][5].isoformat().startswith("2024-01-03T05:00:00") and summary[0][6] == "BILLSTATUS-998hr1.xml"
+    assert _rows(
+        "SELECT l.law_type, l.law_number FROM core.bill_law l JOIN core.bill b USING (bill_id) "
+        "WHERE b.bill_number = '2' AND b.legislative_session = '998'"
+    ) == [("Public Law", "998-2")]
+    assert _rows(
+        "SELECT r.related_congress, r.related_bill_type, r.related_bill_number, r.title, r.relationships "
+        "FROM core.bill_related_bill r JOIN core.bill b USING (bill_id) "
+        "WHERE b.bill_number = '3' AND b.legislative_session = '998'"
+    ) == [(998, "hr", "103", "Related to 3", [{"type": "Identical bill", "identified_by": "CRS"}])]
+    amendment = _rows(
+        "SELECT a.amendment_congress, a.amendment_type, a.amendment_number, a.chamber, a.purpose, "
+        "a.sponsor_bioguide_id, a.latest_action_date, a.latest_action_text "
+        "FROM core.bill_amendment a JOIN core.bill b USING (bill_id) "
+        "WHERE b.bill_number = '1' AND b.legislative_session = '998'"
+    )[0]
+    assert amendment[:6] == (998, "HAMDT", "501", "House of Representatives", "Purpose 1", "T998001")
+    assert str(amendment[6]) == "2024-01-06" and amendment[7] == "Amendment offered"
+    # every promoted row carries its evidence
+    for table in PROMOTED:
+        assert _one(
+            f"SELECT count(*) AS n FROM core.{table} t JOIN core.bill b USING (bill_id) "
+            "WHERE b.legislative_session = '998' AND t.source_artifact_id IS DISTINCT FROM %s",
+            artifact["artifact_id"],
+        ) == 0, table
+
+
+def test_a_bill_loaded_before_records_existed_gains_its_record_without_duplicates(
+    origin: FakeOrigin,
+) -> None:
+    """The 172,709 bills loaded before Story 9.5b have children but no record row."""
+    _sync(origin)
+    before = _snapshot()
+    with connect() as conn:  # the state the live database is in today
+        for table in PROMOTED:
+            conn.execute(f"DELETE FROM core.{table} WHERE bill_id IN {_BILL_IDS}")
+        conn.commit()
+    assert _count("bill_source_record") == 0 and _bills() == 3
+
+    connector = _sync(origin)
+
+    assert origin.downloads == [KEY]  # the bytes were already here and unchanged
+    assert connector.result["items"][0]["already_loaded"] == 0
+    assert connector.result["bills_loaded"] == 3
+    assert _snapshot() == before  # same rows everywhere, none duplicated, records back
+    assert _one("SELECT count(*) AS n FROM ingest.artifact WHERE artifact_key = %s", KEY) == 1
+
+    again = _sync(origin)  # and now it is a no-op
+    assert again.result["bills_loaded"] == 0 and _snapshot() == before
+
+
+def test_a_refresh_replaces_the_record_and_the_promoted_rows(origin: FakeOrigin) -> None:
+    _sync(origin)
+    first = _artifact()
+    origin.publish({**_members(range(1, 4)), **_members([1], summary="Revised")}, LATER)
+
+    connector = _sync(origin)
+
+    second = _artifact()
+    assert second["artifact_id"] != first["artifact_id"]
+    for table in PROMOTED:
+        assert _one(f"SELECT count(*) AS n FROM core.{table} WHERE source_artifact_id = %s",
+                    first["artifact_id"]) == 0, table
+    assert (_count("bill_source_record"), _count("bill_summary")) == (3, 6)  # replaced, not added
+    assert (_count("bill_law"), _count("bill_related_bill"), _count("bill_amendment")) == (3, 3, 3)
+    assert _one(
+        "SELECT s.text FROM core.bill_summary s JOIN core.bill b USING (bill_id) "
+        "WHERE b.bill_number = '1' AND b.legislative_session = '998' AND s.version_code = '00'"
+    ) == "<p>Revised of 1</p>"
+    assert connector.result["superseded_rows_replaced"] > 0
+
+
+def test_the_record_is_never_left_without_its_bill_after_a_killed_batch(tmp_path: Path) -> None:
+    origin = FakeOrigin(tmp_path, _members(range(1, 6)))
+    with _die_on_save(3), pytest.raises(RuntimeError, match="killed"):
+        _sync(origin, batch_size=2)
+
+    # the first batch (2 bills) committed with its record and promoted rows; the second rolled back
+    assert (_bills(), _count("bill_source_record"), _count("bill_summary")) == (2, 2, 4)
+    assert _count("bill_amendment") == 2
+
+    _sync(origin, batch_size=2)
+    assert (_bills(), _count("bill_source_record"), _count("bill_summary")) == (5, 5, 10)
+
+
 # -- ADR-0003 harness ---------------------------------------------------------
 def _digest(rows: list[tuple]) -> str:
     return hashlib.sha256(repr(sorted(rows)).encode()).hexdigest()
@@ -556,6 +721,16 @@ def _snapshot() -> dict[str, object]:
         "subjects": f"SELECT {key}, s.external_id, s.label FROM core.bill_subject s "
         f"JOIN core.bill b USING (bill_id) {where}",
         "identifiers": f"SELECT {key}, i.namespace, i.external_id FROM core.bill_identifier i "
+        f"JOIN core.bill b USING (bill_id) {where}",
+        "records": f"SELECT {key}, r.source_member, r.record_sha256 FROM core.bill_source_record r "
+        f"JOIN core.bill b USING (bill_id) {where}",
+        "summaries": f"SELECT {key}, s.source_ordinal, s.version_code, s.text FROM core.bill_summary s "
+        f"JOIN core.bill b USING (bill_id) {where}",
+        "laws": f"SELECT {key}, l.law_type, l.law_number FROM core.bill_law l "
+        f"JOIN core.bill b USING (bill_id) {where}",
+        "related_bills": f"SELECT {key}, r.related_bill_number, r.relationships::text "
+        f"FROM core.bill_related_bill r JOIN core.bill b USING (bill_id) {where}",
+        "amendments": f"SELECT {key}, a.amendment_number, a.sponsor_bioguide_id FROM core.bill_amendment a "
         f"JOIN core.bill b USING (bill_id) {where}",
     }
     out: dict[str, object] = {}
@@ -591,6 +766,7 @@ def test_billstatus_meets_the_load_contract_run_twice_wipe_reload_and_kill_resum
         with connect() as conn:
             for statement in (
                 f"DELETE FROM core.bill_document WHERE bill_id IN {_BILL_IDS}",
+                *_PROMOTED_DELETES,
                 f"DELETE FROM core.bill_action WHERE bill_id IN {_BILL_IDS}",
                 f"DELETE FROM core.bill_sponsorship WHERE bill_id IN {_BILL_IDS}",
                 f"DELETE FROM core.bill_committee WHERE bill_id IN {_BILL_IDS}",

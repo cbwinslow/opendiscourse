@@ -378,6 +378,103 @@ core_bill_document = Table(
 )
 
 
+def _bill_source_columns() -> list[Column]:
+    """Evidence columns shared by the tables promoted out of a BILLSTATUS file (Story 9.5b)."""
+    return [
+        Column("bill_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.bill.bill_id"), nullable=False),
+        Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id"), nullable=False),
+        Column("source_member", Text, nullable=False),
+        Column("source_ordinal", Integer, nullable=False),
+    ]
+
+
+core_bill_source_record = Table(
+    "bill_source_record",
+    SQLModel.metadata,
+    Column("bill_source_record_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("bill_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.bill.bill_id"), nullable=False),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id"), nullable=False),
+    Column("source_member", Text, nullable=False),
+    Column("record", JSONB, nullable=False),
+    Column("record_sha256", Text, nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    UniqueConstraint("source_artifact_id", "source_member"),
+    Index("bill_source_record_bill_idx", "bill_id"),
+    schema="core",
+)
+
+
+core_bill_summary = Table(
+    "bill_summary",
+    SQLModel.metadata,
+    Column("bill_summary_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    *_bill_source_columns(),
+    Column("version_code", Text),
+    Column("action_date", Date),
+    Column("action_description", Text),
+    Column("update_date", DateTime(timezone=True)),
+    Column("text", Text),
+    UniqueConstraint("bill_id", "source_artifact_id", "source_member", "source_ordinal"),
+    schema="core",
+)
+
+
+core_bill_law = Table(
+    "bill_law",
+    SQLModel.metadata,
+    Column("bill_law_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    *_bill_source_columns(),
+    Column("law_type", Text),
+    Column("law_number", Text, nullable=False),
+    UniqueConstraint("bill_id", "source_artifact_id", "source_member", "source_ordinal"),
+    Index("bill_law_number_idx", "law_number"),
+    schema="core",
+)
+
+
+core_bill_related_bill = Table(
+    "bill_related_bill",
+    SQLModel.metadata,
+    Column("bill_related_bill_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    *_bill_source_columns(),
+    Column("related_congress", Integer, nullable=False),
+    Column("related_bill_type", Text, nullable=False),
+    Column("related_bill_number", Text, nullable=False),
+    Column("title", Text),
+    Column("latest_action_date", Date),
+    Column("latest_action_text", Text),
+    Column("relationships", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
+    UniqueConstraint("bill_id", "source_artifact_id", "source_member", "source_ordinal"),
+    Index("bill_related_bill_target_idx", "related_congress", "related_bill_type", "related_bill_number"),
+    schema="core",
+)
+
+
+core_bill_amendment = Table(
+    "bill_amendment",
+    SQLModel.metadata,
+    Column("bill_amendment_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    *_bill_source_columns(),
+    Column("amendment_congress", Integer, nullable=False),
+    Column("amendment_type", Text, nullable=False),
+    Column("amendment_number", Text, nullable=False),
+    Column("chamber", Text),
+    Column("purpose", Text),
+    Column("description", Text),
+    Column("submitted_at", DateTime(timezone=True)),
+    Column("proposed_at", DateTime(timezone=True)),
+    Column("update_date", DateTime(timezone=True)),
+    Column("latest_action_date", Date),
+    Column("latest_action_text", Text),
+    Column("sponsor_bioguide_id", Text),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    UniqueConstraint("bill_id", "source_artifact_id", "source_member", "source_ordinal"),
+    Index("bill_amendment_identity_idx", "amendment_congress", "amendment_type", "amendment_number"),
+    Index("bill_amendment_sponsor_idx", "sponsor_bioguide_id"),
+    schema="core",
+)
+
+
 def person_identifier_table():
     """Return the Alembic-adopted canonical person-identifier table."""
     return core_person_identifier

@@ -15,6 +15,8 @@ from sqlalchemy.dialects.postgresql import insert
 
 from ..artifact_storage import validate_retained
 from ..db import session
+from ..ingestion import billstatus_sections
+from ..ingestion.billstatus_record import record_sha256, xml_to_record
 from ..models.catalog import artifact_table
 from ..models.core import (
     bill_action_table,
@@ -1010,6 +1012,12 @@ def parse_billstatus_xml(
         "committees": committees,
         "subjects": subjects,
         "documents": documents,
+        "summaries": billstatus_sections.summaries(bill, member_name),
+        "laws": billstatus_sections.laws(bill, member_name),
+        "related_bills": billstatus_sections.related_bills(bill, member_name),
+        "amendments": billstatus_sections.amendments(bill, member_name),
+        # everything the file says, so a field nobody has modelled yet is still stored
+        "record": xml_to_record(root),
     }
 
 
@@ -1026,6 +1034,7 @@ def save_billstatus_bill(
 
     ``person_cache`` (connection path only) memoizes sponsor identifier lookups for a
     caller that loads many bills in one run: the same members sponsor thousands of them.
+    The promoted sections and the full ``record`` are written on the connection path only.
     """
     if source_artifact_id is None and source_payload_id is None:
         raise ValueError(
@@ -1185,9 +1194,58 @@ def save_billstatus_bill(
                     },
                 )
 
+            if source_artifact_id is not None:
+                _save_promoted_sections(cur, bill_id, bill_data, source_artifact_id, source_member)
             return bill_id
 
     return _execute(conn)
+
+
+# Promoted section -> (bill_data key, upsert query, Jsonb columns).
+_PROMOTED_SECTIONS = (
+    ("summaries", "upsert_bill_summary", ()),
+    ("laws", "upsert_bill_law", ()),
+    ("related_bills", "upsert_bill_related_bill", ("relationships",)),
+    ("amendments", "upsert_bill_amendment", ("metadata",)),
+)
+
+
+def _save_promoted_sections(
+    cur: Any,
+    bill_id: str,
+    bill_data: dict[str, Any],
+    source_artifact_id: str,
+    source_member: str | None,
+) -> None:
+    """Write the promoted sections and then the full record (Story 9.5b).
+
+    The record row goes last: its presence marks the member as fully loaded, so a resume never
+    treats a half-written bill as done. Callers that hand in no ``record`` (hand-built
+    ``bill_data``) get the promoted rows only.
+    """
+    for key, query, json_columns in _PROMOTED_SECTIONS:
+        for row in bill_data.get(key, []):
+            params = {
+                **row,
+                "bill_id": bill_id,
+                "source_artifact_id": source_artifact_id,
+                "source_member": source_member or row.get("source_member"),
+            }
+            for column in json_columns:
+                params[column] = Jsonb(params[column])
+            cur.execute(_query(query), params)
+    record = bill_data.get("record")
+    if record is not None:
+        cur.execute(
+            _query("upsert_bill_source_record"),
+            {
+                "bill_id": bill_id,
+                "source_artifact_id": source_artifact_id,
+                "source_member": source_member,
+                "record": Jsonb(record),
+                "record_sha256": record_sha256(record),
+            },
+        )
 
 
 def _save_billstatus_bill_sqlalchemy(
