@@ -14,11 +14,13 @@ from hashlib import sha256
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-import pytest
 import httpx
+import psycopg
+import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import insert, select
+from sqlalchemy.engine import make_url
 
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
@@ -53,13 +55,26 @@ def catalog_database() -> None:
     original_url = settings.database_url
     external_url = os.environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
     if external_url:
-        settings.database_url = external_url
+        # Artifact history is permanent by design and blocks the migration downgrade
+        # that other test modules perform, so never share their database.
+        private = f"od_artifacts_{uuid.uuid4().hex[:12]}"
+        with psycopg.connect(external_url, autocommit=True) as admin:
+            admin.execute(f'CREATE DATABASE "{private}"')
+        settings.database_url = (
+            make_url(external_url)
+            .set(database=private)
+            .render_as_string(hide_password=False)
+        )
+        _engine.cache_clear()
         apply_migrations()
         sync_inventory()
         try:
             yield
         finally:
             settings.database_url = original_url
+            _engine.cache_clear()
+            with psycopg.connect(external_url, autocommit=True) as admin:
+                admin.execute(f'DROP DATABASE IF EXISTS "{private}" WITH (FORCE)')
         return
 
     postgres = pytest.importorskip("testcontainers.postgres")
