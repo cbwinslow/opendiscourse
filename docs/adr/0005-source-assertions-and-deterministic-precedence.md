@@ -17,7 +17,11 @@ writers shows design defects, not bad luck. There are two problems, and identity
   and the legislators load look up by BioGuide only. If legislators load first (the kit's order), OpenStates creates
   up to about 722 duplicate people (one per OCD id it does not already own); BioGuide conflicts are only counted (`repositories/legislation.py:513-518`).
 - Live already holds one such pair: Marlin Stutzman, `67e9e162…` (BioGuide S001188 and 15 other ids) and
-  `b8b58549…` (OCD id only), and one person without a BioGuide id.
+  `b8b58549…` (OCD id only), and one person without a BioGuide id. Researched 2026-09-19: the second record is a
+  placeholder **OpenStates itself created** on 2024-11-08 (after the election) with no identifiers; the real record
+  came on 2025-01-05 and holds all 488 votes. No identifier can link them, so this one case is an evidence-backed
+  reviewed exception (`inventory/identity_exceptions.yaml`), not a merge by name. The other ~722 OpenStates people
+  already list a BioGuide id in `opencivicdata_personidentifier`, which the loader ignores; looking up by it is the fix.
 - `sync_openstates_federal_people` takes no advisory lock, unlike `promote_legislators`; the Congress.gov path
   (`ingestion/congress.py:96` to `legislation.py:571`) is a third, unlocked creator.
 
@@ -49,7 +53,7 @@ ones ("Mike Lawler" to "Michael Lawler"; a given name "Scott" to "C."), so offic
 - Every person creator and identifier writer takes the same advisory lock (precedent: `repositories/people.py`).
 - "Any known identifier" must resolve to **exactly one** person. If two existing persons own the identifiers, the
   association is aborted and a conflict record is written (never guessed).
-- A duplicate merge is one transaction under the person lock: repoint `core.person_identifier`, `core.bill_sponsorship`,
+- A duplicate merge (the one known case, Stutzman, is listed in `inventory/identity_exceptions.yaml`) is one transaction under the person lock: repoint `core.person_identifier`, `core.bill_sponsorship`,
   `core.membership` and `fact.member_vote` (`models/core.py` lines 198, 261, 647, 732) from the duplicate to the survivor;
   where `fact.member_vote` collides on `(roll_call_id, person_id)` the losing row is preserved in a merge-audit table
   before deletion; then delete the duplicate. The transaction records survivor, duplicate, every repointed row count and

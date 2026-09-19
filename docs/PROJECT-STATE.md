@@ -1,10 +1,38 @@
 # Project state and handoff
 
-Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live; sources review evaluated, ADR-0004; backup risk found, see "Stop-and-fix items"). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19, see "Session handoff" below (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live; sources review evaluated, ADR-0004; backup risk found, see "Stop-and-fix items"). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
 decision or story status changes.
+
+## Session handoff (2026-09-19, end of day)
+
+Done this session (all merged): folder and naming audit (#51, tests no longer write to the real lake, 109 fixture
+strays moved to `<lake>/hold/test-fixture-strays-2026-09-19/`); rebuild-kit spec (#52); rebuild proofs (#53, #54:
+Congress 108 bills, people, population estimates rebuild identical to live); ADR-0005 (#55, #56: order-independent
+identity and names, reviewed by Fable and Codex). Codex review works again (`/codex:setup` shows ready).
+
+State of things to know:
+- **Nothing in the live warehouse was changed** by the proofs or ADR. The Stutzman duplicate is recorded in
+  `inventory/identity_exceptions.yaml` (`applied: false`).
+- **Next, in order:** (1) `bmad-spec` for ADR-0005 (stories: identity fix and lock; assertion tables, precedence,
+  resolver, trigger; geography loaders incl. ACS `ingestion/census.py`; person loaders; backfill by rerunning loaders;
+  kit verify); (2) build the identity fix first; (3) then the rebuild kit
+  (`_bmad-output/specs/spec-rebuild-kit/`), FEC as its last phase (needs a downloader; its 20 GB and 16 BILLSTATUS
+  rows are registered under `/mnt/storage`); (4) OpenStates restore proof (10 GB retained dump) which also unlocks
+  legislator terms (terms need OpenStates organizations).
+- **Open decision for the operator:** does `core.person.full_name` show the common name ("Mike Lawler") or the
+  official one ("Michael Lawler")? Recommendation: common, official kept beside it. Until decided, the resolver
+  reproduces today's live names.
+- **Open, small:** `docs/data-inventory-2026-09-19.md` is untracked (written by an earlier session; commit or drop);
+  `.agent/` is a tracked Antigravity copy of the skills (proposal: untrack); `data-lake/rebuild-proof/` (gitignored,
+  42 MB scratch lake) can be deleted; the scratch Docker container `od-rebuild-proof` is stopped.
+- Useful, saved: `sql/query/verify/*_fingerprint.sql` (`psql -v congress=108 -f ...`) compares a rebuild with live;
+  proof method and results in `docs/rebuild-proof-2026-09-19.md`.
+- Operator working style (stated this session): plain language, advice and a recommendation with every question,
+  no jargon-heavy multiple choice; do routine engineering without asking; consult other models when unsure
+  (Codex works; Fable reviewed ADR-0005).
 
 ## Goal
 
