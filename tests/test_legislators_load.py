@@ -10,6 +10,12 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from idempotency_harness import (
+    IdempotencyCase,
+    assert_kill_and_resume_same,
+    assert_run_twice_same,
+    assert_wipe_and_reload_same,
+)
 from sqlalchemy import func, select, text
 
 from opendiscourse_research.catalog import sync_inventory
@@ -487,3 +493,81 @@ def test_wrong_origin_or_unpushed_head_is_refused(
     _git(vendor, "remote", "set-url", "origin", "git@github.com:unitedstates/congress-legislators.git")
     with pytest.raises(RuntimeError, match="not on any remote branch"):
         run_connector(LegislatorsConnector(vendor_dir=vendor, retain_dir=tmp_path / "retain"))
+
+
+def _legislator_snapshot() -> dict:
+    """Natural-key digest of what the loader wrote: no surrogate ids, no timestamps."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT bg.external_id AS bioguide, i.namespace, i.external_id, p.full_name "
+            "FROM core.person_identifier i "
+            "JOIN core.person p ON p.person_id = i.person_id "
+            "JOIN core.person_identifier bg ON bg.person_id = p.person_id AND bg.namespace = 'bioguide' "
+            "WHERE i.source_artifact_id IN "
+            "(SELECT artifact_id FROM ingest.artifact WHERE dataset_id = 'congress.legislators') "
+            "ORDER BY 1, 2, 3"
+        ).fetchall()
+        people = conn.execute(
+            "SELECT count(*) AS n FROM core.person WHERE metadata->>'canonical_baseline' = 'congress-legislators'"
+        ).fetchone()["n"]
+    import hashlib
+
+    digest = hashlib.md5(repr([tuple(r.values()) for r in rows]).encode()).hexdigest()
+    return {"people": people, "identifiers": len(rows), "digest": digest}
+
+
+def _legislator_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, point: int, atomic: bool):
+    from contextlib import contextmanager
+
+    from opendiscourse_research.ingestion import legislators as module
+
+    bg = [_bioguide(), _bioguide(), _bioguide()]
+    vendor = _vendor(
+        tmp_path,
+        [{"bioguide": bg[0], "ids": {"govtrack": f"h{bg[0]}", "fec": [f"H{bg[0]}A", f"H{bg[0]}B"]}}, {"bioguide": bg[1]}],
+        [{"bioguide": bg[2], "ids": {"icpsr": f"h{bg[2]}"}}],
+    )
+    real = module.promote_legislators
+
+    @contextmanager
+    def interrupt(where: int):
+        def killed(conn, rows):
+            if where == 0:
+                raise RuntimeError("killed before publish wrote anything")
+            real(conn, rows)  # the data transaction commits...
+            raise RuntimeError("killed before the artifacts were marked loaded")  # ...then the process dies
+
+        with monkeypatch.context() as patch:
+            patch.setattr(module, "promote_legislators", killed)
+            yield
+
+    return IdempotencyCase(
+        name="congress.legislators",
+        load=lambda: _load(tmp_path, monkeypatch, vendor),
+        snapshot=_legislator_snapshot,
+        wipe=_remove_loaded_rows,
+        interrupt=interrupt,
+        points=(point,),
+        atomic=atomic,
+    )
+
+
+def test_legislators_run_twice_and_wipe_and_reload_are_idempotent(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = _legislator_case(tmp_path, monkeypatch, point=0, atomic=True)
+    assert_run_twice_same(case)
+    assert_wipe_and_reload_same(case)
+
+
+def test_legislators_killed_before_publish_leaves_no_data_and_resumes(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert_kill_and_resume_same(_legislator_case(tmp_path, monkeypatch, point=0, atomic=True))
+
+
+def test_legislators_killed_after_commit_before_artifacts_loaded_converges(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Partial by nature: the data transaction is committed, the artifact status flip is not.
+    assert_kill_and_resume_same(_legislator_case(tmp_path, monkeypatch, point=1, atomic=False))

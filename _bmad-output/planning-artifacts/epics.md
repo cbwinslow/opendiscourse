@@ -241,6 +241,9 @@ Acceptance: benchmark reload vs upsert on one real dataset first; ADR-0003
 records the numbers; harness asserts run-twice = same counts, kill-and-resume =
 same result, wipe-and-reload = same result. Check whether the big tables are
 partitioned before choosing.
+Built on `feat/9-1-load-contract`: ADR-0003 (`docs/adr/0003-load-strategy.md`), benchmark
+`scripts/bench/benchmark_load_strategies.py`, harness `tests/idempotency_harness.py` (first user:
+legislators Connector). Benchmark to be rerun after the 17 cluster is restarted with tuned memory.
 
 ### Story 9.2 — Ingest run ledger
 As an operator, I can see exactly what each run wrote: target table, coverage

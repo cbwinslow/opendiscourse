@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.2 merged and live). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.2 live; 9.1 ADR-0003 and harness built). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
