@@ -96,6 +96,7 @@ def _remove_loaded_rows() -> None:
     """Delete rows this module's loads created, children before parents."""
     with connect() as conn:
         for statement in (
+            "DELETE FROM ingest.identity_conflict WHERE dataset_id = 'congress.legislators'",
             (
                 "DELETE FROM core.membership WHERE source_artifact_id IN "
                 "(SELECT artifact_id FROM ingest.artifact WHERE dataset_id = 'congress.legislators')"
@@ -302,23 +303,44 @@ def test_changed_upstream_appends_version_and_adds_only_new_identifiers(
     assert all(a["checksum_sha256"] for a in kept)  # earlier evidence retained
 
 
-def test_identifier_owned_by_another_person_is_reported_not_moved(
+def test_identifier_owned_by_the_only_other_person_attaches_the_rest_to_it(
     catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """ADR-0005: a person is found by any identifier the source asserts, never by name."""
     bg = _bioguide()
     owner = _seed_person("Someone Else", fec=f"C{bg}")
+    before = _person_count()
     vendor = _vendor(
         tmp_path, [{"bioguide": bg, "ids": {"fec": f"C{bg}", "govtrack": f"c{bg}"}}], [{"bioguide": _bioguide()}]
     )
     connector = _load(tmp_path, monkeypatch, vendor)
 
-    assert _identifier("fec", f"C{bg}")["person_id"] == owner
-    assert _identifier("govtrack", f"c{bg}")["person_id"] == _identifier("bioguide", bg)["person_id"]
+    assert _identifier("fec", f"C{bg}")["person_id"] == owner  # not moved
+    assert _identifier("bioguide", bg)["person_id"] == owner  # attached to the person who held the fec id
+    assert _identifier("govtrack", f"c{bg}")["person_id"] == owner
+    assert _person_count() == before + 1  # only the historical newcomer
+    assert connector.result["conflicts"] == []
+
+
+def test_identifiers_split_across_two_persons_are_recorded_not_guessed(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bg = _bioguide()
+    holder = _seed_person("Holds the fec id", fec=f"C{bg}")
+    bioguide_owner = _seed_person("Holds the bioguide id", bg)
+    before = _person_count()
+    vendor = _vendor(
+        tmp_path, [{"bioguide": bg, "ids": {"fec": f"C{bg}", "govtrack": f"c{bg}"}}], [{"bioguide": _bioguide()}]
+    )
+    connector = _load(tmp_path, monkeypatch, vendor)
+
+    assert _identifier("fec", f"C{bg}")["person_id"] == holder
+    assert _identifier("bioguide", bg)["person_id"] == bioguide_owner
+    assert _identifier("govtrack", f"c{bg}") is None  # nothing written for the conflicting record
+    assert _person_count() == before + 1  # only the historical newcomer, no split person
     [conflict] = connector.result["conflicts"]
-    assert conflict["bioguide"] == bg and conflict["existing_person_id"] == str(owner)
-    # A new person was made for a BioGuide whose other id is held: flagged as a possible split.
-    assert conflict["bioguide_person_created"] is True
-    assert connector.result["possible_duplicate_people"] == 1
+    assert conflict["bioguide"] == bg and conflict["kind"] == "multiple_owners"
+    assert conflict["person_ids"] == sorted(str(p) for p in (holder, bioguide_owner))
     assert Path(connector.result["report"]).is_file()
 
 
@@ -489,6 +511,7 @@ def test_run_with_conflicts_is_partial_and_report_is_per_run(
 ) -> None:
     bg = _bioguide()
     _seed_person("Holder", fec=f"P{bg}")
+    _seed_person("Owner", bg)
     vendor = _vendor(
         tmp_path, [{"bioguide": bg, "ids": {"fec": f"P{bg}"}}], [{"bioguide": _bioguide()}]
     )

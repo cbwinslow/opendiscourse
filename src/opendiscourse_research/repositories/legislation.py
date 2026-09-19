@@ -14,7 +14,8 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from ..artifact_storage import validate_retained
-from ..db import session
+from ..db import connect, session
+from ..identity_merge import load_same_person
 from ..ingestion import billstatus_sections
 from ..ingestion.billstatus_record import record_sha256, xml_to_record
 from ..models.catalog import artifact_table
@@ -30,9 +31,9 @@ from ..models.core import (
     jurisdiction_table,
     legislative_session_table,
     person_identifier_table,
-    person_table,
 )
 from ..models.ingest import identity_exception_table, resume_cursor_table
+from .people import resolve_person
 
 _QUERY_ROOT = Path(__file__).resolve().parents[3] / "sql" / "query" / "legislation"
 
@@ -477,47 +478,46 @@ def loaded_artifact_members(artifact_id: str, conn: Any | None = None) -> set[st
 
 
 def sync_openstates_federal_people(conn: Any) -> dict[str, int]:
-    """Seed canonical people and identifiers from the read-only OpenStates baseline."""
-    counts = {"people": 0, "identifiers": 0, "identifier_conflicts": 0}
+    """Seed canonical people and identifiers from the read-only OpenStates baseline.
+
+    A person is found by any identifier OpenStates asserts (its OCD id and the BioGuide
+    and other ids it lists), so loading legislators first never creates a duplicate.
+    """
+    counts = {"people": 0, "people_created": 0, "identifiers": 0, "identifier_conflicts": 0}
+    exceptions = load_same_person()
     with conn.cursor() as cur:
         cur.execute(_query("openstates_federal_people"))
         people = cur.fetchall()
         for person in people:
-            cur.execute(
-                _query("upsert_person_by_ocd"),
-                {
-                    "ocd_id": person["ocd_id"],
+            cur.execute(_query("openstates_person_identifiers"), {"ocd_id": person["ocd_id"]})
+            identifiers = [("ocd", person["ocd_id"])] + [
+                (row["namespace"], row["external_id"])
+                for row in cur.fetchall()
+                if row["namespace"] != "ocd"
+            ]
+            result = resolve_person(
+                cur,
+                identifiers,
+                dataset_id="openstates.legislation",
+                subject=f"ocd:{person['ocd_id']}",
+                new_person={
                     "full_name": person["name"],
                     "given_name": person["given_name"],
                     "family_name": person["family_name"],
-                    "metadata": Jsonb(
-                        {
-                            "canonical_baseline": "openstates",
-                            "openstates_ocd_id": person["ocd_id"],
-                            "openstates_extras": person["extras"] or {},
-                        }
-                    ),
+                    "metadata": {
+                        "canonical_baseline": "openstates",
+                        "openstates_ocd_id": person["ocd_id"],
+                        "openstates_extras": person["extras"] or {},
+                    },
                 },
+                exceptions=exceptions,
             )
-            target = cur.fetchone()
-            assert target is not None
-            person_id = str(target["person_id"])
+            if result["person_id"] is None:
+                counts["identifier_conflicts"] += 1
+                continue
             counts["people"] += 1
-            cur.execute(
-                _query("openstates_person_identifiers"), {"ocd_id": person["ocd_id"]}
-            )
-            for identifier in cur.fetchall():
-                if identifier["namespace"] == "ocd":
-                    continue
-                cur.execute(
-                    _query("insert_person_identifier"),
-                    {"person_id": person_id, **identifier},
-                )
-                result = cur.fetchone()
-                if result is None or str(result["person_id"]) != person_id:
-                    counts["identifier_conflicts"] += 1
-                else:
-                    counts["identifiers"] += 1
+            counts["people_created"] += result["outcome"] == "created"
+            counts["identifiers"] += result["attached"]
     return counts
 
 
@@ -550,53 +550,41 @@ def resolve_bill_sponsorship_people(conn: Any | None = None) -> int:
         return len(cur.fetchall())
 
 
-def upsert_congress_person(member: dict[str, Any], conn: Any | None = None) -> str:
-    """Upsert a Congress.gov member by BioGuide ID with primary-source metadata."""
+def upsert_congress_person(member: dict[str, Any], conn: Any | None = None) -> str | None:
+    """Find or create a Congress.gov member by BioGuide id; ``None`` when it conflicts.
+
+    Runs the same any-identifier resolution as the other person writers. A conflict is
+    recorded in ``ingest.identity_conflict`` and nothing else is written.
+    """
     bioguide_id = member.get("bioguideId")
     if not bioguide_id:
         raise ValueError("Congress.gov member is missing bioguideId")
     full_name = member.get("directOrderName") or member.get("name") or bioguide_id
-    if conn is None:
-        person = person_table()
-        identifier = person_identifier_table()
-        with session() as active_session:
-            person_id = active_session.execute(
-                select(identifier.c.person_id).where(
-                    identifier.c.namespace == "bioguide",
-                    identifier.c.external_id == bioguide_id,
-                )
-            ).scalar_one_or_none()
-            if person_id is None:
-                person_id = active_session.execute(
-                    insert(person)
-                    .values(
-                        full_name=full_name,
-                        given_name=member.get("firstName"),
-                        family_name=member.get("lastName"),
-                        metadata={"congress_gov_member": member},
-                    )
-                    .returning(person.c.person_id)
-                ).scalar_one()
-                active_session.execute(
-                    insert(identifier)
-                    .values(person_id=person_id, namespace="bioguide", external_id=bioguide_id)
-                    .on_conflict_do_nothing()
-                )
-            return str(person_id)
-    with conn.cursor() as cur:
-        cur.execute(
-            _query("upsert_person_by_bioguide"),
-            {
-                "bioguide_id": bioguide_id,
-                "full_name": full_name,
-                "given_name": member.get("firstName"),
-                "family_name": member.get("lastName"),
-                "metadata": Jsonb({"congress_gov_member": member}),
-            },
-        )
-        row = cur.fetchone()
-        assert row is not None
-        return str(row["person_id"])
+    new_person = {
+        "full_name": full_name,
+        "given_name": member.get("firstName"),
+        "family_name": member.get("lastName"),
+        "metadata": {"congress_gov_member": member},
+    }
+
+    def resolve(active: Any) -> str | None:
+        with active.cursor() as cur:
+            result = resolve_person(
+                cur,
+                [("bioguide", bioguide_id)],
+                dataset_id="congress.legislation",
+                subject=f"bioguide:{bioguide_id}",
+                new_person=new_person,
+            )
+        person_id = result["person_id"]
+        return None if person_id is None else str(person_id)
+
+    if conn is not None:
+        return resolve(conn)
+    with connect() as own:
+        person_id = resolve(own)
+        own.commit()
+    return person_id
 
 
 def sync_openstates_federal_organizations(conn: Any) -> int:
