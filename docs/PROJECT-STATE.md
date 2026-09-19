@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19 (Story 3.1 built, not yet applied to the live DB). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Story 3.1 loaded live; PR open). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -121,23 +121,20 @@ duplicate people. Pre-existing rows verified unchanged by fingerprint (9,841
 identifiers, 726 people). Rerun created 0 rows and no new artifact versions.
 People now 12,771 (12,770 with a BioGuide id; 1 baseline person has none).
 Every new identifier carries `source_artifact_id` and `source_run_id`.
-Open item: the first load stored the two artifact `local_path` values as
-relative paths (bug, fixed in code afterwards: paths are now absolute like other
-loaders). The files are intact under `data-lake/opendiscourse/raw/congress/
-legislators/` in the repo checkout (gitignored). The two rows still hold the
-relative path until they are updated to the absolute path (`UPDATE ingest.artifact
-SET local_path = '<repo>/' || local_path WHERE dataset_id='congress.legislators'
-AND local_path LIKE 'data-lake/%'`); until then, a load run from another working
-directory would append a second artifact version instead of reusing this one.
+The first load stored the two artifact `local_path` values as relative paths
+(bug, fixed in code: paths are now absolute like other loaders). Operator approved
+correcting the two rows to absolute paths; done, checksums re-verified, and a rerun
+from another working directory reused them (still 2 artifact versions, 0 rows
+created). Files live under `data-lake/opendiscourse/raw/congress/legislators/`
+in the repo checkout (gitignored), the same root the other loaders use.
 
 ## Roadmap (also in `epics.md`, "Suggested next build")
 
 1. Merge Story 1.7 (after the operator sees the review).
 2. Story 9.1 load contract + harness, then 9.2 run ledger.
-3. Story 3.1 BioGuide identity: **built and green on a fresh DB** (branch
-   `feat/3-1-bioguide-identity`, spec `spec-3-1-bioguide-identity.md`); needs
-   independent review, the live-DB reconciliation above, then `research-db
-   load-legislators`.
+3. Story 3.1 BioGuide identity: **done and loaded live** (branch
+   `feat/3-1-bioguide-identity`, spec `spec-3-1-bioguide-identity.md`); independent
+   review fixes applied; awaiting CI and operator merge. Next: Story 3.2.
 4. Story 9.3 coverage comparator; backfill Congresses 108-119 via Connectors, each
    passing the 9.1 harness.
 5. Redo 2.2 -> 2.3 (FRED) and 8.2 (OpenStates); fix Treasury and FRED failures.
