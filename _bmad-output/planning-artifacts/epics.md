@@ -262,6 +262,17 @@ votes, members; the 108th start is confirmed against GovInfo manifests.
 Built (`research-db coverage`, `coverage.py`,
 `providers/official_counts.py`); first measurement in `docs/PROJECT-STATE.md`.
 
+### Story 9.5 — BILLSTATUS Connector (download, inventory, ingest)
+As an operator (or anyone bootstrapping their own copy), one command fetches the GovInfo
+BILLSTATUS bulk zips from the origin into `DATA_ROOT`, inventories them, and loads bills,
+actions, sponsorships, committees and subjects for Congresses 108-119.
+Acceptance: an unchanged rerun downloads nothing and changes no row; a killed load resumes;
+a refreshed zip replaces the older version's rows instead of duplicating them; bytes are
+verified against the origin's size and `Last-Modified`, and the zip against GovInfo's directory
+manifest; passes the 9.1 harness. Spec `spec-9-5-billstatus-connector.md`.
+Built (`research-db sync-billstatus`, `ingestion/billstatus.py`, `providers/govinfo.py`,
+`providers/paced.py`). Does not remove the old fixed-path loaders; that is the next story.
+
 ## Later (not started; do not begin without a spec)
 
 - **Scorecards** (CAP-9, needs its own spec): derived `mart` outputs over

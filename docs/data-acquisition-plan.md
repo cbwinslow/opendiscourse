@@ -1,6 +1,6 @@
 # Data acquisition plan
 
-Status: proposal, 2026-09-19. Facts marked (measured) were checked against the live
+Status: proposal, 2026-09-19; step 1 of the order of work is built (Story 9.5). Facts marked (measured) were checked against the live
 service; (verify) means confirm against current documentation when implementing.
 
 ## What this project is
@@ -75,8 +75,12 @@ weights (never assign a ZIP to one district without weights).
 
 ## Order of work
 
-1. BILLSTATUS Connector: download, register, load bills, actions, sponsors (Congresses
-   108-119), then point `research-db coverage` at what it fetched.
+1. BILLSTATUS Connector (built, Story 9.5): `research-db sync-billstatus [--congress N] [--bill-type T]
+   [--download-only]` downloads, registers, verifies against the GovInfo manifest and loads bills,
+   actions, sponsorships, committees and subjects (Congresses 108-119). It is the reference
+   implementation of the update flow above: a HEAD per zip detects change, an unchanged zip is not
+   fetched again, exit code 0 / 1 (failed, rerun resumes) / 2 (loaded, coverage incomplete).
+   `research-db coverage` reads what it fetched through the artifact registry.
 2. Member terms and state posts.
 3. Votes Connector (wrapping `unitedstates/congress`), then amendments and bill text.
 4. FEC Connector with the masters; districts and crosswalks.

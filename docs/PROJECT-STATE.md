@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2 merged; 9.3 built (PR pending); 3.1 and 9.2 live; performance audit done). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2, 9.3 merged; 9.5 BILLSTATUS Connector built and run live: bills for Congresses 108-119 loaded and matched to GovInfo). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -68,11 +68,11 @@ ledger, load strategies, coverage checks) that later models can sit on.
 
 | Area | Loaded | Gap |
 |---|---|---|
-| Congress bills | 118th, 119th only (37,373) | 10 more Congresses needed (108-117) |
+| Congress bills | 108th-119th, 172,709 bills (GovInfo's 172,703 plus 6 from another source), Story 9.5 | 6 surplus 119th bills, see "Story 9.5" |
 | Roll calls / member votes | 118th-119th only (1,827 / 473,490) | 108-117; Senate source is "idea" |
 | People | 12,771 (12,770 with BioGuide; loaded 2026-09-19, Story 3.1) | 1 baseline person has no BioGuide; politician joins still gated (Story 3.2) |
 | FEC | 102M rows in `stage.fec_row` (pas2, oppexp, oth complete; indiv 2000-2016 only; unattributed, see above) | staging only; not promoted; person join gated (3.2): needs reviewed contract + cn/cm/ccl files; v1.1 |
-| GovInfo BILLSTATUS cache | Congresses 108-119, unverified legacy | 119th missing 2,831 XML; re-fetch from official source |
+| GovInfo BILLSTATUS zips | 96 zips (591 MB) downloaded from govinfo.gov into `DATA_ROOT` and registered (Story 9.5); every zip matches GovInfo's directory manifest | none; the legacy lake copy is no longer an input |
 | OpenStates | 10 ok, 5 partial, 3 failed runs | coverage unmeasured; promotion reverted |
 | FRED | 135 ok, 6 failed (HTTP 400/500) | some series missing |
 | Treasury yields | 29 ok, 24 failed | parser broke ("no recognizable rate table") |
@@ -93,10 +93,15 @@ Discarded work: the lake registry, legacy roots and prune tooling (closed PR #42
 to organise that server's data; they are parked locally and will not ship.
 
 **Known debt** (modules on `main` that read fixed local paths; replace with Connectors, do
-not extend): `legvalidate.BILLSTATUS_ROOT` and its users (`legarchive`, `govbackfill`,
-`legload`, `legreconcile`, `govplan`), `audit.py` `ROOTS`, `ingestion/fec_bulk.py`
-`LEGACY_ROOT`. `research-db coverage` now finds downloaded zips through the artifact
-registry instead of a fixed path.
+not extend): `audit.py` `ROOTS`, `ingestion/fec_bulk.py` `LEGACY_ROOT`. The BILLSTATUS debt is
+now replaceable (Story 9.5): `legvalidate.BILLSTATUS_ROOT` and its users (`legarchive`,
+`govbackfill`, `legload`, `legreconcile`, `govplan`) and their CLI commands (`validate billstatus`,
+`plan billstatus`, `backfill-billstatus`, `reconcile billstatus`, `load-billstatus`) are
+superseded by `research-db sync-billstatus` and can be removed next. Two things still import
+from them, so move those first: `coverage.py` uses `legreconcile._bill_details`, and
+`congresshealth.billstatus_coverage` reads run parameters (`congress`, `coverage`) that only the
+old loader wrote (it is 119-only and superseded by `research-db coverage` / `loaded`).
+`research-db coverage` finds downloaded zips through the artifact registry instead of a fixed path.
 
 ## Coverage report (Story 9.3, first measurement 2026-09-19)
 
@@ -123,6 +128,50 @@ Congress and year expire after a day); `latest.json` holds the last report.
 Roll-call "expected" is the highest number on the official index, so it counts every recorded
 call, including ones the source loaders may legitimately skip; check that before treating the
 House gap as a loader bug.
+
+## Story 9.5: BILLSTATUS Connector (built and run live, 2026-09-19)
+
+`research-db sync-billstatus [--congress N] [--bill-type T] [--download-only]` is the whole
+download -> inventory -> ingest workflow for GovInfo BILLSTATUS (spec
+`_bmad-output/implementation-artifacts/spec-9-5-billstatus-connector.md`; code
+`ingestion/billstatus.py`, `providers/govinfo.py`, `providers/paced.py`,
+`repositories/billstatus.py`). Exit code 0 complete, 1 failed (rerun resumes), 2 loaded but
+coverage incomplete.
+
+- **How it decides:** one HEAD per zip (size and `Last-Modified`) against what the registry
+  recorded; an unchanged, origin-verified zip is never downloaded again; a registry row with no
+  recorded origin state is re-verified by download; each zip is compared with GovInfo's directory
+  manifest and the verdict is stored on the artifact (`metadata.coverage`).
+- **Refresh:** a changed zip is a new artifact version. Child tables (actions, sponsorships,
+  committees, subjects) key on `source_artifact_id`, so the Connector deletes the older versions'
+  rows for the bills it rewrites in the same transaction; without that every refresh would
+  duplicate every row. Observed live: GovInfo regenerated the 119th `hr` and `s` zips during the
+  session; the Connector replaced 294,354 rows for 15,931 bills. **Known cost:** a refresh reloads
+  every bill in the zip (about 4.5 minutes for the 119th), not only the changed ones; skipping
+  members by content hash is the next optimization if it matters.
+- **Live result:** 96 zips (572 MB downloaded), 172,703 XML files in the official manifests;
+  172,709 bills, 929,756 actions and 2,272,151 sponsorships (every one resolved to a person by BioGuide) loaded for Congresses 108-119 at about 60 bills/s. `research-db
+  coverage`: bills loaded equal expected for every Congress 108-118, and every Congress's
+  actions equal the zips. A no-op rerun downloads nothing and loads nothing (about 2 minutes,
+  mostly the 96 paced HEADs).
+- **The 119th surplus (6 bills, 18,962 loaded vs 18,956 official):** H.R. 6, 9, 11, 13, 16, 19,
+  "Reserved for the Speaker/Minority Leader", loaded earlier from a `congress.gov` source
+  (`metadata.source`), with no identifiers and so no provenance. They are not in GovInfo's
+  BILLSTATUS manifest. Left in place; give them provenance or drop them when the Congress.gov
+  API Connector is built.
+- **What the live run found:** (1) 13 GovInfo files (113th `hr` 1, 115th `hr` 1, 117th `hr` 11: the
+  House's reserved numbers) spell identity `<billType>/<billNumber>` instead of `<type>/<number>`;
+  the parser skipped them and the run reported partial (exit 2) rather than hiding it. Fixed in
+  `parse_billstatus_xml` and `legreconcile._bill_details`; the earlier coverage figures "lake short
+  by 1, 1, 11" were these files, not missing data. (2) The 16 registered 118th/119th artifacts
+  pointed at legacy-lake files that no longer exist; each was re-downloaded from the origin as a new
+  version (v2) and its rows re-loaded and replaced (734,021 child rows superseded). The old v1
+  registry rows remain as history and point at missing files; nothing references them.
+- **Speed:** the first real load ran at 15 bills/s. A profile showed 27% of the time re-reading SQL
+  files and a third of the round trips repeating sponsor lookups; `_query` is now cached and
+  sponsor lookups are memoized per run (2.1x in the same profile).
+- `ingest.run.code_version` on the backfill runs reads `<sha>-dirty` because docs were being
+  edited (tracked files differ); the SHA is the right commit. Runs before 9.2 stay unattributed.
 
 ## Large tables and database sizing (measured 2026-09-19)
 
@@ -213,7 +262,7 @@ building Connectors, verifying against official manifests, and Story 9.3's cover
 
 | Area | Have | Need | Rough effort |
 |---|---|---|---|
-| Bills, actions, members, Congresses 108-117 | GovInfo BILLSTATUS legacy cache 108-119 (`/mnt/storage`, unverified); 118-119 loaded (37K bills) | verify against GovInfo manifests, fetch the 119th's 2,831 missing XML (28 MB), load 10 Congresses | loads about 3 min per Congress at the measured ~110 bills/s; verification and Connector work dominate |
+| Bills, actions, sponsors, Congresses 108-119 | **Done (Story 9.5):** downloaded from GovInfo, verified against its manifests, loaded | member terms (`core.membership` is still empty) | n/a |
 | Roll calls and member votes, 108-117 | only the 118th on disk and loaded (1,827 roll calls, 473K votes) | fetch both chambers via `unitedstates/congress` (about 20K small files, polite rate: hours), Connector, 9.1 harness | hours to download, about 5M member-vote rows |
 | FEC | all 50 archives downloaded (20 GB); staging holds pas2/oppexp/oth complete, indiv 2000-2016 | indiv 2018-2024 (largest cycles; not before compact layout and partitioning), `cn`/`cm`/`ccl` linkage files (small, not on disk), a reviewed join contract | about 40K rows/s measured, so 200M rows is roughly 1.5 hours once staged compactly; v1.1 |
 | Epstein files | 794K files, 658 GB in `/mnt/storage/data-lake/government/epstein` (legacy, HOLD, inventory only) | its own spec first: sensitivity and access rules, no entity claims, phased (checksum registry, then text extraction, then search); HDD makes hashing 658 GB a multi-hour job | after the Congress core; needs operator decisions |
@@ -229,7 +278,8 @@ each passing the 9.1 harness, and only after the 17 cluster is restarted with th
 2. Rerun `scripts/bench/benchmark_load_strategies.py` (about 8 minutes) and refresh the ADR-0003
    tables with the tuned-settings numbers.
 3. Story 9.3 coverage comparator: built (see "Coverage report"); use it after every backfill.
-4. Backfill Congress bills/actions/members, then votes, through Connectors with the harness.
+4. Bills, actions and sponsors: done (Story 9.5). Next: member terms and state posts, then votes (wrap `unitedstates/congress`), amendments, bill text. Each through a Connector with the harness.
+4b. Remove the old fixed-path BILLSTATUS loaders listed under "Known debt" (move `coverage.py`'s `_bill_details` and the `congresshealth` check first).
 5. Then: FRED/OpenStates redo (2.2, 2.3, 8.2), Treasury and FRED failures, FEC promotion.
 6. Decide the `fact.acs_bulk_estimate` redesign (docs/performance-audit-2026-09-19.md) when Epics 5-6
    define real queries.
@@ -257,8 +307,8 @@ each passing the 9.1 harness, and only after the 17 cluster is restarted with th
    Finding for 9.1: no table is partitioned; `fact.acs_bulk_estimate` 99 GB/281M rows,
    `stage.fec_row` 74 GB/102M, `stage.cbp_row` 22 GB. Reload-by-slice on those means big
    deletes and bloat unless new large tables are partitioned; ADR-0003 must decide.
-4. Story 9.3 coverage comparator; backfill Congresses 108-119 via Connectors, each
-   passing the 9.1 harness.
+4. Story 9.3 coverage comparator (merged); bills for Congresses 108-119 via the BILLSTATUS
+   Connector, Story 9.5 (passes the 9.1 harness). Votes and terms still to do.
 5. Redo 2.2 -> 2.3 (FRED) and 8.2 (OpenStates); fix Treasury and FRED failures.
 6. FEC promotion after 3.1.
 

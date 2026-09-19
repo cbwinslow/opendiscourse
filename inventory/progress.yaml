@@ -51,12 +51,12 @@ items:
   - id: govbulk
     dataset: govinfo.bulk
     state: verify
-    scope: 868 legacy GovInfo artifacts (289 ZIP, 250 XML, 329 JSON; 5.46 GiB) across BILLS, BILLSTATUS, and BILLSUM; Congresses 108-119. BILLSTATUS structural validation passed for 96 archive groups, but the 119th cache is incomplete versus live GovInfo.
+    scope: 868 legacy GovInfo artifacts (289 ZIP, 250 XML, 329 JSON; 5.46 GiB) across BILLS, BILLSTATUS, and BILLSUM; Congresses 108-119. BILLSTATUS structural validation passed for 96 archive groups, but the 119th cache is incomplete versus live GovInfo. SUPERSEDED for BILLSTATUS on 2026-09-19 by `research-db sync-billstatus`, which downloaded all 96 zips from govinfo.gov and loaded them; BILLS and BILLSUM remain unacquired.
     origin: /mnt/storage/data-lake/government/epstein/raw-files/govinfo_bulk
     provenance: legacy_cache_unverified
     sensitivity: public_claimed
     validate: Verify package and granule IDs against GovInfo manifests. The 119th Congress comparison found 2,831 XML files absent from local BILLSTATUS listing metadata; treat local data as a partial cache only.
-    next: Review the disabled 119th-Congress missing-file plan (2,831 XML, 28.3 MB, capacity approved) at meta/plan/govinfo/billstatus-119-missing.json. Do not download or ingest until explicitly approved.
+    next: BILLSTATUS is done (Story 9.5); the missing-file plan is obsolete because the fresh 119th zip matches GovInfo's manifest. Bill text (BILLS) is the next GovInfo Connector.
   - id: congdata
     dataset: congress.legislation
     state: verify
