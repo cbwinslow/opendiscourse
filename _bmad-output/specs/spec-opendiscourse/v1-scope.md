@@ -53,10 +53,10 @@ tables; no market-price ingest.
   via FDW. Do not merge the dump. Do not treat FDW as the researcher
   contract; promote into `core` (AD-8).
 - `vector` extension 0.8.5 installed; `core.embedding` still portable `real[]`.
-- Already loaded (pre-Connector paths): ~36k bills, ~465k member votes,
-  ACS bulk ~99 GiB, TIGER boundaries ~10 GiB, `stage.fec_row` ~74 GiB.
-- Still empty / missing: `core.legislative_session`, `core.membership`,
-  market tables. `core.post` / `core.division` exist in the Alembic contract
-  (Story 8.1, revision `a4f8c2e9b176`); live `opendiscourse` on 5434 may
-  still need `alembic upgrade head`.
+- Loaded (updated 2026-09-19): 172,709 bills for Congresses 108-119 with full BILLSTATUS records, CRS
+  summaries, laws, related bills and amendments (Stories 9.5, 9.5b); 45,535 member terms with 740 posts
+  and 690 divisions (Story 3.3); ~465k member votes for Congresses 118-119 only; ACS bulk ~99 GiB,
+  TIGER boundaries ~10 GiB, `stage.fec_row` ~74 GiB.
+- Still empty / missing: market tables, `core.document_chunk`, `core.embedding`, votes for
+  Congresses 108-117, committee membership. The live database is at the latest Alembic head.
 - `api` schema exists with no reviewed views. Some `mart` / `leg` views exist.

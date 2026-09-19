@@ -25,3 +25,13 @@ search, or export code. Wrap behind provenance.
 | Meltano/Singer | Not the foundation |
 | `censusdis` | Optional convenience; not required (license) |
 | Serena, Context7, GitHub MCP | Agent retrieval; not authority |
+| Voteview (UCLA) | Wrap through the `voteview` task in `unitedstates/congress`; joins on ICPSR |
+| `pygris`, `datamade/census` | REFERENCE until licence, maintenance and fit are checked (ADR-0004) |
+| `fredapi` | Optional extra `fred`; our FRED client stays |
+| LDA.gov API (lobbying) | Candidate, gate `later`: official REST API; verify limits and licence before use |
+| USAspending, SAM.gov, Federal Register, Regulations.gov, eCFR, CourtListener | Candidates, gate `later`: use the publisher's own bulk files or API; not scheduled |
+| House Clerk and Senate eFD financial disclosures | Official sources are canonical; store disclosed ranges, never a midpoint. Blocked on a filer-identifier bridge |
+| `congress-trading-pipeline`, PoliTracker, Quantgress, `us-congress-stock-transactions-retrieval`, `pyCFR` | REFERENCE only: small, unverified projects (ADR-0004) |
+| Pandera | Evaluate when a loader needs frame validation before promotion |
+| Parquet/DuckDB "normalized lake" | Derived, rebuildable side cache only; needs its own ADR and a benchmark (ADR-0004) |
+| Data.gov | Discovery only; ingest from the publisher's endpoint |
