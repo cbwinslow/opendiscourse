@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.2 live; 9.1 ADR-0003 and harness built). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2 merged; 3.1 and 9.2 live; performance audit done). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -161,6 +161,34 @@ correcting the two rows to absolute paths; done, checksums re-verified, and a re
 from another working directory reused them (still 2 artifact versions, 0 rows
 created). Files live under `data-lake/opendiscourse/raw/congress/legislators/`
 in the repo checkout (gitignored), the same root the other loaders use.
+
+## Data completion plan and estimates (2026-09-19; estimates, not measurements)
+
+What "complete" means for v1 and where each piece stands. Compute is cheap; the calendar time is
+building Connectors, verifying against official manifests, and Story 9.3's coverage report.
+
+| Area | Have | Need | Rough effort |
+|---|---|---|---|
+| Bills, actions, members, Congresses 108-117 | GovInfo BILLSTATUS legacy cache 108-119 (`/mnt/storage`, unverified); 118-119 loaded (37K bills) | verify against GovInfo manifests, fetch the 119th's 2,831 missing XML (28 MB), load 10 Congresses | loads about 3 min per Congress at the measured ~110 bills/s; verification and Connector work dominate |
+| Roll calls and member votes, 108-117 | only the 118th on disk and loaded (1,827 roll calls, 473K votes) | fetch both chambers via `unitedstates/congress` (about 20K small files, polite rate: hours), Connector, 9.1 harness | hours to download, about 5M member-vote rows |
+| FEC | all 50 archives downloaded (20 GB); staging holds pas2/oppexp/oth complete, indiv 2000-2016 | indiv 2018-2024 (largest cycles; not before compact layout and partitioning), `cn`/`cm`/`ccl` linkage files (small, not on disk), a reviewed join contract | about 40K rows/s measured, so 200M rows is roughly 1.5 hours once staged compactly; v1.1 |
+| Epstein files | 794K files, 658 GB in `/mnt/storage/data-lake/government/epstein` (legacy, HOLD, inventory only) | its own spec first: sensitivity and access rules, no entity claims, phased (checksum registry, then text extraction, then search); HDD makes hashing 658 GB a multi-hour job | after the Congress core; needs operator decisions |
+
+Downloads and loads can run in the background (`run_in_background`), one Connector at a time,
+each passing the 9.1 harness, and only after the 17 cluster is restarted with the tuned settings.
+
+## Next steps when resuming
+
+1. Operator: `sudo systemctl restart postgresql@17-main` (applies `shared_buffers`,
+   `max_worker_processes`, `pg_stat_statements`); then `CREATE EXTENSION pg_stat_statements`
+   in `opendiscourse`. Optional: cap `autovacuum_work_mem` on the 16 cluster.
+2. Rerun `scripts/bench/benchmark_load_strategies.py` (about 8 minutes) and refresh the ADR-0003
+   tables with the tuned-settings numbers.
+3. Story 9.3 coverage comparator (Congresses 108-119; count the unattributed FEC staging).
+4. Backfill Congress bills/actions/members, then votes, through Connectors with the harness.
+5. Then: FRED/OpenStates redo (2.2, 2.3, 8.2), Treasury and FRED failures, FEC promotion.
+6. Decide the `fact.acs_bulk_estimate` redesign (docs/performance-audit-2026-09-19.md) when Epics 5-6
+   define real queries.
 
 ## Roadmap (also in `epics.md`, "Suggested next build")
 
