@@ -267,6 +267,7 @@ def register_artifact(
     content_type: str | None = None,
     metadata: dict[str, Any] | None = None,
     conn: Any | None = None,
+    error_message: str | None = None,
 ) -> dict[str, Any]:
     """Append or promote one artifact version without redefining prior evidence."""
     if checksum_sha256 is not None:
@@ -282,6 +283,7 @@ def register_artifact(
         "bytes_downloaded": bytes_downloaded,
         "checksum_sha256": checksum_sha256,
         "status": status,
+        "error_message": error_message,
         "metadata": Jsonb(metadata or {}),
     }
     if conn is not None:
@@ -314,6 +316,8 @@ def register_artifact(
         bytes_downloaded=bytes_downloaded,
         checksum_sha256=checksum_sha256,
         status=status,
+        error_message=error_message,
+        downloaded_at=func.now() if status == "downloaded" else None,
         metadata=metadata or {},
     )
     with session() as active_session:
@@ -363,6 +367,10 @@ def register_artifact(
                         bytes_downloaded=bytes_downloaded,
                         checksum_sha256=checksum_sha256,
                         status=status,
+                        error_message=error_message,
+                        downloaded_at=func.now()
+                        if status == "downloaded"
+                        else latest["downloaded_at"],
                         metadata=(latest["metadata"] or {}) | (metadata or {}),
                     )
                     .returning(table)
@@ -379,6 +387,10 @@ def register_artifact(
                     .values(
                         remote_url=remote_url,
                         status=status,
+                        error_message=error_message,
+                        downloaded_at=func.now()
+                        if status == "downloaded"
+                        else latest["downloaded_at"],
                         metadata=(latest["metadata"] or {}) | (metadata or {}),
                     )
                     .returning(table)

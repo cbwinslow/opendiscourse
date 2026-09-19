@@ -50,12 +50,9 @@ def _retained_path(spec: ArtifactSpec, checksum: str) -> Path:
 
 def _retain(spec: ArtifactSpec, source: Path, checksum: str, *, move: bool) -> Path:
     """Put verified bytes at their checksum-specific path before catalog admission."""
-    retained = retain_artifact_bytes(
-        source, checksum, destination=_retained_path(spec, checksum)
+    return retain_artifact_bytes(
+        source, checksum, destination=_retained_path(spec, checksum), move=move
     )
-    if move and source != retained:
-        source.unlink()
-    return retained
 
 
 def _upsert(spec: ArtifactSpec, path: Path, status: str, **values: object) -> None:
@@ -76,10 +73,10 @@ def _upsert(spec: ArtifactSpec, path: Path, status: str, **values: object) -> No
         content_type=values.get("content_type")
         if isinstance(values.get("content_type"), str)
         else None,
-        metadata={
-            **(spec.metadata or {}),
-            **({"error": values["error"]} if values.get("error") else {}),
-        },
+        error_message=values["error"]
+        if isinstance(values.get("error"), str)
+        else None,
+        metadata=spec.metadata or {},
     )
 
 
@@ -100,6 +97,8 @@ def _download_locked(spec: ArtifactSpec, *, overwrite: bool, chunk_size: int) ->
     partial = target.with_suffix(target.suffix + ".part")
     latest = None
     if not overwrite:
+        # A failed latest version is an unfinished refresh: fall through so this
+        # call resumes it (Story 1.7 spec) rather than returning the older bytes.
         latest = get_artifact(spec.dataset_id, spec.artifact_key)
         if (
             latest

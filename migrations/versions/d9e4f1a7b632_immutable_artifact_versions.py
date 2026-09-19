@@ -39,6 +39,17 @@ def upgrade() -> None:
             ["dataset_id", "artifact_key", "artifact_version"],
             schema="ingest",
         )
+    # One definition of "the version consumers should read": the newest version
+    # whose bytes are usable. A later failed refresh must not hide verified bytes.
+    op.execute(
+        """
+        CREATE OR REPLACE VIEW ingest.current_artifact AS
+        SELECT DISTINCT ON (dataset_id, artifact_key) *
+        FROM ingest.artifact
+        WHERE status IN ('downloaded', 'skipped', 'loaded')
+        ORDER BY dataset_id, artifact_key, artifact_version DESC
+        """
+    )
 
 
 def downgrade() -> None:
@@ -56,6 +67,7 @@ def downgrade() -> None:
         END $$;
         """
     )
+    op.execute("DROP VIEW IF EXISTS ingest.current_artifact")
     op.drop_constraint("artifact_dataset_id_artifact_key_version_key", "artifact", schema="ingest", type_="unique")
     op.create_unique_constraint("artifact_dataset_id_artifact_key_key", "artifact", ["dataset_id", "artifact_key"], schema="ingest")
     op.drop_column("artifact", "artifact_version", schema="ingest")

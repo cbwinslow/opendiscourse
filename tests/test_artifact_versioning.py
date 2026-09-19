@@ -641,3 +641,164 @@ def test_real_admission_supersedes_matching_virtual_reference(catalog_database, 
         assert real["artifact_version"] == 2
         assert real["local_path"] == str(retained)
         assert get_artifact("census.tiger", key, supplied, version=1)["local_path"].startswith("virtual://")
+
+
+def _artifact_row(artifact_id) -> dict:
+    """Read one full artifact row, including columns registration does not return."""
+    table = artifact_table()
+    with session() as active_session:
+        return dict(
+            active_session.execute(
+                select(table).where(table.c.artifact_id == artifact_id)
+            )
+            .mappings()
+            .one()
+        )
+
+
+def _bulk_consumers():
+    """Every loader that resolves an artifact by key, with its dataset."""
+    from opendiscourse_research.ingestion.acs_load import _artifact as acs_artifact
+    from opendiscourse_research.ingestion.cbp_load import _artifact as cbp_artifact
+    from opendiscourse_research.ingestion.dhc_load import _artifact as dhc_artifact
+    from opendiscourse_research.ingestion.pep_load import _artifact as pep_artifact
+    from opendiscourse_research.ingestion.tiger_load import _artifact as tiger_artifact
+
+    return [
+        ("census.acs_5", lambda key: acs_artifact("census.acs_5", key)),
+        ("census.business_patterns", cbp_artifact),
+        ("census.decennial", dhc_artifact),
+        ("census.population_estimates", pep_artifact),
+        ("census.tiger", tiger_artifact),
+    ]
+
+
+def test_failed_refresh_never_hides_current_version_from_any_consumer(
+    catalog_database: None,
+) -> None:
+    """Story 1.7 review: a failed v2 must not shadow verified v1 for loaders/health."""
+    from opendiscourse_research.censushealth import _artifacts as health_artifacts
+    from opendiscourse_research.repositories.artifacts import get_current_artifact
+
+    for dataset_id, consumer in _bulk_consumers():
+        key = _key(f"shadow-{dataset_id.rsplit('.', 1)[-1]}")
+        v1 = register_artifact(
+            dataset_id,
+            "https://example.test/v1",
+            f"virtual://{key}/1",
+            key,
+            checksum_sha256="v1",
+            status="downloaded",
+        )
+        failed = register_artifact(
+            dataset_id,
+            "https://example.test/v2",
+            f"virtual://{key}/attempt",
+            key,
+            status="failed",
+            error_message="HTTP 503",
+        )
+        assert (failed["artifact_version"], failed["status"]) == (2, "failed")
+        assert consumer(key)["artifact_id"] == v1["artifact_id"]
+        current = get_current_artifact(key, dataset_id=dataset_id)
+        assert current["artifact_id"] == v1["artifact_id"]
+        health = health_artifacts([key])
+        assert [row["artifact_id"] for row in health] == [v1["artifact_id"]]
+
+
+def test_health_reports_only_failed_attempts_as_failed_not_missing(
+    catalog_database: None,
+) -> None:
+    from opendiscourse_research.censushealth import _artifacts as health_artifacts
+    from opendiscourse_research.ingestion.tiger_load import _artifact as tiger_artifact
+    from opendiscourse_research.repositories.artifacts import get_current_artifact
+
+    key = _key("only-failed")
+    register_artifact(
+        "census.tiger",
+        "https://example.test/x",
+        f"virtual://{key}/attempt",
+        key,
+        status="failed",
+        error_message="HTTP 503",
+    )
+    rows = health_artifacts([key])
+    assert [(row["status"], row["error_message"]) for row in rows] == [
+        ("failed", "HTTP 503")
+    ]
+    assert get_current_artifact(key) is None
+    with pytest.raises(ValueError, match="has not been downloaded"):
+        tiger_artifact(key)
+
+
+def test_fec_staging_reads_only_the_current_version_of_each_cycle(
+    catalog_database: None,
+) -> None:
+    """A changed cycle file must not be staged twice (v1 and v2 rows)."""
+    from opendiscourse_research.ingestion import fec_bulk
+
+    family = f"t{_NAMESPACE[:8]}"
+    ids = {}
+    for cycle, checksums in ((2022, ["a"]), (2024, ["b1", "b2"])):
+        key = _key(f"fec-{cycle}")
+        for checksum in checksums:
+            ids[cycle] = register_artifact(
+                fec_bulk.DATASET_ID,
+                f"https://example.test/{cycle}",
+                f"virtual://{key}/{checksum}",
+                key,
+                checksum_sha256=checksum,
+                status="downloaded",
+                metadata={"family": family, "cycle": cycle},
+            )["artifact_id"]
+    register_artifact(  # a later failed refresh of 2024 must not hide 2024 v2
+        fec_bulk.DATASET_ID,
+        "https://example.test/2024",
+        f"virtual://{_key('fec-2024')}/attempt",
+        _key("fec-2024"),
+        status="failed",
+        metadata={"family": family, "cycle": 2024},
+    )
+    staged = fec_bulk._registered_artifacts(family)
+    assert [row["artifact_id"] for row in staged] == [ids[2022], ids[2024]]
+
+
+def test_current_artifact_view_matches_repository_statuses(
+    catalog_database: None,
+) -> None:
+    from opendiscourse_research.repositories.artifacts import CURRENT_STATUSES
+
+    with connect() as conn:
+        definition = conn.execute(
+            "SELECT pg_get_viewdef('ingest.current_artifact'::regclass) AS definition"
+        ).fetchone()["definition"]
+    for status in CURRENT_STATUSES:
+        assert f"'{status}'" in definition
+    for status in ("failed", "planned", "downloading"):
+        assert f"'{status}'" not in definition
+
+
+@pytest.mark.parametrize("raw", [False, True])
+def test_failure_records_error_and_verified_retry_clears_it(catalog_database, raw):
+    """Failure detail lives in error_message; a verified retry clears it."""
+    key = _key(f"error-column-{raw}")
+    with connect() as conn:
+        failed = register_artifact(
+            "census.tiger",
+            "https://example.test/x",
+            f"virtual://{key}/attempt",
+            key,
+            status="failed",
+            error_message="HTTP 503",
+            conn=conn if raw else None,
+        )
+    row = _artifact_row(failed["artifact_id"])
+    assert (row["error_message"], row["downloaded_at"]) == ("HTTP 503", None)
+    assert "error" not in row["metadata"]
+    with connect() as conn:
+        promoted = _register(key, "good-bytes", conn=conn if raw else None)
+    assert promoted["artifact_id"] == failed["artifact_id"]
+    row = _artifact_row(failed["artifact_id"])
+    assert row["status"] == "downloaded"
+    assert row["error_message"] is None
+    assert row["downloaded_at"] is not None

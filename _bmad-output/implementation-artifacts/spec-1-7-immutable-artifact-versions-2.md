@@ -4,7 +4,7 @@ type: 'feature'
 created: '2026-09-18'
 status: 'in-review'
 route: 'dispatch'
-review_loop_iteration: 1
+review_loop_iteration: 2
 baseline_commit: '910823b55968438091aad8f2fe94b8e26f83c228'
 context:
   - '_bmad-output/implementation-artifacts/epic-1-context.md'
@@ -54,6 +54,7 @@ context:
 - `src/opendiscourse_research/repositories/legislation.py` -- preserve caller signatures while making repository and supplied-connection registration/lookup version-aware and concurrency-safe.
 - `sql/query/legislation/{register_artifact,get_artifact}.sql` -- keep raw psycopg registration and lookup semantically identical to the repository path.
 - `src/opendiscourse_research/ingestion/bulk.py` -- stage downloads, hash them, and retain them at immutable version-specific paths before completed registration.
+- `src/opendiscourse_research/repositories/artifacts.py` + migration view `ingest.current_artifact` -- the single "current usable version" rule (`downloaded`/`skipped`/`loaded`, newest version); every consumer reads through it.
 - `src/opendiscourse_research/{browser.py,legload.py,ingestion/*_load.py}` -- select the intended latest version and route real byte artifacts through verified retention without changing Connector/OpenStates scope.
 - `tests/test_artifact_versioning.py` -- new DB coverage for retained bytes, versions, failure attempts, raw and bulk concurrency, and downgrade refusal.
 - `tests/{conftest.py,test_persistence_foundation.py,test_provenance_identity_contracts.py}` -- collect DB coverage and update the migration/unique-key contract assertions.
@@ -80,9 +81,13 @@ context:
 - Added revision `d9e4f1a7b632`, with an append-only version key and a downgrade preflight that restores the parent schema only when no artifact history exists.
 - Bulk downloads and local registration retain verified bytes at checksum-specific paths before a completed artifact is registered. Legacy paths are intentionally not treated as retained evidence.
 - Repository and supplied-connection registration share advisory-lock protected version allocation; explicit artifact lookup is keyword-only to preserve positional connection callers.
+- Consumers read artifacts only through `ingest.current_artifact` / `repositories.artifacts`; never `ORDER BY artifact_version DESC LIMIT 1` in a loader.
+- Open follow-up: safe pruning of superseded versions that no `core`/`fact` row references (storage grows with every changed refresh).
 - The previous implementation was deliberately reverted after review; the preceding notes describe discarded work and do not represent the current tree.
 
 ## Spec Change Log
+
+- Iteration 2 (2026-09-19): a second review pass over the committed rebuild found that artifact *consumers* (FEC staging, ACS snapshot, Census health) still read every version or the newest row regardless of status, and that retention re-copied and re-hashed multi-GB files on every rerun. Fixed with one shared current-version rule (`ingest.current_artifact` view + `repositories/artifacts.py`), move-by-hard-link for our own downloads, early return when bytes are already retained, and a fail-closed free-space check before copying external files. The frozen policy is unchanged.
 
 - Resumed after the independent reviewers stopped at a usage limit without findings. The first rebuild passed 111 fast and 79 DB tests, but acceptance audit found missing local-file validation, legacy-path supersession, resumable serialized staging, atomic retention, and actual download/ACS snapshot coverage. Reopened those tasks; the approved frozen policy is unchanged. Preserve versioned UUIDs, non-destructive downgrade, positional connection compatibility, and passing migration-adoption coverage.
 
@@ -106,6 +111,22 @@ context:
 | Verification Gap: loaders have no two-version selection tests | medium | patch | The new descending ordering is only exercised with one row, so omission/regression would remain undetected. |
 | Verification Gap: raw explicit-version lookup has no history test | medium | patch | Explicit raw lookup is tested only where v1 is the sole row; it does not prove the SQL respects the requested version. |
 | Verification Gap: supplied-connection concurrency has no coverage | medium | patch | The session branch is concurrent-tested, but separate raw connections are not, leaving the compatibility branch's locking promise unproved. |
+
+### Iteration 2 review (2026-09-19, `code-review high 910823b..HEAD`, findings re-checked by reading code)
+
+| Finding | Verdict | Route | Evidence / resolution |
+|---|---|---|---|
+| FEC `stage_family` stages every version of a cycle | confirmed | patch | `fec_bulk._registered_artifacts` had no version filter; now reads `current_artifact`. Test: `test_fec_staging_reads_only_the_current_version_of_each_cycle`. |
+| `sync_acs` newest row, no status filter; failed v2 shadows verified v1 | confirmed | patch | Now `get_current_artifact`. |
+| `censushealth` reads all versions, arbitrary row wins | confirmed | patch | `report_artifacts`: current version, else newest failed attempt (reads failed, not missing). |
+| Retention copies+hashes whole file every rerun; legload retained before its skip check | confirmed | patch | Early return when the retained file exists (one validating read); `move=True` publishes our own staging file by hard link; legload skips before retaining. |
+| Copy of external files ignores free space | confirmed | patch | `_require_space` fails closed, 1 GiB reserve. |
+| Damaged retained file wedges pipeline with an opaque error | confirmed | patch (message only) | Actionable error naming the file; never auto-overwritten (evidence). Repair command deferred. |
+| Failed refresh + normal `download()` re-downloads instead of reusing v1 | rejected | by design | Spec: a failed refresh is a provisional version that a later retry completes; `test_download_failure_resume_and_provisional_promotion` asserts the resume. |
+| Failure detail in `metadata`, `downloaded_at`/`error_message` unwritten | confirmed | patch | `register_artifact(error_message=...)` on both DB routes; `downloaded_at` set for `downloaded`; verified retry clears the error. |
+| SQL and ORM register paths duplicated | accepted | note | Deliberate (AD-7). Parametrized route tests run identical scenarios through both. |
+| Bootstrap `sql/004_bulk_artifacts.sql` keeps the old unique key | rejected | out of scope | Alembic owns the catalog from baseline `d207df35ca10`; the baseline DDL is frozen and nothing applies that file. |
+| Promote can overwrite `period_start/end` with NULL (COALESCE dropped) | open | note | Callers always pass the spec period; revisit if a caller omits it. |
 
 ## Design Notes
 
