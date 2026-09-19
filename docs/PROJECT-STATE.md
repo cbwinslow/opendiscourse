@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19. Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Story 3.1 loaded live; PR open). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -100,11 +100,41 @@ table to benchmark for the load strategy (Story 9.1), not to load votes alone.
 Story 9.3 must inventory the lake the same way it inventories the database and
 official manifests, so "have it" vs "need it" is a report, not a guess.
 
+## Live database reconciliation (done 2026-09-19)
+
+The live `opendiscourse` DB was stamped `b8c2f1d4e390` (a revision from the
+reverted OpenStates promote, #22) and was physically at `a4f8c2e9b176`: it also
+lacked the Story 1.6 evidence checks and Story 1.7's `artifact_version`.
+Operator approved the reconciliation. Done in one transaction after read-only
+pre-checks (all reverted objects empty; no rows violated the 1.6 checks):
+dropped `core.membership.ocd_id` and `membership_ocd_id_idx` (0 rows had a value),
+restored `identity_exception_kind_check` to `kind = 'voter'` (0 `membership`
+rows), stamped `a4f8c2e9b176`, then `init-db` applied `b1e5c8a3d942`,
+`d9e4f1a7b632`, `a3c7e9b1d254`. Live head is now `a3c7e9b1d254`;
+`ingest.artifact` still has 2,555 rows.
+
+## Story 3.1 live load (done 2026-09-19)
+
+`research-db load-legislators` at upstream commit `8a3c7e6987f8`: 12,770
+legislators, 12,045 new people, 89,527 new identifiers, 0 conflicts, 0 possible
+duplicate people. Pre-existing rows verified unchanged by fingerprint (9,841
+identifiers, 726 people). Rerun created 0 rows and no new artifact versions.
+People now 12,771 (12,770 with a BioGuide id; 1 baseline person has none).
+Every new identifier carries `source_artifact_id` and `source_run_id`.
+The first load stored the two artifact `local_path` values as relative paths
+(bug, fixed in code: paths are now absolute like other loaders). Operator approved
+correcting the two rows to absolute paths; done, checksums re-verified, and a rerun
+from another working directory reused them (still 2 artifact versions, 0 rows
+created). Files live under `data-lake/opendiscourse/raw/congress/legislators/`
+in the repo checkout (gitignored), the same root the other loaders use.
+
 ## Roadmap (also in `epics.md`, "Suggested next build")
 
 1. Merge Story 1.7 (after the operator sees the review).
 2. Story 9.1 load contract + harness, then 9.2 run ledger.
-3. Story 3.1 BioGuide identity (local `congress-legislators` files exist).
+3. Story 3.1 BioGuide identity: **done and loaded live** (branch
+   `feat/3-1-bioguide-identity`, spec `spec-3-1-bioguide-identity.md`); independent
+   review fixes applied; awaiting CI and operator merge. Next: Story 3.2.
 4. Story 9.3 coverage comparator; backfill Congresses 108-119 via Connectors, each
    passing the 9.1 harness.
 5. Redo 2.2 -> 2.3 (FRED) and 8.2 (OpenStates); fix Treasury and FRED failures.

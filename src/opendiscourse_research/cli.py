@@ -76,10 +76,12 @@ from .ingestion.census import (
     search_acs_tables,
 )
 from .ingestion.congress import ingest_bill
+from .ingestion.connector import run_connector
 from .ingestion.dhc_bulk import preview_dhc_bulk_plan, write_dhc_bulk_plan
 from .ingestion.dhc_load import load_dhc, stage_dhc
 from .ingestion.fec_bulk import preview_family, register_family, stage_family
 from .ingestion.fred import ingest_manifest, ingest_series
+from .ingestion.legislators import LegislatorsConnector
 from .ingestion.openstates import download_monthly_dump
 from .ingestion.pep_bulk import preview_pep_bulk_plan, write_pep_bulk_plan
 from .ingestion.pep_load import load_pep, stage_pep
@@ -573,6 +575,18 @@ def load_openstates_people_command() -> None:
     with render_spinner("Loading OpenStates federal people baseline"):
         result = load_openstates_federal_people()
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("load-legislators")
+def load_legislators_command() -> None:
+    """Load BioGuide-keyed legislator identifiers from vendor/congress-legislators."""
+    with render_progress("Loading congress-legislators", 10) as advance:
+        connector = LegislatorsConnector(report=advance)
+        try:
+            run_connector(connector)
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise typer.BadParameter(str(exc)) from None
+    typer.echo(json.dumps(connector.result, indent=2, sort_keys=True, default=str))
 
 
 @app.command("load-openstates-organizations")
