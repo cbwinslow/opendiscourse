@@ -56,7 +56,7 @@ class OfficialCounts:
         self._last = 0.0
 
     def _fetch(self, url: str) -> httpx.Response:
-        """GET with pacing and one retry; raise OfficialCountError on failure."""
+        """GET with pacing; retry once on transport errors, 429 and 5xx only."""
         last_error: Exception | None = None
         for _attempt in range(2):
             wait = self._pace - (time.monotonic() - self._last)
@@ -70,6 +70,17 @@ class OfficialCounts:
             except httpx.HTTPError as exc:
                 self._last = time.monotonic()
                 last_error = exc
+                status = (
+                    exc.response.status_code
+                    if isinstance(exc, httpx.HTTPStatusError)
+                    else None
+                )
+                if status is not None and status < 500 and status != 429:
+                    break  # a permanent client error will not improve
+                if status == 429:
+                    retry_after = exc.response.headers.get("Retry-After", "")  # type: ignore[union-attr]
+                    if retry_after.isdigit():
+                        self._sleep(min(int(retry_after), 30))
         raise OfficialCountError(f"{url}: {last_error}")
 
     def first_billstatus_congress(self) -> int:
@@ -92,9 +103,12 @@ class OfficialCounts:
         url = GOVINFO_MANIFEST.format(congress=congress, bill_type=bill_type)
         try:
             files = self._fetch(url).json()["files"]
-            return sum(1 for item in files if item.get("name", "").endswith(".xml"))
+            count = sum(1 for item in files if item.get("name", "").endswith(".xml"))
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
             raise OfficialCountError(f"{url}: unreadable manifest ({exc})") from exc
+        if count == 0:  # a degraded 200 must never become an authoritative zero
+            raise OfficialCountError(f"{url}: manifest lists no XML files")
+        return count
 
     def senate_votes(self, congress: int, session: int) -> int:
         """Return the number of roll-call votes in one Senate session's vote menu."""
@@ -103,7 +117,10 @@ class OfficialCounts:
             root = ElementTree.fromstring(self._fetch(url).content)
         except ElementTree.ParseError as exc:
             raise OfficialCountError(f"{url}: unreadable vote menu ({exc})") from exc
-        return len(root.findall("./votes/vote"))
+        count = len(root.findall("./votes/vote"))
+        if count == 0:
+            raise OfficialCountError(f"{url}: vote menu lists no votes")
+        return count
 
     def house_rolls(self, year: int) -> int:
         """Return the highest House roll-call number listed for a calendar year."""

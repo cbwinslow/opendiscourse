@@ -1,6 +1,6 @@
 """Coverage comparator: official expected counts versus loaded rows, per Congress.
 
-Read-only. "Expected" comes from an official manifest or index where one exists
+Warehouse read-only (it writes only metadata caches under the lake). "Expected" comes from an official manifest or index where one exists
 (GovInfo BILLSTATUS, Senate.gov vote menus, House Clerk roll index). Actions and
 members have no official manifest, so their expectation carries a named
 lower-trust basis (``lake_archive``, ``legislators_yaml``) and is never presented
@@ -10,7 +10,10 @@ as official. An official fetch that fails yields ``None`` (unknown), never zero.
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import zipfile
+import zlib
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -78,17 +81,19 @@ def _meta_dir() -> Path:
 def _read_json(path: Path) -> dict[str, Any]:
     """Read a cache file; a missing or corrupt cache is simply empty."""
     try:
-        return json.loads(path.read_text())
+        payload = json.loads(path.read_text())
     except (OSError, ValueError):
         return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     """Atomically write a metadata cache."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".json.tmp")
-    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
-    temporary.replace(path)
+    handle, name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    with os.fdopen(handle, "w") as stream:
+        stream.write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    Path(name).replace(path)
 
 
 @dataclass
@@ -100,24 +105,43 @@ class OfficialCache:
     now: Callable[[], datetime] = lambda: datetime.now(UTC)
 
     def __post_init__(self) -> None:
-        self.entries: dict[str, Any] = _read_json(self.path).get("entries", {})
+        raw = _read_json(self.path).get("entries", {})
+        self.entries: dict[str, Any] = {}
+        for key, entry in (raw.items() if isinstance(raw, dict) else ()):
+            try:
+                datetime.fromisoformat(entry["fetched_at"])
+                int(entry["value"])
+            except (KeyError, TypeError, ValueError):
+                continue  # a malformed entry is refetched, never trusted
+            self.entries[key] = entry
         self.errors: list[str] = []
         self.requests = 0
 
     def get(self, key: str, fetch: Callable[[], int], volatile: bool = False) -> int | None:
-        """Return a cached count, fetching once when absent, stale, or refreshed."""
+        """Return a cached count, fetching once when absent, stale, or refreshed.
+
+        An entry cached while its source was still changing (``volatile``) is
+        refetched after a day, and once more after the source stops changing.
+        A failed refetch falls back to the stale value rather than to unknown.
+        """
         entry = self.entries.get(key)
         if entry is not None and not self.refresh:
             age = self.now() - datetime.fromisoformat(entry["fetched_at"])
-            if not volatile or age < VOLATILE_MAX_AGE:
+            if not (volatile or entry.get("volatile")) or (
+                volatile and age < VOLATILE_MAX_AGE
+            ):
                 return entry["value"]
         self.requests += 1
         try:
             value = fetch()
         except OfficialCountError as exc:
             self.errors.append(f"{key}: {exc}")
-            return None
-        self.entries[key] = {"value": value, "fetched_at": self.now().isoformat()}
+            return entry["value"] if entry is not None else None
+        self.entries[key] = {
+            "value": value,
+            "fetched_at": self.now().isoformat(),
+            "volatile": volatile,
+        }
         return value
 
     def save(self) -> None:
@@ -128,10 +152,11 @@ class OfficialCache:
 def scan_lake(congress: int, cache_path: Path) -> dict[str, Any] | None:
     """Count XML bills and actions per type in the (unverified) BILLSTATUS zips.
 
-    Results are cached per archive keyed by size and mtime, so reruns are instant.
+    Results are cached per archive keyed by path, size and mtime, so reruns are
+    instant. An unreadable archive is reported (``unreadable``), never fatal.
     """
     cache = _read_json(cache_path).get("archives", {})
-    by_type: dict[str, dict[str, int]] = {}
+    by_type: dict[str, dict[str, Any]] = {}
     for bill_type in BILL_TYPES:
         archive = (
             BILLSTATUS_ROOT
@@ -145,20 +170,28 @@ def scan_lake(congress: int, cache_path: Path) -> dict[str, Any] | None:
         key = f"{archive}:{stat.st_size}:{int(stat.st_mtime)}"
         if key not in cache:
             bills = actions = malformed = 0
-            with zipfile.ZipFile(archive) as bundle:
-                for member in bundle.namelist():
-                    if not member.endswith(".xml"):
-                        continue
-                    try:
-                        detail = _bill_details(bundle.read(member))
-                    except ElementTree.ParseError:
-                        detail = None
-                    if detail is None:
-                        malformed += 1
-                        continue
-                    bills += 1
-                    actions += detail["actions"]
-            cache[key] = {"bills": bills, "actions": actions, "malformed": malformed}
+            try:
+                with zipfile.ZipFile(archive) as bundle:
+                    for member in bundle.namelist():
+                        if not member.endswith(".xml"):
+                            continue
+                        try:
+                            detail = _bill_details(bundle.read(member))
+                        except (ElementTree.ParseError, ValueError):
+                            detail = None
+                        if detail is None:
+                            malformed += 1
+                            continue
+                        bills += 1
+                        actions += detail["actions"]
+                entry: dict[str, Any] = {
+                    "bills": bills,
+                    "actions": actions,
+                    "malformed": malformed,
+                }
+            except (zipfile.BadZipFile, OSError, zlib.error) as exc:
+                entry = {"bills": 0, "actions": 0, "malformed": 0, "unreadable": str(exc)}
+            cache[key] = entry
             _write_json(cache_path, {"schema": 1, "archives": cache})
         by_type[bill_type] = cache[key]
     return by_type or None
@@ -184,10 +217,14 @@ def expected_members(
     result: dict[int, set[str]] = {c: set() for c in spans}
     for path in paths:
         for record in yaml.load(path.read_bytes(), Loader=_YAML_LOADER) or []:
+            if not isinstance(record, dict) or not isinstance(record.get("id") or {}, dict):
+                continue
             bioguide = str((record.get("id") or {}).get("bioguide") or "").strip()
             if not bioguide:
                 continue
             for term in record.get("terms") or []:
+                if not isinstance(term, dict):
+                    continue
                 start, end = _as_date(term.get("start")), _as_date(term.get("end"))
                 if start is None or end is None:
                     continue
@@ -218,12 +255,17 @@ def _bills_section(
     known = all(v is not None for v in official.values())
     total = cell(
         sum(v for v in official.values() if v is not None) if known else None,
-        sum(loaded.values()),
+        sum(loaded.get(t, 0) for t in BILL_TYPES),
         "govinfo_manifest",
     )
+    if any(row["status"] == "incomplete" for row in by_type.values()):
+        total["status"] = "incomplete"  # a surplus elsewhere must not hide a gap
     total["on_disk"] = (
         None if lake is None else sum(v["bills"] for v in lake.values())
     )
+    total["loaded_other_types"] = {
+        t: n for t, n in loaded.items() if t not in BILL_TYPES
+    }
     return {**total, "by_type": by_type}
 
 
@@ -285,7 +327,9 @@ def build_report(
             lake_types is not None
             and all(v is not None for v in bills_official.values())
             and all(
-                lake_types.get(t, {}).get("bills") == bills_official[t]
+                lake_types.get(t, {}).get("bills", 0) == bills_official[t]
+                and not lake_types.get(t, {}).get("malformed")
+                and not lake_types.get(t, {}).get("unreadable")
                 for t in BILL_TYPES
             )
         )
@@ -312,14 +356,15 @@ def build_report(
                 "senate": senate.get("without_votes", 0),
             },
         }
-        expected_people = members.get(congress, set())
+        expected_people = members.get(congress) or set()
+        known_members = bool(expected_people)  # no legislators file means unknown, not 0
         people = cell(
-            len(expected_people),
+            len(expected_people) if known_members else None,
             len(expected_people & loaded["bioguide_ids"]),
             "legislators_yaml",
         )
         memberships = cell(
-            len(expected_people),
+            len(expected_people) if known_members else None,
             len(expected_people & loaded["memberships"].get(congress, set())),
             "legislators_yaml",
         )
@@ -340,7 +385,7 @@ def build_report(
         "schema": 1,
         "kind": "coverage",
         "generated_at": datetime.now(UTC).isoformat(),
-        "read_only": True,
+        "warehouse_read_only": True,
         "start_confirmed": {
             "first_official_congress": first_official,
             "confirmed": confirmed,
@@ -349,7 +394,11 @@ def build_report(
         "unattributed": {
             "runs_without_code_version": loaded["runs_unattributed"],
             "runs_total": loaded["runs_total"],
-            "fec_stage_rows_estimate": loaded["fec_stage_rows_estimate"],
+            "fec_stage_rows_estimate": (
+                loaded["fec_stage_rows_estimate"]
+                if (loaded["fec_stage_rows_estimate"] or -1) >= 0
+                else None  # never analysed or absent: unknown, not zero
+            ),
         },
         "official_requests": cache.requests,
         "errors": cache.errors,
@@ -366,28 +415,41 @@ def legislators_paths() -> list[Path]:
     return [Path(r[0]) for r in rows if r[0] and Path(r[0]).is_file()]
 
 
+def normalize_congresses(congresses: list[int] | None) -> list[int]:
+    """Validate, de-duplicate and sort a Congress selection (default: all 108-119)."""
+    selected = sorted(set(congresses or range(FIRST_CONGRESS, LAST_CONGRESS + 1)))
+    bad = [c for c in selected if not FIRST_CONGRESS <= c <= LAST_CONGRESS]
+    if bad:
+        raise ValueError(
+            f"Congress must be {FIRST_CONGRESS}-{LAST_CONGRESS}: {', '.join(map(str, bad))}"
+        )
+    return selected
+
+
 def coverage_report(
     congresses: list[int] | None = None,
     refresh_official: bool = False,
     report: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     """Build the live coverage report and persist it under the metadata lake."""
-    selected = congresses or list(range(FIRST_CONGRESS, LAST_CONGRESS + 1))
-    for congress in selected:
-        if not FIRST_CONGRESS <= congress <= LAST_CONGRESS:
-            raise ValueError(f"Congress must be {FIRST_CONGRESS}-{LAST_CONGRESS}: {congress}")
+    selected = normalize_congresses(congresses)
     meta = _meta_dir()
     cache = OfficialCache(meta / "official.json", refresh=refresh_official)
-    result = build_report(
-        selected,
-        official=OfficialCounts(),
-        cache=cache,
-        loaded=loaded_counts(),
-        lake=lambda c: scan_lake(c, meta / "lake.json"),
-        members=expected_members(legislators_paths(), selected),
-        progress=report,
-    )
-    cache.save()
+    paths = legislators_paths()
+    if not paths:
+        cache.errors.append("legislators: no congress.legislators artifact file found")
+    try:
+        result = build_report(
+            selected,
+            official=OfficialCounts(),
+            cache=cache,
+            loaded=loaded_counts(),
+            lake=lambda c: scan_lake(c, meta / "lake.json"),
+            members=expected_members(paths, selected) if paths else {},
+            progress=report,
+        )
+    finally:
+        cache.save()  # keep paced fetches even when a later step fails
     _write_json(meta / "latest.json", result)
     return result
 
@@ -405,7 +467,10 @@ def format_table(result: dict[str, Any]) -> str:
             "First Congress with official BILLSTATUS: "
             f"{start['first_official_congress']} (confirmed: {start['confirmed']})"
         ),
-        "loaded/expected   bills        actions        house rc    senate rc   memberships",
+        (
+            "loaded/expected   bills      actions(lake)   house rc    senate rc"
+            "   memberships(yaml)"
+        ),
     ]
     for row in result["congresses"]:
         mark = "*" if row["in_progress"] else " "
@@ -419,7 +484,7 @@ def format_table(result: dict[str, Any]) -> str:
     lines.append(
         f"Unattributed runs: {unattributed['runs_without_code_version']}/"
         f"{unattributed['runs_total']}; FEC stage rows (estimate): "
-        f"{max(int(unattributed['fec_stage_rows_estimate'] or 0), 0):,}"
+        f"{'?' if unattributed['fec_stage_rows_estimate'] is None else format(unattributed['fec_stage_rows_estimate'], ',')}"
     )
     if result["errors"]:
         lines.append(f"{len(result['errors'])} official fetches failed (cells are '?').")

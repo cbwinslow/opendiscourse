@@ -32,7 +32,7 @@ from .catalog import sync_inventory, validate_inventory
 from .censushealth import census_health
 from .congresshealth import congressional_health, recover_stale_congressional_runs
 from .contracts import load_contracts, validate_contracts
-from .coverage import coverage_report, format_table
+from .coverage import coverage_report, format_table, normalize_congresses
 from .db import apply_migrations
 from .exports import available_exports, export_relation
 from .feedback import (
@@ -594,13 +594,18 @@ def coverage_command(
     refresh_official: bool = typer.Option(False, help="Refetch official counts, ignoring the cache."),
     json_output: bool = typer.Option(False, "--json", help="Print the full JSON report."),
 ) -> None:
-    """Compare official expected counts to loaded rows per Congress (read-only)."""
-    with render_progress("Comparing coverage", len(congress or range(108, 120))) as advance:
-        result = coverage_report(congress or None, refresh_official, advance)
-    if json_output:
+    """Compare official expected counts to loaded rows per Congress (warehouse read-only)."""
+    try:
+        selected = normalize_congresses(congress or None)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--congress") from exc
+    if json_output:  # keep stdout pure JSON so it can be piped
+        result = coverage_report(selected, refresh_official)
         typer.echo(json.dumps(result, indent=2, sort_keys=True, default=str))
-    else:
-        typer.echo(format_table(result))
+        return
+    with render_progress("Comparing coverage", len(selected)) as advance:
+        result = coverage_report(selected, refresh_official, advance)
+    typer.echo(format_table(result))
 
 
 @app.command("person-join-status")

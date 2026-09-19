@@ -11,7 +11,7 @@ from ..db import session
 JURISDICTION = "us"
 
 _BILLS = """
-SELECT legislative_session AS congress, bill_type, count(*) AS n
+SELECT legislative_session AS congress, lower(bill_type) AS bill_type, count(*) AS n
 FROM core.bill WHERE jurisdiction = :j AND legislative_session ~ '^[0-9]+$'
 GROUP BY 1, 2
 """

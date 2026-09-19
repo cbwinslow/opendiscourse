@@ -8,11 +8,13 @@ from datetime import date
 
 import pytest
 
+from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
 from opendiscourse_research.coverage import OfficialCache, build_report
 from opendiscourse_research.db import _engine, apply_migrations, connect
 from opendiscourse_research.repositories.coverage import loaded_counts
 
+TEST_JURISDICTION = "ocd-jurisdiction/country:zz/coverage-test"
 CONGRESS = "9999"  # far outside any real Congress; cleaned up afterwards
 TABLES = ("core.bill", "core.roll_call", "fact.member_vote", "core.membership", "ingest.run")
 
@@ -36,6 +38,7 @@ def database() -> Iterator[None]:
         )
     try:
         apply_migrations()
+        sync_inventory()
         yield
     finally:
         _cleanup()
@@ -47,8 +50,31 @@ def database() -> Iterator[None]:
 
 def _cleanup() -> None:
     with connect() as conn:
+        conn.execute(
+            "DELETE FROM fact.member_vote WHERE roll_call_id IN "
+            "(SELECT roll_call_id FROM core.roll_call WHERE legislative_session = %s)",
+            (CONGRESS,),
+        )
+        conn.execute(
+            "DELETE FROM core.membership WHERE legislative_session_id IN "
+            "(SELECT legislative_session_id FROM core.legislative_session WHERE identifier = %s)",
+            (CONGRESS,),
+        )
+        conn.execute(
+            "DELETE FROM core.bill_action WHERE bill_id IN "
+            "(SELECT bill_id FROM core.bill WHERE legislative_session = %s)",
+            (CONGRESS,),
+        )
         conn.execute("DELETE FROM core.roll_call WHERE legislative_session = %s", (CONGRESS,))
         conn.execute("DELETE FROM core.bill WHERE legislative_session = %s", (CONGRESS,))
+        conn.execute("DELETE FROM core.legislative_session WHERE identifier = %s", (CONGRESS,))
+        conn.execute(
+            "DELETE FROM core.jurisdiction WHERE jurisdiction_id = %s", (TEST_JURISDICTION,)
+        )
+        conn.execute("DELETE FROM core.person_identifier WHERE external_id = 'COVTEST1'")
+        conn.execute("DELETE FROM core.person WHERE full_name = 'Coverage Test'")
+        conn.execute("DELETE FROM core.organization WHERE name = 'Coverage Test Org'")
+        conn.execute("DELETE FROM ingest.artifact WHERE artifact_key = 'coverage-test'")
         conn.commit()
 
 
@@ -107,3 +133,82 @@ def test_report_does_not_write_to_the_warehouse(database, tmp_path):
         today=date(2026, 9, 19),
     )
     assert _counts() == before
+
+
+def test_loaded_counts_read_actions_votes_and_memberships(database):
+    """Seed one row of every kind and assert what each loaded-side query returns."""
+    _cleanup()
+    with connect() as conn:
+        artifact = conn.execute(
+            "INSERT INTO ingest.artifact (dataset_id, remote_url, local_path, artifact_key, status) "
+            "VALUES ('congress.legislators', 'x', '/x', 'coverage-test', 'downloaded') "
+            "RETURNING artifact_id"
+        ).fetchone()["artifact_id"]
+        person = conn.execute(
+            "INSERT INTO core.person (full_name) VALUES ('Coverage Test') RETURNING person_id"
+        ).fetchone()["person_id"]
+        conn.execute(
+            "INSERT INTO core.person_identifier (person_id, namespace, external_id) "
+            "VALUES (%s, 'bioguide', 'COVTEST1')",
+            (person,),
+        )
+        organization = conn.execute(
+            "INSERT INTO core.organization (organization_type, name) "
+            "VALUES ('legislature', 'Coverage Test Org') RETURNING organization_id"
+        ).fetchone()["organization_id"]
+        conn.execute(
+            "INSERT INTO core.jurisdiction (jurisdiction_id, name, classification) "
+            "VALUES (%s, 'Coverage Test', 'country')",
+            (TEST_JURISDICTION,),
+        )
+        session_id = conn.execute(
+            "INSERT INTO core.legislative_session "
+            "(jurisdiction_id, identifier, classification, source_artifact_id) "
+            "VALUES (%s, %s, 'congress', %s) "
+            "RETURNING legislative_session_id",
+            (TEST_JURISDICTION, CONGRESS, artifact),
+        ).fetchone()["legislative_session_id"]
+        conn.execute(
+            "INSERT INTO core.membership "
+            "(person_id, organization_id, legislative_session_id, role, source_artifact_id) "
+            "VALUES (%s, %s, %s, 'member', %s)",
+            (person, organization, session_id, artifact),
+        )
+        bill = conn.execute(
+            "INSERT INTO core.bill (jurisdiction, legislative_session, bill_type, bill_number) "
+            "VALUES ('us', %s, 'HR', '1') RETURNING bill_id",
+            (CONGRESS,),
+        ).fetchone()["bill_id"]
+        conn.execute(
+            "INSERT INTO core.bill_action (bill_id, description, source_artifact_id) "
+            "VALUES (%s, 'a', %s), (%s, 'b', %s)",
+            (bill, artifact, bill, artifact),
+        )
+        voted, _unvoted = [
+            conn.execute(
+                "INSERT INTO core.roll_call (jurisdiction, legislative_session, chamber, external_id) "
+                "VALUES ('us', %s, 'House', %s) RETURNING roll_call_id",
+                (CONGRESS, name),
+            ).fetchone()["roll_call_id"]
+            for name in ("cov-voted", "cov-unvoted")
+        ]
+        conn.execute(
+            "INSERT INTO fact.member_vote (roll_call_id, person_id, position, source_artifact_id) "
+            "VALUES (%s, %s, 'yea', %s)",
+            (voted, person, artifact),
+        )
+        conn.commit()
+    try:
+        loaded = loaded_counts()
+        number = int(CONGRESS)
+        assert loaded["bills"][number] == {"hr": 1}  # bill_type is lower-cased
+        assert loaded["actions"][number] == 2
+        assert loaded["roll_calls"][number]["house"] == {
+            "roll_calls": 2,
+            "without_votes": 1,
+            "member_votes": 1,
+        }
+        assert loaded["memberships"][number] == {"COVTEST1"}
+        assert "COVTEST1" in loaded["bioguide_ids"]
+    finally:
+        _cleanup()

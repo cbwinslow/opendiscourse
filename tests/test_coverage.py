@@ -37,9 +37,9 @@ class FakeOfficial:
         self.fail = set(fail)
         self.calls = 0
 
-    def _go(self, name: str, value: int) -> int:
+    def _go(self, name: str, value: int, arg: object = None) -> int:
         self.calls += 1
-        if name in self.fail:
+        if name in self.fail or f"{name}:{arg}" in self.fail:
             raise OfficialCountError(f"{name}: down")
         return value
 
@@ -47,13 +47,13 @@ class FakeOfficial:
         return self._go("first", self.first)
 
     def billstatus(self, congress: int, bill_type: str) -> int:
-        return self._go("billstatus", self.bills)
+        return self._go("billstatus", self.bills, bill_type)
 
     def senate_votes(self, congress: int, session: int) -> int:
-        return self._go("senate", self.senate)
+        return self._go("senate", self.senate, session)
 
     def house_rolls(self, year: int) -> int:
-        return self._go("house", self.house)
+        return self._go("house", self.house, year)
 
 
 def _loaded(**overrides: Any) -> dict[str, Any]:
@@ -93,7 +93,7 @@ def test_start_confirmed_from_root_manifest(tmp_path):
 def test_start_unknown_when_root_manifest_unreachable(tmp_path):
     result, _ = _report(tmp_path, official=FakeOfficial(fail={"first"}))
     assert result["start_confirmed"]["confirmed"] == "unknown"
-    assert any("first" in error for error in result["errors"])
+    assert any(error.startswith("billstatus:first_congress") for error in result["errors"])
 
 
 def test_earlier_official_congress_is_not_confirmed(tmp_path):
@@ -245,7 +245,7 @@ def test_provider_parses_each_source_and_paces():
     assert client.first_billstatus_congress() == 108
     assert client.senate_votes(108, 1) == 3
     assert client.house_rolls(2003) == 677
-    assert sleeps  # second and later requests were paced
+    assert sleeps and all(0 < wait <= 5 for wait in sleeps)  # later requests were paced
 
 
 def test_provider_retries_once_then_raises():
@@ -267,7 +267,7 @@ def test_provider_rejects_unreadable_manifest():
         client.billstatus(108, "hr")
 
 
-def test_cli_prints_table_and_json(tmp_path, monkeypatch):
+def test_cli_prints_table_and_pure_json_and_rejects_bad_congress(tmp_path, monkeypatch):
     from typer.testing import CliRunner
 
     from opendiscourse_research import cli
@@ -275,15 +275,231 @@ def test_cli_prints_table_and_json(tmp_path, monkeypatch):
     result, _ = _report(tmp_path)
     seen: dict[str, Any] = {}
 
-    def fake_report(congresses, refresh, advance):
+    def fake_report(congresses, refresh, advance=None):
         seen.update(congresses=congresses, refresh=refresh)
-        advance("x")
+        if advance:
+            advance("x")
         return result
 
     monkeypatch.setattr(cli, "coverage_report", fake_report)
     runner = CliRunner()
-    table = runner.invoke(cli.app, ["coverage", "--congress", "118", "--refresh-official"])
+    table = runner.invoke(
+        cli.app, ["coverage", "--congress", "118", "--congress", "118", "--refresh-official"]
+    )
     assert table.exit_code == 0 and "118" in table.output
-    assert seen == {"congresses": [118], "refresh": True}
+    assert seen == {"congresses": [118], "refresh": True}  # de-duplicated
     as_json = runner.invoke(cli.app, ["coverage", "--json"])
-    assert json.loads(as_json.output[as_json.output.index("{"):])["kind"] == "coverage"
+    assert json.loads(as_json.output)["kind"] == "coverage"  # stdout is pure JSON
+    bad = runner.invoke(cli.app, ["coverage", "--congress", "120"])
+    assert bad.exit_code == 2 and "Traceback" not in bad.output
+
+
+def test_partial_failures_make_totals_unknown_not_partial_sums(tmp_path):
+    result, _ = _report(tmp_path, official=FakeOfficial(fail={"billstatus:sres"}))
+    row = result["congresses"][0]
+    assert row["bills"]["expected"] is None and row["bills"]["by_type"]["hr"]["expected"] == 5
+    assert row["bills"]["by_type"]["sres"]["status"] == "unknown"
+    assert row["votes"]["house"]["expected"] == 40
+    result, _ = _report(tmp_path / "b", official=FakeOfficial(fail={"house:2023"}))
+    assert result["congresses"][0]["votes"]["house"]["expected"] is None
+
+
+def test_loaded_counts_flow_into_the_row_and_surplus_cannot_hide_a_gap(tmp_path):
+    loaded = _loaded(
+        bills={118: {"hr": 9, "s": 2, "HR": 4}}, actions={118: 11},
+    )
+    result, _ = _report(tmp_path, loaded=loaded)
+    bills = result["congresses"][0]["bills"]
+    assert bills["by_type"]["hr"]["surplus"] == 4 and bills["by_type"]["s"]["missing"] == 3
+    assert bills["status"] == "incomplete"  # s is short even though hr overshoots
+    assert bills["loaded"] == 11 and bills["loaded_other_types"] == {"HR": 4}
+    assert result["congresses"][0]["actions"]["loaded"] == 11
+
+
+def test_missing_legislators_is_unknown_not_complete(tmp_path):
+    result, _ = _report(tmp_path, members={})
+    for name in ("people", "memberships"):
+        cell_ = result["congresses"][0]["members"][name]
+        assert cell_["expected"] is None and cell_["status"] == "unknown"
+
+
+def test_unknown_fec_estimate_is_none(tmp_path):
+    for value in (None, -1):
+        result, _ = _report(tmp_path, loaded=_loaded(fec_stage_rows_estimate=value))
+        assert result["unattributed"]["fec_stage_rows_estimate"] is None
+        assert "FEC stage rows (estimate): ?" in format_table(result)
+
+
+def test_table_labels_lower_trust_columns():
+    header = format_table(
+        {
+            "start_confirmed": {"first_official_congress": 108, "confirmed": True},
+            "congresses": [],
+            "unattributed": {
+                "runs_without_code_version": 0, "runs_total": 0, "fec_stage_rows_estimate": 0,
+            },
+            "errors": [],
+        }
+    )
+    assert "actions(lake)" in header and "memberships(yaml)" in header
+
+
+def test_in_progress_congress_and_current_year_are_refetched_after_a_day(tmp_path):
+    clock = {"now": datetime(2026, 9, 19, tzinfo=UTC)}
+
+    def run(official):
+        cache = OfficialCache(tmp_path / "o.json", now=lambda: clock["now"])
+        result = build_report(
+            [119], official=official, cache=cache, loaded=_loaded(),
+            lake=lambda c: None, members={119: set()}, today=TODAY,
+        )
+        cache.save()
+        return result, cache
+
+    first, _ = run(FakeOfficial())
+    assert first["congresses"][0]["in_progress"] is True
+    clock["now"] += timedelta(days=2)
+    official = FakeOfficial()
+    run(official)
+    # 8 bill types + 2 senate sessions + house 2026 refetch; closed year 2025 does not
+    assert official.calls == 8 + 2 + 1
+
+
+def test_entry_cached_while_volatile_is_refetched_once_it_is_closed(tmp_path):
+    clock = {"now": datetime(2026, 9, 19, tzinfo=UTC)}
+    cache = OfficialCache(tmp_path / "o.json", now=lambda: clock["now"])
+    assert cache.get("k", lambda: 1, volatile=True) == 1
+    assert cache.get("k", lambda: 5, volatile=False) == 5  # source stopped changing
+    assert cache.get("k", lambda: 9, volatile=False) == 5  # now settled
+
+
+def test_failed_refetch_falls_back_to_the_stale_value(tmp_path):
+    clock = {"now": datetime(2026, 9, 19, tzinfo=UTC)}
+    cache = OfficialCache(tmp_path / "o.json", now=lambda: clock["now"])
+    cache.get("k", lambda: 7, volatile=True)
+    clock["now"] += timedelta(days=3)
+
+    def boom() -> int:
+        raise OfficialCountError("down")
+
+    assert cache.get("k", boom, volatile=True) == 7 and cache.errors
+
+
+@pytest.mark.parametrize(
+    "content", ["[]", '{"entries": []}', '{"entries": {"k": {"value": 1}}}',
+                '{"entries": {"k": {"value": "x", "fetched_at": "nope"}}}', "not json"],
+)
+def test_malformed_cache_is_treated_as_empty(tmp_path, content):
+    path = tmp_path / "o.json"
+    path.write_text(content)
+    cache = OfficialCache(path)
+    assert cache.get("k", lambda: 3) == 3 and cache.requests == 1
+
+
+def test_scan_lake_survives_a_corrupt_archive_and_reports_it(tmp_path, monkeypatch):
+    root = tmp_path / "billstatus"
+    archive = root / "108" / "hr" / "BILLSTATUS-108-hr.zip"
+    archive.parent.mkdir(parents=True)
+    archive.write_bytes(b"not a zip")
+    monkeypatch.setattr(coverage, "BILLSTATUS_ROOT", root)
+    found = scan_lake(108, tmp_path / "lake.json")
+    assert "unreadable" in found["hr"]
+    lake = {t: found.get(t, {"bills": 0, "actions": 0}) for t in BILL_TYPES}
+    result, _ = _report(tmp_path, official=FakeOfficial(bills=0, fail={"x"}), lake=lambda c: lake)
+    assert result["congresses"][0]["actions"]["basis"] == "lake_archive_unverified"
+
+
+def test_expected_members_skips_malformed_records(tmp_path):
+    path = tmp_path / "leg.yaml"
+    path.write_text(
+        "- just a string\n- id: [1, 2]\n"
+        "- id: {bioguide: A1}\n  terms: [5, {start: '2003-01-07', end: '2005-01-03'}]\n"
+    )
+    assert expected_members([path], [108]) == {108: {"A1"}}
+
+
+def test_coverage_report_wires_cache_range_and_output_paths(tmp_path, monkeypatch):
+    seen: dict[str, Any] = {}
+
+    class Recording(FakeOfficial):
+        pass
+
+    monkeypatch.setattr(coverage, "_meta_dir", lambda: tmp_path / "meta")
+    monkeypatch.setattr(coverage, "OfficialCounts", Recording)
+    monkeypatch.setattr(coverage, "loaded_counts", lambda: _loaded())
+    monkeypatch.setattr(coverage, "scan_lake", lambda c, path: seen.setdefault("lake", path))
+    leg = tmp_path / "leg.yaml"
+    leg.write_text("- id: {bioguide: A1}\n  terms: [{start: '2023-01-03', end: '2025-01-03'}]\n")
+    monkeypatch.setattr(coverage, "legislators_paths", lambda: [leg])
+    monkeypatch.setattr(coverage, "scan_lake", lambda c, path: None)
+
+    result = coverage.coverage_report([119, 118, 118], refresh_official=True)
+    assert [row["congress"] for row in result["congresses"]] == [118, 119]
+    assert (tmp_path / "meta" / "official.json").is_file()
+    assert json.loads((tmp_path / "meta" / "latest.json").read_text())["kind"] == "coverage"
+    assert result["congresses"][0]["members"]["people"]["expected"] == 1
+    assert result["official_requests"] > 0  # refresh really refetched
+    with pytest.raises(ValueError, match="108-119"):
+        coverage.coverage_report([120])
+
+
+def test_coverage_report_keeps_fetched_counts_when_a_later_step_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(coverage, "_meta_dir", lambda: tmp_path / "meta")
+    monkeypatch.setattr(coverage, "OfficialCounts", FakeOfficial)
+    monkeypatch.setattr(coverage, "legislators_paths", list)
+    monkeypatch.setattr(coverage, "scan_lake", lambda c, path: None)
+
+    def broken():
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(coverage, "loaded_counts", broken)
+    with pytest.raises(RuntimeError):
+        coverage.coverage_report([118])
+    assert not (tmp_path / "meta" / "latest.json").exists()
+
+
+def test_provider_never_turns_an_empty_200_into_zero():
+    empty_manifest = lambda u: _response(u, json={"files": []})
+    empty_menu = lambda u: _response(u, content=b"<vote_summary><votes/></vote_summary>")
+    with pytest.raises(OfficialCountError):
+        OfficialCounts(get=empty_manifest, pace_seconds=0).billstatus(108, "hr")
+    with pytest.raises(OfficialCountError):
+        OfficialCounts(get=empty_menu, pace_seconds=0).senate_votes(108, 1)
+
+
+def test_provider_fails_fast_on_404_and_retries_429_after_retry_after():
+    calls, sleeps = [], []
+
+    def not_found(url):
+        calls.append(url)
+        return _response(url, status=404)
+
+    with pytest.raises(OfficialCountError):
+        OfficialCounts(get=not_found, pace_seconds=0, sleep=sleeps.append).house_rolls(2003)
+    assert len(calls) == 1
+
+    def throttled(url):
+        calls.append(url)
+        if len(calls) == 1:
+            return _response(url, status=429, headers={"Retry-After": "7"})
+        return _response(url, text="rollnumber=9")
+
+    calls.clear()
+    assert OfficialCounts(get=throttled, pace_seconds=0, sleep=sleeps.append).house_rolls(2003) == 9
+    assert 7 in sleeps
+
+
+def test_default_get_sends_user_agent_and_json_accept_only_for_govinfo(monkeypatch):
+    from opendiscourse_research.providers import official_counts
+
+    sent: list[dict[str, str]] = []
+
+    def fake_get(url, headers, **kwargs):
+        sent.append(headers)
+        return _response(url)
+
+    monkeypatch.setattr(official_counts.httpx, "get", fake_get)
+    official_counts._default_get("https://www.govinfo.gov/bulkdata/json/BILLSTATUS/118/hr")
+    official_counts._default_get("https://clerk.house.gov/evs/2023/index.asp")
+    assert sent[0]["Accept"] == "application/json" and "Accept" not in sent[1]
+    assert all(h["User-Agent"].startswith("opendiscourse-research") for h in sent)
