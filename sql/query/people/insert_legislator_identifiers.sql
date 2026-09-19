@@ -6,6 +6,6 @@ WITH resolved AS (
   LEFT JOIN core.person_identifier b
     ON b.namespace = 'bioguide' AND b.external_id = s.bioguide
 )
-INSERT INTO core.person_identifier (person_id, namespace, external_id, source_artifact_id)
-SELECT person_id, namespace, external_id, artifact_id FROM resolved
+INSERT INTO core.person_identifier (person_id, namespace, external_id, source_artifact_id, source_run_id)
+SELECT person_id, namespace, external_id, artifact_id, run_id FROM resolved
 ON CONFLICT (namespace, external_id) DO NOTHING

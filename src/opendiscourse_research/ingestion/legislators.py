@@ -8,6 +8,7 @@ committees and social media are out of scope.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -21,7 +22,7 @@ from uuid import UUID
 
 import yaml
 
-from ..artifact_storage import file_checksum, retain_artifact_bytes, retained_path
+from ..artifact_storage import retain_artifact_bytes, retained_path
 from ..config import settings
 from ..db import connect
 from ..repositories.legislation import register_artifact
@@ -31,6 +32,7 @@ from .connector import ConnectorContext
 
 SOURCE_ID = "congress.legislators"
 UPSTREAM = "https://raw.githubusercontent.com/unitedstates/congress-legislators"
+UPSTREAM_REPO = "https://github.com/unitedstates/congress-legislators"
 FILES = ("legislators-current.yaml", "legislators-historical.yaml")
 BIOGUIDE = re.compile(r"^[A-Z]\d{6}$")
 VENDOR_DIR = Path(__file__).resolve().parents[3] / "vendor" / "congress-legislators"
@@ -56,7 +58,9 @@ def parse_legislators(content: bytes | str) -> list[Legislator]:
         raise ValueError("legislator file must be a YAML list")
     people: list[Legislator] = []
     for index, record in enumerate(records):
-        ids = (record or {}).get("id") or {}
+        if not isinstance(record, dict):
+            raise ValueError(f"legislator #{index} is not a mapping")
+        ids = record.get("id") or {}
         bioguide = str(ids.get("bioguide") or "").strip()
         if not bioguide:
             raise ValueError(f"legislator #{index} has no bioguide id")
@@ -128,6 +132,45 @@ def _git(vendor: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
+def _normalize_remote(url: str) -> str:
+    """Reduce ssh/https/.git spellings of a GitHub remote to one comparable form."""
+    url = url.strip().removesuffix("/").removesuffix(".git")
+    return url.replace("git@github.com:", "https://github.com/").lower()
+
+
+def verify_checkout(vendor: Path, expected_origin: str | None) -> str:
+    """Return HEAD only if the on-disk bytes are exactly what upstream published.
+
+    The recorded permalink is only truthful when the checkout came from the
+    expected remote, HEAD exists on a remote branch, and each file's bytes equal
+    the committed blob (``status`` alone misses assume-unchanged files).
+    """
+    commit = _git(vendor, "rev-parse", "HEAD")
+    if expected_origin is not None:
+        origin = _git(vendor, "remote", "get-url", "origin")
+        if _normalize_remote(origin) != _normalize_remote(expected_origin):
+            raise RuntimeError(
+                f"{vendor} origin is {origin!r}, expected {expected_origin!r}; the "
+                "recorded URL would not describe these bytes. Rerun "
+                "scripts/bootstrap_upstream.sh."
+            )
+        if not _git(vendor, "branch", "-r", "--contains", commit):
+            raise RuntimeError(
+                f"{vendor} HEAD {commit[:12]} is not on any remote branch (a local "
+                "commit?). Rerun scripts/bootstrap_upstream.sh."
+            )
+    for name in FILES:
+        on_disk = _git(vendor, "hash-object", "--no-filters", "--", name)
+        committed = _git(vendor, "rev-parse", f"HEAD:{name}")
+        if on_disk != committed:
+            raise RuntimeError(
+                f"{name} differs from upstream commit {commit[:12]}; the recorded URL "
+                "would not describe these bytes. Restore it with git checkout or "
+                "rerun scripts/bootstrap_upstream.sh."
+            )
+    return commit
+
+
 class LegislatorsConnector:
     """Ten-stage Connector; publishes one transaction so a failure changes nothing."""
 
@@ -138,8 +181,10 @@ class LegislatorsConnector:
         vendor_dir: Path = VENDOR_DIR,
         retain_dir: Path | None = None,
         report: Callable[[str], None] | None = None,
+        expected_origin: str | None = UPSTREAM_REPO,
     ) -> None:
         self.vendor_dir = vendor_dir
+        self.expected_origin = expected_origin
         self.retain_dir = retain_dir or (Path(settings.data_root).expanduser() / "congress" / "legislators")
         self._report = report or (lambda phase: None)
         self._run: IngestionRun | None = None
@@ -160,14 +205,7 @@ class LegislatorsConnector:
                 f"{', '.join(missing)} not found in {self.vendor_dir}. "
                 "Run scripts/bootstrap_upstream.sh."
             )
-        self._commit = _git(self.vendor_dir, "rev-parse", "HEAD")
-        for name in FILES:
-            if _git(self.vendor_dir, "status", "--porcelain", "--", name):
-                raise RuntimeError(
-                    f"{name} differs from upstream commit {self._commit[:12]}; the "
-                    "recorded URL would not describe these bytes. Restore it with "
-                    "git checkout or rerun scripts/bootstrap_upstream.sh."
-                )
+        self._commit = verify_checkout(self.vendor_dir, self.expected_origin)
         self._run = IngestionRun(
             SOURCE_ID, {"commit": self._commit, "files": list(FILES)}, mode="backfill"
         )
@@ -190,11 +228,11 @@ class LegislatorsConnector:
         return ctx
 
     def extract(self, ctx: ConnectorContext) -> ConnectorContext:
-        """Read the bytes once and hash them."""
+        """Read each file once; the hash and the parsed content are the same bytes."""
         for name in FILES:
-            path = self.vendor_dir / name
-            self._checksums[name] = file_checksum(path)
-            self._content[name] = path.read_bytes()
+            content = (self.vendor_dir / name).read_bytes()
+            self._content[name] = content
+            self._checksums[name] = hashlib.sha256(content).hexdigest()
         ctx.checksums = tuple(self._checksums[n] for n in FILES)
         self._report("read files")
         return ctx
@@ -253,7 +291,16 @@ class LegislatorsConnector:
     def publish(self, ctx: ConnectorContext) -> ConnectorContext:
         """One transaction: new people, new identifiers, conflict report."""
         rows = (
-            (p.bioguide, p.full_name, p.given_name, p.family_name, ns, ext, self._artifacts[name])
+            (
+                p.bioguide,
+                p.full_name,
+                p.given_name,
+                p.family_name,
+                ns,
+                ext,
+                self._artifacts[name],
+                ctx.run_id,
+            )
             for name in FILES
             for p in self._people[name]
             for ns, ext in p.identifiers
@@ -286,32 +333,55 @@ class LegislatorsConnector:
         return ctx
 
     def checkpoint(self, ctx: ConnectorContext) -> ConnectorContext:
-        """Close the run ledger; write the review report when anything needs review."""
-        if self._run is not None:
-            error = RuntimeError(ctx.error) if ctx.error else None
-            self._run.__exit__(type(error) if error else None, error, None)
-            self._run = None
-        if self.result and (self.result["conflicts"] or self._shared):
-            target = (
-                Path(settings.data_root).expanduser().resolve().parent
-                / "meta"
-                / "exceptions"
-                / "legislator-identifiers.json"
+        """Write the review report, then close the run ledger exactly once.
+
+        The run counts as failed unless ``publish`` finished, whatever the cause:
+        the error text can be empty and ``KeyboardInterrupt`` is not an Exception.
+        """
+        failure: BaseException | None = None
+        if self._run is not None and (ctx.error or not self.result):
+            failure = RuntimeError(ctx.error or "interrupted before publish finished")
+        try:
+            needs_review = bool(self.result) and bool(
+                self.result["conflicts"] or self._shared
             )
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(
-                json.dumps(
-                    {
-                        "generated_at": datetime.now(UTC).isoformat(),
-                        "run_id": ctx.run_id,
-                        "conflicts": self.result["conflicts"],
-                        "shared_upstream_identifiers": self._shared,
-                    },
-                    indent=2,
-                    sort_keys=True,
+            if failure is None and needs_review:
+                self._write_review_report(ctx)
+                if self._run is not None:
+                    self._run.mark_partial()
+        except OSError as exc:
+            failure = exc
+            raise
+        finally:
+            if self._run is not None:
+                self._run.__exit__(
+                    type(failure) if failure else None, failure, None
                 )
-                + "\n"
-            )
-            self.result["report"] = str(target)
+                self._run = None
         self._report("checkpointed")
         return ctx
+
+    def _write_review_report(self, ctx: ConnectorContext) -> None:
+        """One file per run so an earlier run's review items are never overwritten."""
+        target = (
+            Path(settings.data_root).expanduser().resolve().parent
+            / "meta"
+            / "exceptions"
+            / f"legislator-identifiers-{ctx.run_id}.json"
+        )
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            json.dumps(
+                {
+                    "generated_at": datetime.now(UTC).isoformat(),
+                    "run_id": ctx.run_id,
+                    "upstream_commit": self._commit,
+                    "conflicts": self.result["conflicts"],
+                    "shared_upstream_identifiers": self._shared,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        )
+        self.result["report"] = str(target)

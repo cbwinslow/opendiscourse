@@ -24,6 +24,7 @@ STAGE_COLUMNS = (
     "namespace",
     "external_id",
     "artifact_id",
+    "run_id",
 )
 
 
@@ -34,9 +35,9 @@ def _query(name: str) -> str:
 
 def promote_legislators(
     conn: psycopg.Connection,
-    rows: Iterable[tuple[str, str, str | None, str | None, str, str, UUID]],
+    rows: Iterable[tuple[str, str, str | None, str | None, str, str, UUID, UUID | str]],
 ) -> dict[str, Any]:
-    """Load ``(bioguide, full_name, given, family, namespace, id, artifact_id)`` rows.
+    """Load ``(bioguide, full_name, given, family, namespace, id, artifact_id, run_id)`` rows.
 
     Runs in one transaction on the caller's connection, so a failure leaves the
     warehouse untouched and a rerun with the same rows changes nothing.
@@ -45,11 +46,16 @@ def promote_legislators(
     staged = 0
     with conn.transaction():
         cur = conn.cursor()
+        # Serialize concurrent loads: READ COMMITTED NOT EXISTS cannot see another
+        # transaction's uncommitted person and would create a duplicate.
+        cur.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended('congress.legislators:promote', 0))"
+        )
         cur.execute(_query("create_legislator_stage"))
         with cur.copy(
             f"COPY legislator_stage ({', '.join(STAGE_COLUMNS)}) FROM STDIN"
         ) as copy:
-            for bioguide, full, given, family, namespace, external, artifact in rows:
+            for bioguide, full, given, family, namespace, external, artifact, run in rows:
                 copy.write_row(
                     (
                         bioguide,
@@ -60,6 +66,7 @@ def promote_legislators(
                         namespace,
                         external,
                         artifact,
+                        run,
                     )
                 )
                 staged += 1
@@ -75,6 +82,7 @@ def promote_legislators(
                 "external_id": row["external_id"],
                 "existing_person_id": str(row["existing_person_id"]),
                 "bioguide_person_id": str(row["bioguide_person_id"]),
+                "bioguide_person_created": row["bioguide_person_created"],
             }
             for row in cur.fetchall()
         ]
@@ -84,5 +92,6 @@ def promote_legislators(
         "people_created": people_created,
         "identifiers_created": identifiers_created,
         "identifiers_already_present": staged - identifiers_created - len(conflicts),
+        "possible_duplicate_people": sum(c["bioguide_person_created"] for c in conflicts),
         "conflicts": conflicts,
     }

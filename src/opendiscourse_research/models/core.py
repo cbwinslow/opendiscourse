@@ -205,6 +205,7 @@ core_person_identifier = Table(
     Column("valid_to", Date),
     # Nullable: identifiers seeded before evidence was recorded stay NULL.
     Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+    Column("source_run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id")),
     Index("person_identifier_source_artifact_idx", "source_artifact_id"),
     schema="core",
 )

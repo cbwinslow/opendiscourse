@@ -45,6 +45,11 @@ def test_parse_rejects_record_without_bioguide() -> None:
         parse_legislators("- id: {govtrack: 1}\n  name: {first: A, last: B}\n")
 
 
+def test_parse_rejects_non_mapping_record() -> None:
+    with pytest.raises(ValueError, match="not a mapping"):
+        parse_legislators("- edited\n")
+
+
 def test_parse_rejects_non_list_document() -> None:
     with pytest.raises(ValueError, match="YAML list"):
         parse_legislators("a: 1")

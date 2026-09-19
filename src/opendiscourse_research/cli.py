@@ -584,7 +584,7 @@ def load_legislators_command() -> None:
         connector = LegislatorsConnector(report=advance)
         try:
             run_connector(connector)
-        except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             raise typer.BadParameter(str(exc)) from None
     typer.echo(json.dumps(connector.result, indent=2, sort_keys=True, default=str))
 

@@ -90,7 +90,9 @@ def _vendor(tmp_path: Path, current: list[dict], historical: list[dict]) -> Path
 
 def _load(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, vendor: Path) -> LegislatorsConnector:
     monkeypatch.setattr(settings, "data_root", str(tmp_path / "lake" / "raw"))
-    connector = LegislatorsConnector(vendor_dir=vendor, retain_dir=tmp_path / "retain")
+    connector = LegislatorsConnector(
+        vendor_dir=vendor, retain_dir=tmp_path / "retain", expected_origin=None
+    )
     run_connector(connector)
     return connector
 
@@ -243,6 +245,9 @@ def test_identifier_owned_by_another_person_is_reported_not_moved(
     assert _identifier("govtrack", f"c{bg}")["person_id"] == _identifier("bioguide", bg)["person_id"]
     [conflict] = connector.result["conflicts"]
     assert conflict["bioguide"] == bg and conflict["existing_person_id"] == str(owner)
+    # A new person was made for a BioGuide whose other id is held: flagged as a possible split.
+    assert conflict["bioguide_person_created"] is True
+    assert connector.result["possible_duplicate_people"] == 1
     assert Path(connector.result["report"]).is_file()
 
 
@@ -295,8 +300,8 @@ def test_missing_checkout_gives_actionable_error(
 
 def test_failed_publish_rolls_back_every_write(catalog_database: None) -> None:
     bg, before = _bioguide(), _person_count()
-    rows = [(bg, "Doomed Person", None, None, "bioguide", bg, uuid.uuid4())]  # artifact does not exist
-    with connect() as conn, pytest.raises(Exception, match="artifact"):
+    rows = [(bg, "Doomed Person", None, None, "bioguide", bg, uuid.uuid4(), uuid.uuid4())]  # no such artifact/run
+    with connect() as conn, pytest.raises(Exception, match="foreign key"):
         promote_legislators(conn, rows)
     assert _person_count() == before
     assert _identifier("bioguide", bg) is None
@@ -331,3 +336,119 @@ def test_damaged_retained_copy_fails_and_is_left_untouched(
         _load(tmp_path, monkeypatch, vendor)
     assert damaged.read_text() == "not the evidence\n"
     assert _person_count() == before
+
+
+def _latest_run() -> dict:
+    with connect() as conn:
+        return conn.execute(
+            "SELECT run_id, status, record_count, error_message, parameters FROM ingest.run "
+            "WHERE dataset_id = 'congress.legislators' ORDER BY started_at DESC LIMIT 1"
+        ).fetchone()
+
+
+def test_successful_run_is_recorded_and_stamped_on_new_identifiers(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bg = _bioguide()
+    vendor = _vendor(tmp_path, [{"bioguide": bg}], [{"bioguide": _bioguide()}])
+    _load(tmp_path, monkeypatch, vendor)
+    run = _latest_run()
+    assert (run["status"], run["record_count"]) == ("succeeded", 2)
+    assert _identifier("bioguide", bg)["source_run_id"] == run["run_id"]
+
+
+def test_provenance_survives_a_same_bytes_rerun_on_a_newer_commit(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bg = _bioguide()
+    vendor = _vendor(tmp_path, [{"bioguide": bg}], [{"bioguide": _bioguide()}])
+    _load(tmp_path, monkeypatch, vendor)
+    first = _latest_run()
+    _git(vendor, "commit", "-q", "--allow-empty", "-m", "upstream moved, bytes did not")
+    _load(tmp_path, monkeypatch, vendor)
+    assert _latest_run()["run_id"] != first["run_id"]
+    # The identifier still resolves to the run (and commit) that first asserted it.
+    stamped = _identifier("bioguide", bg)["source_run_id"]
+    assert stamped == first["run_id"]
+    with connect() as conn:
+        commit = conn.execute(
+            "SELECT parameters->>'commit' AS c FROM ingest.run WHERE run_id = %s", (stamped,)
+        ).fetchone()["c"]
+    assert commit == first["parameters"]["commit"]
+
+
+def test_interrupt_before_publish_marks_run_failed(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def interrupted(self, ctx):  # KeyboardInterrupt is not an Exception
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(LegislatorsConnector, "stage", interrupted)
+    vendor = _vendor(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
+    with pytest.raises(KeyboardInterrupt):
+        _load(tmp_path, monkeypatch, vendor)
+    assert _latest_run()["status"] == "failed"
+
+
+def test_error_with_empty_message_still_marks_run_failed(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def blank(self, ctx):
+        raise ValueError()
+
+    monkeypatch.setattr(LegislatorsConnector, "normalize", blank)
+    vendor = _vendor(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
+    with pytest.raises(ValueError):
+        _load(tmp_path, monkeypatch, vendor)
+    assert _latest_run()["status"] == "failed"
+
+
+def test_run_with_conflicts_is_partial_and_report_is_per_run(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bg = _bioguide()
+    _seed_person("Holder", fec=f"P{bg}")
+    vendor = _vendor(
+        tmp_path, [{"bioguide": bg, "ids": {"fec": f"P{bg}"}}], [{"bioguide": _bioguide()}]
+    )
+    connector = _load(tmp_path, monkeypatch, vendor)
+    run = _latest_run()
+    assert run["status"] == "partial"
+    assert str(run["run_id"]) in connector.result["report"]
+
+
+def test_truncated_or_empty_yaml_fails_closed_without_writes(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    before = _person_count()
+    vendor = _vendor(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
+    (vendor / "legislators-historical.yaml").write_text("")
+    _git(vendor, "add", "-A")
+    _git(vendor, "commit", "-q", "-m", "empty")
+    with pytest.raises(ValueError, match="YAML list"):
+        _load(tmp_path, monkeypatch, vendor)
+    assert _person_count() == before
+    assert _latest_run()["status"] == "failed"
+
+
+def test_assume_unchanged_edit_is_still_detected(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    vendor = _vendor(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
+    _git(vendor, "update-index", "--assume-unchanged", "legislators-current.yaml")
+    (vendor / "legislators-current.yaml").write_text(_yaml([{"bioguide": _bioguide()}]))
+    with pytest.raises(RuntimeError, match="differs from upstream commit"):
+        _load(tmp_path, monkeypatch, vendor)
+
+
+def test_wrong_origin_or_unpushed_head_is_refused(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    vendor = _vendor(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
+    _git(vendor, "remote", "add", "origin", "https://github.com/someone/fork.git")
+    strict = LegislatorsConnector(vendor_dir=vendor, retain_dir=tmp_path / "retain")
+    with pytest.raises(RuntimeError, match="origin is"):
+        run_connector(strict)
+    _git(vendor, "remote", "set-url", "origin", "git@github.com:unitedstates/congress-legislators.git")
+    with pytest.raises(RuntimeError, match="not on any remote branch"):
+        run_connector(LegislatorsConnector(vendor_dir=vendor, retain_dir=tmp_path / "retain"))

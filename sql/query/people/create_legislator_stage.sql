@@ -6,5 +6,6 @@ CREATE TEMP TABLE legislator_stage (
   family_name text,
   namespace text NOT NULL,
   external_id text NOT NULL,
-  artifact_id uuid NOT NULL
+  artifact_id uuid NOT NULL,
+  run_id uuid NOT NULL
 ) ON COMMIT DROP
