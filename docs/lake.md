@@ -2,24 +2,47 @@
 
 ## Storage policy
 
-Use `/home/cbwinslow/workspace/data-lake/opendiscourse` for all new project
-data. It is on the 2.9 TiB workspace filesystem (about 2.5 TiB free at the
-initial audit). The existing `/mnt/storage` filesystem has only about 596 GiB
-free and must not receive new large backfills.
+The lake is one folder tree, `<lake>`, chosen by the operator and placed on a large
+volume (never the root disk, which is small and holds the WAL). `DATA_ROOT` is
+`<lake>/raw`: the code writes every report, plan and health file to the sibling
+`<DATA_ROOT>/../meta`, so **`DATA_ROOT` must end in `/raw`**. A clean clone defaults to
+`./data-lake/opendiscourse/raw` (gitignored) so it works with no edits; real
+deployments set `DATA_ROOT` (and `OD_LAKE_ROOT` for Compose) to spacious, backed-up
+storage. On the operator's server `<lake>` is
+`/home/cbwinslow/workspace/data-lake/opendiscourse`; that is a fact about one
+machine, not something code or defaults may assume. The older `/mnt/storage`
+filesystem has little free space and must not receive new large backfills.
 
 ```
-/home/cbwinslow/workspace/data-lake/opendiscourse/
-  raw/        immutable downloads, arranged by source/dataset/period
+<lake>/
+  raw/        immutable downloads, arranged by dataset id and period (DATA_ROOT)
+  meta/       reports the tool writes: audit, validate, plan, health, coverage,
+              load, drafts, exceptions, bulk-plans (regenerable, small)
   stage/      disposable parser output
   curate/     optional parquet exports and reproducible marts
+  hold/       artifacts with unknown origin, failed checks, or access limits
   pg17/       bare-metal PostgreSQL 17 tablespace; do not manually edit
   postgres/   optional Docker development database; do not manually edit
-  quarantine/ artifacts with unknown origin, failed checks, or access limits
 ```
 
 `raw/` is append-only. `stage/` can be removed and rebuilt. No parser may
 overwrite a raw artifact. Every raw object needs an `ingest.artifact` row with
-its original path, URL or origin note, checksum, coverage, and status.
+its original path, URL or origin note, checksum, coverage, and status. Tests never
+touch the real lake: `tests/conftest.py` points `DATA_ROOT` at a scratch folder.
+
+### Names
+
+- **Raw folder** = the catalog dataset id with the dot as a slash, then the period
+  when the source has one: dataset `census.acs_5_bulk` is `raw/census/acs_5_bulk/2023/`.
+  Dataset ids are lowercase `provider.name` with underscores, and are the same key in
+  `inventory/sources.yaml`, `catalog.dataset` and `ingest.artifact.dataset_id`.
+- **File** = `<stem>.<sha256>.<ext>` when the tool retains a download itself
+  (`BILLSTATUS-118-hr.<sha256>.zip`). Some Census loaders keep the publisher's own
+  file name (`cbp22co.zip`). Either way the registry row (`artifact_key`, checksum)
+  is the identity, the file name is only a label, and a retained file is never
+  renamed, overwritten or deleted.
+- **Scratch beside the file** (`*.lock`, partial downloads) is not evidence and is
+  never registered.
 
 ## Existing lake audit
 

@@ -314,9 +314,13 @@ data on the RAID volume; keep only one database backup. Explain results in plain
 
 **Next steps, in order.**
 
-0. **Audit folder layout and naming** against `docs/conventions.md` and `docs/lake.md` (raw data folders,
-   artifact names, script and command names, docs names); write down any drift and fix it in one small PR. Offered
-   to the operator on 2026-09-19, not yet done.
+0. **Folder and naming audit: done (2026-09-19)**, see `docs/layout-and-naming-audit-2026-09-19.md`.
+   Fixed: tests no longer write into the real lake (autouse `DATA_ROOT` isolation), `lake.md` matches the lake
+   and code, naming rules written in `conventions.md`. Needs the operator: move 109 test-fixture files out of the
+   real `raw/` into `hold/`; repoint two legislators registry rows and drop the stray checkout `data-lake/`;
+   untrack `.agent/` (Antigravity copy of the skills); commit or drop `docs/data-inventory-2026-09-19.md`.
+   Debt found: FEC (20 GB) and 16 BILLSTATUS rows still point at `/mnt/storage`, so **FEC is not rebuildable from
+   an empty `DATA_ROOT` yet** (the rebuild kit must close this); 96 stale `.lock` files; mixed verb and module names.
 1. **Rebuild kit** (operator condition for dropping `stage` duplicates, and for portability): one documented,
    tested command sequence that downloads and ingests every loaded source from an empty `DATA_ROOT`; then a small
    project skill `opendiscourse-rebuild` that points agents at it. Commands are the portable part; skills only guide.

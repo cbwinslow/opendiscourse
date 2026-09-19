@@ -40,3 +40,20 @@ COPY and set-based promotion operations remain at the raw repository boundary.
 Use the shared `opendiscourse_research.feedback` helper for any operation with
 more than one unit of work. Show phase, progress, elapsed time, remaining time
 when totals are known, and an actionable resume command after interruption.
+
+## Names
+
+- **Datasets and lake folders:** `provider.dataset_name`, lowercase with underscores;
+  the raw folder is the same id with the dot as a slash (`docs/lake.md`, "Names").
+- **Python modules:** snake_case words (`artifact_storage`, `billstatus_record`), one
+  boundary per module. Older run-together names (`legload`, `censushealth`) are
+  renamed only when the module is replaced, not in passing.
+- **`research-db` commands:** kebab-case `<verb>-<object>`. `sync-<source>` downloads
+  from the origin, inventories and loads in one idempotent step; `load-<object>` loads
+  what is already retained; `validate-` and `reconcile-` are read-only apart from their
+  report. New sources are Connectors, not new dispatcher branches.
+- **Scripts:** operational shell and Python helpers live under `scripts/<area>/`
+  (`ops`, `ci`, `bench`), snake_case with a verb first; systemd units keep the
+  `opendiscourse-<job>.service|timer` form under `ops/systemd/`.
+- **Docs:** kebab-case; a dated snapshot ends in `-YYYY-MM-DD` (audits, inventories,
+  research); living documents carry no date. Decisions are `docs/adr/NNNN-title.md`.
