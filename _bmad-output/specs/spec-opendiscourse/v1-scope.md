@@ -12,6 +12,14 @@ Do not start v1.1 because a staging table already exists. Do not expand
 horizontally until a Connector→mart slice is proven (FRED e2e and/or
 legislator-vote). Pre-Connector ACS/TIGER/bill loads do not count.
 
+## Coverage target (operator, 2026-09-19)
+
+Federal legislation **Congresses 108-119** (2003 to now): GovInfo BILLSTATUS
+bulk starts at the 108th. FEC cycles 2004+ when v1.1 opens. Completeness is
+measured (Story 9.3), not assumed. Untrustworthy derived data (unverified legacy
+caches, partial/failed-run output, rows from reverted AGY code) may be wiped and
+re-ingested; loaded Census/CBP/TIGER/PEP/DHC data is not redone without cause.
+
 ## v1 loadable spine
 
 Identities, TIGER geography, legislation (Congress.gov, GovInfo, OpenStates

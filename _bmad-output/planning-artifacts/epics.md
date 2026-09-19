@@ -82,7 +82,8 @@ to evidence that supports their current values; tests cover unchanged retry,
 changed-content refresh, and rollback/replay. Do not implement as a silent
 `register_artifact()` behavior change without an Alembic migration and loader
 compatibility tests.
-PR #25 was reverted pending a corrected implementation and review.
+PR #25 was reverted (#26). Rebuilt on `fix/1-7-immutable-artifacts`, reviewed twice,
+not yet merged; see `implementation-artifacts/spec-1-7-immutable-artifact-versions-2.md`.
 
 ## Epic 2 — Connector protocol + FRED reference
 
@@ -93,11 +94,15 @@ Acceptance: Protocol in code; tests for the interface; no schema change.
 Landed: `ingestion/connector.py` (`Connector`, `STAGES`, `run_connector`);
 `tests/test_connector.py`.
 
-### Story 2.2 — Registry without HANDLERS if/elif
+### Story 2.2 — Registry without HANDLERS if/elif — reverted, redo
+AGY's PR #18 was reverted in #26 (FRED-specific branch left in `registry.sync`).
+Redo through the Connector with no central dispatcher edit; do not revive #18.
 As a developer, I register FRED without adding to a hardcoded handler set.
 Acceptance: FRED path does not need a new `plans.py` elif.
 
-### Story 2.3 — Migrate FRED end-to-end
+### Story 2.3 — Migrate FRED end-to-end — reverted, redo
+AGY's PR #20 was reverted in #26 (discovery failures left leases/runs stuck).
+Redo after 2.2; failures must checkpoint with an actionable error.
 As an operator, FRED discover/index vs observations still split; observations
 still contract-gated.
 Acceptance: Existing FRED tests pass; provenance unchanged.
@@ -132,7 +137,10 @@ canonical; prefer `legislative_session_id`. Do not add
 `core.geography_relationship` here.
 Landed on `main` via PR #21.
 
-### Story 8.2 — OpenStates promote, not public FDW — in review
+### Story 8.2 — OpenStates promote, not public FDW — reverted, redo
+AGY's PR #22 was reverted in #26: it accepted a manifest without validating the
+snapshot's file/bytes/checksum and keyed membership without role/end date.
+Rows it already wrote to `core` are suspect; re-promote after the redo.
 As a researcher, I query `core`/`fact`/`mart` for OCD-aligned state rows,
 not `openstates_source.opencivicdata_*`.
 Acceptance: Documented; at least one promote path from FDW to `core` for a
@@ -210,24 +218,59 @@ promote). Stories TBD.
 | FR-20 | 1.5, 1.6, 8.3 |
 | AD-3 immutable evidence | 1.7 |
 
-## Suggested next build
+## Epic 9 — Ingestion contract, run ledger, coverage (v1 completeness)
 
-Keep-and-refine. Do not start Epic 7 and do not redesign the Connector while
-its reference migration is still in flight.
+Goal (operator, 2026-09-19): complete, trustworthy datasets, ingested by
+idempotent and fast workflows, with an exact record of what went where.
+Federal legislation scope is **Congresses 108-119**. Details and rationale:
+`docs/PROJECT-STATE.md`.
 
-Independent tracks (do not mix on one branch):
+### Story 9.1 — Load contract ADR-0003 and idempotency harness
+As an operator, every source loads by the strategy that fits its grain, and a
+shared test proves it: bulk facts/stage reload by partition (COPY to temp,
+validate, delete-and-insert the slice in one transaction); FK-referenced entities
+set-based upsert from a temp table touching only changed rows (keeps UUIDs); raw
+bytes never wiped and reused unless the remote checksum changed.
+Acceptance: benchmark reload vs upsert on one real dataset first; ADR-0003
+records the numbers; harness asserts run-twice = same counts, kill-and-resume =
+same result, wipe-and-reload = same result. Check whether the big tables are
+partitioned before choosing.
 
-1. **Connector vertical slice:** finish/rebase PR #18 (Story 2.2), then PR #20
-   (Story 2.3 FRED e2e, stacked on 2.2). Resolve the duplicate-registration
-   invariant before merge.
-2. **Legislative ownership:** finish PR #22 (Story 8.2), then execute the 8.3
-   session-FK backfill gate. After that, Epic 4 moves federal roll-call
-   acquisition to wrapped chamber-native evidence.
-3. **Evidence hardening:** Story 1.6 provenance/identity contract tests, then
-   Story 1.7 immutable artifact versioning. These are cross-cutting integrity
-   changes and should not be hidden inside the FRED or OpenStates branches.
-4. **Identity spine:** Story 3.1 loads `congress-legislators` before any
-   politician-to-money/disclosure joins.
+### Story 9.2 — Ingest run ledger
+As an operator, I can see exactly what each run wrote: target table, coverage
+key (e.g. congress/cycle/year), rows inserted/updated/skipped, status.
+Acceptance: Alembic `ingest.run_target`; `IngestionRun` writes it; `code_version`
+= git SHA on every run; a query answers "what is loaded for dataset X, by
+period". Foundation for 9.3.
 
-The next political-data work should improve evidence, identity, temporal
-membership, and vote completeness before broadening the source catalog.
+### Story 9.3 — Coverage comparator (Congresses 108-119)
+As an operator, "complete" is a number: official manifests vs loaded rows per
+source and Congress.
+Acceptance: report of expected/loaded/missing per Congress for bills, actions,
+votes, members; the 108th start is confirmed against GovInfo manifests.
+
+## Later (not started; do not begin without a spec)
+
+- **Scorecards** (CAP-9, needs its own spec): derived `mart` outputs over
+  evidence-backed rows; transparent indicators; no opaque corruption score.
+- **Text/NLP/vectors:** keep bill text as immutable artifacts and `core.document`
+  now; embeddings, summaries, and kNN only after chunks exist (ADR first).
+- Crime data (Epic 7), FRED depth, ACS/housing marts.
+
+## Suggested next build (updated 2026-09-19)
+
+Keep-and-refine. Do not start Epic 7. Order:
+
+1. **Merge Story 1.7** (`fix/1-7-immutable-artifacts`) after the operator sees the
+   review. Evidence must be immutable before any re-ingest.
+2. **Story 9.1** (benchmark, ADR-0003, harness), then **9.2** (run ledger).
+3. **Story 3.1** BioGuide identity (`congress-legislators`), idempotent.
+4. **Story 9.3** coverage comparator, then backfill Congresses 108-119 through
+   Connectors (bills/actions/members via GovInfo BILLSTATUS; votes via
+   `unitedstates/congress`, Story 4.1). Each source must pass the 9.1 harness.
+5. Redo **2.2 -> 2.3** (FRED) and **8.2** (OpenStates promote); fix the failed
+   Treasury (24 runs) and FRED (6 runs) ingests.
+6. Promote FEC only after 3.1 (cycles 2004+, v1.1).
+
+Independent tracks stay on separate branches. Improve evidence, identity,
+temporal membership, and vote completeness before broadening sources.

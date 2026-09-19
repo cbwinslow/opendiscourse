@@ -24,13 +24,6 @@ Sources (absorbed; do not re-ingest unless updating the spec):
 Live schema snapshot for external review: `docs/schema-snapshot/`
 (reading order: `docs/research/2026-09-17-chatgpt-review-packet.md`).
 
-**Standing (2026-09-17):** Architecture approved. Stories 1.1–1.3, 1.5, 2.1
-done. Story 1.4 optional. Story 2.2 = PR #18 open; Story 2.3 = PR #20 stacked
-on 2.2. Story 8.1 spec ready-for-dev (no Alembic yet). Story 1.6
-(provenance contract tests) not started. Story 8.3 (session FK unique keys)
-deferred. FR-20 / AD-10 in the spec kernel. Kernel open questions closed in
-`resolved-questions.md`. Epic 7 closed even though
-`stage.fec_row` already has data.
-
-Next: land Connector PRs (#18 then #20) and implement 8.1 on its own branch.
-Do not start Epic 7. Do not redesign.
+**Standing:** see `docs/PROJECT-STATE.md` (updated 2026-09-19). AGY's merges
+(2.2, 2.3, 8.2, 1.7) were reverted in #26 and are being redone; do not use the
+2026-09-17 status that used to be here.
