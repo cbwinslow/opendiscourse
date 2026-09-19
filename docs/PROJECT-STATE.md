@@ -269,19 +269,24 @@ retained YAML artifacts.
 
 ## Sources review, backup risk and branch cleanup (2026-09-19)
 
-**Stop-and-fix items (operator decisions needed before any large new acquisition).**
+**Backups (fixed 2026-09-19).** The OpenDiscourse database (238 GB) had no working backup. The operator decided:
+one copy only, rebuild the big layers from raw files, no point-in-time recovery. Built and proven:
+`scripts/ops/backup_opendiscourse.sh` (nightly 03:30 from the operator's crontab; about 0.75 GB; writes to
+`/mnt/storage/data-lake/backups/opendiscourse/`, never the root disk; exactly one copy, replaced only after a
+verified new dump) and `scripts/ops/restore_drill.sh` (restores into a throwaway container and compares row counts;
+**passed**). The database is also crash-safe for power cuts (fsync on, clean WAL replay, auto-start, healthy RAID 5);
+a UPS is the remaining real protection. Details, open options and the power-loss findings:
+`docs/storage-and-backup-plan.md`. Not yet done: the rebuild kit (below) that must exist before the rebuildable `stage`
+duplicates (about 37 GB) may be dropped, and an optional off-machine copy (Google Drive via `rclone`, needs the
+operator to sign in).
 
-1. **Backups.** The OpenDiscourse database (port 5434, 238 GB) appears to have no working backup: the infra
-   cron job reaches the older PostgreSQL 16 cluster only, writes to the root disk (120 GB free), and its
-   monitor says "stale". Full findings, what is and is not rebuildable, and options:
-   `docs/storage-and-backup-plan.md`. Four decisions are listed at its end. New data itself lands in the right
-   place (raw files and database pages on the RAID volume, 2.1 TB free).
-2. **Sources review.** `docs/research/2026-09-19-chatgpt-sources-review.md` was evaluated and decided in
+1. **Sources review.**   `docs/research/2026-09-19-chatgpt-sources-review.md` was evaluated and decided in
    `docs/adr/0004-source-catalog-and-tool-policy.md`: architecture unchanged; the source catalog (with a size
    estimate and a `verified_on` date per source) and the tool matrix in `reuse.md` become the acquisition map;
    the review's ~26 domains are catalog entries, not a build order; `censusdis` stays rejected as a dependency;
    the small disclosure and `pyCFR` repos are reference only; Parquet is at most a derived side cache after its
    own ADR; Prefect is not adopted (the review wrongly said we use it). Sequencing stays `v1-scope.md`.
+   After the operator asked for less caution about tools, the tool positions were softened the same day: "evaluate and adopt if good" instead of "reference only", and a Parquet benchmark is planned because size is a real constraint (ADR-0004, revised).
 
 **What we already have for "bill details and amendments".** Bill details: complete (every field of every
 BILLSTATUS file is in `core.bill_source_record`; actions, sponsors, cosponsors, committees, subjects, summaries,
@@ -300,16 +305,22 @@ Nothing on those branches is wanted: AGY output is not trusted (rule 7 above). T
 
 **Next steps, in order.**
 
-1. Operator answers the four storage decisions; fix or replace the backup job (lives in `~/workspace/infra`).
+1. **Rebuild kit** (operator condition for dropping `stage` duplicates, and for portability): one documented,
+   tested command sequence that downloads and ingests every loaded source from an empty `DATA_ROOT`; then a small
+   project skill `opendiscourse-rebuild` that points agents at it. Commands are the portable part; skills only guide.
 2. Story 9.6 (proposed number): expand `inventory/sources.yaml` into the source catalog described in ADR-0004
    and audit the existing Connectors against it. Change class M: spec with `bmad-spec`, then build.
 3. Votes Connector (the legislator-vote proof slice `v1-scope.md` requires before expanding horizontally): first
    verify the House Clerk and Senate XML formats and the `unitedstates/congress` vote task against the live
    sites; join on BioGuide (House), LIS (Senate; every senator since 2003 has one) and ICPSR (Voteview). Spec
    with `bmad-spec` first.
-4. Then, one Connector each: GovInfo BILLS text and PLAW, Congress.gov amendment detail and committee
+4. Parquet benchmark story (size): compare Postgres and Parquet for `stage.fec_row` and ACS; adopt only as a
+   derived layer if it wins.
+5. Then, one Connector each: GovInfo BILLS text and PLAW, Congress.gov amendment detail and committee
    reports, typed CBO estimates and committee reports (from the stored records), committee membership.
-5. v1.1 order stays FEC, disclosures, elections, crime; the review's extra domains wait for the operator's ranking.
+6. v1.1 order stays FEC, disclosures, elections, crime; the review's extra domains wait for the operator's ranking.
+7. **Skills and MCP review (not yet read):** `docs/research/2026-09-19-chatgpt-skills-mcp-review.md`, supplied by the
+   operator; evaluate which skills or MCP servers are worth adding to the project, record the decision in an ADR.
 
 **To resume in a fresh session:** "Resume OpenDiscourse. Read `docs/PROJECT-STATE.md` (start at 'Sources review,
 backup risk and branch cleanup')."
