@@ -73,3 +73,45 @@ def test_constructor_rejects_unknown_bill_types_and_bad_batches() -> None:
         BillStatusConnector(bill_types=("hr", "bogus"))
     with pytest.raises(ValueError, match="batch_size"):
         BillStatusConnector(batch_size=0)
+
+
+def test_repeated_bill_types_are_de_duplicated() -> None:
+    assert BillStatusConnector(bill_types=("hr", "s", "hr")).bill_types == ("hr", "s")
+
+
+class _Stub:
+    """Stands in for BillStatusConnector so the CLI's exit codes can be checked."""
+
+    source_id = "congress.govinfo_billstatus"
+
+    def __init__(self, *args, **kwargs) -> None:
+        self.result: dict = {}
+
+
+@pytest.mark.parametrize(
+    ("raises", "result", "code"),
+    [
+        (None, {"partial": False}, 0),
+        (None, {"partial": True}, 2),
+        (RuntimeError("GovInfo is down"), {}, 1),
+        (OSError("disk full"), {}, 1),
+    ],
+)
+def test_cli_exit_codes_distinguish_success_partial_and_failure(
+    monkeypatch: pytest.MonkeyPatch, raises: BaseException | None, result: dict, code: int
+) -> None:
+    from typer.testing import CliRunner
+
+    from opendiscourse_research import cli
+
+    def fake_run(connector) -> None:
+        if raises is not None:
+            raise raises
+        connector.result = result
+
+    monkeypatch.setattr(cli, "BillStatusConnector", _Stub)
+    monkeypatch.setattr(cli, "run_connector", fake_run)
+    out = CliRunner().invoke(cli.app, ["sync-billstatus", "--congress", "108"])
+    assert out.exit_code == code, out.output
+    if code == 1:
+        assert "sync-billstatus failed" in out.output and "rerun" in out.output

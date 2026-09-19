@@ -17,6 +17,8 @@ from dataclasses import dataclass
 
 import httpx
 
+from .paced import PacedClient, Send
+
 USER_AGENT = "opendiscourse-research/0.1 (BILLSTATUS connector; polite, resumable)"
 PACE_SECONDS = 1.0
 BULK_ROOT = "https://www.govinfo.gov/bulkdata"
@@ -43,6 +45,14 @@ class GovInfoError(RuntimeError):
     """A GovInfo lookup failed or returned something unusable."""
 
 
+class GovInfoNotFound(GovInfoError):
+    """GovInfo answered 404: the object is not published (yet)."""
+
+
+def _error(message: str, status: int | None) -> GovInfoError:
+    return (GovInfoNotFound if status == 404 else GovInfoError)(message)
+
+
 @dataclass(frozen=True)
 class RemoteZip:
     """What GovInfo says about one BILLSTATUS zip, without downloading it."""
@@ -52,9 +62,6 @@ class RemoteZip:
     url: str
     size: int
     last_modified: str
-
-
-Send = Callable[[str, str], httpx.Response]
 
 
 def _default_send(method: str, url: str) -> httpx.Response:
@@ -80,38 +87,10 @@ class GovInfoBillStatus:
         pace_seconds: float = PACE_SECONDS,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        self._send = send
-        self._pace = pace_seconds
-        self._sleep = sleep
-        self._last = 0.0
+        self._client = PacedClient(send, pace_seconds, sleep, _error)
 
     def _request(self, method: str, url: str) -> httpx.Response:
-        """Pace, send, retry once on transient failures, raise on a permanent one."""
-        last_error: Exception | None = None
-        for _attempt in range(2):
-            wait = self._pace - (time.monotonic() - self._last)
-            if wait > 0:
-                self._sleep(wait)
-            try:
-                response = self._send(method, url)
-                self._last = time.monotonic()
-                response.raise_for_status()
-                return response
-            except httpx.HTTPError as exc:
-                self._last = time.monotonic()
-                last_error = exc
-                status = (
-                    exc.response.status_code
-                    if isinstance(exc, httpx.HTTPStatusError)
-                    else None
-                )
-                if status is not None and status < 500 and status != 429:
-                    break  # a permanent client error will not improve
-                if status == 429:
-                    retry_after = exc.response.headers.get("Retry-After", "")  # type: ignore[union-attr]
-                    if retry_after.isdigit():
-                        self._sleep(min(int(retry_after), 30))
-        raise GovInfoError(f"{method} {url}: {last_error}")
+        return self._client.request(method, url)
 
     def congresses(self) -> list[int]:
         """Congress folders listed in the BILLSTATUS root manifest, ascending."""

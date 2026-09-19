@@ -26,7 +26,7 @@ from opendiscourse_research.ingestion import billstatus
 from opendiscourse_research.ingestion.billstatus import BillStatusConnector
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion.connector import Connector, run_connector
-from opendiscourse_research.providers.govinfo import ZIP_URL, RemoteZip
+from opendiscourse_research.providers.govinfo import ZIP_URL, GovInfoNotFound, RemoteZip
 
 CONGRESS = 998
 KEY = f"BILLSTATUS-{CONGRESS}-hr.zip"
@@ -163,6 +163,7 @@ class FakeOrigin:
         self.downloads: list[str] = []
         self.truncate = False
         self.extra_manifest: set[str] = set()
+        self.absent: set[str] = set()
         self.publish(members)
 
     def publish(self, members: dict[str, str], modified: str = MODIFIED) -> None:
@@ -175,6 +176,8 @@ class FakeOrigin:
         return [CONGRESS]
 
     def zip_info(self, congress: int, bill_type: str) -> RemoteZip:
+        if bill_type in self.absent:
+            raise GovInfoNotFound(f"{bill_type}: 404")
         return RemoteZip(
             congress,
             bill_type,
@@ -378,12 +381,41 @@ def test_a_malformed_member_is_skipped_reported_and_keeps_the_zip_unfinished(
     assert _artifact()["status"] == "downloaded"  # never claimed as loaded while a member failed
 
 
-def test_xml_that_contradicts_its_file_name_aborts_and_rolls_back(origin: FakeOrigin) -> None:
+def test_xml_that_contradicts_its_file_name_is_skipped_and_reported(origin: FakeOrigin) -> None:
+    """One untrustworthy member must not block 170K others, and must never be written."""
     origin.publish({**_members(range(1, 4)), f"BILLSTATUS-{CONGRESS}hr7.xml": _bill_xml(8)})
-    with pytest.raises(ValueError, match="not the bill its name promises"):
+    connector = _sync(origin)
+
+    assert _bills() == 3
+    assert _one("SELECT count(*) AS n FROM core.bill WHERE bill_number IN ('7', '8') "
+                "AND legislative_session = '998'") == 0
+    assert connector.result["malformed_members"] == {KEY: [f"BILLSTATUS-{CONGRESS}hr7.xml"]}
+    assert "not the bill its name promises" in connector.result["problems"][0]
+    assert connector.result["partial"] is True and _run_status()[0] == "partial"
+    assert _artifact()["status"] == "downloaded"
+
+
+def test_a_type_govinfo_does_not_publish_is_reported_not_fatal(origin: FakeOrigin) -> None:
+    origin.absent = {"s"}
+    connector = BillStatusConnector(
+        [CONGRESS],
+        ("hr", "s"),
+        govinfo=origin,  # type: ignore[arg-type]
+        downloader=origin.download,
+        sleep=lambda _s: None,
+    )
+    run_connector(connector)
+
+    assert connector.result["zips"] == 1 and _bills() == 3
+    assert connector.result["not_published"] == ["BILLSTATUS-998-s.zip"]
+    assert connector.result["partial"] is False and _run_status()[0] == "succeeded"
+
+
+def test_nothing_published_at_all_is_an_error(origin: FakeOrigin) -> None:
+    origin.absent = {"hr"}
+    with pytest.raises(RuntimeError, match="publishes none"):
         _sync(origin)
-    assert _bills() == 0  # the whole batch rolled back
-    assert _run_status()[0] == "failed"
+    assert _run_status()[0] == "failed" and origin.downloads == []
 
 
 def test_a_member_from_another_congress_is_refused_before_any_write(origin: FakeOrigin) -> None:

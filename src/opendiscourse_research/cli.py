@@ -7,6 +7,7 @@ from pathlib import Path
 import psycopg
 import typer
 import yaml
+from sqlalchemy.exc import SQLAlchemyError
 
 from .audit import audit_leg
 from .browser import (
@@ -589,7 +590,11 @@ def sync_billstatus_command(
         500, min=1, max=5000, help="Bills per committed transaction; reruns resume."
     ),
 ) -> None:
-    """Download GovInfo BILLSTATUS into DATA_ROOT, inventory it, and load bills (idempotent)."""
+    """Download GovInfo BILLSTATUS into DATA_ROOT, inventory it, and load bills (idempotent).
+
+    Exit code 0: complete. 1: failed (a rerun resumes). 2: loaded, but coverage is
+    incomplete (see `incomplete_zips` and `malformed_members` in the output).
+    """
     try:
         with render_spinner("Syncing GovInfo BILLSTATUS") as report:
             connector = BillStatusConnector(
@@ -600,11 +605,13 @@ def sync_billstatus_command(
                 report=report,
             )
             run_connector(connector)
-    except (OSError, RuntimeError, ValueError) as exc:
-        raise typer.BadParameter(str(exc)) from None
+    except (OSError, RuntimeError, ValueError, psycopg.Error, SQLAlchemyError) as exc:
+        typer.secho(f"sync-billstatus failed: {exc}", err=True, fg=typer.colors.RED)
+        typer.echo("Nothing is lost: rerun the same command to resume.", err=True)
+        raise typer.Exit(1) from None
     typer.echo(json.dumps(connector.result, indent=2, sort_keys=True, default=str))
     if connector.result.get("partial"):
-        raise typer.Exit(2)  # loaded, but coverage is incomplete: let a scheduler see it
+        raise typer.Exit(2)
 
 
 @app.command("load-openstates-people")

@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+from functools import cache
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from .legislation import _query
+_QUERY_ROOT = Path(__file__).resolve().parents[3] / "sql" / "query" / "legislation"
+
+
+@cache
+def _query(name: str) -> str:
+    """Read a named, version-controlled query template (once per process)."""
+    return (_QUERY_ROOT / f"{name}.sql").read_text()
 
 
 def superseded_artifact_ids(

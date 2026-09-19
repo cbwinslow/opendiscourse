@@ -34,6 +34,7 @@ from ..providers.govinfo import (
     BILL_TYPES,
     PACE_SECONDS,
     GovInfoBillStatus,
+    GovInfoNotFound,
     RemoteZip,
     member_identity,
 )
@@ -127,7 +128,7 @@ class BillStatusConnector:
         if unknown:
             raise ValueError(f"unknown bill type(s) {unknown}; expected {list(BILL_TYPES)}")
         self.congresses = tuple(congresses) if congresses else None
-        self.bill_types = tuple(bill_types)
+        self.bill_types = tuple(dict.fromkeys(bill_types))
         self.batch_size = batch_size
         self.download_only = download_only
         self._govinfo = govinfo or GovInfoBillStatus()
@@ -139,6 +140,8 @@ class BillStatusConnector:
         self._items: list[_Item] = []
         self._finished = False
         self._partial = False
+        self._not_published: list[str] = []
+        self._problems: list[str] = []
         self.result: dict[str, Any] = {}
 
     # -- stages -----------------------------------------------------------
@@ -166,8 +169,17 @@ class BillStatusConnector:
         for congress in sorted(set(wanted)):
             for bill_type in self.bill_types:
                 self._report(f"checking origin: {congress} {bill_type}")
-                self._items.append(_Item(self._govinfo.zip_info(congress, bill_type)))
-        ctx.extras["congresses"] = sorted(set(wanted))
+                try:
+                    self._items.append(_Item(self._govinfo.zip_info(congress, bill_type)))
+                except GovInfoNotFound:
+                    # Not published (yet), e.g. a type with no bills so far in a new
+                    # Congress. That is the origin's state, not a failure: report it.
+                    self._not_published.append(artifact_key(congress, bill_type))
+        if not self._items:
+            raise RuntimeError(
+                f"GovInfo publishes none of the requested BILLSTATUS zips ({self._not_published})"
+            )
+        ctx.extras["congresses"] = sorted({i.remote.congress for i in self._items})
         return ctx
 
     def select(self, ctx: ConnectorContext) -> ConnectorContext:
@@ -188,6 +200,8 @@ class BillStatusConnector:
         ctx.plan_id = f"{SOURCE_ID}:{congresses[0]}-{congresses[-1]}"
         ctx.artifact_urls = tuple(i.remote.url for i in downloads)
         if downloads:
+            # Only DATA_ROOT's filesystem is knowable here (the database may live
+            # elsewhere), and only the compressed zips are written to it.
             preview = storage_preview(
                 [RemoteObject(i.remote.url, i.remote.size, "head") for i in downloads],
                 stage_multiplier=0.0,
@@ -380,6 +394,8 @@ class BillStatusConnector:
                 if i.coverage.get("status") == "partial"
             ],
             "malformed_members": malformed,
+            "problems": self._problems[:20],
+            "not_published": self._not_published,
             "items": summaries,
         }
         self._report("published")
@@ -454,10 +470,16 @@ class BillStatusConnector:
                         for member in item.todo[start : start + self.batch_size]:
                             try:
                                 data = parse_billstatus_xml(bundle.read(member), member_name=member)
-                            except (ElementTree.ParseError, ValueError):
+                            except (ElementTree.ParseError, ValueError) as exc:
                                 malformed.append(member)
+                                self._problems.append(f"{item.key}:{member}: unreadable ({exc})")
                                 continue
-                            self._require_identity(item, member, data)
+                            if problem := self._identity_problem(item, member, data):
+                                # Which bill this is can no longer be trusted: write nothing
+                                # for it, report it, and carry on with the rest.
+                                malformed.append(member)
+                                self._problems.append(problem)
+                                continue
                             bill_ids.append(
                                 save_billstatus_bill(
                                     data,
@@ -500,16 +522,15 @@ class BillStatusConnector:
         return counts, malformed
 
     @staticmethod
-    def _require_identity(item: _Item, member: str, data: dict[str, Any]) -> None:
-        """The XML must describe the bill its file name and zip promise."""
+    def _identity_problem(item: _Item, member: str, data: dict[str, Any]) -> str | None:
+        """Why the XML does not describe the bill its file name promises, else None."""
         try:
             found = (data["congress"], data["bill_type"], int(data["bill_number"]))
         except ValueError:
             found = None
         if found != member_identity(member):
-            raise ValueError(
-                f"{item.key}:{member} describes {found}, not the bill its name promises"
-            )
+            return f"{item.key}:{member} describes {found}, not the bill its name promises"
+        return None
 
     @staticmethod
     def _summary(

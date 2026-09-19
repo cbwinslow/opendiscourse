@@ -10,8 +10,10 @@ from opendiscourse_research.providers.govinfo import (
     ZIP_URL,
     GovInfoBillStatus,
     GovInfoError,
+    GovInfoNotFound,
     member_identity,
 )
+from opendiscourse_research.providers.paced import PacedClient, retry_after_seconds
 
 
 def _response(method: str, url: str, status: int = 200, **kwargs) -> httpx.Response:
@@ -68,7 +70,7 @@ def test_zip_info_fails_closed_without_a_usable_size_or_date(headers: dict) -> N
 def test_a_permanent_client_error_is_not_retried() -> None:
     url = ZIP_URL.format(congress=108, bill_type="hr")
     script = _Script({url: [{"status": 404}, {"status": 200}]})
-    with pytest.raises(GovInfoError, match="404"):
+    with pytest.raises(GovInfoNotFound, match="404"):
         _client(script).zip_info(108, "hr")
     assert len(script.calls) == 1
 
@@ -171,3 +173,53 @@ def test_member_identity_parses_only_real_bill_file_names(name: str, expected) -
 def test_every_bill_type_round_trips_through_member_identity() -> None:
     for bill_type in BILL_TYPES:
         assert member_identity(f"BILLSTATUS-110{bill_type}42.xml") == (110, bill_type, 42)
+
+
+def test_a_403_is_an_error_but_not_a_not_found() -> None:
+    url = ZIP_URL.format(congress=108, bill_type="hr")
+    with pytest.raises(GovInfoError) as raised:
+        _client(_Script({url: [{"status": 403}]})).zip_info(108, "hr")
+    assert not isinstance(raised.value, GovInfoNotFound)
+
+
+# -- the shared transport ------------------------------------------------------
+def test_retry_after_accepts_seconds_and_http_dates_and_caps_both() -> None:
+    from datetime import UTC, datetime
+
+    now = datetime(2026, 9, 19, 12, 0, 0, tzinfo=UTC)
+    assert retry_after_seconds("7") == 7
+    assert retry_after_seconds("9999") == 30
+    assert retry_after_seconds("Sat, 19 Sep 2026 12:00:10 GMT", now) == 10
+    assert retry_after_seconds("Sat, 19 Sep 2026 11:00:00 GMT", now) == 0  # already past
+    assert retry_after_seconds("Sat, 19 Sep 2026 13:00:00 GMT", now) == 30
+    assert retry_after_seconds("soon") is None and retry_after_seconds("") is None
+
+
+def test_a_last_failed_attempt_does_not_sleep_for_retry_after() -> None:
+    sleeps: list[float] = []
+    calls: list[str] = []
+
+    def always_throttled(method: str, url: str) -> httpx.Response:
+        calls.append(url)
+        return _response(method, url, 429, headers={"Retry-After": "20"})
+
+    client = PacedClient(always_throttled, 0, sleeps.append)
+    with pytest.raises(RuntimeError):
+        client.request("GET", "https://example/x")
+    assert len(calls) == 2
+    assert sleeps == [20.0]  # once, between the attempts; not again before giving up
+
+
+def test_the_error_factory_sees_the_status() -> None:
+    seen: list[int | None] = []
+
+    def factory(message: str, status: int | None) -> Exception:
+        seen.append(status)
+        return ValueError(message)
+
+    def gone(method: str, url: str) -> httpx.Response:
+        return _response(method, url, 410)
+
+    with pytest.raises(ValueError):
+        PacedClient(gone, 0, lambda _s: None, factory).request("GET", "https://example/x")
+    assert seen == [410]

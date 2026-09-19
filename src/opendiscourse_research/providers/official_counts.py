@@ -17,6 +17,8 @@ from xml.etree import ElementTree
 
 import httpx
 
+from .paced import PacedClient
+
 USER_AGENT = "opendiscourse-research/0.1 (coverage comparator; read-only)"
 PACE_SECONDS = 1.0
 GOVINFO_ROOT = "https://www.govinfo.gov/bulkdata/json/BILLSTATUS"
@@ -50,38 +52,16 @@ class OfficialCounts:
         pace_seconds: float = PACE_SECONDS,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        self._get = get
-        self._pace = pace_seconds
-        self._sleep = sleep
-        self._last = 0.0
+        self._client = PacedClient(
+            lambda _method, url: get(url),
+            pace_seconds,
+            sleep,
+            lambda message, _status: OfficialCountError(message),
+        )
 
     def _fetch(self, url: str) -> httpx.Response:
         """GET with pacing; retry once on transport errors, 429 and 5xx only."""
-        last_error: Exception | None = None
-        for _attempt in range(2):
-            wait = self._pace - (time.monotonic() - self._last)
-            if wait > 0:
-                self._sleep(wait)
-            try:
-                response = self._get(url)
-                self._last = time.monotonic()
-                response.raise_for_status()
-                return response
-            except httpx.HTTPError as exc:
-                self._last = time.monotonic()
-                last_error = exc
-                status = (
-                    exc.response.status_code
-                    if isinstance(exc, httpx.HTTPStatusError)
-                    else None
-                )
-                if status is not None and status < 500 and status != 429:
-                    break  # a permanent client error will not improve
-                if status == 429:
-                    retry_after = exc.response.headers.get("Retry-After", "")  # type: ignore[union-attr]
-                    if retry_after.isdigit():
-                        self._sleep(min(int(retry_after), 30))
-        raise OfficialCountError(f"{url}: {last_error}")
+        return self._client.request("GET", url)
 
     def first_billstatus_congress(self) -> int:
         """Return the earliest Congress folder in GovInfo's BILLSTATUS root manifest."""
