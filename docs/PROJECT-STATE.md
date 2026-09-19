@@ -80,6 +80,24 @@ ledger, load strategies, coverage checks) that later models can sit on.
 
 Story 9.3 adds `research-db coverage` (first measurement below).
 
+## Decision: fresh start, download from origin (2026-09-19)
+
+Operator decision: the project ships only ingestion that downloads from the original
+government source into the user's configured `DATA_ROOT`, then inventories and ingests it
+(see AGENTS.md policy and `docs/data-acquisition-plan.md`). Old data on the operator's
+server (the legacy lake under `/mnt/storage/data-lake/government`, the `~/workspace/government`
+checkout) is not an input to the project. It is being discarded rather than organised; what
+is registered in `ingest.artifact` stays until a Connector re-downloads and replaces it.
+
+Discarded work: the lake registry, legacy roots and prune tooling (closed PR #42) were built
+to organise that server's data; they are parked locally and will not ship.
+
+**Known debt** (modules on `main` that read fixed local paths; replace with Connectors, do
+not extend): `legvalidate.BILLSTATUS_ROOT` and its users (`legarchive`, `govbackfill`,
+`legload`, `legreconcile`, `govplan`), `audit.py` `ROOTS`, `ingestion/fec_bulk.py`
+`LEGACY_ROOT`. `research-db coverage` now finds downloaded zips through the artifact
+registry instead of a fixed path.
+
 ## Coverage report (Story 9.3, first measurement 2026-09-19)
 
 `research-db coverage [--congress N] [--refresh-official] [--json]` is warehouse read-only (it only writes metadata caches). Expected counts are
