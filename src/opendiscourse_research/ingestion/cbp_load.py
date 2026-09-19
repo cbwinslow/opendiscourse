@@ -58,7 +58,7 @@ def _artifact(key: str) -> dict[str, Any]:
             select(table.c.artifact_id, table.c.local_path).where(
                 table.c.artifact_key == key,
                 table.c.status.in_(("downloaded", "skipped")),
-            )
+            ).order_by(table.c.artifact_version.desc())
         ).mappings().first()
     if row is None:
         raise ValueError(f"Required CBP artifact {key!r} has not been downloaded")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import json
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -11,12 +12,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from sqlalchemy import func
-from sqlalchemy.dialects.postgresql import insert
 
+from ..artifact_storage import file_checksum, retain_artifact_bytes, validate_retained
 from ..config import settings
-from ..db import session
-from ..models.catalog import artifact_table
+from ..repositories.legislation import get_artifact, register_artifact
 from .base import client
 
 
@@ -43,61 +42,97 @@ def artifact_path(spec: ArtifactSpec) -> Path:
     return path
 
 
-def _upsert(spec: ArtifactSpec, path: Path, status: str, **values: object) -> None:
-    table = artifact_table()
-    statement = insert(table).values(
-        dataset_id=spec.dataset_id,
-        remote_url=spec.url,
-        local_path=str(path),
-        artifact_key=spec.artifact_key,
-        period_start=spec.period_start,
-        period_end=spec.period_end,
-        status=status,
-        metadata=spec.metadata or {},
-        bytes_downloaded=values.get("bytes"),
-        checksum_sha256=values.get("checksum"),
-        content_type=values.get("content_type"),
-        downloaded_at=func.now() if status == "downloaded" else None,
-        error_message=values.get("error"),
+def _retained_path(spec: ArtifactSpec, checksum: str) -> Path:
+    """Return the immutable lake destination for one verified byte sequence."""
+    original = artifact_path(spec)
+    return original.with_name(f"{original.stem}.{checksum}{original.suffix}")
+
+
+def _retain(spec: ArtifactSpec, source: Path, checksum: str, *, move: bool) -> Path:
+    """Put verified bytes at their checksum-specific path before catalog admission."""
+    retained = retain_artifact_bytes(
+        source, checksum, destination=_retained_path(spec, checksum)
     )
-    with session() as active_session:
-        active_session.execute(
-            statement.on_conflict_do_update(
-                index_elements=(table.c.dataset_id, table.c.artifact_key),
-                set_={
-                    "remote_url": statement.excluded.remote_url,
-                    "local_path": statement.excluded.local_path,
-                    "status": statement.excluded.status,
-                    "bytes_downloaded": statement.excluded.bytes_downloaded,
-                    "checksum_sha256": statement.excluded.checksum_sha256,
-                    "content_type": statement.excluded.content_type,
-                    "downloaded_at": statement.excluded.downloaded_at,
-                    "error_message": statement.excluded.error_message,
-                    "metadata": statement.excluded.metadata,
-                },
-            )
-        )
+    if move and source != retained:
+        source.unlink()
+    return retained
+
+
+def _upsert(spec: ArtifactSpec, path: Path, status: str, **values: object) -> None:
+    register_artifact(
+        spec.dataset_id,
+        spec.url,
+        str(path),
+        spec.artifact_key,
+        status=status,
+        checksum_sha256=values.get("checksum")
+        if isinstance(values.get("checksum"), str)
+        else None,
+        bytes_downloaded=values.get("bytes")
+        if isinstance(values.get("bytes"), int)
+        else None,
+        period_start=str(spec.period_start) if spec.period_start else None,
+        period_end=str(spec.period_end) if spec.period_end else None,
+        content_type=values.get("content_type")
+        if isinstance(values.get("content_type"), str)
+        else None,
+        metadata={
+            **(spec.metadata or {}),
+            **({"error": values["error"]} if values.get("error") else {}),
+        },
+    )
 
 
 def download(
     spec: ArtifactSpec, *, overwrite: bool = False, chunk_size: int = 1024 * 1024
 ) -> Path:
     """Atomically download an artifact and register its checksum/coverage state."""
-    target, partial = (
-        artifact_path(spec),
-        artifact_path(spec).with_suffix(artifact_path(spec).suffix + ".part"),
-    )
-    if target.exists() and not overwrite:
-        digest = sha256(target.read_bytes()).hexdigest()
-        _upsert(spec, target, "skipped", bytes=target.stat().st_size, checksum=digest)
-        return target
+    target = artifact_path(spec)
+    # Keep the lock inode stable: unlinking it would allow two independent locks.
+    with target.with_suffix(target.suffix + ".lock").open("a+b") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return _download_locked(spec, overwrite=overwrite, chunk_size=chunk_size)
+
+
+def _download_locked(spec: ArtifactSpec, *, overwrite: bool, chunk_size: int) -> Path:
+    """Resume a stable staging file while holding its interprocess lock."""
+    target = artifact_path(spec)
+    partial = target.with_suffix(target.suffix + ".part")
+    latest = None
+    if not overwrite:
+        latest = get_artifact(spec.dataset_id, spec.artifact_key)
+        if (
+            latest
+            and latest["checksum_sha256"]
+            and not latest["local_path"].startswith("virtual://")
+            and latest["status"] not in {"failed", "downloading", "planned"}
+        ):
+            try:
+                validate_retained(latest["local_path"], latest["checksum_sha256"])
+            except (ValueError, OSError):
+                pass
+            else:
+                return Path(latest["local_path"])
+    if (
+        target.exists()
+        and not overwrite
+        and (
+            latest is None
+            or latest["status"] not in {"failed", "downloading", "planned"}
+        )
+    ):
+        digest = file_checksum(target)
+        retained = _retain(spec, target, digest, move=False)
+        _upsert(
+            spec, retained, "skipped", bytes=retained.stat().st_size, checksum=digest
+        )
+        return retained
     headers: dict[str, str] = {}
     mode = "wb"
     existing = partial.stat().st_size if partial.exists() else 0
     if existing:
         headers["Range"] = f"bytes={existing}-"
         mode = "ab"
-    _upsert(spec, target, "downloading")
     try:
         with (
             client() as http,
@@ -128,8 +163,8 @@ def download(
             with partial.open(mode) as output:
                 for chunk in response.iter_bytes(chunk_size):
                     output.write(chunk)
-            partial.replace(target)
-            digest = sha256(target.read_bytes()).hexdigest()
+            digest = file_checksum(partial)
+            target = _retain(spec, partial, digest, move=True)
             _upsert(
                 spec,
                 target,
@@ -153,15 +188,16 @@ def register_local(spec: ArtifactSpec, path: Path) -> Path:
     with resolved.open("rb") as source:
         for chunk in iter(lambda: source.read(1024 * 1024), b""):
             checksum.update(chunk)
+    retained = _retain(spec, resolved, checksum.hexdigest(), move=False)
     _upsert(
         spec,
-        resolved,
+        retained,
         "downloaded",
         bytes=resolved.stat().st_size,
         checksum=checksum.hexdigest(),
         content_type=guess_type(resolved.name)[0],
     )
-    return resolved
+    return retained
 
 
 def approve_plan(path: Path, scope: dict[str, Any]) -> dict[str, Any]:

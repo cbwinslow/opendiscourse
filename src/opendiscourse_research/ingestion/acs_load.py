@@ -43,7 +43,7 @@ def _artifact(dataset_id: str, key: str) -> dict[str, Any]:
                 table.c.dataset_id == dataset_id,
                 table.c.artifact_key == key,
                 table.c.status.in_(("downloaded", "skipped")),
-            )
+            ).order_by(table.c.artifact_version.desc())
         ).mappings().first()
     if row is None:
         raise ValueError(f"Required ACS artifact {key!r} has not been downloaded")

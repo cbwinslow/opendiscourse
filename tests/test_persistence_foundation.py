@@ -283,7 +283,7 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
             )
         }
 
-    assert revision == "b1e5c8a3d942"
+    assert revision == "d9e4f1a7b632"
     assert {
         "catalog.provider",
         "catalog.dataset",
@@ -443,7 +443,7 @@ def test_existing_schema_without_alembic_watermark_is_adopted_safely(
     with engine().connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "b1e5c8a3d942"
+        ).scalar_one() == "d9e4f1a7b632"
         assert connection.execute(
             text("SELECT to_regclass('core.bill')")
         ).scalar_one() == "core.bill"
@@ -483,7 +483,7 @@ def test_alembic_adoptions_can_downgrade_and_reupgrade(
         command.upgrade(config, "head")
 
     with engine().connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "b1e5c8a3d942"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "d9e4f1a7b632"
         assert connection.execute(text("SELECT to_regclass('core.division')")).scalar_one() == "core.division"
         assert connection.execute(text("SELECT to_regclass('core.post')")).scalar_one() == "core.post"
         assert connection.execute(
@@ -520,8 +520,23 @@ def test_existing_membership_survives_post_revision(catalog_database: None) -> N
     config = _alembic_config()
     command.downgrade(config, "c4f7a2d9e651")
     try:
-        artifact_id = _legislative_seat_artifact("pre-post-upgrade")
         with engine().begin() as connection:
+            # This fixture deliberately models the pre-8.1 schema.  It must not
+            # call the current version-aware repository until Story 1.7 is
+            # upgraded back, because artifact_version does not exist here.
+            artifact_id = connection.execute(
+                text(
+                    "INSERT INTO ingest.artifact "
+                    "(dataset_id, remote_url, local_path, artifact_key, status) "
+                    "VALUES ('congress.govinfo_billstatus', :url, :path, :key, 'loaded') "
+                    "RETURNING artifact_id"
+                ),
+                {
+                    "url": "https://example.test/legislative-posts-pre-post-upgrade.zip",
+                    "path": "/tmp/legislative-posts-pre-post-upgrade.zip",
+                    "key": "test-legislative-posts-pre-post-upgrade",
+                },
+            ).scalar_one()
             person_id = connection.execute(
                 text(
                     "INSERT INTO core.person (full_name) "
@@ -948,7 +963,7 @@ def test_acs_sync_preserves_artifact_backed_snapshot_provenance(
             '{"tables": [{"id": "B01001", "title": "Sex by Age", "product": "detailed", '
             '"universe": "Total population", "one_year": true, "five_year": true}]}'
         )
-        register_local(
+        retained_manifest = register_local(
             ArtifactSpec(
                 dataset_id="census.acs_5",
                 artifact_key="tables-2030",
@@ -993,7 +1008,7 @@ def test_acs_sync_preserves_artifact_backed_snapshot_provenance(
 
         assert resource is not None
         assert artifact["status"] == "downloaded"
-        assert artifact["local_path"] == str(manifest_path.resolve())
+        assert artifact["local_path"] == str(retained_manifest)
         assert artifact["checksum_sha256"]
         assert artifact["metadata"] == {}
         assert resource.metadata_["table_id"] == "B01001"
@@ -1229,7 +1244,7 @@ def test_tiger_artifact_lookup_uses_typed_immutable_evidence(
     """TIGER staging resolves only registered downloaded artifacts via the shared mapping."""
     source = tmp_path / "tiger.zip"
     source.write_bytes(b"test tiger artifact")
-    register_local(
+    retained_source = register_local(
         ArtifactSpec(
             dataset_id="census.tiger",
             artifact_key="test-tiger-typed-artifact",
@@ -1241,7 +1256,7 @@ def test_tiger_artifact_lookup_uses_typed_immutable_evidence(
 
     artifact = tiger_artifact("test-tiger-typed-artifact")
     assert artifact["artifact_id"]
-    assert artifact["local_path"] == str(source.resolve())
+    assert artifact["local_path"] == str(retained_source)
 
 
 def test_loaded_legislation_artifact_members_use_typed_identifier_lineage(
@@ -1879,14 +1894,22 @@ def test_congressional_stale_run_recovery_uses_typed_run_updates(
 
 def test_legislation_artifact_registration_uses_typed_default_path(
     catalog_database: None,
+    tmp_path: Path,
 ) -> None:
-    """Standalone legislative artifact registration keeps its merge-on-conflict contract."""
+    """Lifecycle updates preserve the same verified retained evidence identity."""
+    from hashlib import sha256
+    from opendiscourse_research.artifact_storage import retain_artifact_bytes
+
+    source = tmp_path / "billstatus.zip"
+    source.write_bytes(b"bill bytes")
+    checksum = sha256(source.read_bytes()).hexdigest()
+    retained = retain_artifact_bytes(source, checksum)
     registered = register_artifact(
         "congress.govinfo_billstatus",
         "https://example.test/billstatus.zip",
-        "/tmp/billstatus.zip",
+        str(retained),
         "test-legislation-artifact",
-        checksum_sha256="first-checksum",
+        checksum_sha256=checksum,
         bytes_downloaded=10,
         period_start="2025-01-01",
         period_end="2025-12-31",
@@ -1895,9 +1918,10 @@ def test_legislation_artifact_registration_uses_typed_default_path(
     updated = register_artifact(
         "congress.govinfo_billstatus",
         "https://example.test/billstatus-v2.zip",
-        "/tmp/billstatus-v2.zip",
+        str(retained),
         "test-legislation-artifact",
         status="loaded",
+        checksum_sha256=checksum,
         metadata={"loaded": True},
     )
     stored = get_artifact("congress.govinfo_billstatus", "test-legislation-artifact")
@@ -1905,7 +1929,9 @@ def test_legislation_artifact_registration_uses_typed_default_path(
     assert registered["artifact_id"] == updated["artifact_id"]
     assert stored is not None
     assert stored["remote_url"] == "https://example.test/billstatus-v2.zip"
-    assert stored["checksum_sha256"] == "first-checksum"
+    assert stored["checksum_sha256"] == checksum
+    assert stored["local_path"] == str(retained)
+    assert retained.read_bytes() == b"bill bytes"
     assert stored["status"] == "loaded"
     assert stored["metadata"] == {"source": "first", "loaded": True}
 
@@ -2482,7 +2508,7 @@ def test_pep_artifact_lookup_uses_typed_immutable_evidence(
     """PEP staging resolves registered CSV evidence through the shared mapping."""
     source = tmp_path / "pep.csv"
     source.write_text("SUMLEV,POP\n040,1\n")
-    register_local(
+    retained_source = register_local(
         ArtifactSpec(
             dataset_id="census.population_estimates",
             artifact_key="test-pep-typed-artifact",
@@ -2494,7 +2520,7 @@ def test_pep_artifact_lookup_uses_typed_immutable_evidence(
 
     artifact = pep_artifact("test-pep-typed-artifact")
     assert artifact["artifact_id"]
-    assert artifact["local_path"] == str(source.resolve())
+    assert artifact["local_path"] == str(retained_source)
 
 
 def test_dhc_artifact_lookup_uses_typed_immutable_evidence(
@@ -2503,7 +2529,7 @@ def test_dhc_artifact_lookup_uses_typed_immutable_evidence(
     """DHC loading resolves registered immutable archive evidence through the shared mapping."""
     source = tmp_path / "dhc.zip"
     source.write_bytes(b"test dhc artifact")
-    register_local(
+    retained_source = register_local(
         ArtifactSpec(
             dataset_id="census.decennial",
             artifact_key="test-dhc-typed-artifact",
@@ -2515,7 +2541,7 @@ def test_dhc_artifact_lookup_uses_typed_immutable_evidence(
 
     artifact = dhc_artifact("test-dhc-typed-artifact")
     assert artifact["artifact_id"]
-    assert artifact["local_path"] == str(source.resolve())
+    assert artifact["local_path"] == str(retained_source)
 
 
 def test_cbp_artifact_lookup_uses_typed_immutable_evidence(
@@ -2524,7 +2550,7 @@ def test_cbp_artifact_lookup_uses_typed_immutable_evidence(
     """CBP staging resolves registered ZIP evidence through the shared mapping."""
     source = tmp_path / "cbp.zip"
     source.write_bytes(b"test cbp artifact")
-    register_local(
+    retained_source = register_local(
         ArtifactSpec(
             dataset_id="census.business_patterns",
             artifact_key="test-cbp-typed-artifact",
@@ -2536,7 +2562,7 @@ def test_cbp_artifact_lookup_uses_typed_immutable_evidence(
 
     artifact = cbp_artifact("test-cbp-typed-artifact")
     assert artifact["artifact_id"]
-    assert artifact["local_path"] == str(source.resolve())
+    assert artifact["local_path"] == str(retained_source)
 
 
 def test_acs_artifact_lookup_scopes_typed_evidence_to_its_dataset(
@@ -2545,7 +2571,7 @@ def test_acs_artifact_lookup_scopes_typed_evidence_to_its_dataset(
     """ACS bulk loading cannot resolve an artifact from another dataset by key alone."""
     source = tmp_path / "acs.psv"
     source.write_text("GEO_ID|VALUE\n0400000US01|1\n")
-    register_local(
+    retained_source = register_local(
         ArtifactSpec(
             dataset_id="census.acs_5_bulk",
             artifact_key="test-acs-typed-artifact",
@@ -2557,7 +2583,7 @@ def test_acs_artifact_lookup_scopes_typed_evidence_to_its_dataset(
 
     artifact = acs_artifact("census.acs_5_bulk", "test-acs-typed-artifact")
     assert artifact["artifact_id"]
-    assert artifact["local_path"] == str(source.resolve())
+    assert artifact["local_path"] == str(retained_source)
     with pytest.raises(ValueError, match="has not been downloaded"):
         acs_artifact("census.tiger", "test-acs-typed-artifact")
 

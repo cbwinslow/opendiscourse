@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .artifact_storage import retain_artifact_bytes
 from .config import settings
 from .ingestion.base import IngestionRun
 from .legarchive import billstatus_groups
@@ -79,6 +80,7 @@ def load_billstatus(
                     hasher.update(chunk)
             checksum = hasher.hexdigest()
             file_size = archive_path.stat().st_size
+            retained_archive_path = retain_artifact_bytes(archive_path, checksum)
 
             artifact_key = f"BILLSTATUS-{congress}-{bill_type}.zip"
             existing = get_artifact("congress.govinfo_billstatus", artifact_key)
@@ -86,6 +88,7 @@ def load_billstatus(
                 existing is not None
                 and existing["status"] == "loaded"
                 and existing["checksum_sha256"] == checksum
+                and existing["local_path"] == str(retained_archive_path.resolve())
             )
             if artifact_is_complete and limit is None:
                 total_skipped += 1
@@ -103,7 +106,7 @@ def load_billstatus(
             artifact = register_artifact(
                 dataset_id="congress.govinfo_billstatus",
                 remote_url=f"https://www.govinfo.gov/bulkdata/BILLSTATUS/{congress}/{bill_type}/BILLSTATUS-{congress}-{bill_type}.zip",
-                local_path=str(archive_path.resolve()),
+                local_path=str(retained_archive_path.resolve()),
                 artifact_key=artifact_key,
                 status="loaded" if artifact_is_complete else "downloaded",
                 checksum_sha256=checksum,
@@ -134,7 +137,7 @@ def load_billstatus(
             group_processed = 0
             group_skipped = 0
             group_complete = True
-            with zipfile.ZipFile(archive_path) as archive:
+            with zipfile.ZipFile(retained_archive_path) as archive:
                 members = [
                     member for member in archive.namelist() if member.endswith(".xml")
                 ]
@@ -171,7 +174,7 @@ def load_billstatus(
                 register_artifact(
                     dataset_id="congress.govinfo_billstatus",
                     remote_url=f"https://www.govinfo.gov/bulkdata/BILLSTATUS/{congress}/{bill_type}/BILLSTATUS-{congress}-{bill_type}.zip",
-                    local_path=str(archive_path.resolve()),
+                    local_path=str(retained_archive_path.resolve()),
                     artifact_key=artifact_key,
                     status="loaded",
                     checksum_sha256=checksum,

@@ -89,7 +89,7 @@ def sync_acs(year: int) -> int:
             ).where(
                 artifact_table().c.dataset_id == "census.acs_5",
                 artifact_table().c.artifact_key == f"tables-{year}",
-            )
+            ).order_by(artifact_table().c.artifact_version.desc())
         ).mappings().first()
         if artifact is None or artifact["checksum_sha256"] is None:
             raise ValueError(f"ACS table-list artifact for {year} is not registered")

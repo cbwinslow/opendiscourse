@@ -43,14 +43,19 @@ never make entity assertions from a filename, OCR result, or model output.
 ## Admission process
 
 1. Add a source contract and identify the original authoritative publisher.
-2. Register a legacy file in `ingest.artifact` by path and checksum; do not
-   relocate it merely to make it fit the new layout.
+2. Preserve the legacy file in place. Before a new checksummed byte-artifact
+   registration, copy and verify its bytes at a checksum-specific retained
+   path; register that retained path. Existing legacy catalog rows remain
+   historical, unverified records until separately audited.
 3. Compare its identifier/checksum/coverage to the official provider when
    possible. Quarantine failures or unknowns.
 4. Parse into typed tables only after that validation; retain the artifact ID
    as lineage.
 5. Only copy verified, actively used source artifacts into the new `raw/`
-   layout. Use a content-addressed path to avoid duplicates.
+   layout. Use a content-addressed path to avoid duplicates. A changed refresh
+   creates a new artifact version; it never replaces completed evidence. A
+   failed refresh records a provisional version that a verified retry may
+   promote. Virtual and checksum-less source references remain supported.
 
 ## Legislative inventory
 
