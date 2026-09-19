@@ -1,0 +1,34 @@
+version: 1
+description: >-
+  Reviewed, evidence-backed identity decisions that no shared identifier can make.
+  Never name matching: each entry is a human decision with sources, applied by the
+  identity story (ADR-0005, Decision 1) through the merge procedure. Nothing reads
+  this file yet; `applied: false` means the live warehouse is unchanged.
+exceptions:
+  - id: stutzman-openstates-placeholder
+    decision: same_person
+    decided: 2026-09-19
+    decided_by: operator (asked to record it; apply with the identity story)
+    applied: false
+    survivor: {namespace: bioguide, external_id: S001188}
+    duplicate: {namespace: ocd, external_id: ocd-person/21f03982-e598-4407-a0c6-3451f62afcf9}
+    live_records:
+      survivor_person_id: 67e9e162-73af-41a5-9c8a-91eaf077dbba   # 5 terms, 679 sponsorships, 488 votes
+      duplicate_person_id: b8b58549-e3b7-459f-837b-2784b344cba4  # no terms, sponsorships or votes
+    evidence:
+      - OpenStates created the duplicate on 2024-11-08 (three days after the 2024 election) for the
+        incoming member; it holds no identifiers, votes or sponsorships.
+      - OpenStates created the real record (ocd-person/75da3666-5cb1-4849-a995-dedc76db6cf5, BioGuide
+        S001188) on 2025-01-05, when he was sworn in; all 488 OpenStates votes point to it.
+      - Live terms match the public record exactly (2010-11-16 special election, 2011, 2013, 2015 to
+        2017-01-03; 2025-01-03 to present).
+      - https://en.wikipedia.org/wiki/Marlin_Stutzman
+      - https://www.congress.gov/member/marlin-stutzman/S001188
+    action: attach the duplicate OCD id to the survivor as an identifier, then delete the empty duplicate
+      person, in the ADR-0005 merge transaction. It is the only OCD-only person in the warehouse.
+  - id: stutzman-christy-is-different
+    decision: different_person
+    decided: 2026-09-19
+    person: {namespace: ocd, external_id: ocd-person/2ef0e09b-37a5-4a48-a5ad-fcaabffd3f8f}
+    note: Christy Stutzman is Marlin Stutzman's spouse and an Indiana state legislator (49th district,
+      elected 2018). State-level, not in the federal warehouse; never merge with the survivor above.
