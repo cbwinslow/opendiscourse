@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2, 9.3 merged; 9.5 BILLSTATUS Connector built and run live: bills for Congresses 108-119 loaded and matched to GovInfo). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -68,7 +68,7 @@ ledger, load strategies, coverage checks) that later models can sit on.
 
 | Area | Loaded | Gap |
 |---|---|---|
-| Congress bills | 108th-119th, 172,709 bills (GovInfo's 172,703 plus 6 from another source), Story 9.5 | 6 surplus 119th bills, see "Story 9.5" |
+| Congress bills | 108th-119th, 172,709 bills (GovInfo's 172,703 plus 6 from another source), Story 9.5; every bill's full record plus CRS summaries, laws, related bills and amendments, Story 9.5b | 6 surplus 119th bills, see "Story 9.5"; CBO estimates, committee reports, recorded votes, alternate titles are in the record but not typed |
 | Roll calls / member votes | 118th-119th only (1,827 / 473,490) | 108-117; Senate source is "idea" |
 | People | 12,771 (12,770 with BioGuide; loaded 2026-09-19, Story 3.1) | 1 baseline person has no BioGuide; politician joins still gated (Story 3.2) |
 | FEC | 102M rows in `stage.fec_row` (pas2, oppexp, oth complete; indiv 2000-2016 only; unattributed, see above) | staging only; not promoted; person join gated (3.2): needs reviewed contract + cn/cm/ccl files; v1.1 |
@@ -183,6 +183,50 @@ coverage incomplete.
 - `ingest.run.code_version` on the backfill runs reads `<sha>-dirty` because docs were being
   edited (tracked files differ); the SHA is the right commit. Runs before 9.2 stay unattributed.
 
+## Story 9.5b: lossless BILLSTATUS records and typed promotion (built and run live, 2026-09-19)
+
+Spec `_bmad-output/implementation-artifacts/spec-9-5b-billstatus-lossless.md`; code
+`ingestion/billstatus_record.py` (lossless XML -> JSON and the checks), `ingestion/billstatus_sections.py`
+(typed extraction), `repositories/legislation.py::_save_promoted_sections`, migration `e2b7d4a9c815`.
+No new command: `research-db sync-billstatus` does it.
+
+- **Why:** a survey of all 172,703 files found 418 distinct element paths; the old parser read about
+  60. CRS summaries, amendments, related bills, laws, CBO estimates, committee reports, alternate
+  titles, action detail (committees, recorded votes, calendar, source system) and all but the first
+  text format were being dropped at load.
+- **`core.bill_source_record`:** the whole file as jsonb, unique on `(source_artifact_id, source_member)`,
+  written last in each bill's batch transaction, so **a record row means the member is fully loaded**
+  (`normalize` resumes by it). A refresh supersedes the older version's record and typed rows for the
+  bills it rewrites, in the same transaction (`supersede_bill_children` now clears nine tables).
+  Encoding: leaf text stripped of layout whitespace; `item`, `summary`, `link`, `amendment`,
+  `recordedVote`, `committeeReport` are always arrays, any other repeated tag too; `dc:` prefix for the
+  Dublin Core namespace; attributes as `@name`, text beside children as `#text` (none exist in the corpus);
+  text after a child element raises (the member is reported malformed) instead of being lost.
+- **Typed tables:** `core.bill_summary` (HTML text kept), `bill_law`, `bill_related_bill` (type lower-cased so
+  it joins `core.bill`; relationships as jsonb), `bill_amendment` (sponsor by BioGuide id only, no `person_id`:
+  join through `core.person_identifier` at query time). The 13 old-style files
+  (`summaries/billSummaries/item`) are covered for summaries. 173 amendments in 115hr3354 repeat
+  their scalars (`number`, `congress`, `type`); the typed row takes the first, the record keeps all.
+- **Live run (2026-09-19):** migration applied; `sync-billstatus` over all 96 zips reloaded every bill once
+  (idempotent: bills 172,709, actions 929,756, sponsorships 2,272,151 unchanged, no duplicates), 0 malformed,
+  exit 0. Result: 172,703 records (923 MB with indexes; the 6 surplus 119th bills have none, as they have no
+  zip member), 189,511 summaries, 4,278 laws, 142,399 related bills, 67,956 amendments. The run's
+  `ingest.run.code_version` reads `7b10ec9...-dirty`: it started before the commit `586f0f6` that holds this
+  code, from the same working tree.
+- **Verification:** every stored record was compared with its XML member (0 mismatches, 0 missing, 0 bad
+  `record_sha256`) and each typed table's total equals the XML element count exactly. Standing checks:
+  `tests/test_billstatus_record.py` (14 real fixtures chosen by set-cover over the 418 paths) and the slow
+  `tests/test_billstatus_record_corpus.py` (`uv run pytest -m slow tests/test_billstatus_record_corpus.py`,
+  about 25 minutes; every member of every zip under `DATA_ROOT`; skips when there are none; both tests
+  set `pytest.mark.timeout(3600)` because the suite default is 60 s).
+- **Known limitations:** the 13 old-style files' committees and subjects (`committees/billCommittees`,
+  `subjects/billSubjects`) are in the record but not in `bill_committee`/`bill_subject`. `save_billstatus_bill`
+  writes the record and typed sections on the connection path only (the SQLAlchemy path used by the old fixed-path
+  loaders does not). A refresh still reloads a whole zip. Not yet typed: CBO estimates, committee reports,
+  recorded votes, alternate titles, text formats, notes (each is one more section function and table).
+- **What else exists to acquire** (votes, terms, bill text, amendments detail, FEC linkage, floor statements,
+  lobbying, elections, and the legacy-lake items to remember): `docs/data-source-map.md`.
+
 ## Large tables and database sizing (measured 2026-09-19)
 
 Nothing is partitioned. Disk is not the constraint (2.0 TB free of 2.9 TB); speed is.
@@ -288,7 +332,7 @@ each passing the 9.1 harness, and only after the 17 cluster is restarted with th
 2. Rerun `scripts/bench/benchmark_load_strategies.py` (about 8 minutes) and refresh the ADR-0003
    tables with the tuned-settings numbers.
 3. Story 9.3 coverage comparator: built (see "Coverage report"); use it after every backfill.
-4. Bills, actions and sponsors: done (Story 9.5). Next: member terms and state posts, then votes (wrap `unitedstates/congress`), amendments, bill text. Each through a Connector with the harness.
+4. Bills, actions, sponsors, and (9.5b) full records, summaries, laws, related bills, amendments: done. Next: member terms and state posts, then votes (wrap `unitedstates/congress`), bill text, amendment detail, then typing the CBO estimates and committee reports already in the record. Each through a Connector with the harness. Full source list: `docs/data-source-map.md`.
 4b. Remove the old fixed-path BILLSTATUS loaders listed under "Known debt" (move `coverage.py`'s `_bill_details` and the `congresshealth` check first).
 5. Then: FRED/OpenStates redo (2.2, 2.3, 8.2), Treasury and FRED failures, FEC promotion.
 6. Decide the `fact.acs_bulk_estimate` redesign (docs/performance-audit-2026-09-19.md) when Epics 5-6
