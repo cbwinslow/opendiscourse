@@ -21,13 +21,19 @@ State of things to know:
   ignored by git) built: all three person writers resolve by any identifier under one lock
   (`repositories/people.py::resolve_person`, set-based in `promote_legislators`), conflicts go to
   `ingest.identity_conflict`, reviewed exceptions are read by loaders (`identity_merge.py`) and applied by
-  `research-db merge-people [--dry-run]` (audit in `ingest.person_merge`). Live merge status: see "Live changes" below.
+  `research-db merge-people [--dry-run]` (audit in `ingest.person_merge`). Live merge done, see the next bullet.
   **Next:** story 2 (assertion tables, precedence file, resolver, guard), then geography loaders (six writers incl. ACS
   `ingestion/census.py`), person loaders, backfill by rerunning loaders, kit verify.
 - **Next, in order (original list):** (1) `bmad-spec` for ADR-0005 (done); (2) identity fix (done, see above); (3) then the rebuild kit
   (`_bmad-output/specs/spec-rebuild-kit/`), FEC as its last phase (needs a downloader; its 20 GB and 16 BILLSTATUS
   rows are registered under `/mnt/storage`); (4) OpenStates restore proof (10 GB retained dump) which also unlocks
   legislator terms (terms need OpenStates organizations).
+- **Live change (2026-09-19, identity story):** migration `a4d9e1c7b356` applied to live (three new tables, expand only). The
+  Stutzman exception was rehearsed with `merge-people --dry-run` on live (rolled back: 1 identifier, 0 sponsorships, 0
+  memberships, 0 votes, as recorded), then applied: OCD id `ocd-person/21f03982-...` now belongs to `67e9e162...`;
+  duplicate `b8b58549...` (Marlin Stutzman, OpenStates placeholder, metadata `canonical_baseline: openstates`, no other
+  rows) deleted; audit row in `ingest.person_merge`. `core.person` is 12,770 and every person has a BioGuide id (this
+  answers the "one person without BioGuide" open point). Nothing else in the warehouse changed.
 - **Open decision for the operator:** does `core.person.full_name` show the common name ("Mike Lawler") or the
   official one ("Michael Lawler")? Recommendation: common, official kept beside it. Until decided, the resolver
   reproduces today's live names.
