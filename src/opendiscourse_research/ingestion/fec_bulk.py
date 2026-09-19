@@ -21,7 +21,7 @@ from sqlalchemy import Integer, cast, select
 
 from ..capacity import RemoteObject, storage_preview
 from ..db import connect, session
-from ..models.catalog import artifact_table
+from ..repositories.artifacts import current_artifact_table
 from .bulk import ArtifactSpec, register_local
 
 DATASET_ID = "fec.campaign_finance"
@@ -212,7 +212,7 @@ def register_family(
 
 def _registered_artifacts(family: str) -> list[dict[str, Any]]:
     """Return registered FEC family artifacts through immutable typed evidence storage."""
-    table = artifact_table()
+    table = current_artifact_table()
     with session() as active_session:
         return [
             dict(row)
@@ -221,7 +221,6 @@ def _registered_artifacts(family: str) -> list[dict[str, Any]]:
                 .where(
                     table.c.dataset_id == DATASET_ID,
                     table.c.metadata["family"].astext == family,
-                    table.c.status.in_(("downloaded", "skipped")),
                 )
                 .order_by(cast(table.c.metadata["cycle"].astext, Integer))
             ).mappings()

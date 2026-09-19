@@ -7,10 +7,12 @@ from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
 
+from psycopg.pq import TransactionStatus
 from psycopg.types.json import Jsonb
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 
+from ..artifact_storage import validate_retained
 from ..db import session
 from ..models.catalog import artifact_table
 from ..models.core import (
@@ -228,6 +230,30 @@ def record_vote_identity_exceptions(
     return len(values)
 
 
+def _artifact_action(latest: Any, checksum: str | None, status: str, local_path: str) -> str:
+    """Choose the same append, promotion, or retry operation for both DB routes."""
+    if latest is None:
+        return "append"
+    if latest["checksum_sha256"] is None and latest["status"] in {
+        "planned",
+        "downloading",
+        "failed",
+    }:
+        return "promote"
+    if checksum == latest["checksum_sha256"]:
+        if checksum is not None:
+            if latest["local_path"].startswith("virtual://") and not local_path.startswith("virtual://"):
+                return "append"
+            try:
+                validate_retained(latest["local_path"], checksum)
+            except (ValueError, OSError):
+                return "append"
+        return (
+            "retry" if status not in {"planned", "downloading", "failed"} else "append"
+        )
+    return "append"
+
+
 def register_artifact(
     dataset_id: str,
     remote_url: str,
@@ -241,8 +267,11 @@ def register_artifact(
     content_type: str | None = None,
     metadata: dict[str, Any] | None = None,
     conn: Any | None = None,
+    error_message: str | None = None,
 ) -> dict[str, Any]:
-    """Register or update a local bulk artifact safely in ingest.artifact."""
+    """Append or promote one artifact version without redefining prior evidence."""
+    if checksum_sha256 is not None:
+        validate_retained(local_path, checksum_sha256)
     params = {
         "dataset_id": dataset_id,
         "remote_url": remote_url,
@@ -254,13 +283,26 @@ def register_artifact(
         "bytes_downloaded": bytes_downloaded,
         "checksum_sha256": checksum_sha256,
         "status": status,
+        "error_message": error_message,
         "metadata": Jsonb(metadata or {}),
     }
     if conn is not None:
-        with conn.cursor() as cur:
+        # An explicit transaction keeps the lock alive for autocommit callers;
+        # nested transactions preserve the caller's commit/rollback boundary.
+        if not conn.autocommit and conn.info.transaction_status == TransactionStatus.IDLE:
+            # Establish the normal implicit caller transaction before the savepoint.
+            # Otherwise transaction() would commit an idle caller's work on exit.
+            conn.execute("SELECT 1")
+        with conn.transaction(), conn.cursor() as cur:
+            cur.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                (dataset_id + "\x1f" + artifact_key,),
+            )
+            cur.execute(_query("get_artifact"), {**params, "version": None})
+            latest = cur.fetchone()
+            params["action"] = _artifact_action(latest, checksum_sha256, status, local_path)
             cur.execute(_query("register_artifact"), params)
-            row = cur.fetchone()
-            return dict(row) if row else {}
+            return dict(cur.fetchone())
 
     table = artifact_table()
     statement = insert(table).values(
@@ -274,33 +316,99 @@ def register_artifact(
         bytes_downloaded=bytes_downloaded,
         checksum_sha256=checksum_sha256,
         status=status,
+        error_message=error_message,
+        downloaded_at=func.now() if status == "downloaded" else None,
         metadata=metadata or {},
     )
     with session() as active_session:
-        row = active_session.execute(
-            statement.on_conflict_do_update(
-                index_elements=(table.c.dataset_id, table.c.artifact_key),
-                set_={
-                    "remote_url": statement.excluded.remote_url,
-                    "local_path": statement.excluded.local_path,
-                    "period_start": func.coalesce(statement.excluded.period_start, table.c.period_start),
-                    "period_end": func.coalesce(statement.excluded.period_end, table.c.period_end),
-                    "content_type": func.coalesce(statement.excluded.content_type, table.c.content_type),
-                    "bytes_downloaded": func.coalesce(statement.excluded.bytes_downloaded, table.c.bytes_downloaded),
-                    "checksum_sha256": func.coalesce(statement.excluded.checksum_sha256, table.c.checksum_sha256),
-                    "status": statement.excluded.status,
-                    "metadata": table.c.metadata.op("||")(statement.excluded.metadata),
-                },
-            ).returning(
-                table.c.artifact_id,
-                table.c.dataset_id,
-                table.c.remote_url,
-                table.c.local_path,
-                table.c.artifact_key,
-                table.c.status,
-                table.c.checksum_sha256,
+        # Lock before looking for a row: row locks alone cannot serialize v1 creation.
+        active_session.execute(
+            select(
+                func.pg_advisory_xact_lock(
+                    func.hashtextextended(dataset_id + "\x1f" + artifact_key, 0)
+                )
             )
-        ).mappings().one()
+        )
+        latest = (
+            active_session.execute(
+                select(table)
+                .where(
+                    table.c.dataset_id == dataset_id,
+                    table.c.artifact_key == artifact_key,
+                )
+                .order_by(table.c.artifact_version.desc())
+                .limit(1)
+                .with_for_update()
+            )
+            .mappings()
+            .one_or_none()
+        )
+        action = _artifact_action(latest, checksum_sha256, status, local_path)
+        if latest is None:
+            row = (
+                active_session.execute(
+                    statement.values(artifact_version=1).returning(table)
+                )
+                .mappings()
+                .one()
+            )
+        elif action == "promote":
+            # A failed/planned attempt is provisional and may be promoted in place.
+            row = (
+                active_session.execute(
+                    update(table)
+                    .where(table.c.artifact_id == latest["artifact_id"])
+                    .values(
+                        remote_url=remote_url,
+                        local_path=local_path,
+                        period_start=period_start,
+                        period_end=period_end,
+                        content_type=content_type or latest["content_type"],
+                        bytes_downloaded=bytes_downloaded,
+                        checksum_sha256=checksum_sha256,
+                        status=status,
+                        error_message=error_message,
+                        downloaded_at=func.now()
+                        if status == "downloaded"
+                        else latest["downloaded_at"],
+                        metadata=(latest["metadata"] or {}) | (metadata or {}),
+                    )
+                    .returning(table)
+                )
+                .mappings()
+                .one()
+            )
+        elif action == "retry":
+            # A retry can update lifecycle metadata, never the retained bytes/path.
+            row = (
+                active_session.execute(
+                    update(table)
+                    .where(table.c.artifact_id == latest["artifact_id"])
+                    .values(
+                        remote_url=remote_url,
+                        status=status,
+                        error_message=error_message,
+                        downloaded_at=func.now()
+                        if status == "downloaded"
+                        else latest["downloaded_at"],
+                        metadata=(latest["metadata"] or {}) | (metadata or {}),
+                    )
+                    .returning(table)
+                )
+                .mappings()
+                .one()
+            )
+        else:
+            # Differing content (including A→B→A) is always a fresh version.
+            row = (
+                active_session.execute(
+                    statement.values(
+                        artifact_version=latest["artifact_version"] + 1
+                    ).returning(table)
+                )
+                .mappings()
+                .one()
+            )
     return dict(row)
 
 
@@ -308,13 +416,15 @@ def get_artifact(
     dataset_id: str,
     artifact_key: str,
     conn: Any | None = None,
+    *,
+    version: int | None = None,
 ) -> dict[str, Any] | None:
     """Retrieve an existing artifact record by dataset_id and artifact_key."""
     if conn is not None:
         with conn.cursor() as cur:
             cur.execute(
                 _query("get_artifact"),
-                {"dataset_id": dataset_id, "artifact_key": artifact_key},
+                {"dataset_id": dataset_id, "artifact_key": artifact_key, "version": version},
             )
             row = cur.fetchone()
             return dict(row) if row else None
@@ -328,10 +438,15 @@ def get_artifact(
                 table.c.remote_url,
                 table.c.local_path,
                 table.c.artifact_key,
+                table.c.artifact_version,
                 table.c.status,
                 table.c.checksum_sha256,
                 table.c.metadata,
-            ).where(table.c.dataset_id == dataset_id, table.c.artifact_key == artifact_key)
+            ).where(
+                table.c.dataset_id == dataset_id,
+                table.c.artifact_key == artifact_key,
+                table.c.artifact_version == version if version is not None else True,
+            ).order_by(table.c.artifact_version.desc())
         ).mappings().first()
     return dict(row) if row else None
 

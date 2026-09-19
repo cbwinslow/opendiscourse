@@ -10,27 +10,16 @@ from typing import Any
 from zipfile import ZipFile
 
 from psycopg.types.json import Jsonb
-from sqlalchemy import select
 
-from ..db import connect, session
-from ..models.catalog import artifact_table
+from ..db import connect
+from ..repositories.artifacts import require_current_artifact
 
 PREFIX_FIELDS = 5  # FILEID, STUSAB, CHARITER, CIFSN, LOGRECNO
 
 
 def _artifact(key: str) -> dict[str, Any]:
-    """Return a downloaded DHC artifact through immutable typed evidence storage."""
-    table = artifact_table()
-    with session() as active_session:
-        row = active_session.execute(
-            select(table.c.artifact_id, table.c.local_path).where(
-                table.c.artifact_key == key,
-                table.c.status.in_(("downloaded", "skipped")),
-            )
-        ).mappings().first()
-    if row is None:
-        raise ValueError(f"Required DHC artifact {key!r} has not been downloaded")
-    return dict(row)
+    """Return the current downloaded DHC artifact version."""
+    return require_current_artifact(key, label="DHC")
 
 
 def _scope(plan: dict[str, Any]) -> tuple[set[str], set[str]]:

@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 
 from .config import settings
 from .db import session
-from .models.catalog import Resource, artifact_table
+from .models.catalog import Resource
 from .models.core import (
     acs_bulk_estimate_table,
     business_pattern_table,
@@ -20,6 +20,7 @@ from .models.core import (
     geography_boundary_table,
     population_estimate_table,
 )
+from .repositories.artifacts import report_artifacts
 
 FAMILIES = {
     "census.acs_5_bulk": {
@@ -90,24 +91,7 @@ def classify_plan(
 
 def _artifacts(keys: list[str]) -> list[dict[str, Any]]:
     """Read immutable artifact evidence through the shared typed reference."""
-    if not keys:
-        return []
-    table = artifact_table()
-    with session() as active_session:
-        return [
-            dict(row)
-            for row in active_session.execute(
-                select(
-                    table.c.artifact_id,
-                    table.c.artifact_key,
-                    table.c.status,
-                    table.c.local_path,
-                    table.c.bytes_downloaded,
-                    table.c.checksum_sha256,
-                    table.c.error_message,
-                ).where(table.c.artifact_key.in_(keys))
-            ).mappings()
-        ]
+    return report_artifacts(keys)
 
 
 def _fact_count(dataset_id: str, artifact_ids: list[str]) -> int:

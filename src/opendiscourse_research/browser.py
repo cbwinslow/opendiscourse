@@ -24,9 +24,9 @@ from .models.catalog import (
     Resource,
     ResourceField,
     SnapshotResource,
-    artifact_table,
 )
 from .providers.fred import search as search_fred
+from .repositories.artifacts import get_current_artifact
 from .repositories.catalog import resource_ids
 
 
@@ -81,16 +81,7 @@ def sync_acs(year: int) -> int:
                     },
                 )
             )
-        artifact = active_session.execute(
-            select(
-                artifact_table().c.artifact_id,
-                artifact_table().c.remote_url,
-                artifact_table().c.checksum_sha256,
-            ).where(
-                artifact_table().c.dataset_id == "census.acs_5",
-                artifact_table().c.artifact_key == f"tables-{year}",
-            )
-        ).mappings().first()
+        artifact = get_current_artifact(f"tables-{year}", dataset_id="census.acs_5")
         if artifact is None or artifact["checksum_sha256"] is None:
             raise ValueError(f"ACS table-list artifact for {year} is not registered")
         snapshot_statement = insert(snapshot_table).values(

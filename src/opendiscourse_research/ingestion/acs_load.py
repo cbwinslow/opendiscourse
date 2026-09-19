@@ -11,10 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from psycopg.types.json import Jsonb
-from sqlalchemy import select
 
-from ..db import connect, session
-from ..models.catalog import artifact_table
+from ..db import connect
+from ..repositories.artifacts import require_current_artifact
 
 SUMMARY_LEVELS = {"040": "state", "050": "county"}
 FIELD_PATTERN = re.compile(r"_(E|M)[0-9]+$")
@@ -35,19 +34,8 @@ def _scope(plan: dict[str, Any]) -> set[str]:
 
 
 def _artifact(dataset_id: str, key: str) -> dict[str, Any]:
-    """Return a downloaded ACS artifact through immutable typed evidence storage."""
-    table = artifact_table()
-    with session() as active_session:
-        row = active_session.execute(
-            select(table.c.artifact_id, table.c.local_path).where(
-                table.c.dataset_id == dataset_id,
-                table.c.artifact_key == key,
-                table.c.status.in_(("downloaded", "skipped")),
-            )
-        ).mappings().first()
-    if row is None:
-        raise ValueError(f"Required ACS artifact {key!r} has not been downloaded")
-    return dict(row)
+    """Return the current downloaded ACS artifact version."""
+    return require_current_artifact(key, label="ACS", dataset_id=dataset_id)
 
 
 def _table_artifacts(plan: dict[str, Any]) -> list[dict[str, Any]]:

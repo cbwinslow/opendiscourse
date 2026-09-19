@@ -10,10 +10,9 @@ from typing import Any
 from zipfile import ZipFile
 
 from psycopg.types.json import Jsonb
-from sqlalchemy import select
 
-from ..db import connect, session
-from ..models.catalog import artifact_table
+from ..db import connect
+from ..repositories.artifacts import require_current_artifact
 
 LEVELS = ("us", "state", "county")
 
@@ -51,18 +50,8 @@ def _resolve_member(archive: ZipFile, expected: str) -> str:
 
 
 def _artifact(key: str) -> dict[str, Any]:
-    """Return a downloaded CBP artifact through immutable typed evidence storage."""
-    table = artifact_table()
-    with session() as active_session:
-        row = active_session.execute(
-            select(table.c.artifact_id, table.c.local_path).where(
-                table.c.artifact_key == key,
-                table.c.status.in_(("downloaded", "skipped")),
-            )
-        ).mappings().first()
-    if row is None:
-        raise ValueError(f"Required CBP artifact {key!r} has not been downloaded")
-    return dict(row)
+    """Return the current downloaded CBP artifact version."""
+    return require_current_artifact(key, label="CBP")
 
 
 def _scope(plan: dict[str, Any]) -> set[str]:
