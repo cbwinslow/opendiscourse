@@ -44,7 +44,7 @@ context:
 | Missing evidence on `core.geography_boundary` | Insert row with `source_artifact_id=None, source_payload_id=None` | Insert fails | `IntegrityError` / CheckViolation (`geography_boundary_check`) |
 | Missing evidence on `core.document` | Insert row with `artifact_id=None, source_payload_id=None` | Insert fails | `IntegrityError` / CheckViolation (`document_check`) |
 | Duplicate person external ID | Insert two `core.person_identifier` with same `(namespace, external_id)` | Second insert fails | `IntegrityError` / UniqueViolation |
-| Duplicate artifact key | Insert two `ingest.artifact` with same `(dataset_id, artifact_key)` | Second insert fails | `IntegrityError` / UniqueViolation |
+| Duplicate artifact key | Insert two `ingest.artifact` with same `(dataset_id, artifact_key, artifact_version)` (Story 1.7 made the version part of the key); a new version, or the same key in another dataset, is accepted | Second insert fails | `IntegrityError` / UniqueViolation (`artifact_dataset_id_artifact_key_version_key`) |
 | Vector dimensions mismatch | Insert `core.embedding` where cardinality of `vector_values` != `dimensions` | Insert fails | `IntegrityError` / CheckViolation (`embedding_check`) |
 | Vector dimensions match | Insert `core.embedding` where cardinality of `vector_values` == `dimensions` | Insert succeeds | N/A |
 | Multi-vintage TIGER boundary | Insert boundaries for same `geography_id` with different `boundary_vintage` (e.g. 2020 and 2024) | Both boundaries stored and queryable | N/A |
@@ -115,3 +115,14 @@ Downgrade drops both constraints cleanly.
 - `uv run pytest -m "not db and not slow and not live and not e2e" -n auto` -- expected: 111+ passed
 - `uv run --extra ingest --extra spatial pytest tests/test_provenance_identity_contracts.py` -- expected: all contract tests pass
 - `uv run --extra ingest --extra spatial pytest tests/test_persistence_foundation.py -k "test_alembic_check_detects_no_unmigrated_model_changes or test_alembic_adoptions_can_downgrade_and_reupgrade"` -- expected: migrations cleanly upgrade, downgrade, and sync with models
+
+## Independent verification (2026-09-19)
+
+A fresh agent mutation-tested these tests (dropped or weakened each constraint on a
+migrated database and checked the matching test failed). Every reject-side test failed
+when its constraint was removed, so none is vacuous. It found two over-strict mutants
+that still passed (person identifier unique on `external_id` alone; artifact key unique
+without `artifact_version`), loose `match=` error assertions, and accept branches that
+asserted nothing. Fixed: accept-side cases added, errors anchored on SQLSTATE plus the
+driver-reported constraint name, row-count assertions after accepted inserts. Both
+mutants now fail exactly the intended test; an unmutated control passes.

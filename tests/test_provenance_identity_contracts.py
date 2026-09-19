@@ -5,11 +5,12 @@ from __future__ import annotations
 import os
 import uuid
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 import httpx
 import pytest
 from geoalchemy2 import WKTElement
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
@@ -33,13 +34,38 @@ from opendiscourse_research.models.core import (
 )
 from opendiscourse_research.repositories.legislation import register_artifact
 
-
 _RUN_NS = uuid.uuid4().hex
 
 
 def _scoped(suffix: str) -> str:
     """Namespace a test key or identifier to guarantee run isolation across persistent databases."""
     return f"{_RUN_NS}-{suffix}"
+
+
+CHECK_VIOLATION = "23514"
+UNIQUE_VIOLATION = "23505"
+
+
+@contextmanager
+def _rejects(constraint: str, sqlstate: str) -> Iterator[None]:
+    """Expect an IntegrityError from exactly this constraint, not any message that mentions it.
+
+    ``pytest.raises(match=...)`` searches the whole message, including SQL text and bound
+    values; the SQLSTATE and constraint name from the driver cannot be spoofed that way.
+    """
+    with pytest.raises(IntegrityError) as caught:
+        yield
+    diag = caught.value.orig.diag
+    assert caught.value.orig.sqlstate == sqlstate
+    assert diag.constraint_name == constraint
+
+
+def _count(table, column: str, value: object) -> int:
+    """Count rows in ``table`` where ``column`` equals ``value``."""
+    with session() as active_session:
+        return active_session.execute(
+            select(func.count()).select_from(table).where(table.c[column] == value)
+        ).scalar_one()
 
 
 def _psycopg_url(url: str) -> str:
@@ -202,7 +228,7 @@ def test_sourceless_membership_rejected(catalog_database: None) -> None:
     membership = membership_table()
 
     # Reject source-less row
-    with pytest.raises(IntegrityError, match="membership_check"), session() as active_session:
+    with _rejects("membership_check", CHECK_VIOLATION), session() as active_session:
         active_session.execute(
             insert(membership).values(
                 person_id=person_id,
@@ -236,6 +262,7 @@ def test_sourceless_membership_rejected(catalog_database: None) -> None:
                 source_payload_id=payload_id,
             )
         )
+    assert _count(membership, "person_id", person_id) == 2  # the rejected row left nothing behind
 
 
 def test_sourceless_member_vote_rejected(catalog_database: None) -> None:
@@ -245,7 +272,7 @@ def test_sourceless_member_vote_rejected(catalog_database: None) -> None:
     votes = member_vote_table()
 
     # Reject source-less row
-    with pytest.raises(IntegrityError, match="member_vote_source_evidence"), session() as active_session:
+    with _rejects("member_vote_source_evidence", CHECK_VIOLATION), session() as active_session:
         active_session.execute(
             insert(votes).values(
                 roll_call_id=roll_call_id,
@@ -280,6 +307,7 @@ def test_sourceless_member_vote_rejected(catalog_database: None) -> None:
                 source_payload_id=payload_id,
             )
         )
+    assert _count(votes, "roll_call_id", roll_call_id) == 2
 
 
 def test_sourceless_geography_boundary_rejected(catalog_database: None) -> None:
@@ -288,7 +316,7 @@ def test_sourceless_geography_boundary_rejected(catalog_database: None) -> None:
     boundary = geography_boundary_table()
 
     # Reject source-less row
-    with pytest.raises(IntegrityError, match="geography_boundary_check"), session() as active_session:
+    with _rejects("geography_boundary_check", CHECK_VIOLATION), session() as active_session:
         active_session.execute(
             insert(boundary).values(
                 geography_id=geography_id,
@@ -322,6 +350,7 @@ def test_sourceless_geography_boundary_rejected(catalog_database: None) -> None:
                 source_payload_id=payload_id,
             )
         )
+    assert _count(boundary, "geography_id", geography_id) == 2
 
 
 def test_sourceless_document_rejected(catalog_database: None) -> None:
@@ -329,7 +358,7 @@ def test_sourceless_document_rejected(catalog_database: None) -> None:
     document = document_table()
 
     # Reject source-less row
-    with pytest.raises(IntegrityError, match="document_check"), session() as active_session:
+    with _rejects("document_check", CHECK_VIOLATION), session() as active_session:
         active_session.execute(
             insert(document).values(
                 document_type="bill_text",
@@ -388,7 +417,7 @@ def test_duplicate_person_external_id_rejected(catalog_database: None) -> None:
         )
 
     # Inserting the same namespace + external_id for another person must fail
-    with pytest.raises(IntegrityError, match="person_identifier_pkey"), session() as active_session:
+    with _rejects("person_identifier_pkey", UNIQUE_VIOLATION), session() as active_session:
         active_session.execute(
             insert(identifiers).values(
                 person_id=person_2_id,
@@ -397,9 +426,18 @@ def test_duplicate_person_external_id_rejected(catalog_database: None) -> None:
             )
         )
 
+    # The key is (namespace, external_id): the same id in another namespace is a different identity.
+    with session() as active_session:
+        active_session.execute(
+            insert(identifiers).values(
+                person_id=person_2_id, namespace="other", external_id=test_external_id
+            )
+        )
+    assert _count(identifiers, "external_id", test_external_id) == 2
+
 
 def test_duplicate_artifact_key_rejected(catalog_database: None) -> None:
-    """Duplicate artifact keys within the same dataset violate uniqueness."""
+    """Duplicate (dataset, key, version) violates uniqueness; other versions and datasets do not."""
     artifacts = artifact_table()
     dataset_id = "census.tiger"
     artifact_key = _scoped("tiger-unique-contract-key")
@@ -417,7 +455,7 @@ def test_duplicate_artifact_key_rejected(catalog_database: None) -> None:
 
     # Second insert with identical dataset_id and artifact_key must fail
     with (
-        pytest.raises(IntegrityError, match="artifact_dataset_id_artifact_key_version_key"),
+        _rejects("artifact_dataset_id_artifact_key_version_key", UNIQUE_VIOLATION),
         session() as active_session,
     ):
         active_session.execute(
@@ -430,6 +468,30 @@ def test_duplicate_artifact_key_rejected(catalog_database: None) -> None:
             )
         )
 
+    # A new version of the same key is append-only history, and the same key in another
+    # dataset is a different artifact; a constraint that rejected either would be wrong.
+    with session() as active_session:
+        active_session.execute(
+            insert(artifacts).values(
+                dataset_id=dataset_id,
+                artifact_key=artifact_key,
+                artifact_version=2,
+                remote_url=f"https://example.test/tiger-dup-v2-{_RUN_NS}.zip",
+                local_path=f"/tmp/tiger-dup-v2-{_RUN_NS}.zip",
+                status="planned",
+            )
+        )
+        active_session.execute(
+            insert(artifacts).values(
+                dataset_id="census.acs_5",
+                artifact_key=artifact_key,
+                remote_url=f"https://example.test/acs-dup-{_RUN_NS}.zip",
+                local_path=f"/tmp/acs-dup-{_RUN_NS}.zip",
+                status="planned",
+            )
+        )
+    assert _count(artifacts, "artifact_key", artifact_key) == 3
+
 
 def test_embedding_vector_dimensions_mismatch_rejected(catalog_database: None) -> None:
     """Vector cardinality differing from declared dimensions violates embedding_check."""
@@ -439,7 +501,7 @@ def test_embedding_vector_dimensions_mismatch_rejected(catalog_database: None) -
     embeddings = embedding_table()
 
     # Less dimensions than declared
-    with pytest.raises(IntegrityError, match="embedding_check"), session() as active_session:
+    with _rejects("embedding_check", CHECK_VIOLATION), session() as active_session:
         active_session.execute(
             insert(embeddings).values(
                 chunk_id=chunk_id,
@@ -450,7 +512,7 @@ def test_embedding_vector_dimensions_mismatch_rejected(catalog_database: None) -
         )
 
     # More dimensions than declared
-    with pytest.raises(IntegrityError, match="embedding_check"), session() as active_session:
+    with _rejects("embedding_check", CHECK_VIOLATION), session() as active_session:
         active_session.execute(
             insert(embeddings).values(
                 chunk_id=chunk_id,
@@ -551,9 +613,7 @@ def test_duplicate_tiger_boundary_vintage_rejected(catalog_database: None) -> No
 
     # Inserting second boundary with the same geography_id and vintage 2020 must fail
     with (
-        pytest.raises(
-            IntegrityError, match="geography_boundary_geography_id_boundary_vintage_key"
-        ),
+        _rejects("geography_boundary_geography_id_boundary_vintage_key", UNIQUE_VIOLATION),
         session() as active_session,
     ):
         active_session.execute(
