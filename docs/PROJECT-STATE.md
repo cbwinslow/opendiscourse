@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live; sources review evaluated, ADR-0004; backup risk found, see "Stop-and-fix items"). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -266,6 +266,53 @@ retained YAML artifacts.
   since 2003 has it. The earlier "fix the LIS crosswalk first" note was wrong.
 - **Not done:** committee membership (`committee-membership-current.yaml` is current-only; committees
   exist as OpenStates organizations), social media, district offices, district geometry.
+
+## Sources review, backup risk and branch cleanup (2026-09-19)
+
+**Stop-and-fix items (operator decisions needed before any large new acquisition).**
+
+1. **Backups.** The OpenDiscourse database (port 5434, 238 GB) appears to have no working backup: the infra
+   cron job reaches the older PostgreSQL 16 cluster only, writes to the root disk (120 GB free), and its
+   monitor says "stale". Full findings, what is and is not rebuildable, and options:
+   `docs/storage-and-backup-plan.md`. Four decisions are listed at its end. New data itself lands in the right
+   place (raw files and database pages on the RAID volume, 2.1 TB free).
+2. **Sources review.** `docs/research/2026-09-19-chatgpt-sources-review.md` was evaluated and decided in
+   `docs/adr/0004-source-catalog-and-tool-policy.md`: architecture unchanged; the source catalog (with a size
+   estimate and a `verified_on` date per source) and the tool matrix in `reuse.md` become the acquisition map;
+   the review's ~26 domains are catalog entries, not a build order; `censusdis` stays rejected as a dependency;
+   the small disclosure and `pyCFR` repos are reference only; Parquet is at most a derived side cache after its
+   own ADR; Prefect is not adopted (the review wrongly said we use it). Sequencing stays `v1-scope.md`.
+
+**What we already have for "bill details and amendments".** Bill details: complete (every field of every
+BILLSTATUS file is in `core.bill_source_record`; actions, sponsors, cosponsors, committees, subjects, summaries,
+laws and related bills are typed). Amendments: the per-bill list is loaded (67,956, with sponsor and latest
+action). **Not yet:** full amendment records and text (Congress.gov API), bill text (GovInfo BILLS), committee
+report and hearing text, and typed CBO estimates and committee reports (already in the record).
+
+**Branch cleanup.** Local and GitHub now hold only `main` (plus dependency-bot branches) and the parked
+`wip/lake-registry-homelab`. Deleted: every branch whose PR was merged or whose content is on `main`, and every
+AGY (Gemini) branch: 1.6 (`8805f93`), 1.7 (`32d8e1f`), 2.2 (`fe3847e`, refinement `385799b`), 2.3 (`324915d`,
+`f33a430`), 8.2 (`ffeacd8`, refinement `e5994dd`) and `revert/agy-unsafe-merges` (`70f34e0`). Their merged
+versions remain in `main`'s history (and were reverted in #26); the SHAs are noted only so a mistake can be
+undone soon after (`git branch <name> <sha>` works while the commits are still in the reflog or on GitHub).
+Nothing on those branches is wanted: AGY output is not trusted (rule 7 above). The dependency-bot PRs (#11,
+#12, #14, #31) are automatic and untouched.
+
+**Next steps, in order.**
+
+1. Operator answers the four storage decisions; fix or replace the backup job (lives in `~/workspace/infra`).
+2. Story 9.6 (proposed number): expand `inventory/sources.yaml` into the source catalog described in ADR-0004
+   and audit the existing Connectors against it. Change class M: spec with `bmad-spec`, then build.
+3. Votes Connector (the legislator-vote proof slice `v1-scope.md` requires before expanding horizontally): first
+   verify the House Clerk and Senate XML formats and the `unitedstates/congress` vote task against the live
+   sites; join on BioGuide (House), LIS (Senate; every senator since 2003 has one) and ICPSR (Voteview). Spec
+   with `bmad-spec` first.
+4. Then, one Connector each: GovInfo BILLS text and PLAW, Congress.gov amendment detail and committee
+   reports, typed CBO estimates and committee reports (from the stored records), committee membership.
+5. v1.1 order stays FEC, disclosures, elections, crime; the review's extra domains wait for the operator's ranking.
+
+**To resume in a fresh session:** "Resume OpenDiscourse. Read `docs/PROJECT-STATE.md` (start at 'Sources review,
+backup risk and branch cleanup')."
 
 ## Large tables and database sizing (measured 2026-09-19)
 
