@@ -31,9 +31,13 @@ SETTINGS=(
   "max_wal_size|16GB|bulk loads checkpoint less often; pg_wal is on / (122GB free), so not larger"
   "min_wal_size|2GB|avoid recycling churn during loads"
   "checkpoint_timeout|15min|spread checkpoints during bulk loads"
+  "shared_preload_libraries|pg_stat_statements|records per-query cost so tuning uses evidence (restart; empty today). Then: CREATE EXTENSION pg_stat_statements"
+  "track_io_timing|on|adds I/O time to EXPLAIN and pg_stat_statements; small overhead, useful on spinning disks"
 )
+# Deliberately NOT changed: random_page_cost stays 4 and effective_io_concurrency stays 1
+# because every disk here is a spinning HDD (lsblk ROTA=1); lowering them would mislead the planner.
 # Parameters that require a restart to change.
-RESTART_ONLY="shared_buffers max_worker_processes"
+RESTART_ONLY="shared_buffers max_worker_processes shared_preload_libraries"
 
 mode=dry; restart=0
 for arg in "$@"; do
