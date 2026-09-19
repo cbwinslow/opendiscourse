@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import json
 import os
 import subprocess
 import uuid
@@ -55,22 +56,58 @@ def catalog_database() -> Iterator[None]:
     try:
         apply_migrations()
         sync_inventory()
+        _seed_chamber_organizations()
         yield
     finally:
         # CI runs every DB module against one shared database, and later tests
         # downgrade the schema; the person_identifier downgrade guard refuses
         # while evidence pointers exist. Leave the database as we found it.
         _remove_loaded_rows()
+        with connect() as conn:
+            conn.execute("DELETE FROM core.organization WHERE metadata->>'test_seed' = 'true'")
+            conn.commit()
         settings.database_url = original
         _engine.cache_clear()
         if container is not None:
             container.stop()
 
 
+_TEST_ORGS = (("lower", "House"), ("upper", "Senate"))
+
+
+def _seed_chamber_organizations() -> None:
+    """The House and Senate come from the OpenStates baseline; the test DB has none."""
+    with connect() as conn:
+        for kind, name in _TEST_ORGS:
+            exists = conn.execute(
+                "SELECT 1 FROM core.organization WHERE organization_type = %s AND jurisdiction_geoid = 'us'",
+                (kind,),
+            ).fetchone()
+            if not exists:
+                conn.execute(
+                    "INSERT INTO core.organization (organization_type, name, jurisdiction_geoid, metadata) "
+                    "VALUES (%s, %s, 'us', '{\"test_seed\": true}')",
+                    (kind, name),
+                )
+        conn.commit()
+
+
 def _remove_loaded_rows() -> None:
     """Delete rows this module's loads created, children before parents."""
     with connect() as conn:
         for statement in (
+            (
+                "DELETE FROM core.membership WHERE source_artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE dataset_id = 'congress.legislators')"
+            ),
+            (
+                "DELETE FROM core.post WHERE source_artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE dataset_id = 'congress.legislators')"
+            ),
+            (
+                "DELETE FROM core.division WHERE source_artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE dataset_id = 'congress.legislators')"
+            ),
             (
                 "DELETE FROM core.person_identifier WHERE source_artifact_id IN "
                 "(SELECT artifact_id FROM ingest.artifact WHERE dataset_id = 'congress.legislators') "
@@ -98,6 +135,9 @@ def _yaml(entries: list[dict]) -> str:
             if len(vals) > 1:
                 out.extend(f"    - '{v}'" for v in vals)
         out.append(f"  name:\n    first: {e.get('first', 'Given')}\n    last: {e.get('last', 'Family')}")
+        if e.get("terms"):
+            out.append("  terms:")
+            out.extend(f"  - {json.dumps(t)}" for t in e["terms"])  # JSON is valid YAML flow
     return "\n".join(out) + "\n"
 
 
@@ -510,10 +550,29 @@ def _legislator_snapshot() -> dict:
         people = conn.execute(
             "SELECT count(*) AS n FROM core.person WHERE metadata->>'canonical_baseline' = 'congress-legislators'"
         ).fetchone()["n"]
+        terms = conn.execute(
+            "SELECT bg.external_id AS bioguide, o.organization_type, m.role, m.start_date, m.end_date, "
+            "p.label, d.ocd_division_id, m.metadata::text "
+            "FROM core.membership m "
+            "JOIN core.person_identifier bg ON bg.person_id = m.person_id AND bg.namespace = 'bioguide' "
+            "JOIN core.organization o ON o.organization_id = m.organization_id "
+            "LEFT JOIN core.post p ON p.post_id = m.post_id "
+            "LEFT JOIN core.division d ON d.division_id = p.division_id "
+            "WHERE m.source_artifact_id IN "
+            "(SELECT artifact_id FROM ingest.artifact WHERE dataset_id = 'congress.legislators') "
+            "ORDER BY 1, 3, 4"
+        ).fetchall()
     import hashlib
 
     digest = hashlib.md5(repr([tuple(r.values()) for r in rows]).encode()).hexdigest()
-    return {"people": people, "identifiers": len(rows), "digest": digest}
+    term_digest = hashlib.md5(repr([tuple(r.values()) for r in terms]).encode()).hexdigest()
+    return {
+        "people": people,
+        "identifiers": len(rows),
+        "digest": digest,
+        "memberships": len(terms),
+        "membership_digest": term_digest,
+    }
 
 
 def _legislator_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, point: int, atomic: bool):
@@ -524,8 +583,15 @@ def _legislator_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, point: 
     bg = [_bioguide(), _bioguide(), _bioguide()]
     vendor = _vendor(
         tmp_path,
-        [{"bioguide": bg[0], "ids": {"govtrack": f"h{bg[0]}", "fec": [f"H{bg[0]}A", f"H{bg[0]}B"]}}, {"bioguide": bg[1]}],
-        [{"bioguide": bg[2], "ids": {"icpsr": f"h{bg[2]}"}}],
+        [
+            {
+                "bioguide": bg[0],
+                "ids": {"govtrack": f"h{bg[0]}", "fec": [f"H{bg[0]}A", f"H{bg[0]}B"]},
+                "terms": [HOUSE_WA7, SENATE_WA],
+            },
+            {"bioguide": bg[1], "terms": [{**HOUSE_WA7, "district": 0, "state": "AK"}]},
+        ],
+        [{"bioguide": bg[2], "ids": {"icpsr": f"h{bg[2]}"}, "terms": [{**HOUSE_WA7, "district": -1}]}],
     )
     real = module.promote_legislators
 
@@ -571,3 +637,176 @@ def test_legislators_killed_after_commit_before_artifacts_loaded_converges(
 ) -> None:
     # Partial by nature: the data transaction is committed, the artifact status flip is not.
     assert_kill_and_resume_same(_legislator_case(tmp_path, monkeypatch, point=1, atomic=False))
+
+
+# -- Story 3.3: terms -> memberships on posts and divisions ------------------------
+def _memberships(bioguide: str) -> list[dict]:
+    with connect() as conn:
+        return conn.execute(
+            "SELECT m.role, m.start_date, m.end_date, m.metadata, m.source_artifact_id, o.organization_type, "
+            "p.label AS post_label, p.role AS post_role, d.ocd_division_id, d.label AS division_label, "
+            "d.classification, pd.ocd_division_id AS post_division_ocd "
+            "FROM core.membership m "
+            "JOIN core.person_identifier i ON i.person_id = m.person_id AND i.namespace = 'bioguide' "
+            "JOIN core.organization o ON o.organization_id = m.organization_id "
+            "LEFT JOIN core.post p ON p.post_id = m.post_id "
+            "LEFT JOIN core.division d ON d.division_id = p.division_id "
+            "LEFT JOIN core.division pd ON pd.division_id = p.division_id "
+            "WHERE i.external_id = %s ORDER BY m.start_date",
+            (bioguide,),
+        ).fetchall()
+
+
+HOUSE_WA7 = {"type": "rep", "start": "2019-01-03", "end": "2021-01-03", "state": "WA", "district": 7, "party": "Democrat"}
+SENATE_WA = {"type": "sen", "start": "2025-01-03", "end": "2031-01-03", "state": "WA", "class": 1, "party": "Democrat", "state_rank": "junior"}
+
+
+def test_terms_become_memberships_on_posts_and_divisions_with_evidence(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bg = _bioguide()
+    at_large = {"type": "rep", "start": "2001-01-03", "end": "2003-01-03", "state": "AK", "district": 0}
+    unknown = {"type": "rep", "start": "1851-03-04", "end": "1853-03-04", "state": "OH", "district": -1}
+    delegate = {"type": "rep", "start": "1999-01-03", "end": "2001-01-03", "state": "DC", "district": 0}
+    vendor = _vendor(
+        tmp_path,
+        [{"bioguide": bg, "terms": [unknown, delegate, at_large, HOUSE_WA7, SENATE_WA]}],
+        [{"bioguide": _bioguide()}],
+    )
+    connector = _load(tmp_path, monkeypatch, vendor)
+
+    assert connector.result["memberships_created"] == 5 and connector.result["terms_unresolved"] == 0
+    old, dc, ak, wa7, wa_sen = _memberships(bg)
+    assert (old["organization_type"], old["post_label"], old["metadata"]) == (
+        "lower", None, {"state": "OH", "district": -1},
+    )
+    assert (dc["post_label"], dc["ocd_division_id"], dc["classification"]) == (
+        "Representative, DC", "ocd-division/country:us/district:dc", "district",
+    )
+    assert (ak["post_label"], ak["ocd_division_id"]) == ("Representative, AK-AL", "ocd-division/country:us/state:ak/cd:at-large")
+    assert (wa7["role"], wa7["organization_type"], wa7["post_label"], wa7["ocd_division_id"]) == (
+        "representative", "lower", "Representative, WA-7", "ocd-division/country:us/state:wa/cd:7",
+    )
+    assert wa7["division_label"] == "Washington's 7th congressional district" and wa7["classification"] == "cd"
+    assert (str(wa7["start_date"]), str(wa7["end_date"])) == ("2019-01-03", "2021-01-03")
+    assert wa7["metadata"] == {"state": "WA", "district": 7, "party": "Democrat"}
+    assert (wa_sen["role"], wa_sen["organization_type"], wa_sen["post_label"], wa_sen["ocd_division_id"]) == (
+        "senator", "upper", "Senator, Class 1", "ocd-division/country:us/state:wa",
+    )
+    assert wa_sen["metadata"]["state_rank"] == "junior" and wa_sen["metadata"]["senate_class"] == 1
+    # every term is asserted by the artifact of the file it came from
+    current = _identifier("bioguide", bg)["source_artifact_id"]  # this person came from the current file
+    assert {m["source_artifact_id"] for m in (old, dc, ak, wa7, wa_sen)} == {current}
+    # the state division is shared by the district post and the Senate post, not duplicated
+    assert _one_count("SELECT count(*) AS n FROM core.division WHERE ocd_division_id = 'ocd-division/country:us/state:wa'") == 1
+    ledger = _ledger("core.membership")
+    assert ledger == ("succeeded", 5, 0, 0)
+
+
+def _one_count(sql: str, *params: object) -> int:
+    with connect() as conn:
+        return conn.execute(sql, params).fetchone()["n"]
+
+
+def _ledger(target: str) -> tuple:
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT t.status, t.rows_inserted, t.rows_updated, t.rows_skipped FROM ingest.run_target t "
+            "JOIN ingest.run r USING (run_id) WHERE r.dataset_id = 'congress.legislators' AND t.target = %s "
+            "ORDER BY r.started_at DESC LIMIT 1",
+            (target,),
+        ).fetchone()
+    return tuple(row.values())
+
+
+def test_two_at_large_members_share_one_post(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    a, b = _bioguide(), _bioguide()
+    term = {"type": "rep", "start": "1913-03-04", "end": "1915-03-04", "state": "WA", "district": 0}
+    vendor = _vendor(tmp_path, [{"bioguide": a, "terms": [term]}], [{"bioguide": b, "terms": [term]}])
+    _load(tmp_path, monkeypatch, vendor)
+
+    (first,), (second,) = _memberships(a), _memberships(b)
+    assert first["post_label"] == second["post_label"] == "Representative, WA-AL"
+    assert _one_count(
+        "SELECT count(*) AS n FROM core.post p JOIN core.division d USING (division_id) "
+        "WHERE d.ocd_division_id = 'ocd-division/country:us/state:wa/cd:at-large' AND p.label = 'Representative, WA-AL'"
+    ) == 1
+
+
+def test_rerun_with_same_bytes_changes_no_membership(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bg = _bioguide()
+    vendor = _vendor(tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7, SENATE_WA]}], [{"bioguide": _bioguide()}])
+    _load(tmp_path, monkeypatch, vendor)
+    before = _memberships(bg)
+
+    second = _load(tmp_path, monkeypatch, vendor)
+
+    assert (second.result["memberships_created"], second.result["memberships_updated"]) == (0, 0)
+    assert second.result["memberships_unchanged"] == 2
+    assert second.result["divisions_created"] == 0 and second.result["posts_created"] == 0
+    assert _memberships(bg) == before
+    assert _ledger("core.membership") == ("succeeded", 0, 0, 2)
+
+
+def test_upstream_edit_updates_the_term_and_adds_the_new_one(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bg = _bioguide()
+    vendor = _vendor(tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7]}], [{"bioguide": _bioguide()}])
+    _load(tmp_path, monkeypatch, vendor)
+    (before,) = _memberships(bg)
+    resigned = {**HOUSE_WA7, "end": "2020-06-01", "party": "Independent"}
+    later = {**HOUSE_WA7, "start": "2021-01-03", "end": "2023-01-03"}
+    _vendor(tmp_path, [{"bioguide": bg, "terms": [resigned, later]}], [{"bioguide": _bioguide()}])
+
+    second = _load(tmp_path, monkeypatch, vendor)
+
+    assert (second.result["memberships_created"], second.result["memberships_updated"]) == (1, 1)
+    first, new = _memberships(bg)
+    assert str(first["end_date"]) == "2020-06-01" and first["metadata"]["party"] == "Independent"
+    assert first["source_artifact_id"] != before["source_artifact_id"]  # evidence moved to the new version
+    assert str(new["start_date"]) == "2021-01-03"
+    assert _ledger("core.membership") == ("succeeded", 1, 1, 0)
+
+
+def test_an_unknown_jurisdiction_is_reported_not_guessed_and_the_run_is_partial(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bg = _bioguide()
+    odd = {"type": "rep", "start": "1900-03-04", "end": "1901-03-04", "state": "ZZ", "district": 1}
+    vendor = _vendor(tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7, odd]}], [{"bioguide": _bioguide()}])
+    connector = _load(tmp_path, monkeypatch, vendor)
+
+    assert [m["post_label"] for m in _memberships(bg)] == ["Representative, WA-7"]
+    assert connector.result["terms_unknown_jurisdiction"] == [
+        {"bioguide": bg, "state": "ZZ", "start": "1900-03-04", "file": "legislators-current.yaml"}
+    ]
+    assert _ledger("core.membership")[0] == "partial"
+    with connect() as conn:
+        status = conn.execute(
+            "SELECT status FROM ingest.run WHERE dataset_id = 'congress.legislators' ORDER BY started_at DESC LIMIT 1"
+        ).fetchone()["status"]
+    assert status == "partial"
+    assert Path(connector.result["report"]).is_file()
+
+
+def test_missing_chamber_organizations_fail_before_any_write_with_the_fix_named(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bg = _bioguide()
+    vendor = _vendor(tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7]}], [{"bioguide": _bioguide()}])
+    with connect() as conn:
+        conn.execute("UPDATE core.organization SET jurisdiction_geoid = 'xx' WHERE organization_type = 'lower'")
+        conn.commit()
+    try:
+        with pytest.raises(RuntimeError, match="load-openstates-organizations"):
+            _load(tmp_path, monkeypatch, vendor)
+    finally:
+        with connect() as conn:
+            conn.execute("UPDATE core.organization SET jurisdiction_geoid = 'us' WHERE organization_type = 'lower'")
+            conn.commit()
+    assert _memberships(bg) == []

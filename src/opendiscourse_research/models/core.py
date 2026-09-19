@@ -623,6 +623,7 @@ core_post = Table(
     UniqueConstraint("post_id", "organization_id", name="post_id_organization_id_key"),
     Index("post_organization_idx", "organization_id"),
     Index("post_division_idx", "division_id"),
+    Index("post_organization_division_label_key", "organization_id", "division_id", "label", unique=True),
     Index(
         "post_ocd_id_idx",
         "ocd_id",
@@ -687,6 +688,15 @@ core_membership = Table(
         name="membership_post_organization_fkey",
     ),
     Index("membership_person_idx", "person_id"),
+    Index(
+        "membership_term_key",
+        "person_id",
+        "organization_id",
+        "role",
+        "start_date",
+        unique=True,
+        postgresql_where=text("source_artifact_id IS NOT NULL"),
+    ),
     Index("membership_organization_idx", "organization_id"),
     Index("membership_post_idx", "post_id"),
     schema="core",

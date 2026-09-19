@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -71,6 +71,7 @@ ledger, load strategies, coverage checks) that later models can sit on.
 | Congress bills | 108th-119th, 172,709 bills (GovInfo's 172,703 plus 6 from another source), Story 9.5; every bill's full record plus CRS summaries, laws, related bills and amendments, Story 9.5b | 6 surplus 119th bills, see "Story 9.5"; CBO estimates, committee reports, recorded votes, alternate titles are in the record but not typed |
 | Roll calls / member votes | 118th-119th only (1,827 / 473,490) | 108-117; Senate source is "idea" |
 | People | 12,771 (12,770 with BioGuide; loaded 2026-09-19, Story 3.1) | 1 baseline person has no BioGuide; politician joins still gated (Story 3.2) |
+| Member terms | 45,535 memberships (41,545 House, 3,990 Senate, 1789-present), 740 posts, 690 divisions, Story 3.3; `coverage` memberships 100% for 108-119 | 1,340 terms have no post (unknown district in the source); committee membership not loaded |
 | FEC | 102M rows in `stage.fec_row` (pas2, oppexp, oth complete; indiv 2000-2016 only; unattributed, see above) | staging only; not promoted; person join gated (3.2): needs reviewed contract + cn/cm/ccl files; v1.1 |
 | GovInfo BILLSTATUS zips | 96 zips, 574,316,859 bytes (574 MB, 548 MiB; measured 2026-09-19 from the current registry rows) downloaded from govinfo.gov into `DATA_ROOT` and registered (Story 9.5); every zip matches GovInfo's directory manifest | none; the legacy lake copy is no longer an input |
 | OpenStates | 10 ok, 5 partial, 3 failed runs | coverage unmeasured; promotion reverted |
@@ -227,6 +228,45 @@ No new command: `research-db sync-billstatus` does it.
 - **What else exists to acquire** (votes, terms, bill text, amendments detail, FEC linkage, floor statements,
   lobbying, elections, and the legacy-lake items to remember): `docs/data-source-map.md`.
 
+## Story 3.3: member terms, posts and divisions (built and run live, 2026-09-19)
+
+Spec `_bmad-output/implementation-artifacts/spec-3-3-member-terms.md`; code `ingestion/legislator_terms.py`
+(parsing and the placement rules), `ingestion/legislators.py` (`_term_rows`, `publish`),
+`repositories/people.py::promote_terms` and `sql/query/people/*term*.sql`, migration `f3a8c5d1b7e2`.
+No new command: `research-db load-legislators` now loads terms after identifiers, from the same two
+retained YAML artifacts.
+
+- **Model:** one `core.membership` per term (person by BioGuide only, House or Senate organization,
+  `role` representative/senator, term start and end dates, `metadata` with state, district, party,
+  Senate class, state rank, how it began or ended, caucus, party affiliations). Where it was served
+  is a `core.post` on a `core.division` with an OCD id: state, `state:xx/cd:N`, `state:xx/cd:at-large`
+  (district 0), `district:dc`, `territory:pr|gu|vi|as|mp`, and the historical `territory:dt|ot|pi`
+  (upstream codes DK, OL, PI). Every id form was confirmed against the OCD registry we already hold in the
+  `openstates` database; none is invented. Senate posts are per state and class ("Senator, Class 1");
+  several members can share one post (multi-member at-large). Territory and DC posts ignore the district
+  number. A term with an unknown district (`-1`, 1,340 terms) keeps its state and gets no post.
+- **A division id names a place, not a boundary.** `cd:7` of Washington means different geography before
+  and after each redistricting; the membership dates say when. District geometry and crosswalks by
+  vintage are a later story.
+- **Idempotency:** unique keys `membership_term_key` (person, organization, role, start date, where the row
+  has artifact evidence) and `post_organization_division_label_key`. Same bytes: nothing changes. A new
+  upstream version updates an edited end date, party or post and moves the row's evidence to the newest
+  artifact, and adds new terms; a term removed upstream is not retracted (accepted for now). House and
+  Senate organizations are looked up (US `lower`/`upper`, exactly one each) and the load fails naming
+  `load-openstates-organizations` if they are absent or ambiguous. An unknown jurisdiction code is
+  reported (`terms_unknown_jurisdiction`) and the run is `partial`, never guessed.
+- **`research-db coverage`:** a membership now counts for a Congress by its session id (old rule) or, with no
+  session id, by term/Congress date overlap, the rule `expected_members` already used. Memberships are 100%
+  for Congresses 108-119.
+- **Live run:** migration applied; 45,535 terms staged, 45,535 memberships created, 690 divisions, 740 posts,
+  0 unresolved BioGuide ids, 0 unknown jurisdictions; the immediate rerun changed nothing (45,535
+  unchanged). Spot checks matched (Cantwell: WA-1 then five Senate terms; Pelosi: CA-5, CA-8, CA-12, CA-11).
+  The vendored checkout is at `8a3c7e6` (2026-09-03).
+- **LIS ids are not a gap.** Only senators have one (328 in all); every one of the 254 senators who served
+  since 2003 has it. The earlier "fix the LIS crosswalk first" note was wrong.
+- **Not done:** committee membership (`committee-membership-current.yaml` is current-only; committees
+  exist as OpenStates organizations), social media, district offices, district geometry.
+
 ## Large tables and database sizing (measured 2026-09-19)
 
 Nothing is partitioned. Disk is not the constraint (2.0 TB free of 2.9 TB); speed is.
@@ -332,7 +372,7 @@ each passing the 9.1 harness, and only after the 17 cluster is restarted with th
 2. Rerun `scripts/bench/benchmark_load_strategies.py` (about 8 minutes) and refresh the ADR-0003
    tables with the tuned-settings numbers.
 3. Story 9.3 coverage comparator: built (see "Coverage report"); use it after every backfill.
-4. Bills, actions, sponsors, and (9.5b) full records, summaries, laws, related bills, amendments: done. Next: member terms and state posts, then votes (wrap `unitedstates/congress`), bill text, amendment detail, then typing the CBO estimates and committee reports already in the record. Each through a Connector with the harness. Full source list: `docs/data-source-map.md`.
+4. Bills, actions, sponsors, and (9.5b) full records, summaries, laws, related bills, amendments: done. Member terms and posts: done (Story 3.3). Next: votes (wrap `unitedstates/congress`), bill text, amendment detail, then typing the CBO estimates and committee reports already in the record. Each through a Connector with the harness. Full source list: `docs/data-source-map.md`.
 4b. Remove the old fixed-path BILLSTATUS loaders listed under "Known debt" (move `coverage.py`'s `_bill_details` and the `congresshealth` check first).
 5. Then: FRED/OpenStates redo (2.2, 2.3, 8.2), Treasury and FRED failures, FEC promotion.
 6. Decide the `fact.acs_bulk_estimate` redesign (docs/performance-audit-2026-09-19.md) when Epics 5-6

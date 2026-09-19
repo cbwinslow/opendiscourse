@@ -2,8 +2,9 @@
 
 Reads the two legislator YAML files from the ``vendor/`` checkout, retains
 verified copies as immutable artifacts, and promotes identifiers into
-``core.person_identifier`` keyed on BioGuide only (Story 3.1). Terms,
-committees and social media are out of scope.
+``core.person_identifier`` keyed on BioGuide only (Story 3.1), then promotes every term
+into ``core.membership`` with its state or district post (Story 3.3). Committees and
+social media are out of scope.
 """
 
 from __future__ import annotations
@@ -26,9 +27,10 @@ from ..artifact_storage import retain_artifact_bytes, retained_path
 from ..config import settings
 from ..db import connect
 from ..repositories.legislation import register_artifact
-from ..repositories.people import promote_legislators
+from ..repositories.people import promote_legislators, promote_terms
 from .base import IngestionRun
 from .connector import ConnectorContext
+from .legislator_terms import Term, parse_terms, plan_term
 
 SOURCE_ID = "congress.legislators"
 UPSTREAM = "https://raw.githubusercontent.com/unitedstates/congress-legislators"
@@ -49,6 +51,7 @@ class Legislator:
     given_name: str | None
     family_name: str | None
     identifiers: tuple[tuple[str, str], ...]
+    terms: tuple[Term, ...] = ()
 
 
 def parse_legislators(content: bytes | str) -> list[Legislator]:
@@ -73,7 +76,14 @@ def parse_legislators(content: bytes | str) -> list[Legislator]:
                 if item is not None and str(item).strip():
                     pairs.append((str(namespace), str(item).strip()))
         people.append(
-            Legislator(bioguide, full or bioguide, given, family, tuple(pairs))
+            Legislator(
+                bioguide,
+                full or bioguide,
+                given,
+                family,
+                tuple(pairs),
+                parse_terms(record.get("terms")),
+            )
         )
     return people
 
@@ -114,6 +124,7 @@ def dedupe_identifiers(
             p.given_name,
             p.family_name,
             tuple(pair for pair in dict.fromkeys(p.identifiers) if pair not in shared),
+            p.terms,
         )
         for p in people
     ]
@@ -309,8 +320,11 @@ class LegislatorsConnector:
             for p in self._people[name]
             for ns, ext in p.identifiers
         )
+        term_rows, unknown = self._term_rows()
         with connect() as conn:
             counts = promote_legislators(conn, rows)
+            conn.commit()
+            terms = promote_terms(conn, term_rows)
             conn.commit()
             for name, url in zip(FILES, ctx.artifact_urls, strict=True):
                 register_artifact(
@@ -328,6 +342,8 @@ class LegislatorsConnector:
             conn.commit()
         self.result = {
             **counts,
+            **terms,
+            "terms_unknown_jurisdiction": unknown,
             "upstream_commit": self._commit,
             "shared_upstream_identifiers": self._shared,
         }
@@ -346,8 +362,58 @@ class LegislatorsConnector:
                 skipped=counts["identifiers_already_present"],
                 status="partial" if counts["conflicts"] else "succeeded",
             )
+            self._run.record_target(
+                "core.membership",
+                "all",
+                inserted=terms["memberships_created"],
+                updated=terms["memberships_updated"],
+                skipped=terms["memberships_unchanged"],
+                status="partial" if unknown or terms["terms_unresolved"] else "succeeded",
+            )
         self._report("published")
         return ctx
+
+    def _term_rows(self) -> tuple[list[tuple[Any, ...]], list[dict[str, Any]]]:
+        """Stage rows for every term (evidence: the file it came from), and the unplaceable ones.
+
+        A jurisdiction code outside the table is reported, never guessed.
+        """
+        rows: list[tuple[Any, ...]] = []
+        unknown: list[dict[str, Any]] = []
+        for name in FILES:
+            for person in self._people[name]:
+                for term in person.terms:
+                    plan = plan_term(term)
+                    if plan is None:
+                        unknown.append(
+                            {
+                                "bioguide": person.bioguide,
+                                "state": term.state,
+                                "start": term.start.isoformat(),
+                                "file": name,
+                            }
+                        )
+                        continue
+                    rows.append(
+                        (
+                            person.bioguide,
+                            self._artifacts[name],
+                            plan.chamber,
+                            plan.role,
+                            term.start,
+                            term.end,
+                            plan.state_ocd,
+                            plan.state_label,
+                            plan.state_class,
+                            plan.post_ocd,
+                            plan.post_division_label,
+                            plan.post_division_class,
+                            plan.post_label,
+                            plan.post_role,
+                            json.dumps(term.metadata, sort_keys=True),
+                        )
+                    )
+        return rows, unknown
 
     def checkpoint(self, ctx: ConnectorContext) -> ConnectorContext:
         """Write the review report, then close the run ledger exactly once.
@@ -360,7 +426,10 @@ class LegislatorsConnector:
             failure = RuntimeError(ctx.error or "interrupted before publish finished")
         try:
             needs_review = bool(self.result) and bool(
-                self.result["conflicts"] or self._shared
+                self.result["conflicts"]
+                or self._shared
+                or self.result["terms_unknown_jurisdiction"]
+                or self.result["terms_unresolved"]
             )
             if failure is None and needs_review:
                 self._write_review_report(ctx)
@@ -395,6 +464,8 @@ class LegislatorsConnector:
                     "upstream_commit": self._commit,
                     "conflicts": self.result["conflicts"],
                     "shared_upstream_identifiers": self._shared,
+                    "terms_unknown_jurisdiction": self.result["terms_unknown_jurisdiction"],
+                    "terms_unresolved": self.result["terms_unresolved"],
                 },
                 indent=2,
                 sort_keys=True,

@@ -38,12 +38,30 @@ WHERE r.jurisdiction = :j AND r.legislative_session ~ '^[0-9]+$'
 GROUP BY 1, 2
 """
 _MEMBERSHIPS = """
-SELECT s.identifier AS congress, i.external_id AS bioguide
+WITH congresses AS (
+  SELECT legislative_session_id, identifier AS congress,
+         CASE WHEN identifier ~ '^[0-9]+$' THEN identifier::int END AS n
+  FROM core.legislative_session
+  WHERE classification = 'congress'
+)
+-- A session-scoped membership counts for its Congress ...
+SELECT c.congress AS congress, i.external_id AS bioguide
 FROM core.membership m
-JOIN core.legislative_session s USING (legislative_session_id)
-JOIN core.person_identifier i
-  ON i.person_id = m.person_id AND i.namespace = 'bioguide'
-WHERE s.classification = 'congress' AND s.identifier ~ '^[0-9]+$'
+JOIN congresses c USING (legislative_session_id)
+JOIN core.person_identifier i ON i.person_id = m.person_id AND i.namespace = 'bioguide'
+WHERE c.n IS NOT NULL
+GROUP BY 1, 2
+UNION
+-- ... and a term (one row, no session) counts for every Congress it overlaps: the same rule
+-- ``expected_members`` applies to the legislators YAML. Congress N starts on Jan 3 of 1789 + 2(N-1).
+SELECT c.congress, i.external_id
+FROM core.membership m
+JOIN core.person_identifier i ON i.person_id = m.person_id AND i.namespace = 'bioguide'
+JOIN congresses c
+  ON c.n IS NOT NULL
+ AND m.start_date < make_date(1789 + 2 * c.n, 1, 3)
+ AND coalesce(m.end_date, 'infinity'::date) > make_date(1789 + 2 * (c.n - 1), 1, 3)
+WHERE m.legislative_session_id IS NULL AND m.start_date IS NOT NULL
 GROUP BY 1, 2
 """
 

@@ -95,3 +95,79 @@ def promote_legislators(
         "possible_duplicate_people": sum(c["bioguide_person_created"] for c in conflicts),
         "conflicts": conflicts,
     }
+
+
+TERM_STAGE_COLUMNS = (
+    "bioguide",
+    "artifact_id",
+    "chamber",
+    "role",
+    "start_date",
+    "end_date",
+    "state_ocd",
+    "state_label",
+    "state_class",
+    "post_ocd",
+    "post_division_label",
+    "post_division_class",
+    "post_label",
+    "post_role",
+    "metadata",
+)
+
+
+def congress_chamber_organizations(conn: psycopg.Connection) -> tuple[UUID, UUID]:
+    """The House and Senate organizations (US ``lower`` and ``upper``): exactly one of each.
+
+    They come from the OpenStates baseline. Guessing or creating one here would fork
+    organization identity, so a missing or ambiguous chamber is an error that names the fix.
+    """
+    with conn.cursor() as cur:
+        cur.execute(_query("congress_chamber_organizations"))
+        found: dict[str, list[UUID]] = {}
+        for row in cur.fetchall():
+            found.setdefault(row["organization_type"], []).append(row["organization_id"])
+    for kind, name in (("lower", "House"), ("upper", "Senate")):
+        if len(found.get(kind, [])) != 1:
+            raise RuntimeError(
+                f"expected exactly one US {name} organization ({kind}), found "
+                f"{len(found.get(kind, []))}; run `research-db load-openstates-organizations`"
+            )
+    return found["lower"][0], found["upper"][0]
+
+
+def promote_terms(conn: psycopg.Connection, rows: Iterable[tuple[Any, ...]]) -> dict[str, int]:
+    """Load staged legislator terms as divisions, posts and memberships in one transaction.
+
+    ``rows`` follow ``TERM_STAGE_COLUMNS`` (``metadata`` a JSON string). People are matched by
+    BioGuide only. Returns counts; a rerun with the same rows inserts and updates nothing.
+    """
+    house, senate = congress_chamber_organizations(conn)
+    params = {"house": house, "senate": senate}
+    staged = 0
+    with conn.transaction():
+        cur = conn.cursor()
+        cur.execute("SELECT pg_advisory_xact_lock(hashtextextended('congress.legislators:terms', 0))")
+        cur.execute(_query("create_term_stage"))
+        with cur.copy(f"COPY term_stage ({', '.join(TERM_STAGE_COLUMNS)}) FROM STDIN") as copy:
+            for row in rows:
+                copy.write_row(row)
+                staged += 1
+        cur.execute(_query("count_unresolved_terms"))
+        unresolved = cur.fetchone()["unresolved"]
+        cur.execute(_query("insert_term_divisions"))
+        divisions = cur.rowcount
+        cur.execute(_query("insert_term_posts"), params)
+        posts = cur.rowcount
+        cur.execute(_query("upsert_term_memberships"), params)
+        outcomes = [row["inserted"] for row in cur.fetchall()]
+    inserted = sum(outcomes)
+    return {
+        "terms_staged": staged,
+        "terms_unresolved": unresolved,
+        "divisions_created": divisions,
+        "posts_created": posts,
+        "memberships_created": inserted,
+        "memberships_updated": len(outcomes) - inserted,
+        "memberships_unchanged": staged - unresolved - len(outcomes),
+    }
