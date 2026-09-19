@@ -12,6 +12,7 @@ _DB_FILES = {
     "test_provenance_identity_contracts.py",
     "test_legislators_load.py",
     "test_run_ledger.py",
+    "test_coverage_db.py",
 }
 
 

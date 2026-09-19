@@ -259,6 +259,8 @@ As an operator, "complete" is a number: official manifests vs loaded rows per
 source and Congress.
 Acceptance: report of expected/loaded/missing per Congress for bills, actions,
 votes, members; the 108th start is confirmed against GovInfo manifests.
+Built (`research-db coverage`, `coverage.py`,
+`providers/official_counts.py`); first measurement in `docs/PROJECT-STATE.md`.
 
 ## Later (not started; do not begin without a spec)
 
