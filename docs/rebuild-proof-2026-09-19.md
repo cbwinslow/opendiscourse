@@ -1,6 +1,6 @@
-# Rebuild proof: Congress 108 bills (2026-09-19)
+# Rebuild proof: bills, people, population estimates (2026-09-19)
 
-Question: is "rebuildable from raw" true? One small dataset, tested end to end
+Question: is "rebuildable from raw" true? Small datasets, tested end to end
 before building the rebuild kit (`_bmad-output/specs/spec-rebuild-kit/SPEC.md`).
 
 ## What was run
@@ -41,3 +41,28 @@ DATA_ROOT=./data-lake/rebuild-proof/raw \
   hour or two; this is an estimate, not a measurement.
 - The fingerprint query is the seed of the kit's verify step (CAP-3); it must be
   parameterised per Congress and per table before it ships.
+
+## Round 2: people, sponsor links, population estimates
+
+Same scratch database and lake (fresh container, `init-db`, then the commands below).
+
+| Step | Outcome |
+|---|---|
+| `load-legislators` | 12,770 people and 97,319 identifiers loaded from the same two YAML files (same sha256) as live. **Then failed cleanly**: terms need the House and Senate organizations, which come from `load-openstates-organizations`, so OpenStates must be restored before terms. People stayed loaded; the run is marked failed. |
+| `sync-billstatus --congress 108` after people | bills, actions, records, sponsorships, subjects identical to live. **Sponsor-to-person links identical** (156,547 rows, same hash). |
+| PEP 2010-2020 from a hand-written *draft* plan: `pep-bulk-preview`, `-approve --geography nation --geography state --geography county`, `-download`, `-stage`, `-load` | stage 3,247 rows (as live), 35,717 estimates; **fact rows and hash identical to live**; source CSVs have the same sha256. No interactive catalog was needed: a draft plan is a small YAML of URLs. |
+
+Queries: `sql/query/verify/` (`psql -v congress=108 -f ...`); the bills query reproduces the live hash.
+
+### Differences, all explained
+
+- **People names and extra identifiers.** 246 people have different display names (live "Robert Aderholt", rebuilt "Robert B. Aderholt") and live has 2,048 more identifiers (`ocd` 722, `twitter` 579, `facebook` 371, `youtube` 340, a few others). The legislators loader documents social media as out of scope, so these come from the OpenStates people load layered on top. Not a rebuild defect, but **it cannot be proven until OpenStates is restored in scratch**, and it shows a rule is missing: which source's name wins for a federal person (today the last writer).
+- **Geography names.** The same 3,196 geography ids exist; 3,141 names differ ("Autauga" live, "Autauga County" from the PEP load) because another loader overwrote the name. Same lesson: last writer wins, so load order changes names.
+
+### Findings for the kit
+
+1. Order: schema, people (identifiers), OpenStates restore, organizations, terms, then bills and everything else. Terms cannot run before OpenStates.
+2. A fresh Docker Postgres answers `pg_isready` before its init restart finishes; the first `init-db` failed. The kit must retry until a real query works.
+3. Tracked config for Census can be the small draft plans (URLs only), committed under `inventory/`; the kit copies them into `meta/bulk-plans` and runs the five steps. The approval step's geography choice must be recorded too.
+4. Decide a name-precedence rule (people and geography) before the kit, or two rebuilds of the same data can differ in display names. Proposal: BioGuide-based legislators data owns federal person names; TIGER/Census own geography names; OpenStates and PEP add identifiers only.
+5. Tests of the kit should compare fingerprints excluding fields with no precedence rule until one exists.
