@@ -303,8 +303,20 @@ undone soon after (`git branch <name> <sha>` works while the commits are still i
 Nothing on those branches is wanted: AGY output is not trusted (rule 7 above). The dependency-bot PRs (#11,
 #12, #14, #31) are automatic and untouched.
 
+**Operator preferences (restated 2026-09-19; they apply to every session).** Keep the project organized: proper
+folders and consistent file and command names. Use established libraries and upstream GitHub tools for
+downloading and extracting data instead of writing our own; do not limit the tools we consider. Store all
+downloaded data so nothing is lost (raw files immutable and checksummed, full records in the database). Every
+ingestion run is monitored and tracked (`ingest.run`, `research-db loaded`, `coverage`, `congress-health`). Use the
+BMAD process for software (spec first for anything M or larger). Do not use or trust Gemini/AGY output. Push code
+to GitHub and merge our own PRs when CI is green. Keep the root disk free (it is small and holds the WAL); keep
+data on the RAID volume; keep only one database backup. Explain results in plain language.
+
 **Next steps, in order.**
 
+0. **Audit folder layout and naming** against `docs/conventions.md` and `docs/lake.md` (raw data folders,
+   artifact names, script and command names, docs names); write down any drift and fix it in one small PR. Offered
+   to the operator on 2026-09-19, not yet done.
 1. **Rebuild kit** (operator condition for dropping `stage` duplicates, and for portability): one documented,
    tested command sequence that downloads and ingests every loaded source from an empty `DATA_ROOT`; then a small
    project skill `opendiscourse-rebuild` that points agents at it. Commands are the portable part; skills only guide.
