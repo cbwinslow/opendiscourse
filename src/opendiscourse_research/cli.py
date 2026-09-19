@@ -107,6 +107,7 @@ from .plans import due_plans, load_plans, run_plan
 from .progress import load_progress, validate_progress
 from .registry import status as registry_status
 from .registry import sync as registry_sync
+from .repositories.runs import loaded_coverage
 from .scaffold import ScaffoldError, new_provider
 from .votereconcile import reconcile_openstates_votes
 
@@ -576,6 +577,14 @@ def load_openstates_people_command() -> None:
     with render_spinner("Loading OpenStates federal people baseline"):
         result = load_openstates_federal_people()
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("loaded")
+def loaded_command(
+    dataset: str | None = typer.Option(None, help="Limit to one dataset id."),
+) -> None:
+    """Show what is loaded: newest successful run per dataset, target and coverage key."""
+    typer.echo(json.dumps(loaded_coverage(dataset), indent=2, sort_keys=True, default=str))
 
 
 @app.command("person-join-status")

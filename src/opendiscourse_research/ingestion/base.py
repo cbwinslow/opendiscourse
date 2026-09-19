@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from contextlib import AbstractContextManager
+from functools import lru_cache
 from hashlib import sha256
+from pathlib import Path
 from typing import Any, Self
 
 import httpx
@@ -10,7 +14,30 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 
 from ..db import session
-from ..models.ingest import raw_payload_table, run_table
+from ..models.ingest import raw_payload_table, run_table, run_target_table
+
+_REPO = Path(__file__).resolve().parents[3]
+
+
+@lru_cache
+def code_version(repo: Path = _REPO) -> str:
+    """Identify the code that ran: git SHA, ``-dirty`` with tracked edits, else ``unknown``.
+
+    ``OPENDISCOURSE_CODE_VERSION`` overrides it for installs without a checkout.
+    """
+    if override := os.environ.get("OPENDISCOURSE_CODE_VERSION"):
+        return override
+
+    def git(*args: str) -> str | None:
+        result = subprocess.run(
+            ["git", "-C", str(repo), *args], capture_output=True, text=True, check=False
+        )
+        return result.stdout.strip() if result.returncode == 0 else None
+
+    sha = git("rev-parse", "HEAD")
+    if not sha:
+        return "unknown"
+    return f"{sha}-dirty" if git("status", "--porcelain", "--untracked-files=no") else sha
 
 
 class IngestionRun(AbstractContextManager):
@@ -36,10 +63,51 @@ class IngestionRun(AbstractContextManager):
                     mode=self.mode,
                     status="running",
                     parameters=self.parameters,
+                    code_version=code_version(),
                 )
                 .returning(table.c.run_id)
             ).scalar_one()
         return self
+
+    def record_target(
+        self,
+        target: str,
+        coverage_key: str = "",
+        *,
+        inserted: int = 0,
+        updated: int = 0,
+        skipped: int = 0,
+        status: str = "succeeded",
+    ) -> None:
+        """Record what this run wrote to ``target`` for one coverage slice.
+
+        ``coverage_key`` names the slice (``congress=118``, ``cycle=2024``); blank
+        means the whole target. Recording the same key again replaces the counts,
+        so a retried step never double-counts.
+        """
+        table = run_target_table()
+        statement = insert(table).values(
+            run_id=self.run_id,
+            target=target,
+            coverage_key=coverage_key,
+            status=status,
+            rows_inserted=inserted,
+            rows_updated=updated,
+            rows_skipped=skipped,
+        )
+        with session() as active_session:
+            active_session.execute(
+                statement.on_conflict_do_update(
+                    constraint="run_target_run_key_unique",
+                    set_={
+                        "status": statement.excluded.status,
+                        "rows_inserted": statement.excluded.rows_inserted,
+                        "rows_updated": statement.excluded.rows_updated,
+                        "rows_skipped": statement.excluded.rows_skipped,
+                        "recorded_at": func.now(),
+                    },
+                )
+            )
 
     def store_payload(self, response: httpx.Response, payload: Any) -> str:
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()

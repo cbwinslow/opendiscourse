@@ -333,6 +333,19 @@ class LegislatorsConnector:
         }
         if self._run is not None:
             self._run.record_count = counts["legislators"]
+            self._run.record_target(
+                "core.person",
+                "all",
+                inserted=counts["people_created"],
+                skipped=counts["legislators"] - counts["people_created"],
+            )
+            self._run.record_target(
+                "core.person_identifier",
+                "all",
+                inserted=counts["identifiers_created"],
+                skipped=counts["identifiers_already_present"],
+                status="partial" if counts["conflicts"] else "succeeded",
+            )
         self._report("published")
         return ctx
 

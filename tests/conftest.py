@@ -11,6 +11,7 @@ _DB_FILES = {
     "test_census_bulk_integration.py",
     "test_provenance_identity_contracts.py",
     "test_legislators_load.py",
+    "test_run_ledger.py",
 }
 
 

@@ -248,6 +248,8 @@ key (e.g. congress/cycle/year), rows inserted/updated/skipped, status.
 Acceptance: Alembic `ingest.run_target`; `IngestionRun` writes it; `code_version`
 = git SHA on every run; a query answers "what is loaded for dataset X, by
 period". Foundation for 9.3.
+Built on `feat/9-2-run-ledger` (`ingest.run_target`, `ingest.loaded_coverage`,
+`research-db loaded`); loaders adopt `record_target` as they are touched.
 
 ### Story 9.3 — Coverage comparator (Congresses 108-119)
 As an operator, "complete" is a number: official manifests vs loaded rows per
