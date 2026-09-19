@@ -54,7 +54,6 @@ path.
 - `sql/query/legislation/find_person_by_identifier.sql`
 - `sql/query/legislation/get_artifact.sql`
 - `sql/query/legislation/get_resume_cursor.sql`
-- `sql/query/legislation/insert_person_identifier.sql`
 - `sql/query/legislation/loaded_artifact_members.sql`
 - `sql/query/legislation/openstates_federal_organizations.sql`
 - `sql/query/legislation/openstates_federal_people.sql`
@@ -80,8 +79,7 @@ path.
 - `sql/query/legislation/upsert_member_vote.sql`
 - `sql/query/legislation/upsert_openstates_roll_call.sql`
 - `sql/query/legislation/upsert_organization_by_ocd.sql`
-- `sql/query/legislation/upsert_person_by_bioguide.sql`
-- `sql/query/legislation/upsert_person_by_ocd.sql`
+- `sql/query/people/find_identifier_owners.sql`, `attach_person_identifiers.sql`, `merge_*.sql` (ADR-0005 identity)
 
 ## Alembic revisions
 

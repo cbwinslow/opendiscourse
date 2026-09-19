@@ -93,7 +93,8 @@ def ingest_member(bioguide_id: str) -> int:
         payload = json_response(response)
         run.store_payload(response, payload)
         member = payload["member"]
-        upsert_congress_person(member)
+        if upsert_congress_person(member) is None:
+            run.mark_partial()  # the member's identifiers conflict; see ingest.identity_conflict
         run.record_count = resolve_bill_sponsorship_people()
         return run.record_count
 

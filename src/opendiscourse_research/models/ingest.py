@@ -15,7 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlmodel import SQLModel
 
@@ -188,6 +188,51 @@ ingest_identity_exception = Table(
     ),
     UniqueConstraint("run_id", "kind", "namespace", "external_id", "reason"),
     Index("identity_exception_lookup_idx", "congress", "namespace", "external_id"),
+    schema="ingest",
+)
+
+
+ingest_identity_conflict = Table(
+    "identity_conflict",
+    SQLModel.metadata,
+    Column("identity_conflict_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("dataset_id", Text, ForeignKey("catalog.dataset.dataset_id"), nullable=False),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id")),
+    Column("kind", Text, nullable=False),
+    Column("subject", Text, nullable=False),
+    Column("person_ids", ARRAY(PostgreSQLUUID(as_uuid=True)), nullable=False),
+    Column("identifiers", JSONB, nullable=False),
+    Column("seen_count", Integer, nullable=False, server_default=text("1")),
+    Column("first_seen_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    Column("last_seen_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    Column("resolved_at", DateTime(timezone=True)),
+    Column("resolution", Text),
+    CheckConstraint(
+        "kind IN ('multiple_owners', 'bioguide_mismatch')", name="identity_conflict_kind_check"
+    ),
+    UniqueConstraint("dataset_id", "kind", "subject", "person_ids", name="identity_conflict_key"),
+    schema="ingest",
+)
+
+ingest_person_merge = Table(
+    "person_merge",
+    SQLModel.metadata,
+    Column("person_merge_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("exception_id", Text, nullable=False, unique=True),
+    Column("survivor_person_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.person.person_id"), nullable=False),
+    Column("duplicate_person_id", PostgreSQLUUID(as_uuid=True), nullable=False),
+    Column("counts", JSONB, nullable=False),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id")),
+    Column("merged_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    schema="ingest",
+)
+
+ingest_person_merge_vote = Table(
+    "person_merge_vote",
+    SQLModel.metadata,
+    Column("person_merge_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.person_merge.person_merge_id"), primary_key=True),
+    Column("roll_call_id", PostgreSQLUUID(as_uuid=True), primary_key=True),
+    Column("vote", JSONB, nullable=False),
     schema="ingest",
 )
 

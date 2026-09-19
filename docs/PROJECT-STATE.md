@@ -16,9 +16,15 @@ identity and names, reviewed by Fable and Codex). Codex review works again (`/co
 State of things to know:
 - **Nothing in the live warehouse was changed** by the proofs or ADR. The Stutzman duplicate is recorded in
   `inventory/identity_exceptions.yaml` (`applied: false`).
-- **Next, in order:** (1) `bmad-spec` for ADR-0005 (stories: identity fix and lock; assertion tables, precedence,
-  resolver, trigger; geography loaders incl. ACS `ingestion/census.py`; person loaders; backfill by rerunning loaders;
-  kit verify); (2) build the identity fix first; (3) then the rebuild kit
+- **ADR-0005 progress (2026-09-19, later):** spec written (`_bmad-output/specs/spec-order-independent-identity/`, #58).
+  Story 1 (identity fix, lock, Stutzman merge; spec `_bmad-output/implementation-artifacts/spec-10-1-identity-fix.md`,
+  ignored by git) built: all three person writers resolve by any identifier under one lock
+  (`repositories/people.py::resolve_person`, set-based in `promote_legislators`), conflicts go to
+  `ingest.identity_conflict`, reviewed exceptions are read by loaders (`identity_merge.py`) and applied by
+  `research-db merge-people [--dry-run]` (audit in `ingest.person_merge`). Live merge status: see "Live changes" below.
+  **Next:** story 2 (assertion tables, precedence file, resolver, guard), then geography loaders (six writers incl. ACS
+  `ingestion/census.py`), person loaders, backfill by rerunning loaders, kit verify.
+- **Next, in order (original list):** (1) `bmad-spec` for ADR-0005 (done); (2) identity fix (done, see above); (3) then the rebuild kit
   (`_bmad-output/specs/spec-rebuild-kit/`), FEC as its last phase (needs a downloader; its 20 GB and 16 BILLSTATUS
   rows are registered under `/mnt/storage`); (4) OpenStates restore proof (10 GB retained dump) which also unlocks
   legislator terms (terms need OpenStates organizations).

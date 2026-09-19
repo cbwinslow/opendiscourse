@@ -34,7 +34,7 @@ from .censushealth import census_health
 from .congresshealth import congressional_health, recover_stale_congressional_runs
 from .contracts import load_contracts, validate_contracts
 from .coverage import coverage_report, format_table, normalize_congresses
-from .db import apply_migrations
+from .db import apply_migrations, connect
 from .exports import available_exports, export_relation
 from .feedback import (
     progress as render_progress,
@@ -111,6 +111,7 @@ from .progress import load_progress, validate_progress
 from .providers.govinfo import BILL_TYPES
 from .registry import status as registry_status
 from .registry import sync as registry_sync
+from .repositories.people import merge_reviewed_people
 from .repositories.runs import loaded_coverage
 from .scaffold import ScaffoldError, new_provider
 from .votereconcile import reconcile_openstates_votes
@@ -620,6 +621,16 @@ def load_openstates_people_command() -> None:
     with render_spinner("Loading OpenStates federal people baseline"):
         result = load_openstates_federal_people()
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("merge-people")
+def merge_people_command(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Do everything, then roll it back."),
+) -> None:
+    """Apply reviewed same-person exceptions from inventory/identity_exceptions.yaml (ADR-0005)."""
+    with connect() as conn, conn.transaction(force_rollback=dry_run):
+        results = merge_reviewed_people(conn)
+    typer.echo(json.dumps({"dry_run": dry_run, "merges": results}, indent=2, sort_keys=True, default=str))
 
 
 @app.command("loaded")

@@ -16,7 +16,6 @@ from opendiscourse_research.repositories.legislation import (
     parse_billstatus_xml,
     resolve_bill_sponsorship_people,
     save_billstatus_bill,
-    sync_openstates_federal_people,
 )
 
 SAMPLE_XML = """<?xml version="1.0" encoding="utf-8" standalone="no"?>
@@ -268,33 +267,6 @@ class TestLegislationPersistence(unittest.TestCase):
         self.assertEqual(result["processed"], 1)
         self.assertEqual(run.record_count, 1)
         self.assertNotIn("conn", save_bill.call_args.kwargs)
-
-    def test_openstates_people_sync_preserves_identifier_conflicts(self) -> None:
-        mock_conn = MagicMock()
-        mock_cur = MagicMock()
-        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
-        mock_cur.fetchall.side_effect = [
-            [
-                {
-                    "ocd_id": "ocd-person/example",
-                    "name": "Example Person",
-                    "given_name": "Example",
-                    "family_name": "Person",
-                    "extras": {},
-                }
-            ],
-            [{"namespace": "bioguide", "external_id": "E000001"}],
-        ]
-        mock_cur.fetchone.side_effect = [
-            {"person_id": "11111111-1111-1111-1111-111111111111"},
-            None,
-        ]
-
-        result = sync_openstates_federal_people(mock_conn)
-
-        self.assertEqual(
-            result, {"people": 1, "identifiers": 0, "identifier_conflicts": 1}
-        )
 
     def test_resolve_bill_sponsorship_people_returns_updated_count(self) -> None:
         mock_conn = MagicMock()
