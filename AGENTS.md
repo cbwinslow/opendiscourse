@@ -16,6 +16,12 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
 - Search for a maintained project before writing acquisition, parse,
   orchestrate, search, or export code. Wrap it; own evidence and canonical
   keys. Catalog: `reuse.md` beside the spec.
+- Every source is acquired from its original government endpoint over the network,
+  into the user's `DATA_ROOT`, then inventoried (artifact registry), then ingested into
+  the data model: download -> inventory -> ingest, runnable by anyone on their own machine.
+  Never ship a loader, script or default that reads a machine-specific path (a legacy
+  lake, a homelab folder, `/mnt/...`). Data already sitting on the operator's server is
+  a shortcut for that machine only, not an input to the project.
 - Adding a source is a Connector (`SPEC.md` CAP-2). Do not add `if/elif` to
   `cli.py`, `plans.py` HANDLERS, or `registry.sync`. Keep provider-specific
   behavior at the adapter boundary.

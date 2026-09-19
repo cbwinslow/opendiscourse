@@ -27,9 +27,8 @@ from sqlalchemy import select
 from .config import settings
 from .db import session
 from .legreconcile import _bill_details
-from .legvalidate import BILLSTATUS_ROOT
 from .providers.official_counts import OfficialCountError, OfficialCounts
-from .repositories.artifacts import current_artifact_table
+from .repositories.artifacts import current_artifact_table, get_current_artifact
 from .repositories.coverage import loaded_counts
 
 FIRST_CONGRESS = 108
@@ -149,8 +148,20 @@ class OfficialCache:
         _write_json(self.path, {"schema": 1, "entries": self.entries})
 
 
-def scan_lake(congress: int, cache_path: Path) -> dict[str, Any] | None:
-    """Count XML bills and actions per type in the (unverified) BILLSTATUS zips.
+def _registered_zip(congress: int, bill_type: str) -> Path | None:
+    """The user's own downloaded BILLSTATUS zip, found through the artifact registry."""
+    row = get_current_artifact(
+        f"BILLSTATUS-{congress}-{bill_type}.zip", dataset_id="congress.govinfo_billstatus"
+    )
+    return Path(row["local_path"]) if row and row.get("local_path") else None
+
+
+def scan_lake(
+    congress: int,
+    cache_path: Path,
+    locate_zip: Callable[[int, str], Path | None] = _registered_zip,
+) -> dict[str, Any] | None:
+    """Count XML bills and actions per type in the downloaded BILLSTATUS zips.
 
     Results are cached per archive keyed by path, size and mtime, so reruns are
     instant. An unreadable archive is reported (``unreadable``), never fatal.
@@ -158,13 +169,8 @@ def scan_lake(congress: int, cache_path: Path) -> dict[str, Any] | None:
     cache = _read_json(cache_path).get("archives", {})
     by_type: dict[str, dict[str, Any]] = {}
     for bill_type in BILL_TYPES:
-        archive = (
-            BILLSTATUS_ROOT
-            / str(congress)
-            / bill_type
-            / f"BILLSTATUS-{congress}-{bill_type}.zip"
-        )
-        if not archive.is_file():
+        archive = locate_zip(congress, bill_type)
+        if archive is None or not archive.is_file():
             continue
         stat = archive.stat()
         key = f"{archive}:{stat.st_size}:{int(stat.st_mtime)}"
