@@ -25,6 +25,9 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
   FEC/disclosure politician joins stay blocked until then. Do not start
   Epic 7 (FEC-native/crime staging, elections) in v1.
 - Do not invent news, stocks, or corruption scores as schema domains.
+  Politician scorecards are allowed later only as derived `mart` outputs over
+  evidence-backed `core`/`fact` rows (SPEC non-goals); never an opaque single
+  "corruption score".
 - Never commit secrets or `.env`. Capacity gate fails closed on unknown size.
 - `dlt` writes `stage` only, never `core`/`fact`.
 
@@ -44,6 +47,8 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
   Alembic baseline `d207df35ca10` onward
 - Upstream clones: `vendor/` (gitignored); refresh `scripts/bootstrap_upstream.sh`
 - Planning index: `_bmad-output/README.md`
+- **Current state, decisions, and next steps: `docs/PROJECT-STATE.md`. Read it
+  first when resuming; update it when a decision or story status changes.**
 
 ## Running and verifying
 
@@ -73,8 +78,11 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
   failure, idempotency, resume, and provenance cases when they apply.
 - Small cohesive commits; agents may commit and push focused work. Imperative
   subject plus body when the why is not obvious.
-- Codex may delegate bounded mechanical work to Antigravity (plan mode unless
-  edits are authorized); inspect output before relying on it.
+- Do not delegate to Antigravity/Gemini ("AGY"). Its merged work was reverted
+  in #26 after independent review (operator, 2026-09-19). Any AGY-authored code
+  still in the tree (e.g. Story 1.6 tests) is unverified: re-run the gates and
+  get independent review before building on it. Never trust its "tests passed".
+- Never merge a PR the operator has not seen reviewed. Open PRs; do not merge.
 
 ## Known pitfalls
 
@@ -87,6 +95,13 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
 - OpenStates database `openstates` is a provider snapshot; do not merge it
   into `opendiscourse`. Do not ingest Congress.gov/GovInfo/clerk rows into
   the dump; combine in `core` by identifier.
+- Read artifacts only through `ingest.current_artifact` /
+  `repositories/artifacts.py` (newest *usable* version). Never write
+  `ORDER BY artifact_version DESC LIMIT 1` in a loader: a failed refresh appends
+  a provisional version that would shadow verified bytes (Story 1.7).
+- Retained artifact files are evidence: never overwrite or delete one to fix an
+  error. Wiping and re-ingesting *untrustworthy derived rows* is authorized by
+  the operator; list what will be deleted and get a yes first.
 - The 10-stage Connector is current (Story 2.3), not sacred; do not redesign
   it on the FRED branch. `docs/research/2026-09-15-chatgpt-architecture-rereview.md`
   and `docs/research/2026-09-17-chatgpt-schema-review.md` are research, not

@@ -12,6 +12,14 @@ Do not start v1.1 because a staging table already exists. Do not expand
 horizontally until a Connector→mart slice is proven (FRED e2e and/or
 legislator-vote). Pre-Connector ACS/TIGER/bill loads do not count.
 
+## Coverage target (operator, 2026-09-19)
+
+Federal legislation **Congresses 108-119** (2003 to now): GovInfo BILLSTATUS
+bulk starts at the 108th. FEC cycles 2004+ when v1.1 opens. Completeness is
+measured (Story 9.3), not assumed. Untrustworthy derived data (unverified legacy
+caches, partial/failed-run output, rows from reverted AGY code) may be wiped and
+re-ingested; loaded Census/CBP/TIGER/PEP/DHC data is not redone without cause.
+
 ## v1 loadable spine
 
 Identities, TIGER geography, legislation (Congress.gov, GovInfo, OpenStates
@@ -32,7 +40,9 @@ bounded BLS).
 
 ## Not a product domain
 
-News, stocks/CFA, Epstein-as-schema, corruption scores.
+News, stocks/CFA, Epstein-as-schema, corruption scores as a schema domain.
+Scorecards over evidence-backed rows are allowed later as derived marts (SPEC
+non-goals); not part of the v1 ingest spine.
 `core.instrument` / `fact.market_bar` are retained empty compatibility
 tables; no market-price ingest.
 

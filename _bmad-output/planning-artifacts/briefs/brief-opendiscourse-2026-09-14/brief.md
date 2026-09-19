@@ -23,7 +23,8 @@ Census, dlt, dbt, PostgREST, DuckDB, pgvector) over writing new scrapers.
 (Congress.gov / GovInfo / OpenStates), census/housing, sparse macro (FRED,
 Treasury, bounded BLS). **v1.1** (identity-gated): FEC, politician
 disclosures/investments, elections, crime. **Not a product:** news as a
-schema domain, stock picking, corruption scores, CFA market work.
+schema domain, stock picking, corruption scores as a schema domain (evidence-linked scorecards
+may come later as derived marts), CFA market work.
 
 Primary user is a researcher/operator (this repo's owner) who needs
 defensible joins, not a consumer app. Surfaces: CLI (`research-db`), optional
