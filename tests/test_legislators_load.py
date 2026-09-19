@@ -71,6 +71,10 @@ def _remove_loaded_rows() -> None:
                 "OR source_run_id IN (SELECT run_id FROM ingest.run WHERE dataset_id = 'congress.legislators')"
             ),
             "DELETE FROM core.person WHERE metadata->>'canonical_baseline' = 'congress-legislators'",
+            (
+                "DELETE FROM ingest.run_target WHERE run_id IN "
+                "(SELECT run_id FROM ingest.run WHERE dataset_id = 'congress.legislators')"
+            ),
             "DELETE FROM ingest.run WHERE dataset_id = 'congress.legislators'",
             "DELETE FROM ingest.artifact WHERE dataset_id = 'congress.legislators'",
         ):
@@ -376,6 +380,16 @@ def test_successful_run_is_recorded_and_stamped_on_new_identifiers(
     run = _latest_run()
     assert (run["status"], run["record_count"]) == ("succeeded", 2)
     assert _identifier("bioguide", bg)["source_run_id"] == run["run_id"]
+    with connect() as conn:
+        targets = {
+            r["target"]: r
+            for r in conn.execute(
+                "SELECT target, rows_inserted, status FROM ingest.run_target WHERE run_id = %s",
+                (run["run_id"],),
+            ).fetchall()
+        }
+    assert targets["core.person"]["rows_inserted"] == 2
+    assert targets["core.person_identifier"]["status"] == "succeeded"
 
 
 def test_provenance_survives_a_same_bytes_rerun_on_a_newer_commit(

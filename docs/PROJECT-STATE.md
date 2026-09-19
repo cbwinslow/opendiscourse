@@ -141,6 +141,14 @@ in the repo checkout (gitignored), the same root the other loaders use.
    the blocker: 1,532 people carry an FEC candidate id. Open: a reviewed join
    contract per source, and FEC cn/cm/ccl linkage files for committee-only rows.
    `research-db person-join-status` shows the gates.
+3c. Story 9.2 run ledger: built (branch `feat/9-2-run-ledger`, stacked). `ingest.run_target`
+   + `ingest.loaded_coverage` view, `IngestionRun.record_target`, `code_version` = git SHA
+   (`-dirty` for tracked edits) on every new run, `research-db loaded [--dataset]`.
+   Only the legislators Connector records targets so far; migrate each loader as it is
+   touched. The 286 existing runs stay unattributed (`code_version` NULL): not invented.
+   Finding for 9.1: no table is partitioned; `fact.acs_bulk_estimate` 99 GB/281M rows,
+   `stage.fec_row` 74 GB/102M, `stage.cbp_row` 22 GB. Reload-by-slice on those means big
+   deletes and bloat unless new large tables are partitioned; ADR-0003 must decide.
 4. Story 9.3 coverage comparator; backfill Congresses 108-119 via Connectors, each
    passing the 9.1 harness.
 5. Redo 2.2 -> 2.3 (FRED) and 8.2 (OpenStates); fix Treasury and FRED failures.

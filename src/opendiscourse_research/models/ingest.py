@@ -113,6 +113,38 @@ def run_table():
     return ingest_run
 
 
+ingest_run_target = Table(
+    "run_target",
+    SQLModel.metadata,
+    Column(
+        "run_target_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+    Column("target", Text, nullable=False),
+    Column("coverage_key", Text, nullable=False, server_default=text("''")),
+    Column("status", Text, nullable=False),
+    Column("rows_inserted", BigInteger, nullable=False, server_default=text("0")),
+    Column("rows_updated", BigInteger, nullable=False, server_default=text("0")),
+    Column("rows_skipped", BigInteger, nullable=False, server_default=text("0")),
+    Column("recorded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("status IN ('succeeded', 'partial', 'failed')", name="run_target_status_check"),
+    CheckConstraint(
+        "rows_inserted >= 0 AND rows_updated >= 0 AND rows_skipped >= 0", name="run_target_rows_check"
+    ),
+    UniqueConstraint("run_id", "target", "coverage_key", name="run_target_run_key_unique"),
+    Index("run_target_lookup_idx", "target", "coverage_key"),
+    schema="ingest",
+)
+
+
+def run_target_table():
+    """Return the per-run, per-target ledger of what each ingest run wrote."""
+    return ingest_run_target
+
+
 def raw_payload_table():
     """Return the Alembic-adopted immutable raw-provider payload table."""
     return ingest_raw_payload
