@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19 (Story 3.1 loaded live, PR #30; Story 3.2 built). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-19 (Stories 3.1, 3.2, 9.2 merged to main; 3.1 loaded live). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -134,14 +134,14 @@ in the repo checkout (gitignored), the same root the other loaders use.
 2. Story 9.1 load contract + harness, then 9.2 run ledger.
 3. Story 3.1 BioGuide identity: **done and loaded live** (branch
    `feat/3-1-bioguide-identity`, spec `spec-3-1-bioguide-identity.md`); independent
-   review fixes applied; awaiting CI and operator merge.
-3b. Story 3.2 politician-join gate: built (branch `feat/3-2-gate-politician-joins`,
-   stacked on 3.1). `person_join` gates on `fec.campaign_finance`,
+   review fixes applied. Merged (#30).
+3b. Story 3.2 politician-join gate: merged (#32). `person_join` gates on `fec.campaign_finance`,
    `disclosures.financial`, `elections.results`; all `blocked`. Identity is no longer
    the blocker: 1,532 people carry an FEC candidate id. Open: a reviewed join
    contract per source, and FEC cn/cm/ccl linkage files for committee-only rows.
    `research-db person-join-status` shows the gates.
-3c. Story 9.2 run ledger: built (branch `feat/9-2-run-ledger`, stacked). `ingest.run_target`
+3c. Story 9.2 run ledger: merged (#33); Alembic `c8e2a4f6d915` and the 3.2 catalog
+   metadata are NOT yet applied to the live DB (run `research-db init-db`). `ingest.run_target`
    + `ingest.loaded_coverage` view, `IngestionRun.record_target`, `code_version` = git SHA
    (`-dirty` for tracked edits) on every new run, `research-db loaded [--dataset]`.
    Only the legislators Connector records targets so far; migrate each loader as it is

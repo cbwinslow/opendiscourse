@@ -84,8 +84,15 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
   in #26 after independent review (operator, 2026-09-19). Any AGY-authored code
   still in the tree (e.g. Story 1.6 tests) is unverified: re-run the gates and
   get independent review before building on it. Never trust its "tests passed".
-- Merge PRs when the operator asks and CI is green. Reproduce CI failures locally
-  (CI runs all DB tests against one shared database) instead of dismissing them.
+- Merge your own PRs once CI is green (standing operator instruction, 2026-09-19);
+  do not ask. Squash merge, subject ending `(#N)`. Reproduce CI failures locally
+  (CI runs all DB tests against one shared database, so tests that write rows
+  must clean them up) instead of dismissing them.
+- Stacked PRs: merge the parent, then `git rebase --onto origin/main <old parent tip>
+  <branch>`, force-push with lease, retarget via `gh api -X PATCH
+  repos/cbwinslow/opendiscourse/pulls/N -f base=main` (`gh pr edit --base` fails on a
+  deprecated GraphQL field), then close and reopen the PR: a base change does not
+  trigger `fast`/`test`.
 
 ## Known pitfalls
 
