@@ -32,7 +32,9 @@ bounded BLS).
 
 ## Not a product domain
 
-News, stocks/CFA, Epstein-as-schema, corruption scores.
+News, stocks/CFA, Epstein-as-schema, corruption scores as a schema domain.
+Scorecards over evidence-backed rows are allowed later as derived marts (SPEC
+non-goals); not part of the v1 ingest spine.
 `core.instrument` / `fact.market_bar` are retained empty compatibility
 tables; no market-price ingest.
 

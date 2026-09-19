@@ -150,7 +150,8 @@ only. `[SOURCE: 2026-09-17 schema review absorb.]`
 - News, Epstein, or stocks as first-class schema domains. Existing
   `core.instrument` / `fact.market_bar` are empty compatibility tables, not
   a license to ingest prices.
-- Corruption/integrity **scores** as a product primitive (keep evidence).
+- Corruption/integrity **scores** as a schema domain or opaque single score (keep
+  evidence). Evidence-linked scorecards may be added later as derived marts.
 - Meltano/Singer as the foundation; Qdrant/Pinecone; FastAPI CRUD.
 - OpenSpec or Spec Kit beside BMAD.
 - Playwright as the default test stack.

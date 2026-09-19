@@ -34,7 +34,7 @@ and ADR-0002 (`docs/adr/0002-schema-invariants.md`) first.
 
 ## Do not
 
-- Invent news, stocks, or corruption-score domains. Do not load market bars
+- Invent news, stocks, or corruption-score schema domains (derived scorecard marts come later). Do not load market bars
   because `core.instrument` / `fact.market_bar` exist. Do not promote
   `stage.fec_row` while Epic 7 is closed.
 - Dual-write durable facts to DuckDB, Parquet, Qdrant, or files as authority.

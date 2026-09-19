@@ -25,6 +25,9 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
   FEC/disclosure politician joins stay blocked until then. Do not start
   Epic 7 (FEC-native/crime staging, elections) in v1.
 - Do not invent news, stocks, or corruption scores as schema domains.
+  Politician scorecards are allowed later only as derived `mart` outputs over
+  evidence-backed `core`/`fact` rows (SPEC non-goals); never an opaque single
+  "corruption score".
 - Never commit secrets or `.env`. Capacity gate fails closed on unknown size.
 - `dlt` writes `stage` only, never `core`/`fact`.
 

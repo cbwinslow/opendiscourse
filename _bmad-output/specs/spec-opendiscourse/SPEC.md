@@ -124,7 +124,11 @@ not authorize a redesign.
 
 - Restarting the repository.
 - News, stocks, or Epstein as schema domains.
-- Integrity/corruption scores as a product.
+- Integrity/corruption scores as a schema domain, or any opaque single composite
+  score. Politician scorecards are permitted later as derived `mart` outputs
+  built only from provenance-backed `core`/`fact` rows, each indicator linked to
+  its evidence and methodology. That work needs its own capability and spec
+  before it starts; it is not part of the v1 ingest spine.
 - OpenSpec, Spec Kit, or a second planning system.
 - Physically copying the OpenStates database into `opendiscourse`.
 - Adopting the OpenStates Django dump as the canonical schema.
