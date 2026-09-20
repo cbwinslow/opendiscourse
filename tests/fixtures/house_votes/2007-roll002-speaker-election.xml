@@ -1,0 +1,461 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE rollcall-vote PUBLIC "-//US Congress//DTDs/vote v1.0 20031119 //EN" "../vote.dtd">
+<?xml-stylesheet type="text/xsl" href="../vote.xsl"?>
+<rollcall-vote>
+<vote-metadata>
+<majority>D</majority>
+<congress>110</congress>
+<session>1st</session>
+<chamber>U.S. House of Representatives</chamber>
+<rollcall-num>2</rollcall-num>
+<vote-question>Election of the Speaker</vote-question>
+<vote-type>YEA-AND-NAY</vote-type>
+<vote-result>Pelosi</vote-result>
+<action-date>4-Jan-2007</action-date>
+<action-time time-etz="13:44">1:44 PM</action-time>
+<vote-desc></vote-desc>
+<vote-totals>
+<totals-by-candidate><candidate>Pelosi</candidate><candidate-total>233</candidate-total></totals-by-candidate>
+<totals-by-candidate><candidate>Boehner</candidate><candidate-total>202</candidate-total></totals-by-candidate>
+<totals-by-candidate><candidate>Present</candidate><candidate-total>0</candidate-total></totals-by-candidate>
+<totals-by-candidate><candidate>Not Voting</candidate><candidate-total>0</candidate-total></totals-by-candidate>
+</vote-totals>
+</vote-metadata>
+<vote-data>
+<recorded-vote><legislator name-id="A000014" sort-field="Abercrombie" unaccented-name="Abercrombie" party="D" state="HI" role="legislator">Abercrombie</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="A000022" sort-field="Ackerman" unaccented-name="Ackerman" party="D" state="NY" role="legislator">Ackerman</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="A000055" sort-field="Aderholt" unaccented-name="Aderholt" party="R" state="AL" role="legislator">Aderholt</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="A000358" sort-field="Akin" unaccented-name="Akin" party="R" state="MO" role="legislator">Akin</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="A000361" sort-field="Alexander" unaccented-name="Alexander" party="R" state="LA" role="legislator">Alexander</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="A000357" sort-field="Allen" unaccented-name="Allen" party="D" state="ME" role="legislator">Allen</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="A000362" sort-field="Altmire" unaccented-name="Altmire" party="D" state="PA" role="legislator">Altmire</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="A000210" sort-field="Andrews" unaccented-name="Andrews" party="D" state="NJ" role="legislator">Andrews</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="A000363" sort-field="Arcuri" unaccented-name="Arcuri" party="D" state="NY" role="legislator">Arcuri</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001234" sort-field="Baca" unaccented-name="Baca" party="D" state="CA" role="legislator">Baca</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001256" sort-field="Bachmann" unaccented-name="Bachmann" party="R" state="MN" role="legislator">Bachmann</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000013" sort-field="Bachus" unaccented-name="Bachus" party="R" state="AL" role="legislator">Bachus</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001229" sort-field="Baird" unaccented-name="Baird" party="D" state="WA" role="legislator">Baird</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000072" sort-field="Baker" unaccented-name="Baker" party="R" state="LA" role="legislator">Baker</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001230" sort-field="Baldwin" unaccented-name="Baldwin" party="D" state="WI" role="legislator">Baldwin</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001239" sort-field="Barrett (SC)" unaccented-name="Barrett (SC)" party="R" state="SC" role="legislator">Barrett (SC)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001252" sort-field="Barrow" unaccented-name="Barrow" party="D" state="GA" role="legislator">Barrow</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000208" sort-field="Bartlett (MD)" unaccented-name="Bartlett (MD)" party="R" state="MD" role="legislator">Bartlett (MD)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000213" sort-field="Barton (TX)" unaccented-name="Barton (TX)" party="R" state="TX" role="legislator">Barton (TX)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001253" sort-field="Bean" unaccented-name="Bean" party="D" state="IL" role="legislator">Bean</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000287" sort-field="Becerra" unaccented-name="Becerra" party="D" state="CA" role="legislator">Becerra</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001231" sort-field="Berkley" unaccented-name="Berkley" party="D" state="NV" role="legislator">Berkley</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000410" sort-field="Berman" unaccented-name="Berman" party="D" state="CA" role="legislator">Berman</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000420" sort-field="Berry" unaccented-name="Berry" party="D" state="AR" role="legislator">Berry</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001232" sort-field="Biggert" unaccented-name="Biggert" party="R" state="IL" role="legislator">Biggert</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000461" sort-field="Bilbray" unaccented-name="Bilbray" party="R" state="CA" role="legislator">Bilbray</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001257" sort-field="Bilirakis" unaccented-name="Bilirakis" party="R" state="FL" role="legislator">Bilirakis</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000490" sort-field="Bishop (GA)" unaccented-name="Bishop (GA)" party="D" state="GA" role="legislator">Bishop (GA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001242" sort-field="Bishop (NY)" unaccented-name="Bishop (NY)" party="D" state="NY" role="legislator">Bishop (NY)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001250" sort-field="Bishop (UT)" unaccented-name="Bishop (UT)" party="R" state="UT" role="legislator">Bishop (UT)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001243" sort-field="Blackburn" unaccented-name="Blackburn" party="R" state="TN" role="legislator">Blackburn</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000574" sort-field="Blumenauer" unaccented-name="Blumenauer" party="D" state="OR" role="legislator">Blumenauer</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000575" sort-field="Blunt" unaccented-name="Blunt" party="R" state="MO" role="legislator">Blunt</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000589" sort-field="Boehner" unaccented-name="Boehner" party="R" state="OH" role="legislator">Boehner</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001244" sort-field="Bonner" unaccented-name="Bonner" party="R" state="AL" role="legislator">Bonner</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001228" sort-field="Bono" unaccented-name="Bono" party="R" state="CA" role="legislator">Bono</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001236" sort-field="Boozman" unaccented-name="Boozman" party="R" state="AR" role="legislator">Boozman</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001254" sort-field="Boren" unaccented-name="Boren" party="D" state="OK" role="legislator">Boren</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000652" sort-field="Boswell" unaccented-name="Boswell" party="D" state="IA" role="legislator">Boswell</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000657" sort-field="Boucher" unaccented-name="Boucher" party="D" state="VA" role="legislator">Boucher</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001255" sort-field="Boustany" unaccented-name="Boustany" party="R" state="LA" role="legislator">Boustany</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000716" sort-field="Boyd (FL)" unaccented-name="Boyd (FL)" party="D" state="FL" role="legislator">Boyd (FL)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001258" sort-field="Boyda (KS)" unaccented-name="Boyda (KS)" party="D" state="KS" role="legislator">Boyda (KS)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001227" sort-field="Brady (PA)" unaccented-name="Brady (PA)" party="D" state="PA" role="legislator">Brady (PA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000755" sort-field="Brady (TX)" unaccented-name="Brady (TX)" party="R" state="TX" role="legislator">Brady (TX)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001259" sort-field="Braley (IA)" unaccented-name="Braley (IA)" party="D" state="IA" role="legislator">Braley (IA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001235" sort-field="Brown (SC)" unaccented-name="Brown (SC)" party="R" state="SC" role="legislator">Brown (SC)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B000911" sort-field="Brown, Corrine" unaccented-name="Brown, Corrine" party="D" state="FL" role="legislator">Brown, Corrine</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001247" sort-field="Brown-Waite, Ginny" unaccented-name="Brown-Waite, Ginny" party="R" state="FL" role="legislator">Brown-Waite, Ginny</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001260" sort-field="Buchanan" unaccented-name="Buchanan" party="R" state="FL" role="legislator">Buchanan</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001248" sort-field="Burgess" unaccented-name="Burgess" party="R" state="TX" role="legislator">Burgess</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001149" sort-field="Burton (IN)" unaccented-name="Burton (IN)" party="R" state="IN" role="legislator">Burton (IN)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001251" sort-field="Butterfield" unaccented-name="Butterfield" party="D" state="NC" role="legislator">Butterfield</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="B001203" sort-field="Buyer" unaccented-name="Buyer" party="R" state="IN" role="legislator">Buyer</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000059" sort-field="Calvert" unaccented-name="Calvert" party="R" state="CA" role="legislator">Calvert</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000071" sort-field="Camp (MI)" unaccented-name="Camp (MI)" party="R" state="MI" role="legislator">Camp (MI)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001064" sort-field="Campbell (CA)" unaccented-name="Campbell (CA)" party="R" state="CA" role="legislator">Campbell (CA)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000116" sort-field="Cannon" unaccented-name="Cannon" party="R" state="UT" role="legislator">Cannon</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001046" sort-field="Cantor" unaccented-name="Cantor" party="R" state="VA" role="legislator">Cantor</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001047" sort-field="Capito" unaccented-name="Capito" party="R" state="WV" role="legislator">Capito</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001036" sort-field="Capps" unaccented-name="Capps" party="D" state="CA" role="legislator">Capps</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001037" sort-field="Capuano" unaccented-name="Capuano" party="D" state="MA" role="legislator">Capuano</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001050" sort-field="Cardoza" unaccented-name="Cardoza" party="D" state="CA" role="legislator">Cardoza</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001060" sort-field="Carnahan" unaccented-name="Carnahan" party="D" state="MO" role="legislator">Carnahan</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001065" sort-field="Carney" unaccented-name="Carney" party="D" state="PA" role="legislator">Carney</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000191" sort-field="Carson" unaccented-name="Carson" party="D" state="IN" role="legislator">Carson</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001051" sort-field="Carter" unaccented-name="Carter" party="R" state="TX" role="legislator">Carter</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000243" sort-field="Castle" unaccented-name="Castle" party="R" state="DE" role="legislator">Castle</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001066" sort-field="Castor" unaccented-name="Castor" party="D" state="FL" role="legislator">Castor</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000266" sort-field="Chabot" unaccented-name="Chabot" party="R" state="OH" role="legislator">Chabot</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001058" sort-field="Chandler" unaccented-name="Chandler" party="D" state="KY" role="legislator">Chandler</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001067" sort-field="Clarke" unaccented-name="Clarke" party="D" state="NY" role="legislator">Clarke</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001049" sort-field="Clay" unaccented-name="Clay" party="D" state="MO" role="legislator">Clay</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001061" sort-field="Cleaver" unaccented-name="Cleaver" party="D" state="MO" role="legislator">Cleaver</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000537" sort-field="Clyburn" unaccented-name="Clyburn" party="D" state="SC" role="legislator">Clyburn</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000556" sort-field="Coble" unaccented-name="Coble" party="R" state="NC" role="legislator">Coble</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001068" sort-field="Cohen" unaccented-name="Cohen" party="D" state="TN" role="legislator">Cohen</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001053" sort-field="Cole (OK)" unaccented-name="Cole (OK)" party="R" state="OK" role="legislator">Cole (OK)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001062" sort-field="Conaway" unaccented-name="Conaway" party="R" state="TX" role="legislator">Conaway</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000714" sort-field="Conyers" unaccented-name="Conyers" party="D" state="MI" role="legislator">Conyers</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000754" sort-field="Cooper" unaccented-name="Cooper" party="D" state="TN" role="legislator">Cooper</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001059" sort-field="Costa" unaccented-name="Costa" party="D" state="CA" role="legislator">Costa</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000794" sort-field="Costello" unaccented-name="Costello" party="D" state="IL" role="legislator">Costello</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001069" sort-field="Courtney" unaccented-name="Courtney" party="D" state="CT" role="legislator">Courtney</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000868" sort-field="Cramer" unaccented-name="Cramer" party="D" state="AL" role="legislator">Cramer</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001045" sort-field="Crenshaw" unaccented-name="Crenshaw" party="R" state="FL" role="legislator">Crenshaw</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001038" sort-field="Crowley" unaccented-name="Crowley" party="D" state="NY" role="legislator">Crowley</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000962" sort-field="Cubin" unaccented-name="Cubin" party="R" state="WY" role="legislator">Cubin</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001063" sort-field="Cuellar" unaccented-name="Cuellar" party="D" state="TX" role="legislator">Cuellar</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="C001048" sort-field="Culberson" unaccented-name="Culberson" party="R" state="TX" role="legislator">Culberson</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="C000984" sort-field="Cummings" unaccented-name="Cummings" party="D" state="MD" role="legislator">Cummings</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000602" sort-field="Davis (AL)" unaccented-name="Davis (AL)" party="D" state="AL" role="legislator">Davis (AL)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000598" sort-field="Davis (CA)" unaccented-name="Davis (CA)" party="D" state="CA" role="legislator">Davis (CA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000096" sort-field="Davis (IL)" unaccented-name="Davis (IL)" party="D" state="IL" role="legislator">Davis (IL)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000603" sort-field="Davis (KY)" unaccented-name="Davis (KY)" party="R" state="KY" role="legislator">Davis (KY)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000606" sort-field="Davis, David" unaccented-name="Davis, David" party="R" state="TN" role="legislator">Davis, David</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000597" sort-field="Davis, Jo Ann" unaccented-name="Davis, Jo Ann" party="R" state="VA" role="legislator">Davis, Jo Ann</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000599" sort-field="Davis, Lincoln" unaccented-name="Davis, Lincoln" party="D" state="TN" role="legislator">Davis, Lincoln</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000136" sort-field="Davis, Tom" unaccented-name="Davis, Tom" party="R" state="VA" role="legislator">Davis, Tom</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000168" sort-field="Deal (GA)" unaccented-name="Deal (GA)" party="R" state="GA" role="legislator">Deal (GA)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000191" sort-field="DeFazio" unaccented-name="DeFazio" party="D" state="OR" role="legislator">DeFazio</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000197" sort-field="DeGette" unaccented-name="DeGette" party="D" state="CO" role="legislator">DeGette</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000210" sort-field="Delahunt" unaccented-name="Delahunt" party="D" state="MA" role="legislator">Delahunt</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000216" sort-field="DeLauro" unaccented-name="DeLauro" party="D" state="CT" role="legislator">DeLauro</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000604" sort-field="Dent" unaccented-name="Dent" party="R" state="PA" role="legislator">Dent</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000299" sort-field="Diaz-Balart, L." unaccented-name="Diaz-Balart, L." party="R" state="FL" role="legislator">Diaz-Balart, L.</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000600" sort-field="Diaz-Balart, M." unaccented-name="Diaz-Balart, M." party="R" state="FL" role="legislator">Diaz-Balart, M.</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000327" sort-field="Dicks" unaccented-name="Dicks" party="D" state="WA" role="legislator">Dicks</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000355" sort-field="Dingell" unaccented-name="Dingell" party="D" state="MI" role="legislator">Dingell</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000399" sort-field="Doggett" unaccented-name="Doggett" party="D" state="TX" role="legislator">Doggett</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000607" sort-field="Donnelly" unaccented-name="Donnelly" party="D" state="IN" role="legislator">Donnelly</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000429" sort-field="Doolittle" unaccented-name="Doolittle" party="R" state="CA" role="legislator">Doolittle</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000482" sort-field="Doyle" unaccented-name="Doyle" party="D" state="PA" role="legislator">Doyle</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000605" sort-field="Drake" unaccented-name="Drake" party="R" state="VA" role="legislator">Drake</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000492" sort-field="Dreier" unaccented-name="Dreier" party="R" state="CA" role="legislator">Dreier</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="D000533" sort-field="Duncan" unaccented-name="Duncan" party="R" state="TN" role="legislator">Duncan</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="E000063" sort-field="Edwards" unaccented-name="Edwards" party="D" state="TX" role="legislator">Edwards</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="E000092" sort-field="Ehlers" unaccented-name="Ehlers" party="R" state="MI" role="legislator">Ehlers</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="E000288" sort-field="Ellison" unaccented-name="Ellison" party="D" state="MN" role="legislator">Ellison</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="E000289" sort-field="Ellsworth" unaccented-name="Ellsworth" party="D" state="IN" role="legislator">Ellsworth</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="E000287" sort-field="Emanuel" unaccented-name="Emanuel" party="D" state="IL" role="legislator">Emanuel</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="E000172" sort-field="Emerson" unaccented-name="Emerson" party="R" state="MO" role="legislator">Emerson</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="E000179" sort-field="Engel" unaccented-name="Engel" party="D" state="NY" role="legislator">Engel</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="E000187" sort-field="English (PA)" unaccented-name="English (PA)" party="R" state="PA" role="legislator">English (PA)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="E000215" sort-field="Eshoo" unaccented-name="Eshoo" party="D" state="CA" role="legislator">Eshoo</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="E000226" sort-field="Etheridge" unaccented-name="Etheridge" party="D" state="NC" role="legislator">Etheridge</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="E000268" sort-field="Everett" unaccented-name="Everett" party="R" state="AL" role="legislator">Everett</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000453" sort-field="Fallin" unaccented-name="Fallin" party="R" state="OK" role="legislator">Fallin</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000030" sort-field="Farr" unaccented-name="Farr" party="D" state="CA" role="legislator">Farr</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000043" sort-field="Fattah" unaccented-name="Fattah" party="D" state="PA" role="legislator">Fattah</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000447" sort-field="Feeney" unaccented-name="Feeney" party="R" state="FL" role="legislator">Feeney</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000443" sort-field="Ferguson" unaccented-name="Ferguson" party="R" state="NJ" role="legislator">Ferguson</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000116" sort-field="Filner" unaccented-name="Filner" party="D" state="CA" role="legislator">Filner</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000444" sort-field="Flake" unaccented-name="Flake" party="R" state="AZ" role="legislator">Flake</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000445" sort-field="Forbes" unaccented-name="Forbes" party="R" state="VA" role="legislator">Forbes</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000449" sort-field="Fortenberry" unaccented-name="Fortenberry" party="R" state="NE" role="legislator">Fortenberry</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000440" sort-field="Fossella" unaccented-name="Fossella" party="R" state="NY" role="legislator">Fossella</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000450" sort-field="Foxx" unaccented-name="Foxx" party="R" state="NC" role="legislator">Foxx</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000339" sort-field="Frank (MA)" unaccented-name="Frank (MA)" party="D" state="MA" role="legislator">Frank (MA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000448" sort-field="Franks (AZ)" unaccented-name="Franks (AZ)" party="R" state="AZ" role="legislator">Franks (AZ)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="F000372" sort-field="Frelinghuysen" unaccented-name="Frelinghuysen" party="R" state="NJ" role="legislator">Frelinghuysen</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000021" sort-field="Gallegly" unaccented-name="Gallegly" party="R" state="CA" role="legislator">Gallegly</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000548" sort-field="Garrett (NJ)" unaccented-name="Garrett (NJ)" party="R" state="NJ" role="legislator">Garrett (NJ)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000549" sort-field="Gerlach" unaccented-name="Gerlach" party="R" state="PA" role="legislator">Gerlach</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000554" sort-field="Giffords" unaccented-name="Giffords" party="D" state="AZ" role="legislator">Giffords</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000180" sort-field="Gilchrest" unaccented-name="Gilchrest" party="R" state="MD" role="legislator">Gilchrest</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000555" sort-field="Gillibrand" unaccented-name="Gillibrand" party="D" state="NY" role="legislator">Gillibrand</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000210" sort-field="Gillmor" unaccented-name="Gillmor" party="R" state="OH" role="legislator">Gillmor</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000550" sort-field="Gingrey" unaccented-name="Gingrey" party="R" state="GA" role="legislator">Gingrey</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000552" sort-field="Gohmert" unaccented-name="Gohmert" party="R" state="TX" role="legislator">Gohmert</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000544" sort-field="Gonzalez" unaccented-name="Gonzalez" party="D" state="TX" role="legislator">Gonzalez</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000280" sort-field="Goode" unaccented-name="Goode" party="R" state="VA" role="legislator">Goode</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000289" sort-field="Goodlatte" unaccented-name="Goodlatte" party="R" state="VA" role="legislator">Goodlatte</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000309" sort-field="Gordon" unaccented-name="Gordon" party="D" state="TN" role="legislator">Gordon</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000377" sort-field="Granger" unaccented-name="Granger" party="R" state="TX" role="legislator">Granger</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000546" sort-field="Graves" unaccented-name="Graves" party="R" state="MO" role="legislator">Graves</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000553" sort-field="Green, Al" unaccented-name="Green, Al" party="D" state="TX" role="legislator">Green, Al</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000410" sort-field="Green, Gene" unaccented-name="Green, Gene" party="D" state="TX" role="legislator">Green, Gene</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000551" sort-field="Grijalva" unaccented-name="Grijalva" party="D" state="AZ" role="legislator">Grijalva</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="G000535" sort-field="Gutierrez" unaccented-name="Gutierrez" party="D" state="IL" role="legislator">Gutierrez</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H001039" sort-field="Hall (NY)" unaccented-name="Hall (NY)" party="D" state="NY" role="legislator">Hall (NY)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000067" sort-field="Hall (TX)" unaccented-name="Hall (TX)" party="R" state="TX" role="legislator">Hall (TX)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="H001040" sort-field="Hare" unaccented-name="Hare" party="D" state="IL" role="legislator">Hare</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000213" sort-field="Harman" unaccented-name="Harman" party="D" state="CA" role="legislator">Harman</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000323" sort-field="Hastert" unaccented-name="Hastert" party="R" state="IL" role="legislator">Hastert</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000324" sort-field="Hastings (FL)" unaccented-name="Hastings (FL)" party="D" state="FL" role="legislator">Hastings (FL)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000329" sort-field="Hastings (WA)" unaccented-name="Hastings (WA)" party="R" state="WA" role="legislator">Hastings (WA)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="H001029" sort-field="Hayes" unaccented-name="Hayes" party="R" state="NC" role="legislator">Hayes</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="H001041" sort-field="Heller" unaccented-name="Heller" party="R" state="NV" role="legislator">Heller</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="H001036" sort-field="Hensarling" unaccented-name="Hensarling" party="R" state="TX" role="legislator">Hensarling</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000528" sort-field="Herger" unaccented-name="Herger" party="R" state="CA" role="legislator">Herger</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="H001037" sort-field="Herseth" unaccented-name="Herseth" party="D" state="SD" role="legislator">Herseth</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H001038" sort-field="Higgins" unaccented-name="Higgins" party="D" state="NY" role="legislator">Higgins</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H001030" sort-field="Hill" unaccented-name="Hill" party="D" state="IN" role="legislator">Hill</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000627" sort-field="Hinchey" unaccented-name="Hinchey" party="D" state="NY" role="legislator">Hinchey</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000636" sort-field="Hinojosa" unaccented-name="Hinojosa" party="D" state="TX" role="legislator">Hinojosa</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H001042" sort-field="Hirono" unaccented-name="Hirono" party="D" state="HI" role="legislator">Hirono</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000666" sort-field="Hobson" unaccented-name="Hobson" party="R" state="OH" role="legislator">Hobson</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="H001043" sort-field="Hodes" unaccented-name="Hodes" party="D" state="NH" role="legislator">Hodes</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000676" sort-field="Hoekstra" unaccented-name="Hoekstra" party="R" state="MI" role="legislator">Hoekstra</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000712" sort-field="Holden" unaccented-name="Holden" party="D" state="PA" role="legislator">Holden</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H001032" sort-field="Holt" unaccented-name="Holt" party="D" state="NJ" role="legislator">Holt</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H001034" sort-field="Honda" unaccented-name="Honda" party="D" state="CA" role="legislator">Honda</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000762" sort-field="Hooley" unaccented-name="Hooley" party="D" state="OR" role="legislator">Hooley</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000874" sort-field="Hoyer" unaccented-name="Hoyer" party="D" state="MD" role="legislator">Hoyer</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000948" sort-field="Hulshof" unaccented-name="Hulshof" party="R" state="MO" role="legislator">Hulshof</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="H000981" sort-field="Hunter" unaccented-name="Hunter" party="R" state="CA" role="legislator">Hunter</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="I000023" sort-field="Inglis (SC)" unaccented-name="Inglis (SC)" party="R" state="SC" role="legislator">Inglis (SC)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="I000026" sort-field="Inslee" unaccented-name="Inslee" party="D" state="WA" role="legislator">Inslee</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="I000057" sort-field="Israel" unaccented-name="Israel" party="D" state="NY" role="legislator">Israel</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="I000056" sort-field="Issa" unaccented-name="Issa" party="R" state="CA" role="legislator">Issa</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="J000283" sort-field="Jackson (IL)" unaccented-name="Jackson (IL)" party="D" state="IL" role="legislator">Jackson (IL)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="J000032" sort-field="Jackson-Lee (TX)" unaccented-name="Jackson-Lee (TX)" party="D" state="TX" role="legislator">Jackson-Lee (TX)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="J000070" sort-field="Jefferson" unaccented-name="Jefferson" party="D" state="LA" role="legislator">Jefferson</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="J000287" sort-field="Jindal" unaccented-name="Jindal" party="R" state="LA" role="legislator">Jindal</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="J000288" sort-field="Johnson (GA)" unaccented-name="Johnson (GA)" party="D" state="GA" role="legislator">Johnson (GA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="J000285" sort-field="Johnson (IL)" unaccented-name="Johnson (IL)" party="R" state="IL" role="legislator">Johnson (IL)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="J000126" sort-field="Johnson, E. B." unaccented-name="Johnson, E. B." party="D" state="TX" role="legislator">Johnson, E. B.</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="J000174" sort-field="Johnson, Sam" unaccented-name="Johnson, Sam" party="R" state="TX" role="legislator">Johnson, Sam</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="J000255" sort-field="Jones (NC)" unaccented-name="Jones (NC)" party="R" state="NC" role="legislator">Jones (NC)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="J000284" sort-field="Jones (OH)" unaccented-name="Jones (OH)" party="D" state="OH" role="legislator">Jones (OH)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="J000289" sort-field="Jordan" unaccented-name="Jordan" party="R" state="OH" role="legislator">Jordan</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000365" sort-field="Kagen" unaccented-name="Kagen" party="D" state="WI" role="legislator">Kagen</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000008" sort-field="Kanjorski" unaccented-name="Kanjorski" party="D" state="PA" role="legislator">Kanjorski</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000009" sort-field="Kaptur" unaccented-name="Kaptur" party="D" state="OH" role="legislator">Kaptur</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000361" sort-field="Keller" unaccented-name="Keller" party="R" state="FL" role="legislator">Keller</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000113" sort-field="Kennedy" unaccented-name="Kennedy" party="D" state="RI" role="legislator">Kennedy</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000172" sort-field="Kildee" unaccented-name="Kildee" party="D" state="MI" role="legislator">Kildee</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000180" sort-field="Kilpatrick" unaccented-name="Kilpatrick" party="D" state="MI" role="legislator">Kilpatrick</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000188" sort-field="Kind" unaccented-name="Kind" party="D" state="WI" role="legislator">Kind</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000362" sort-field="King (IA)" unaccented-name="King (IA)" party="R" state="IA" role="legislator">King (IA)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000210" sort-field="King (NY)" unaccented-name="King (NY)" party="R" state="NY" role="legislator">King (NY)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000220" sort-field="Kingston" unaccented-name="Kingston" party="R" state="GA" role="legislator">Kingston</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000360" sort-field="Kirk" unaccented-name="Kirk" party="R" state="IL" role="legislator">Kirk</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000366" sort-field="Klein (FL)" unaccented-name="Klein (FL)" party="D" state="FL" role="legislator">Klein (FL)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000363" sort-field="Kline (MN)" unaccented-name="Kline (MN)" party="R" state="MN" role="legislator">Kline (MN)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000288" sort-field="Knollenberg" unaccented-name="Knollenberg" party="R" state="MI" role="legislator">Knollenberg</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000336" sort-field="Kucinich" unaccented-name="Kucinich" party="D" state="OH" role="legislator">Kucinich</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="K000364" sort-field="Kuhl (NY)" unaccented-name="Kuhl (NY)" party="R" state="NY" role="legislator">Kuhl (NY)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000552" sort-field="LaHood" unaccented-name="LaHood" party="R" state="IL" role="legislator">LaHood</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000564" sort-field="Lamborn" unaccented-name="Lamborn" party="R" state="CO" role="legislator">Lamborn</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000043" sort-field="Lampson" unaccented-name="Lampson" party="D" state="TX" role="legislator">Lampson</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000559" sort-field="Langevin" unaccented-name="Langevin" party="D" state="RI" role="legislator">Langevin</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000090" sort-field="Lantos" unaccented-name="Lantos" party="D" state="CA" role="legislator">Lantos</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000560" sort-field="Larsen (WA)" unaccented-name="Larsen (WA)" party="D" state="WA" role="legislator">Larsen (WA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000557" sort-field="Larson (CT)" unaccented-name="Larson (CT)" party="D" state="CT" role="legislator">Larson (CT)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000111" sort-field="Latham" unaccented-name="Latham" party="R" state="IA" role="legislator">Latham</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000553" sort-field="LaTourette" unaccented-name="LaTourette" party="R" state="OH" role="legislator">LaTourette</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000551" sort-field="Lee" unaccented-name="Lee" party="D" state="CA" role="legislator">Lee</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000263" sort-field="Levin" unaccented-name="Levin" party="D" state="MI" role="legislator">Levin</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000274" sort-field="Lewis (CA)" unaccented-name="Lewis (CA)" party="R" state="CA" role="legislator">Lewis (CA)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000287" sort-field="Lewis (GA)" unaccented-name="Lewis (GA)" party="D" state="GA" role="legislator">Lewis (GA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000293" sort-field="Lewis (KY)" unaccented-name="Lewis (KY)" party="R" state="KY" role="legislator">Lewis (KY)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000321" sort-field="Linder" unaccented-name="Linder" party="R" state="GA" role="legislator">Linder</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000563" sort-field="Lipinski" unaccented-name="Lipinski" party="D" state="IL" role="legislator">Lipinski</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000554" sort-field="LoBiondo" unaccented-name="LoBiondo" party="R" state="NJ" role="legislator">LoBiondo</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000565" sort-field="Loebsack" unaccented-name="Loebsack" party="D" state="IA" role="legislator">Loebsack</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000397" sort-field="Lofgren, Zoe" unaccented-name="Lofgren, Zoe" party="D" state="CA" role="legislator">Lofgren, Zoe</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000480" sort-field="Lowey" unaccented-name="Lowey" party="D" state="NY" role="legislator">Lowey</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000491" sort-field="Lucas" unaccented-name="Lucas" party="R" state="OK" role="legislator">Lucas</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000517" sort-field="Lungren, Daniel E." unaccented-name="Lungren, Daniel E." party="R" state="CA" role="legislator">Lungren, Daniel E.</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="L000562" sort-field="Lynch" unaccented-name="Lynch" party="D" state="MA" role="legislator">Lynch</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001155" sort-field="Mack" unaccented-name="Mack" party="R" state="FL" role="legislator">Mack</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001164" sort-field="Mahoney (FL)" unaccented-name="Mahoney (FL)" party="D" state="FL" role="legislator">Mahoney (FL)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000087" sort-field="Maloney (NY)" unaccented-name="Maloney (NY)" party="D" state="NY" role="legislator">Maloney (NY)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001138" sort-field="Manzullo" unaccented-name="Manzullo" party="R" state="IL" role="legislator">Manzullo</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001158" sort-field="Marchant" unaccented-name="Marchant" party="R" state="TX" role="legislator">Marchant</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000133" sort-field="Markey" unaccented-name="Markey" party="D" state="MA" role="legislator">Markey</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001146" sort-field="Marshall" unaccented-name="Marshall" party="D" state="GA" role="legislator">Marshall</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001142" sort-field="Matheson" unaccented-name="Matheson" party="D" state="UT" role="legislator">Matheson</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001163" sort-field="Matsui" unaccented-name="Matsui" party="D" state="CA" role="legislator">Matsui</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001165" sort-field="McCarthy (CA)" unaccented-name="McCarthy (CA)" party="R" state="CA" role="legislator">McCarthy (CA)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000309" sort-field="McCarthy (NY)" unaccented-name="McCarthy (NY)" party="D" state="NY" role="legislator">McCarthy (NY)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001157" sort-field="McCaul (TX)" unaccented-name="McCaul (TX)" party="R" state="TX" role="legislator">McCaul (TX)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001143" sort-field="McCollum (MN)" unaccented-name="McCollum (MN)" party="D" state="MN" role="legislator">McCollum (MN)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001147" sort-field="McCotter" unaccented-name="McCotter" party="R" state="MI" role="legislator">McCotter</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000388" sort-field="McCrery" unaccented-name="McCrery" party="R" state="LA" role="legislator">McCrery</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000404" sort-field="McDermott" unaccented-name="McDermott" party="D" state="WA" role="legislator">McDermott</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000312" sort-field="McGovern" unaccented-name="McGovern" party="D" state="MA" role="legislator">McGovern</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001156" sort-field="McHenry" unaccented-name="McHenry" party="R" state="NC" role="legislator">McHenry</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000472" sort-field="McHugh" unaccented-name="McHugh" party="R" state="NY" role="legislator">McHugh</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000485" sort-field="McIntyre" unaccented-name="McIntyre" party="D" state="NC" role="legislator">McIntyre</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000508" sort-field="McKeon" unaccented-name="McKeon" party="R" state="CA" role="legislator">McKeon</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001159" sort-field="McMorris Rodgers" unaccented-name="McMorris Rodgers" party="R" state="WA" role="legislator">McMorris Rodgers</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001166" sort-field="McNerney" unaccented-name="McNerney" party="D" state="CA" role="legislator">McNerney</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000590" sort-field="McNulty" unaccented-name="McNulty" party="D" state="NY" role="legislator">McNulty</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000627" sort-field="Meehan" unaccented-name="Meehan" party="D" state="MA" role="legislator">Meehan</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001148" sort-field="Meek (FL)" unaccented-name="Meek (FL)" party="D" state="FL" role="legislator">Meek (FL)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001137" sort-field="Meeks (NY)" unaccented-name="Meeks (NY)" party="D" state="NY" role="legislator">Meeks (NY)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001161" sort-field="Melancon" unaccented-name="Melancon" party="D" state="LA" role="legislator">Melancon</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000689" sort-field="Mica" unaccented-name="Mica" party="R" state="FL" role="legislator">Mica</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001149" sort-field="Michaud" unaccented-name="Michaud" party="D" state="ME" role="legislator">Michaud</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000714" sort-field="Millender-McDonald" unaccented-name="Millender-McDonald" party="D" state="CA" role="legislator">Millender-McDonald</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001144" sort-field="Miller (FL)" unaccented-name="Miller (FL)" party="R" state="FL" role="legislator">Miller (FL)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001150" sort-field="Miller (MI)" unaccented-name="Miller (MI)" party="R" state="MI" role="legislator">Miller (MI)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001154" sort-field="Miller (NC)" unaccented-name="Miller (NC)" party="D" state="NC" role="legislator">Miller (NC)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001139" sort-field="Miller, Gary" unaccented-name="Miller, Gary" party="R" state="CA" role="legislator">Miller, Gary</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000725" sort-field="Miller, George" unaccented-name="Miller, George" party="D" state="CA" role="legislator">Miller, George</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001167" sort-field="Mitchell" unaccented-name="Mitchell" party="D" state="AZ" role="legislator">Mitchell</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000844" sort-field="Mollohan" unaccented-name="Mollohan" party="D" state="WV" role="legislator">Mollohan</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001140" sort-field="Moore (KS)" unaccented-name="Moore (KS)" party="D" state="KS" role="legislator">Moore (KS)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001160" sort-field="Moore (WI)" unaccented-name="Moore (WI)" party="D" state="WI" role="legislator">Moore (WI)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000934" sort-field="Moran (KS)" unaccented-name="Moran (KS)" party="R" state="KS" role="legislator">Moran (KS)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M000933" sort-field="Moran (VA)" unaccented-name="Moran (VA)" party="D" state="VA" role="legislator">Moran (VA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001169" sort-field="Murphy (CT)" unaccented-name="Murphy (CT)" party="D" state="CT" role="legislator">Murphy (CT)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001168" sort-field="Murphy, Patrick" unaccented-name="Murphy, Patrick" party="D" state="PA" role="legislator">Murphy, Patrick</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001151" sort-field="Murphy, Tim" unaccented-name="Murphy, Tim" party="R" state="PA" role="legislator">Murphy, Tim</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001120" sort-field="Murtha" unaccented-name="Murtha" party="D" state="PA" role="legislator">Murtha</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001152" sort-field="Musgrave" unaccented-name="Musgrave" party="R" state="CO" role="legislator">Musgrave</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="M001134" sort-field="Myrick" unaccented-name="Myrick" party="R" state="NC" role="legislator">Myrick</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="N000002" sort-field="Nadler" unaccented-name="Nadler" party="D" state="NY" role="legislator">Nadler</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="N000179" sort-field="Napolitano" unaccented-name="Napolitano" party="D" state="CA" role="legislator">Napolitano</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="N000015" sort-field="Neal (MA)" unaccented-name="Neal (MA)" party="D" state="MA" role="legislator">Neal (MA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="N000182" sort-field="Neugebauer" unaccented-name="Neugebauer" party="R" state="TX" role="legislator">Neugebauer</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="N000159" sort-field="Norwood" unaccented-name="Norwood" party="R" state="GA" role="legislator">Norwood</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="N000181" sort-field="Nunes" unaccented-name="Nunes" party="R" state="CA" role="legislator">Nunes</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="O000006" sort-field="Oberstar" unaccented-name="Oberstar" party="D" state="MN" role="legislator">Oberstar</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="O000007" sort-field="Obey" unaccented-name="Obey" party="D" state="WI" role="legislator">Obey</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="O000085" sort-field="Olver" unaccented-name="Olver" party="D" state="MA" role="legislator">Olver</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="O000107" sort-field="Ortiz" unaccented-name="Ortiz" party="D" state="TX" role="legislator">Ortiz</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000034" sort-field="Pallone" unaccented-name="Pallone" party="D" state="NJ" role="legislator">Pallone</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000096" sort-field="Pascrell" unaccented-name="Pascrell" party="D" state="NJ" role="legislator">Pascrell</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000099" sort-field="Pastor" unaccented-name="Pastor" party="D" state="AZ" role="legislator">Pastor</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000583" sort-field="Paul" unaccented-name="Paul" party="R" state="TX" role="legislator">Paul</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000149" sort-field="Payne" unaccented-name="Payne" party="D" state="NJ" role="legislator">Payne</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000588" sort-field="Pearce" unaccented-name="Pearce" party="R" state="NM" role="legislator">Pearce</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000197" sort-field="Pelosi" unaccented-name="Pelosi" party="D" state="CA" role="legislator">Pelosi</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000587" sort-field="Pence" unaccented-name="Pence" party="R" state="IN" role="legislator">Pence</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000593" sort-field="Perlmutter" unaccented-name="Perlmutter" party="D" state="CO" role="legislator">Perlmutter</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000258" sort-field="Peterson (MN)" unaccented-name="Peterson (MN)" party="D" state="MN" role="legislator">Peterson (MN)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000263" sort-field="Peterson (PA)" unaccented-name="Peterson (PA)" party="R" state="PA" role="legislator">Peterson (PA)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000265" sort-field="Petri" unaccented-name="Petri" party="R" state="WI" role="legislator">Petri</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000323" sort-field="Pickering" unaccented-name="Pickering" party="R" state="MS" role="legislator">Pickering</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000373" sort-field="Pitts" unaccented-name="Pitts" party="R" state="PA" role="legislator">Pitts</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000585" sort-field="Platts" unaccented-name="Platts" party="R" state="PA" role="legislator">Platts</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000592" sort-field="Poe" unaccented-name="Poe" party="R" state="TX" role="legislator">Poe</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000422" sort-field="Pomeroy" unaccented-name="Pomeroy" party="D" state="ND" role="legislator">Pomeroy</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000589" sort-field="Porter" unaccented-name="Porter" party="R" state="NV" role="legislator">Porter</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000591" sort-field="Price (GA)" unaccented-name="Price (GA)" party="R" state="GA" role="legislator">Price (GA)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000523" sort-field="Price (NC)" unaccented-name="Price (NC)" party="D" state="NC" role="legislator">Price (NC)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000555" sort-field="Pryce (OH)" unaccented-name="Pryce (OH)" party="R" state="OH" role="legislator">Pryce (OH)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="P000586" sort-field="Putnam" unaccented-name="Putnam" party="R" state="FL" role="legislator">Putnam</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000004" sort-field="Radanovich" unaccented-name="Radanovich" party="R" state="CA" role="legislator">Radanovich</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000011" sort-field="Rahall" unaccented-name="Rahall" party="D" state="WV" role="legislator">Rahall</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000033" sort-field="Ramstad" unaccented-name="Ramstad" party="R" state="MN" role="legislator">Ramstad</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000053" sort-field="Rangel" unaccented-name="Rangel" party="D" state="NY" role="legislator">Rangel</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000141" sort-field="Regula" unaccented-name="Regula" party="R" state="OH" role="legislator">Regula</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000571" sort-field="Rehberg" unaccented-name="Rehberg" party="R" state="MT" role="legislator">Rehberg</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000578" sort-field="Reichert" unaccented-name="Reichert" party="R" state="WA" role="legislator">Reichert</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000574" sort-field="Renzi" unaccented-name="Renzi" party="R" state="AZ" role="legislator">Renzi</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000170" sort-field="Reyes" unaccented-name="Reyes" party="D" state="TX" role="legislator">Reyes</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000569" sort-field="Reynolds" unaccented-name="Reynolds" party="R" state="NY" role="legislator">Reynolds</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000568" sort-field="Rodriguez" unaccented-name="Rodriguez" party="D" state="TX" role="legislator">Rodriguez</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000575" sort-field="Rogers (AL)" unaccented-name="Rogers (AL)" party="R" state="AL" role="legislator">Rogers (AL)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000395" sort-field="Rogers (KY)" unaccented-name="Rogers (KY)" party="R" state="KY" role="legislator">Rogers (KY)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000572" sort-field="Rogers (MI)" unaccented-name="Rogers (MI)" party="R" state="MI" role="legislator">Rogers (MI)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000409" sort-field="Rohrabacher" unaccented-name="Rohrabacher" party="R" state="CA" role="legislator">Rohrabacher</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000435" sort-field="Ros-Lehtinen" unaccented-name="Ros-Lehtinen" party="R" state="FL" role="legislator">Ros-Lehtinen</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000580" sort-field="Roskam" unaccented-name="Roskam" party="R" state="IL" role="legislator">Roskam</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000573" sort-field="Ross" unaccented-name="Ross" party="D" state="AR" role="legislator">Ross</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000462" sort-field="Rothman" unaccented-name="Rothman" party="D" state="NJ" role="legislator">Rothman</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000486" sort-field="Roybal-Allard" unaccented-name="Roybal-Allard" party="D" state="CA" role="legislator">Roybal-Allard</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000487" sort-field="Royce" unaccented-name="Royce" party="R" state="CA" role="legislator">Royce</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000576" sort-field="Ruppersberger" unaccented-name="Ruppersberger" party="D" state="MD" role="legislator">Ruppersberger</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000515" sort-field="Rush" unaccented-name="Rush" party="D" state="IL" role="legislator">Rush</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000577" sort-field="Ryan (OH)" unaccented-name="Ryan (OH)" party="D" state="OH" role="legislator">Ryan (OH)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="R000570" sort-field="Ryan (WI)" unaccented-name="Ryan (WI)" party="R" state="WI" role="legislator">Ryan (WI)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001158" sort-field="Salazar" unaccented-name="Salazar" party="D" state="CO" role="legislator">Salazar</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001167" sort-field="Sali" unaccented-name="Sali" party="R" state="ID" role="legislator">Sali</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001156" sort-field="Sanchez, Linda T." unaccented-name="Sanchez, Linda T." party="D" state="CA" role="legislator">Sánchez, Linda T.</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000030" sort-field="Sanchez, Loretta" unaccented-name="Sanchez, Loretta" party="D" state="CA" role="legislator">Sanchez, Loretta</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001168" sort-field="Sarbanes" unaccented-name="Sarbanes" party="D" state="MD" role="legislator">Sarbanes</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000097" sort-field="Saxton" unaccented-name="Saxton" party="R" state="NJ" role="legislator">Saxton</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001145" sort-field="Schakowsky" unaccented-name="Schakowsky" party="D" state="IL" role="legislator">Schakowsky</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001150" sort-field="Schiff" unaccented-name="Schiff" party="D" state="CA" role="legislator">Schiff</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001164" sort-field="Schmidt" unaccented-name="Schmidt" party="R" state="OH" role="legislator">Schmidt</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001162" sort-field="Schwartz" unaccented-name="Schwartz" party="D" state="PA" role="legislator">Schwartz</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001157" sort-field="Scott (GA)" unaccented-name="Scott (GA)" party="D" state="GA" role="legislator">Scott (GA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000185" sort-field="Scott (VA)" unaccented-name="Scott (VA)" party="D" state="VA" role="legislator">Scott (VA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000244" sort-field="Sensenbrenner" unaccented-name="Sensenbrenner" party="R" state="WI" role="legislator">Sensenbrenner</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000248" sort-field="Serrano" unaccented-name="Serrano" party="D" state="NY" role="legislator">Serrano</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000250" sort-field="Sessions" unaccented-name="Sessions" party="R" state="TX" role="legislator">Sessions</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001169" sort-field="Sestak" unaccented-name="Sestak" party="D" state="PA" role="legislator">Sestak</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000275" sort-field="Shadegg" unaccented-name="Shadegg" party="R" state="AZ" role="legislator">Shadegg</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001144" sort-field="Shays" unaccented-name="Shays" party="R" state="CT" role="legislator">Shays</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001170" sort-field="Shea-Porter" unaccented-name="Shea-Porter" party="D" state="NH" role="legislator">Shea-Porter</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000344" sort-field="Sherman" unaccented-name="Sherman" party="D" state="CA" role="legislator">Sherman</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000364" sort-field="Shimkus" unaccented-name="Shimkus" party="R" state="IL" role="legislator">Shimkus</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001171" sort-field="Shuler" unaccented-name="Shuler" party="D" state="NC" role="legislator">Shuler</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001154" sort-field="Shuster" unaccented-name="Shuster" party="R" state="PA" role="legislator">Shuster</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001148" sort-field="Simpson" unaccented-name="Simpson" party="R" state="ID" role="legislator">Simpson</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001165" sort-field="Sires" unaccented-name="Sires" party="D" state="NJ" role="legislator">Sires</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000465" sort-field="Skelton" unaccented-name="Skelton" party="D" state="MO" role="legislator">Skelton</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000480" sort-field="Slaughter" unaccented-name="Slaughter" party="D" state="NY" role="legislator">Slaughter</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001172" sort-field="Smith (NE)" unaccented-name="Smith (NE)" party="R" state="NE" role="legislator">Smith (NE)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000522" sort-field="Smith (NJ)" unaccented-name="Smith (NJ)" party="R" state="NJ" role="legislator">Smith (NJ)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000583" sort-field="Smith (TX)" unaccented-name="Smith (TX)" party="R" state="TX" role="legislator">Smith (TX)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000510" sort-field="Smith (WA)" unaccented-name="Smith (WA)" party="D" state="WA" role="legislator">Smith (WA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000672" sort-field="Snyder" unaccented-name="Snyder" party="D" state="AR" role="legislator">Snyder</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001153" sort-field="Solis" unaccented-name="Solis" party="D" state="CA" role="legislator">Solis</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001143" sort-field="Souder" unaccented-name="Souder" party="R" state="IN" role="legislator">Souder</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001173" sort-field="Space" unaccented-name="Space" party="D" state="OH" role="legislator">Space</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000749" sort-field="Spratt" unaccented-name="Spratt" party="D" state="SC" role="legislator">Spratt</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000810" sort-field="Stark" unaccented-name="Stark" party="D" state="CA" role="legislator">Stark</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S000822" sort-field="Stearns" unaccented-name="Stearns" party="R" state="FL" role="legislator">Stearns</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001045" sort-field="Stupak" unaccented-name="Stupak" party="D" state="MI" role="legislator">Stupak</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001155" sort-field="Sullivan" unaccented-name="Sullivan" party="R" state="OK" role="legislator">Sullivan</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="S001174" sort-field="Sutton" unaccented-name="Sutton" party="D" state="OH" role="legislator">Sutton</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="T000458" sort-field="Tancredo" unaccented-name="Tancredo" party="R" state="CO" role="legislator">Tancredo</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="T000038" sort-field="Tanner" unaccented-name="Tanner" party="D" state="TN" role="legislator">Tanner</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="T000057" sort-field="Tauscher" unaccented-name="Tauscher" party="D" state="CA" role="legislator">Tauscher</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="T000074" sort-field="Taylor" unaccented-name="Taylor" party="D" state="MS" role="legislator">Taylor</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="T000459" sort-field="Terry" unaccented-name="Terry" party="R" state="NE" role="legislator">Terry</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="T000460" sort-field="Thompson (CA)" unaccented-name="Thompson (CA)" party="D" state="CA" role="legislator">Thompson (CA)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="T000193" sort-field="Thompson (MS)" unaccented-name="Thompson (MS)" party="D" state="MS" role="legislator">Thompson (MS)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="T000238" sort-field="Thornberry" unaccented-name="Thornberry" party="R" state="TX" role="legislator">Thornberry</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="T000260" sort-field="Tiahrt" unaccented-name="Tiahrt" party="R" state="KS" role="legislator">Tiahrt</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="T000462" sort-field="Tiberi" unaccented-name="Tiberi" party="R" state="OH" role="legislator">Tiberi</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="T000266" sort-field="Tierney" unaccented-name="Tierney" party="D" state="MA" role="legislator">Tierney</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="T000326" sort-field="Towns" unaccented-name="Towns" party="D" state="NY" role="legislator">Towns</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="T000463" sort-field="Turner" unaccented-name="Turner" party="R" state="OH" role="legislator">Turner</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="U000038" sort-field="Udall (CO)" unaccented-name="Udall (CO)" party="D" state="CO" role="legislator">Udall (CO)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="U000039" sort-field="Udall (NM)" unaccented-name="Udall (NM)" party="D" state="NM" role="legislator">Udall (NM)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="U000031" sort-field="Upton" unaccented-name="Upton" party="R" state="MI" role="legislator">Upton</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="V000128" sort-field="Van Hollen" unaccented-name="Van Hollen" party="D" state="MD" role="legislator">Van Hollen</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="V000081" sort-field="Velazquez" unaccented-name="Velazquez" party="D" state="NY" role="legislator">Velázquez</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="V000108" sort-field="Visclosky" unaccented-name="Visclosky" party="D" state="IN" role="legislator">Visclosky</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000798" sort-field="Walberg" unaccented-name="Walberg" party="R" state="MI" role="legislator">Walberg</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000791" sort-field="Walden (OR)" unaccented-name="Walden (OR)" party="R" state="OR" role="legislator">Walden (OR)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000099" sort-field="Walsh (NY)" unaccented-name="Walsh (NY)" party="R" state="NY" role="legislator">Walsh (NY)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000799" sort-field="Walz (MN)" unaccented-name="Walz (MN)" party="D" state="MN" role="legislator">Walz (MN)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000119" sort-field="Wamp" unaccented-name="Wamp" party="R" state="TN" role="legislator">Wamp</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000797" sort-field="Wasserman Schultz" unaccented-name="Wasserman Schultz" party="D" state="FL" role="legislator">Wasserman Schultz</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000187" sort-field="Waters" unaccented-name="Waters" party="D" state="CA" role="legislator">Waters</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000794" sort-field="Watson" unaccented-name="Watson" party="D" state="CA" role="legislator">Watson</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000207" sort-field="Watt" unaccented-name="Watt" party="D" state="NC" role="legislator">Watt</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000215" sort-field="Waxman" unaccented-name="Waxman" party="D" state="CA" role="legislator">Waxman</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000792" sort-field="Weiner" unaccented-name="Weiner" party="D" state="NY" role="legislator">Weiner</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000800" sort-field="Welch (VT)" unaccented-name="Welch (VT)" party="D" state="VT" role="legislator">Welch (VT)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000267" sort-field="Weldon (FL)" unaccented-name="Weldon (FL)" party="R" state="FL" role="legislator">Weldon (FL)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000273" sort-field="Weller" unaccented-name="Weller" party="R" state="IL" role="legislator">Weller</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000796" sort-field="Westmoreland" unaccented-name="Westmoreland" party="R" state="GA" role="legislator">Westmoreland</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000314" sort-field="Wexler" unaccented-name="Wexler" party="D" state="FL" role="legislator">Wexler</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000413" sort-field="Whitfield" unaccented-name="Whitfield" party="R" state="KY" role="legislator">Whitfield</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000437" sort-field="Wicker" unaccented-name="Wicker" party="R" state="MS" role="legislator">Wicker</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000789" sort-field="Wilson (NM)" unaccented-name="Wilson (NM)" party="R" state="NM" role="legislator">Wilson (NM)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000801" sort-field="Wilson (OH)" unaccented-name="Wilson (OH)" party="D" state="OH" role="legislator">Wilson (OH)</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000795" sort-field="Wilson (SC)" unaccented-name="Wilson (SC)" party="R" state="SC" role="legislator">Wilson (SC)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000672" sort-field="Wolf" unaccented-name="Wolf" party="R" state="VA" role="legislator">Wolf</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000738" sort-field="Woolsey" unaccented-name="Woolsey" party="D" state="CA" role="legislator">Woolsey</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000793" sort-field="Wu" unaccented-name="Wu" party="D" state="OR" role="legislator">Wu</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="W000784" sort-field="Wynn" unaccented-name="Wynn" party="D" state="MD" role="legislator">Wynn</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="Y000062" sort-field="Yarmuth" unaccented-name="Yarmuth" party="D" state="KY" role="legislator">Yarmuth</legislator><vote>Pelosi</vote></recorded-vote>
+<recorded-vote><legislator name-id="Y000033" sort-field="Young (AK)" unaccented-name="Young (AK)" party="R" state="AK" role="legislator">Young (AK)</legislator><vote>Boehner</vote></recorded-vote>
+<recorded-vote><legislator name-id="Y000031" sort-field="Young (FL)" unaccented-name="Young (FL)" party="R" state="FL" role="legislator">Young (FL)</legislator><vote>Boehner</vote></recorded-vote>
+</vote-data>
+</rollcall-vote>

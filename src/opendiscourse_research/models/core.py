@@ -804,8 +804,59 @@ core_roll_call = Table(
     Column("legislative_session_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.legislative_session.legislative_session_id")),
     Column("organization_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.organization.organization_id")),
     Column("ocd_id", Text),
+    # From the House Clerk's official XML (Story 11.1); null on rows only OpenStates has described.
+    Column("roll_number", Integer),
+    Column("roll_year", Integer),
+    Column("congress_session", Text),
+    Column("legislative_number", Text),
+    Column("vote_type", Text),
+    Column("vote_result", Text),
+    Column("majority_party", Text),
+    Column("vote_description", Text),
+    Column("amendment_number", Text),
+    Column("amendment_author", Text),
+    Column("action_date", Date),
+    Column("action_time_etz", Text),
+    Column("yea_total", Integer),
+    Column("nay_total", Integer),
+    Column("present_total", Integer),
+    Column("not_voting_total", Integer),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
     UniqueConstraint("jurisdiction", "legislative_session", "external_id"),
     Index("roll_call_ocd_id_idx", "ocd_id", unique=True, postgresql_where=text("ocd_id IS NOT NULL")),
+    schema="core",
+)
+
+
+core_roll_call_source_record = Table(
+    "roll_call_source_record",
+    SQLModel.metadata,
+    Column("roll_call_source_record_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("roll_call_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.roll_call.roll_call_id"), nullable=False),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id"), nullable=False),
+    Column("record", JSONB, nullable=False),
+    Column("record_sha256", Text, nullable=False),
+    Column("entry_count", Integer, nullable=False, server_default=text("0")),
+    Column("typed_count", Integer, nullable=False, server_default=text("0")),
+    Column("entries_without_id", Integer, nullable=False, server_default=text("0")),
+    Column("unresolved_bioguide_ids", ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    UniqueConstraint("source_artifact_id"),
+    Index("roll_call_source_record_roll_idx", "roll_call_id"),
+    schema="core",
+)
+
+
+core_roll_call_party_total = Table(
+    "roll_call_party_total",
+    SQLModel.metadata,
+    Column("roll_call_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.roll_call.roll_call_id"), primary_key=True),
+    Column("party", Text, primary_key=True),
+    Column("yea_total", Integer),
+    Column("nay_total", Integer),
+    Column("present_total", Integer),
+    Column("not_voting_total", Integer),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id"), nullable=False),
     schema="core",
 )
 
@@ -818,6 +869,14 @@ fact_member_vote = Table(
     Column("position", Text, nullable=False),
     Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
     Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+    # As the House Clerk printed them at the vote (Story 11.1); null on OpenStates-only rows.
+    Column("position_raw", Text),
+    Column("party_at_vote", Text),
+    Column("state_at_vote", Text),
+    Column("name_at_vote", Text),
+    Column("sort_name_at_vote", Text),
+    Column("unaccented_name_at_vote", Text),
+    Column("role_at_vote", Text),
     CheckConstraint(
         "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
         name="member_vote_source_evidence",

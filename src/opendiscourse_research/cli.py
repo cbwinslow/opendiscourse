@@ -92,6 +92,7 @@ from .ingestion.pep_load import load_pep, stage_pep
 from .ingestion.tiger_bulk import preview_tiger_bulk_plan, write_tiger_bulk_plan
 from .ingestion.tiger_load import load_tiger, stage_tiger
 from .ingestion.treasury import ingest_yield_curve
+from .ingestion.votes import VOTE_CONNECTORS
 from .legload import load_billstatus
 from .legreconcile import reconcile_billstatus
 from .legvalidate import validate_billstatus
@@ -610,6 +611,55 @@ def sync_billstatus_command(
             run_connector(connector)
     except (OSError, RuntimeError, ValueError, psycopg.Error, SQLAlchemyError) as exc:
         typer.secho(f"sync-billstatus failed: {exc}", err=True, fg=typer.colors.RED)
+        typer.echo("Nothing is lost: rerun the same command to resume.", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(connector.result, indent=2, sort_keys=True, default=str))
+    if connector.result.get("partial"):
+        raise typer.Exit(2)
+
+
+@app.command("sync-votes")
+def sync_votes_command(
+    chamber: str = typer.Option("house", help=f"Chamber to sync: {', '.join(VOTE_CONNECTORS)}."),
+    congress: list[int] = typer.Option(
+        None, help="Congress to sync (repeatable); default is every Congress from the 108th."
+    ),
+    download_only: bool = typer.Option(
+        False, help="Download and register the files without loading roll calls."
+    ),
+    batch_size: int = typer.Option(
+        50, min=1, max=1000, help="Roll calls per committed transaction; reruns resume."
+    ),
+    pace: float = typer.Option(
+        0.25, min=0.0, help="Seconds between requests to the origin."
+    ),
+) -> None:
+    """Download official roll-call votes into DATA_ROOT, inventory them, and load them (idempotent).
+
+    Rerun cost: even when nothing changed, a rerun makes one paced HEAD request per roll call and
+    hashes each retained file (about 15,600 files for Congresses 108-119: roughly 2 hours at the default
+    0.25 s pace). Use --congress to rerun one Congress.
+
+    Exit code 0: complete. 1: failed (a rerun resumes). 2: loaded, but something needs a look (see
+    `unresolved_bioguide_ids`, `failed`, `malformed` and `unlisted` in the output).
+    """
+    factory = VOTE_CONNECTORS.get(chamber)
+    if factory is None:
+        raise typer.BadParameter(
+            f"no connector for {chamber!r}; available: {', '.join(VOTE_CONNECTORS)}", param_hint="--chamber"
+        )
+    try:
+        with render_spinner(f"Syncing {chamber} roll-call votes") as report:
+            connector = factory(
+                congress or None,
+                batch_size=batch_size,
+                download_only=download_only,
+                report=report,
+                download_pace_seconds=pace,
+            )
+            run_connector(connector)
+    except (OSError, RuntimeError, ValueError, psycopg.Error, SQLAlchemyError) as exc:
+        typer.secho(f"sync-votes failed: {exc}", err=True, fg=typer.colors.RED)
         typer.echo("Nothing is lost: rerun the same command to resume.", err=True)
         raise typer.Exit(1) from None
     typer.echo(json.dumps(connector.result, indent=2, sort_keys=True, default=str))

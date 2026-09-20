@@ -15,30 +15,33 @@ items:
     validate: API response retained with each ingestion run
     next: Build the official coverage comparator, then approve bounded member and bill metadata contracts before enabling ingestion.
   - id: congvotes
-    dataset: congress.legislation
-    state: idea
+    dataset: congress.house_votes
+    state: ready
     scope: >-
-      Gap found while evaluating third-party bulk tooling (2026-08-07):
-      providers/congress.py's CONGRESS_RESOURCES only registers House
-      roll-call votes ("housevotes") from the Congress.gov API. Senate
-      roll-call votes are not registered as a resource anywhere in the
-      catalog. github.com/unitedstates/congress (active, pushed 2025-10,
-      1k+ stars -- the codebase GovTrack itself runs on) scrapes both
-      chambers' floor XML directly (clerk.house.gov and senate.gov via its
-      congress/tasks/votes.py + vote_info.py) and is the standing "use
-      other people's work" candidate here, per the user's stated
-      preference for adopting established tooling over rebuilding it.
-    origin: https://github.com/unitedstates/congress
-    provenance: third_party_tool_not_yet_run
+      House roll-call votes, Congresses 108-119 (about 15,600 XML files, roughly 1.3 GB), from the House
+      Clerk's official files (clerk.house.gov/evs). Built in Story 11.1 as `research-db sync-votes --chamber
+      house`: one retained artifact per file, whole record as JSON, typed header, party totals and member
+      votes; the 1,400 OpenStates-derived House roll calls are enriched in place. The Senate (senate.gov XML)
+      is Story 11.2. `unitedstates/congress` (vendor/) was used as a reference for URLs and formats only.
+    origin: https://clerk.house.gov/evs/<year>/roll<NNN>.xml
+    provenance: authoritative_official_publisher
     sensitivity: public
-    validate: Not yet run against this repo's data; no local artifacts exist to validate.
-    next: >-
-      Decide whether to (a) run unitedstates/congress as an external
-      fetcher and register its output directory as a new raw root (mirrors
-      the audit.py legacy-root pattern), or (b) add a Senate-votes resource
-      to CONGRESS_RESOURCES backed by a new direct-scrape adapter. Do not
-      start either until reviewed -- this is a scope decision, not a
-      metadata-only action.
+    validate: >-
+      Smoke-tested live against the real Clerk (2026-09-20): five rolls and the whole 108th Congress into a
+      disposable database; loaded roll calls compared with the Clerk's own listing by `research-db coverage`.
+    next: Review, then the live run for Congresses 108-119 into the operator's warehouse (see docs/PROJECT-STATE.md).
+  - id: congsenvotes
+    dataset: null
+    state: planned
+    scope: >-
+      Senate roll-call votes (senate.gov XML: vote menus per Congress and session, one file per vote; senators carry
+      `lis_member_id`). Story 11.2; it shares the tables Story 11.1 added (`core.roll_call_source_record`, the typed
+      roll-call columns, `fact.member_vote`). The dataset id is added to `sources.yaml` with that story.
+    origin: https://www.senate.gov/legislative/LIS/roll_call_lists/
+    provenance: not_yet_acquired
+    sensitivity: public
+    validate: Not yet run; the coverage comparator already reads the Senate vote menus for expected counts.
+    next: Spec and build Story 11.2 after the House live run (join senators through the LIS identifier namespace, never names).
   - id: cong118
     dataset: congress.legislation
     state: found

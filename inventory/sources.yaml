@@ -212,6 +212,17 @@ providers:
         identifiers: [congress, package_id, bill_type, bill_number]
         cadence: daily
         priority: 1
+      - id: congress.house_votes
+        title: House roll-call votes from the Clerk's official XML (one file per roll call, 108th Congress on)
+        access: clerk.house.gov/evs/<year>/roll<NNN>.xml, listed by the yearly index (index.asp and ROLL_*.asp)
+        client: httpx; xml.etree for parsing
+        grain: roll call × member position
+        identifiers: [congress, roll_year, roll_number, bioguide_id]
+        cadence: daily_when_in_session
+        priority: 1
+        notes: >-
+          Public domain. Members join on the BioGuide name-id the file states, never on the printed name.
+          Enriches the OpenStates-derived roll calls in place (matched by year and roll number).
       - id: govinfo.bulk
         title: Bill status/text, Congressional Record, statutes, CFR, and Federal Register
         access: GovInfo API and bulk XML/JSON
