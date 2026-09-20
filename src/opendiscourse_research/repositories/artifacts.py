@@ -55,6 +55,17 @@ def get_current_artifact(
     return dict(row) if row else None
 
 
+def current_artifacts(dataset_id: str) -> dict[str, dict[str, Any]]:
+    """The current version of every logical artifact of one dataset, keyed by artifact key.
+
+    One read for a dataset made of many small files (one query, not one per file).
+    """
+    view = current_artifact_table()
+    with session() as active_session:
+        rows = active_session.execute(select(view).where(view.c.dataset_id == dataset_id)).mappings()
+        return {row["artifact_key"]: dict(row) for row in rows}
+
+
 def require_current_artifact(
     artifact_key: str, *, label: str, dataset_id: str | None = None
 ) -> dict[str, Any]:

@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-19, see "Session handoff" below (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live; sources review evaluated, ADR-0004; backup risk found, see "Stop-and-fix items"). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-20 (Story 11.1 House votes built, live run pending), see "Session handoff" below (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live; sources review evaluated, ADR-0004; backup risk found, see "Stop-and-fix items"). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -269,6 +269,41 @@ coverage incomplete.
   rather than merged.
 - `ingest.run.code_version` on the backfill runs reads `<sha>-dirty` because docs were being
   edited (tracked files differ); the SHA is the right commit. Runs before 9.2 stay unattributed.
+
+## Story 11.1: House roll-call votes from the Clerk's XML (built 2026-09-20, live run pending review)
+
+Spec `_bmad-output/implementation-artifacts/spec-11-1-house-votes.md` (git-ignored). Command:
+`research-db sync-votes --chamber house [--congress N ...] [--download-only] [--batch-size N] [--pace S]` (exit 0 clean, 1 failed and a rerun resumes,
+2 loaded but something needs a look). The Senate (Story 11.2) adds one entry to `ingestion/votes.py::VOTE_CONNECTORS`.
+
+- **Code:** `providers/clerk.py` (listing and HEAD, paced), `ingestion/house_votes.py` (Connector, dataset `congress.house_votes`),
+  `ingestion/house_vote_parse.py` (XML to the lossless record and typed rows; reuses `billstatus_record`, which gained an optional
+  `list_tags`), `repositories/votes.py` + `sql/query/votes/`, migration `d5a1f8c37e26` (expand only; downgrade refuses while official
+  rows exist), field checklist `inventory/fields/congress.house_votes.yaml`. `unitedstates/congress` was read for URLs and formats only.
+- **Shape:** one retained artifact per XML file (`house-roll-<year>-<NNN>.xml`, about 15,600 files, roughly 1.3 GB). `core.roll_call_source_record`
+  holds the whole record (one row per artifact; a row means fully loaded, plus `unresolved_bioguide_ids`, so a rerun retries unknown ids).
+  `core.roll_call` gained the typed header and totals; `core.roll_call_party_total`; `fact.member_vote` gained `position_raw` and the party,
+  state and printed name at the vote. New keys are `us-<year>-lower-<n>`, the form OpenStates rows already use, so an existing row is
+  enriched in place (same `roll_call_id`); official time, question and result replace the provider's, and provider votes for people the
+  file does not list stay (count differences are in the run result, not hidden).
+- **Verified against the real Clerk (2026-09-20, disposable database, not the live warehouse):** the OpenStates key mapping holds on 5 of 5
+  samples (same time, question and result). The whole 108th Congress loaded: 1,221 files (101 MB), 529,406 member votes, 0 unknown
+  BioGuide ids, 0 count disagreements; stored records equal their XML (0 mismatches, `tests/test_house_votes_record_corpus.py`); a rerun
+  downloaded and loaded nothing. Measured: about 13.5 minutes for that Congress (about 7 for the origin check, 4 to download, 8 to load, at 0.1 s
+  pace; the origin check took about 0.34 s per file), so 108-119 is about 3 hours at 0.1 s and about 5 hours at the default 0.25 s.
+  **Rerun cost:** every rerun still makes one paced HEAD per file (to see a refresh) and hashes each retained file, even when nothing
+  changed; from those measurements a full 108-119 rerun at 0.25 s is about 2 hours (an hour or so at 0.1 s), and loading nothing.
+  Use `--congress N` to rerun one Congress (about 10 minutes).
+- **Findings:** (1) OpenStates' House votes are incomplete: for `us-2024-lower-28` it holds 340 of the 431 members the Clerk lists; the official load
+  fills the gap. (2) With gzip accepted the Clerk answers HEAD with a 20-byte length; the client asks for `identity` (tested).
+  (3) 2 of 286 sampled files have an action date in a different year than their folder, so the year comes from the URL. (4) Speaker elections
+  have candidate names as votes and candidate tallies (kept as `position_raw`, position `other`, tallies in the record).
+- **Not done:** the live run for 108-119 (needs a review first); `plans.yaml` was not changed because a plan needs a `plans.py` handler and the
+  spec forbids touching `plans.py`; `research-db coverage` expects the Clerk's highest roll number per year, so a roll the Clerk lists but
+  does not serve would show as a gap (it is also in the run result under `not_published`).
+- **Live run, when approved:** `research-db init-db` (applies `d5a1f8c37e26`, expand only), then `research-db sync-votes --chamber house`,
+  then `research-db coverage` and `uv run pytest -m slow tests/test_house_votes_record_corpus.py` against the real `DATA_ROOT`.
+  Record the counts here afterwards.
 
 ## Story 9.5b: lossless BILLSTATUS records and typed promotion (built and run live, 2026-09-19)
 

@@ -16,6 +16,7 @@ _DB_FILES = {
     "test_run_ledger.py",
     "test_coverage_db.py",
     "test_billstatus_connector.py",
+    "test_house_votes_connector.py",
 }
 
 

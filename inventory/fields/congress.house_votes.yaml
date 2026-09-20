@@ -1,0 +1,85 @@
+dataset: congress.house_votes
+audited_on: '2026-09-20'
+origin: https://clerk.house.gov/evs/<year>/roll<NNN>.xml (one XML file per roll call; the yearly index at index.asp and ROLL_*.asp lists the roll numbers)
+capture:
+  whole_record: core.roll_call_source_record
+  notes: >-
+    Every roll-call file is a retained artifact (ingest.artifact, key house-roll-<year>-<NNN>.xml, checksum, size and
+    Last-Modified). Every element and attribute of every file is also kept as JSON, one row per artifact, and proved
+    equal to the XML at load (the record must hold every path and value or the file is reported malformed). Path list
+    audited on a 286-file sample (every year 2003-2026, first, last and random rolls, quorum calls and Speaker elections);
+    the corpus test (tests/test_house_votes_record_corpus.py) repeats the proof on every file on a machine that has run
+    `research-db sync-votes --chamber house`. Paths first seen after this audit are in the record and are covered by
+    the last group below until they are typed.
+fields:
+- name: 'vote-metadata/congress, session'
+  status: typed
+  where: core.roll_call.legislative_session (Congress) and core.roll_call.congress_session ('1st', '2nd')
+- name: vote-metadata/rollcall-num
+  status: typed
+  where: core.roll_call.roll_number (external_id is us-<year>-lower-<number>, the key OpenStates rows already use)
+- name: vote-metadata/legis-num
+  status: typed
+  where: core.roll_call.legislative_number
+  reason: text as the Clerk prints it ('H R 6679', 'QUORUM'); linking it to core.bill is a later story
+- name: vote-metadata/vote-question
+  status: typed
+  where: core.roll_call.question
+- name: vote-metadata/vote-type
+  status: typed
+  where: core.roll_call.vote_type
+- name: vote-metadata/vote-result
+  status: typed
+  where: core.roll_call.vote_result (verbatim) and core.roll_call.result (pass or fail where the word is a plain outcome)
+- name: vote-metadata/majority
+  status: typed
+  where: core.roll_call.majority_party
+- name: vote-metadata/action-date
+  status: typed
+  where: core.roll_call.action_date
+- name: vote-metadata/action-time and its time-etz attribute
+  status: typed
+  where: core.roll_call.action_time_etz and core.roll_call.occurred_at (Eastern clock time converted to UTC)
+  reason: the display text ('2:18 PM') is kept in the whole record only; it repeats time-etz
+- name: vote-metadata/vote-desc
+  status: typed
+  where: core.roll_call.vote_description
+- name: vote-metadata/amendment-num, amendment-author
+  status: typed
+  where: core.roll_call.amendment_number and core.roll_call.amendment_author
+- name: vote-metadata/chamber, committee
+  status: whole_record_only
+  reason: the chamber is fixed by the Connector ('house'); the printed label (some 2007 files use <committee> for it) stays in the record
+- name: 'vote-totals/totals-by-vote: yea-total, nay-total, present-total, not-voting-total'
+  status: typed
+  where: core.roll_call.yea_total, nay_total, present_total, not_voting_total
+- name: vote-totals/totals-by-vote/total-stub
+  status: whole_record_only
+  reason: the label 'Totals' for the row; no data
+- name: 'vote-totals/totals-by-party: party, yea-total, nay-total, present-total, not-voting-total'
+  status: typed
+  where: core.roll_call_party_total
+- name: 'vote-totals/totals-by-party-header: party-header, yea-header, nay-header, present-header, not-voting-header'
+  status: whole_record_only
+  reason: column headings for the party table; no data
+- name: vote-totals/totals-by-candidate (candidate, candidate-total)
+  status: whole_record_only
+  reason: tallies of a Speaker election, where members vote for a candidate; would type as a candidate-total table if elections are queried
+- name: vote-data/recorded-vote/legislator @name-id
+  status: typed
+  where: fact.member_vote.person_id, through core.person_identifier (namespace bioguide); never matched by name, an unknown id is reported
+- name: vote-data/recorded-vote/legislator @party, @state, @role, @sort-field, @unaccented-name and the printed name (element text)
+  status: typed
+  where: fact.member_vote.party_at_vote, state_at_vote, role_at_vote, sort_name_at_vote, unaccented_name_at_vote, name_at_vote (as recorded at the vote)
+- name: vote-data/recorded-vote/vote
+  status: typed
+  where: fact.member_vote.position_raw (the word as printed) and fact.member_vote.position (yes, no, not voting, other)
+- name: Clerk index pages (issue link, question, result and description columns per roll)
+  status: not_stored
+  reason: only the roll numbers are read from them; every other column repeats a field of the roll-call file itself
+- name: XML prolog, DOCTYPE reference to vote.dtd, and the xml-stylesheet processing instruction
+  status: not_stored
+  reason: no data; the retained artifact holds the exact file
+- name: any other element or attribute the Clerk adds to the file
+  status: whole_record_only
+  reason: kept in core.roll_call_source_record.record; type it when a question needs it

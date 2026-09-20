@@ -54,7 +54,7 @@ def _check_no_tail(child: ElementTree.Element, parent_path: str) -> None:
         )
 
 
-def _value(element: ElementTree.Element, path: str) -> Any:
+def _value(element: ElementTree.Element, path: str, list_tags: frozenset[str]) -> Any:
     children = list(element)
     if not children and not element.attrib:
         return _text(element)
@@ -65,15 +65,21 @@ def _value(element: ElementTree.Element, path: str) -> Any:
     for child in children:
         _check_no_tail(child, path)
         name = _name(child.tag)
-        groups.setdefault(name, []).append(_value(child, f"{path}/{name}"))
+        groups.setdefault(name, []).append(_value(child, f"{path}/{name}", list_tags))
     for name, values in groups.items():
-        value[name] = values if len(values) > 1 or name in LIST_TAGS else values[0]
+        value[name] = values if len(values) > 1 or name in list_tags else values[0]
     return value
 
 
-def xml_to_record(root: ElementTree.Element) -> dict[str, Any]:
-    """The lossless JSON form of ``root``'s content (the root tag itself is not a key)."""
-    value = _value(root, f"/{_name(root.tag)}")
+def xml_to_record(
+    root: ElementTree.Element, list_tags: frozenset[str] = LIST_TAGS
+) -> dict[str, Any]:
+    """The lossless JSON form of ``root``'s content (the root tag itself is not a key).
+
+    ``list_tags`` names the tags that are always arrays; BILLSTATUS's are the default, another
+    source (the House Clerk's roll calls) passes its own.
+    """
+    value = _value(root, f"/{_name(root.tag)}", list_tags)
     return value if isinstance(value, dict) else {"#text": value}
 
 
