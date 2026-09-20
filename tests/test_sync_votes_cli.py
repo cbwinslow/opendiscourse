@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from typer.testing import CliRunner
 
 from opendiscourse_research.cli import app
@@ -29,7 +31,9 @@ def test_a_congress_outside_the_supported_range_fails_with_the_range() -> None:
 
 def test_the_command_is_documented() -> None:
     result = runner.invoke(app, ["sync-votes", "--help"])
-    assert result.exit_code == 0 and "--chamber" in result.output and "--download-only" in result.output
+    # CI renders the help with terminal colour codes that split option names; compare the plain text.
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    assert result.exit_code == 0 and "--chamber" in plain and "--download-only" in plain
 
 
 class _Stub:
