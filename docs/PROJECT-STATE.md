@@ -46,6 +46,17 @@ State of things to know:
   no jargon-heavy multiple choice; do routine engineering without asking; consult other models when unsure
   (Codex works; Fable reviewed ADR-0005).
 
+**Resume prompt (after the identity story, 2026-09-20):** "Resume OpenDiscourse. Read `docs/PROJECT-STATE.md` (Session
+handoff, bullet 'ADR-0005 progress'). Story 1 of ADR-0005 is merged and applied live. Next: story 2, assertion tables,
+`inventory/precedence.yaml`, resolver, write guard (spec `_bmad-output/specs/spec-order-independent-identity/`, CAP-4 schema,
+CAP-5, CAP-6). Use `bmad-build`. Ask me first only for the open decision on `full_name`; recommend common."
+Working notes from story 1: run DB tests against one fresh throwaway container per full run
+(`docker run ... postgis/postgis:17-3.5`, `OPENDISCOURSE_TEST_DATABASE_URL`), because reusing a database leaves
+artifact history that breaks the downgrade tests; a change to `models/ingest.py` needs the migration head in three places in
+`tests/test_persistence_foundation.py`; the `bmad-build` step files are rendered by
+`uv run _bmad/scripts/render_skill.py`; three-reviewer review (blind, edge-case, verification-gap) found real bugs, keep it
+for changes that touch live data.
+
 ## Goal
 
 A reusable, provenance-backed research database for U.S. political and policy
