@@ -23,7 +23,7 @@ State of things to know:
   `ingest.identity_conflict`, reviewed exceptions are read by loaders (`identity_merge.py`) and applied by
   `research-db merge-people [--dry-run]` (audit in `ingest.person_merge`). Live merge done, see the next bullet.
   **Story 2 built (2026-09-20, spec `_bmad-output/implementation-artifacts/spec-10-2-assertions-precedence-resolver.md`,
-  not yet applied to live):** migration `b7e4c2a19d63` (expand only): `core.person_name_source`,
+  applied to live 2026-09-20):** migration `b7e4c2a19d63` (expand only): `core.person_name_source`,
   `core.geography_name_source` (unique on entity, kind, dataset, vintage, `NULLS NOT DISTINCT`; evidence check: artifact
   OR payload, plus run), `catalog.attribute_precedence`, `catalog.name_display`, `name_source_id` pointers on
   `core.person` and `core.geography`, and guard triggers. `inventory/precedence.yaml` (synced by `init-db`,
@@ -40,8 +40,9 @@ State of things to know:
   created without a superuser. `merge_person` repoints a duplicate's assertions (colliding keys dropped and counted in
   `ingest.person_merge.counts`). No loader, no live data and no backfill changed: the tables are empty, so `resolve`
   changes nothing until stories 3 and 4 make loaders write assertions. Vintage is text ordered `COLLATE "C"`: loaders
-  write zero-padded ISO forms (`2024`, `2024-09`). **Next:** apply `b7e4c2a19d63` to live (expand only, no rows change),
-  then story 3 (geography loaders, six writers incl. ACS `ingestion/census.py`), person loaders, backfill by rerunning
+  write zero-padded ISO forms (`2024`, `2024-09`). **Live apply (2026-09-20, operator approved):** `research-db init-db` at `a4d9e1c7b356` -> `b7e4c2a19d63`; people (12,770) and geography (49,742)
+  fingerprints identical before and after, new tables empty, precedence synced (14 rank rows, 4 display rows), `resolve --dry-run` 0 changes;
+  a nightly backup from 03:32 the same day exists. **Next:** story 3 (geography loaders, six writers incl. ACS `ingestion/census.py`), person loaders, backfill by rerunning
   loaders, kit verify.
 - **Next, in order (original list):** (1) `bmad-spec` for ADR-0005 (done); (2) identity fix (done, see above); (3) then the rebuild kit
   (`_bmad-output/specs/spec-rebuild-kit/`), FEC as its last phase (needs a downloader; its 20 GB and 16 BILLSTATUS
@@ -76,6 +77,20 @@ artifact history that breaks the downgrade tests; a change to `models/ingest.py`
 `tests/test_persistence_foundation.py`; the `bmad-build` step files are rendered by
 `uv run _bmad/scripts/render_skill.py`; three-reviewer review (blind, edge-case, verification-gap) found real bugs, keep it
 for changes that touch live data.
+
+## Operator backlog and priorities (2026-09-20)
+
+Stated by the operator; work them in this order. Plain-language replies are mandatory (`AGENTS.md`, "Talking to the operator").
+
+1. **Ingest data.** Votes for Congresses 108-119 first (wrap `unitedstates/congress`, both chambers; the Senate source is still an
+   "idea", confirm its format), then bill text, committee membership, FEC. Every source: take **every field it offers**
+   (rules and per-source checklists: `inventory/DATA-SPEC.md`, `inventory/fields/`). Unaudited sources are assumed incomplete
+   (the operator says fields were dropped in the past without a reason); audit the loaded ones after votes.
+2. **Names work, stories 3-5 of ADR-0005** (geography loaders, person loaders, backfill) only affect which name shows; do after votes.
+3. **SQL out of Python strings.** Audit 2026-09-20 found about 186 lines of SQL in Python under `src/` (geography loaders about 85, `repositories/coverage.py` 57,
+   `openstatesstage.py` and `votereconcile.py` about 33; migrations, tests and one-liners are fine). The geography part goes with story 3; then a small
+   clean-up story plus a test that fails on new multi-line SQL strings. Also consider Postgres functions and triggers where they simplify.
+4. **Later, on real data:** index placement (load first, index after, keep the indexes), data types, and benchmarks (`scripts/bench/`).
 
 ## Goal
 
