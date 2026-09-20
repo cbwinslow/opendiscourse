@@ -8,6 +8,23 @@ database name `opendiscourse`. Software SDD is BMAD; data SDD is `inventory/`.
 Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
 `_bmad-output/planning-artifacts/epics.md`, not archived ChatGPT essays.
 
+## Talking to the operator (mandatory, every reply)
+
+The operator is not a database engineer and does not follow jargon. Every reply to them:
+
+1. **Starts with the plain answer**: what happened or what you recommend, in ordinary words, before any detail.
+2. **Explains terms the first time** (one short phrase: "a trigger is a rule the database runs by itself"). Prefer
+   "the database refuses the edit" over "raises 42501". Say what a thing is *for* before what it is called.
+3. **Gives options with a recommendation** whenever there is a choice: each option in one or two plain sentences,
+   what it costs or risks, then "I recommend X because Y". Name your concerns and doubts, do not bury them.
+4. **Ends with what happens next** and whether anything is needed from the operator.
+5. **Never drops information to keep it simple.** If something cannot be put simply, include it in the normal technical
+   wording, labelled "technical detail", rather than leaving it out. Simplifying is never a reason to omit a finding,
+   a risk, a skipped item, or a failed check.
+6. Keep a short status view when asked: done, running, next, blocked. Do not claim work is done that has not been verified.
+
+Code, specs, ADRs and commit messages keep their normal precision; this rule is about replies to the operator.
+
 ## Policy
 
 - Hierarchy of truth, highest wins: current code+tests → migrations/schema →
