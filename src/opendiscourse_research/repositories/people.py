@@ -50,7 +50,11 @@ PERSON_REFERENCES = (
     "core.bill_sponsorship",
     "core.membership",
     "fact.member_vote",
+    "core.person_name_source",
 )
+
+# Repointed by their own statement: a plain UPDATE would collide with the survivor's assertions.
+_NAME_SOURCES = "core.person_name_source"
 
 
 @cache
@@ -286,8 +290,10 @@ def merge_person(
 
     Identifiers, sponsorships, memberships and votes move to the survivor. A vote the
     survivor also cast is kept whole in ``ingest.person_merge_vote`` and dropped from
-    the fact table; a term that would collide with the survivor's aborts the merge.
-    The duplicate is deleted last. Already merged (or never created) is a no-op.
+    the fact table; a term that would collide with the survivor's aborts the merge. Name
+    assertions move too; where the survivor asserts the same kind, dataset and vintage its
+    own stands and the duplicate's is dropped (counted). The duplicate is deleted last.
+    Already merged (or never created) is a no-op.
     """
     with conn.transaction():
         cur = conn.cursor()
@@ -325,7 +331,14 @@ def merge_person(
         )
         cur.execute(_query("merge_preserve_colliding_votes"), {**params, "merge_id": merge_id})
         counts: dict[str, int] = {"member_vote_preserved": cur.rowcount}
+        # The survivor's assertion stands where both have one; the duplicate's is dropped and counted.
+        cur.execute(_query("merge_name_source_collisions"), params)
+        counts["person_name_source_dropped"] = cur.fetchone()["collisions"]
+        cur.execute(_query("merge_repoint_name_sources"), params)
+        counts[_NAME_SOURCES] = cur.rowcount
         for table in PERSON_REFERENCES:
+            if table == _NAME_SOURCES:
+                continue
             cur.execute(_query("merge_repoint").format(table=table), params)
             counts[table] = cur.rowcount
         # A person that was itself the survivor of an earlier merge keeps its audit trail.

@@ -22,8 +22,26 @@ State of things to know:
   (`repositories/people.py::resolve_person`, set-based in `promote_legislators`), conflicts go to
   `ingest.identity_conflict`, reviewed exceptions are read by loaders (`identity_merge.py`) and applied by
   `research-db merge-people [--dry-run]` (audit in `ingest.person_merge`). Live merge done, see the next bullet.
-  **Next:** story 2 (assertion tables, precedence file, resolver, guard), then geography loaders (six writers incl. ACS
-  `ingestion/census.py`), person loaders, backfill by rerunning loaders, kit verify.
+  **Story 2 built (2026-09-20, spec `_bmad-output/implementation-artifacts/spec-10-2-assertions-precedence-resolver.md`,
+  not yet applied to live):** migration `b7e4c2a19d63` (expand only): `core.person_name_source`,
+  `core.geography_name_source` (unique on entity, kind, dataset, vintage, `NULLS NOT DISTINCT`; evidence check: artifact
+  OR payload, plus run), `catalog.attribute_precedence`, `catalog.name_display`, `name_source_id` pointers on
+  `core.person` and `core.geography`, and guard triggers. `inventory/precedence.yaml` (synced by `init-db`,
+  `precedence.py`) ranks the sources; `research-db resolve [--dry-run] [--entity person|geography]`
+  (`repositories/names.py`, `sql/query/names/`) is the only writer of the displayed names and fails closed on an
+  unranked dataset, kind or geography type. **Operator decision (2026-09-20): `core.person.full_name` shows the common
+  name** (`display: [common, official]`); official is kept as an assertion and is the fallback. Guard scope is a
+  decision, not an omission: the trigger applies to every role including the owner (it stops accidental writes, not a determined
+  one: any session can `SET LOCAL opendiscourse.resolver = 'on'`), but only for a row that already has a
+  `name_source_id`, because the three geography writers still overwrite `name` until story 3 (which makes it
+  unconditional). To delete assertions a resolved row points at, the wipe transaction sets that flag and nulls the
+  pointer first. ADR-0005's column `UPDATE` revoke was not done: the app role owns the tables and no role can be
+  created without a superuser. `merge_person` repoints a duplicate's assertions (colliding keys dropped and counted in
+  `ingest.person_merge.counts`). No loader, no live data and no backfill changed: the tables are empty, so `resolve`
+  changes nothing until stories 3 and 4 make loaders write assertions. Vintage is text ordered `COLLATE "C"`: loaders
+  write zero-padded ISO forms (`2024`, `2024-09`). **Next:** apply `b7e4c2a19d63` to live (expand only, no rows change),
+  then story 3 (geography loaders, six writers incl. ACS `ingestion/census.py`), person loaders, backfill by rerunning
+  loaders, kit verify.
 - **Next, in order (original list):** (1) `bmad-spec` for ADR-0005 (done); (2) identity fix (done, see above); (3) then the rebuild kit
   (`_bmad-output/specs/spec-rebuild-kit/`), FEC as its last phase (needs a downloader; its 20 GB and 16 BILLSTATUS
   rows are registered under `/mnt/storage`); (4) OpenStates restore proof (10 GB retained dump) which also unlocks
@@ -34,9 +52,9 @@ State of things to know:
   duplicate `b8b58549...` (Marlin Stutzman, OpenStates placeholder, metadata `canonical_baseline: openstates`, no other
   rows) deleted; audit row in `ingest.person_merge`. `core.person` is 12,770 and every person has a BioGuide id (this
   answers the "one person without BioGuide" open point). Nothing else in the warehouse changed.
-- **Open decision for the operator:** does `core.person.full_name` show the common name ("Mike Lawler") or the
-  official one ("Michael Lawler")? Recommendation: common, official kept beside it. Until decided, the resolver
-  reproduces today's live names.
+- **Decided by the operator (2026-09-20):** `core.person.full_name` shows the common name ("Mike Lawler"); the official
+  name ("Michael Lawler") is kept as an assertion beside it (`inventory/precedence.yaml`, person `display`).
+  Reversing the choice is a precedence-file change (CAP-7), not a schema change.
 - **Open, small:** `docs/data-inventory-2026-09-19.md` is untracked (written by an earlier session; commit or drop);
   `.agent/` is a tracked Antigravity copy of the skills (proposal: untrack); `data-lake/rebuild-proof/` (gitignored,
   42 MB scratch lake) can be deleted; the scratch Docker container `od-rebuild-proof` is stopped.
@@ -47,9 +65,10 @@ State of things to know:
   (Codex works; Fable reviewed ADR-0005).
 
 **Resume prompt (after the identity story, 2026-09-20):** "Resume OpenDiscourse. Read `docs/PROJECT-STATE.md` (Session
-handoff, bullet 'ADR-0005 progress'). Story 1 of ADR-0005 is merged and applied live. Next: story 2, assertion tables,
-`inventory/precedence.yaml`, resolver, write guard (spec `_bmad-output/specs/spec-order-independent-identity/`, CAP-4 schema,
-CAP-5, CAP-6). Use `bmad-build`. Ask me first only for the open decision on `full_name`; recommend common."
+handoff, bullet 'ADR-0005 progress'). Story 1 of ADR-0005 is merged and applied live. Story 2 (assertion tables,
+`inventory/precedence.yaml`, resolver, write guard) is built; apply migration `b7e4c2a19d63` to live once merged. Next: story 3,
+geography loaders write assertions (spec `_bmad-output/specs/spec-order-independent-identity/`, CAP-4). Use `bmad-build`.
+`full_name` is decided: common name."
 Working notes from story 1: run DB tests against one fresh throwaway container per full run
 (`docker run ... postgis/postgis:17-3.5`, `OPENDISCOURSE_TEST_DATABASE_URL`), because reusing a database leaves
 artifact history that breaks the downgrade tests; a change to `models/ingest.py` needs the migration head in three places in
@@ -377,8 +396,7 @@ data on the RAID volume; keep only one database backup. Explain results in plain
    does too (OpenStates matches by OCD id only, so loading legislators first would create up to ~722 duplicate
    people; live already has one, Marlin Stutzman, `b8b58549…` beside `67e9e162…`). Stories, in order: identity fix,
    lock and duplicate merge; assertion tables, precedence file, resolver, trigger; geography loaders (six writers,
-   including ACS in `ingestion/census.py`); person loaders; backfill by rerunning loaders; kit verify. Open: whether
-   `full_name` is the common or the official name (recommend common).
+   including ACS in `ingestion/census.py`); person loaders; backfill by rerunning loaders; kit verify. `full_name` shows the common name (operator, 2026-09-20). Stories 1 and 2 built.
 1. **Rebuild kit** (proof done for Congress 108 bills: identical to live, idempotent, see `docs/rebuild-proof-2026-09-19.md`; spec written: `_bmad-output/specs/spec-rebuild-kit/SPEC.md`; includes OpenStates restore and promotion per AD-8, and FEC as the last phase; next: build phase 1). (operator condition for dropping `stage` duplicates, and for portability): one documented,
    tested command sequence that downloads and ingests every loaded source from an empty `DATA_ROOT`; then a small
    project skill `opendiscourse-rebuild` that points agents at it. Commands are the portable part; skills only guide.

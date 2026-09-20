@@ -35,7 +35,14 @@ core_geography = Table(
     Column("state_fips", Text),
     Column("county_fips", Text),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    # The assertion that won; `name` and this pointer are written only by the resolver.
+    Column(
+        "name_source_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.geography_name_source.geography_name_source_id", name="geography_name_source_fk", use_alter=True),
+    ),
     UniqueConstraint("geography_type", "geoid"),
+    Index("geography_name_source_pointer_idx", "name_source_id", postgresql_where=text("name_source_id IS NOT NULL")),
     schema="core",
 )
 
@@ -219,6 +226,74 @@ core_person = Table(
     Column("given_name", Text),
     Column("family_name", Text),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    # The assertion that won; the three name columns and this pointer are written only by the resolver.
+    Column(
+        "name_source_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.person_name_source.person_name_source_id", name="person_name_source_fk", use_alter=True),
+    ),
+    Index("person_name_source_pointer_idx", "name_source_id", postgresql_where=text("name_source_id IS NOT NULL")),
+    schema="core",
+)
+
+
+# Vintages are ordered as text by the resolver, so only zero-padded ISO forms are allowed.
+_VINTAGE_CHECK = "source_vintage ~ '^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$'"
+
+
+def _evidence_columns() -> list[Column]:
+    """Columns every name assertion carries: dataset, vintage, artifact OR payload, and run."""
+    return [
+        Column("dataset_id", Text, ForeignKey("catalog.dataset.dataset_id"), nullable=False),
+        Column("source_vintage", Text, nullable=False),
+        Column("artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
+        Column("payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
+        Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+        Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+        Column("updated_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    ]
+
+
+core_person_name_source = Table(
+    "person_name_source",
+    SQLModel.metadata,
+    Column("person_name_source_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("person_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.person.person_id", ondelete="CASCADE"), nullable=False),
+    Column("name_kind", Text, nullable=False),
+    Column("full_name", Text, nullable=False),
+    Column("given_name", Text),
+    Column("family_name", Text),
+    *_evidence_columns(),
+    CheckConstraint("name_kind IN ('official', 'common')", name="person_name_source_kind_check"),
+    CheckConstraint("artifact_id IS NOT NULL OR payload_id IS NOT NULL", name="person_name_source_evidence"),
+    CheckConstraint("btrim(full_name) <> ''", name="person_name_source_name_check"),
+    CheckConstraint(_VINTAGE_CHECK, name="person_name_source_vintage_check"),
+    UniqueConstraint(
+        "person_id", "name_kind", "dataset_id", "source_vintage",
+        name="person_name_source_key", postgresql_nulls_not_distinct=True,
+    ),
+    Index("person_name_source_dataset_idx", "dataset_id"),
+    schema="core",
+)
+
+
+core_geography_name_source = Table(
+    "geography_name_source",
+    SQLModel.metadata,
+    Column("geography_name_source_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("geography_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.geography.geography_id", ondelete="CASCADE"), nullable=False),
+    Column("name_kind", Text, nullable=False),
+    Column("name", Text, nullable=False),
+    *_evidence_columns(),
+    CheckConstraint("name_kind IN ('short', 'full')", name="geography_name_source_kind_check"),
+    CheckConstraint("artifact_id IS NOT NULL OR payload_id IS NOT NULL", name="geography_name_source_evidence"),
+    CheckConstraint("btrim(name) <> ''", name="geography_name_source_name_check"),
+    CheckConstraint(_VINTAGE_CHECK, name="geography_name_source_vintage_check"),
+    UniqueConstraint(
+        "geography_id", "name_kind", "dataset_id", "source_vintage",
+        name="geography_name_source_key", postgresql_nulls_not_distinct=True,
+    ),
+    Index("geography_name_source_dataset_idx", "dataset_id"),
     schema="core",
 )
 
@@ -483,6 +558,16 @@ def person_identifier_table():
 def person_table():
     """Return the Alembic-adopted canonical people table."""
     return core_person
+
+
+def person_name_source_table():
+    """Return the per-source person name assertions the resolver chooses from."""
+    return core_person_name_source
+
+
+def geography_name_source_table():
+    """Return the per-source geography name assertions the resolver chooses from."""
+    return core_geography_name_source
 
 
 def bill_action_table():

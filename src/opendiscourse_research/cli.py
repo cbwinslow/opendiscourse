@@ -107,10 +107,12 @@ from .peopleload import (
     load_openstates_votes,
 )
 from .plans import due_plans, load_plans, run_plan
+from .precedence import precedence_differs
 from .progress import load_progress, validate_progress
 from .providers.govinfo import BILL_TYPES
 from .registry import status as registry_status
 from .registry import sync as registry_sync
+from .repositories.names import ENTITIES, UnrankedSource, resolve_names
 from .repositories.people import merge_reviewed_people
 from .repositories.runs import loaded_coverage
 from .scaffold import ScaffoldError, new_provider
@@ -631,6 +633,39 @@ def merge_people_command(
     with connect() as conn, conn.transaction(force_rollback=dry_run):
         results = merge_reviewed_people(conn)
     typer.echo(json.dumps({"dry_run": dry_run, "merges": results}, indent=2, sort_keys=True, default=str))
+
+
+@app.command("resolve")
+def resolve_command(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Report what would change, then roll it back."),
+    entity: str | None = typer.Option(None, help="Resolve only 'person' or 'geography'; default both."),
+) -> None:
+    """Show each person and geography the winning name assertion (ADR-0005). The only writer of those names.
+
+    Deterministic and idempotent: a rerun on a resolved warehouse changes nothing. Fails, naming
+    the source, when assertions exist that inventory/precedence.yaml does not rank.
+    """
+    if entity is not None and entity not in ENTITIES:
+        raise typer.BadParameter(f"choose from {', '.join(ENTITIES)}", param_hint="--entity")
+    if precedence_differs():
+        typer.secho(
+            "inventory/precedence.yaml differs from the catalog, so resolve would use stale ranks. "
+            "Run `research-db init-db` to sync it, then resolve again.",
+            err=True,
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(1)
+    results: list[dict] = []
+    try:
+        with connect() as conn:
+            for name in [entity] if entity else ENTITIES:
+                results.append(resolve_names(conn, name, dry_run=dry_run))
+    except UnrankedSource as exc:
+        if results:  # earlier entities are already committed (unless dry run): show them
+            typer.echo(json.dumps({"dry_run": dry_run, "resolved": results}, indent=2, sort_keys=True, default=str))
+        typer.secho(str(exc), err=True, fg=typer.colors.RED)
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps({"dry_run": dry_run, "resolved": results}, indent=2, sort_keys=True, default=str))
 
 
 @app.command("loaded")

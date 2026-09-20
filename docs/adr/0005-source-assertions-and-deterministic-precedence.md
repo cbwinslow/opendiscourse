@@ -134,7 +134,16 @@ Any attribute two sources can describe for one entity gets an assertion table an
 that adds the second source. `opendiscourse-schema-change` and `opendiscourse-connector` say so. Any name assertion from
 FEC or disclosure data must call `identitygate.require_person_join` first.
 
-## Open decision (operator)
+## Implementation note (Story 10.2, 2026-09-20)
+
+Built as decided, with one deviation: the column `UPDATE` revoke on the application role (Decision 4) is not done. The
+application role owns the tables, no role can be created without a superuser, and a column revoke needs the table
+grant rewritten. The `BEFORE UPDATE` trigger applies to every role including the owner, and only for a row that already
+has a `name_source_id`, because three geography writers still overwrite `name`; the geography loader story makes it
+unconditional. It stops accidental writes, not a determined one: any session can `SET LOCAL opendiscourse.resolver = 'on'`.
+To delete assertions a resolved row points at, the wipe transaction sets that flag and nulls the pointer first. Operator decision 2026-09-20: `core.person.full_name` shows the common name.
+
+## Open decision (operator) (resolved 2026-09-20: common)
 
 Which name kind feeds `core.person.full_name`: **common** (what people search and read, "Mike Lawler", mostly
 from OpenStates) or **official** (the legal name, "Michael Lawler", from congress-legislators)? Both are stored as

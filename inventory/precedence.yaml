@@ -1,0 +1,46 @@
+version: 1
+description: >-
+  Which source wins each displayed name (ADR-0005, Decision 3). Tracked configuration, synced into
+  catalog.attribute_precedence and catalog.name_display by `research-db init-db`. `research-db resolve`
+  is the only writer of core.person names and core.geography.name and reads only what is synced.
+  Per entity, `display` lists the name kinds that feed the column: the first kind that has any assertion
+  is shown, later kinds are the fallback, so a partial rebuild never shows NULL. Per kind (per
+  geography_type for geography) `kinds` lists the sources best first; each entry names a dataset from
+  sources.yaml and the source field it maps to (documentation, the resolver does not read it).
+  A dataset, kind or geography type that has assertions and no entry here makes resolve fail, naming it.
+  Ties inside one rank: newer source_vintage, then dataset id, then value, all COLLATE "C".
+  ZCTA names equal the geoid and are never asserted.
+person:
+  # Operator decision 2026-09-20: full_name shows the common name ("Mike Lawler"); the official name
+  # ("Michael Lawler") stays as an assertion beside it and is the fallback.
+  display: [common, official]
+  kinds:
+    common:
+      - {dataset: openstates.legislation, field: person.name}
+    official:
+      - {dataset: congress.legislators, field: name.official_full}
+      - {dataset: congress.legislation, field: member.directOrderName}
+      - {dataset: openstates.legislation, field: person.name}
+geography:
+  display: [short, full]
+  kinds:
+    short:
+      county:
+        - {dataset: census.tiger, field: NAME}
+      state:
+        - {dataset: census.tiger, field: NAME}
+      cbsa:
+        - {dataset: census.tiger, field: NAME}
+    full:
+      # PEP has no NAME column: CTYNAME is the county name, STNAME the state name.
+      county:
+        - {dataset: census.tiger, field: NAMELSAD}
+        - {dataset: census.population_estimates, field: CTYNAME}
+        - {dataset: census.acs_5, field: NAME}
+      state:
+        - {dataset: census.population_estimates, field: STNAME}
+        - {dataset: census.acs_5, field: NAME}
+      cbsa:
+        - {dataset: census.tiger, field: NAMELSAD}
+      nation:
+        - {dataset: census.population_estimates, field: NAME}

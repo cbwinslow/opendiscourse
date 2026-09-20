@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 from .db import session
 from .models.catalog import Dataset, Provider
 from .plans import sync_plans, validate_plans
+from .precedence import load_precedence, sync_precedence, validate_precedence
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -46,7 +47,12 @@ def validate_inventory() -> list[str]:
             ids.add(dataset_id)
     from .identitygate import validate_person_joins  # avoids a catalog import cycle
 
-    return errors + validate_plans() + validate_person_joins(inventory)
+    return (
+        errors
+        + validate_plans()
+        + validate_person_joins(inventory)
+        + validate_precedence(load_precedence(), ids)
+    )
 
 
 def sync_inventory() -> None:
@@ -102,3 +108,4 @@ def sync_inventory() -> None:
                     )
                 )
     sync_plans()
+    sync_precedence()
