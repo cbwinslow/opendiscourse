@@ -1,0 +1,64 @@
+dataset: congress.govinfo_billstatus
+audited_on: '2026-09-20'
+origin: https://www.govinfo.gov/bulkdata/BILLSTATUS (one zip per Congress and bill type; one XML member per bill)
+capture:
+  whole_record: core.bill_source_record
+  notes: Every element of every file is kept as JSON (418 distinct element paths across 172,703 files), verified against the
+    XML with 0 mismatches (Story 9.5b). The raw zips are retained artifacts.
+fields:
+- name: 'bill identity: congress, type, number, origin chamber, dates, title, policy area'
+  status: typed
+  where: core.bill and core.bill_identifier
+- name: 'actions: text, date, type'
+  status: typed
+  where: core.bill_action
+  reason: action detail beyond text and type (committees, recorded votes, calendar, source system) is kept in the whole record
+- name: sponsors and cosponsors
+  status: typed
+  where: core.bill_sponsorship
+- name: committees and their activities
+  status: typed
+  where: core.bill_committee
+- name: legislative subjects and policy area
+  status: typed
+  where: core.bill_subject
+- name: CRS summaries
+  status: typed
+  where: core.bill_summary
+- name: laws
+  status: typed
+  where: core.bill_law
+- name: related bills
+  status: typed
+  where: core.bill_related_bill
+- name: amendments (the per-bill list)
+  status: typed
+  where: core.bill_amendment
+- name: CBO cost estimates
+  status: whole_record_only
+  where: core.bill_source_record
+  reason: type into a table when cost analysis needs it; no download needed
+- name: committee reports
+  status: whole_record_only
+  where: core.bill_source_record
+  reason: type when report text is loaded from GovInfo
+- name: recorded votes on actions
+  status: whole_record_only
+  where: core.bill_source_record
+  reason: the votes loader is the authority for roll calls; link by number
+- name: alternate titles
+  status: whole_record_only
+  where: core.bill_source_record
+  reason: type when title search needs it
+- name: text version formats and links
+  status: whole_record_only
+  where: core.bill_source_record
+  reason: only the first format is typed in core.bill_document; type all when bill text is loaded
+- name: notes
+  status: whole_record_only
+  where: core.bill_source_record
+  reason: no known consumer
+- name: 'old-style files (13: 113th hr 1, 115th hr 1, 117th hr 11): committees and subjects'
+  status: whole_record_only
+  where: core.bill_source_record
+  reason: different element names; not yet mapped into bill_committee and bill_subject
