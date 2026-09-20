@@ -1,7 +1,6 @@
-"""Roll-call vote Connectors by chamber, for ``research-db sync-votes`` (Story 11.1).
+"""Roll-call vote Connectors by chamber, for ``research-db sync-votes`` (Stories 11.1 and 11.2).
 
-The House is here; the Senate (Story 11.2) adds one entry. A registry, not a dispatcher: the command
-never branches on a chamber.
+A registry, not a dispatcher: the command never branches on a chamber. Adding a chamber is one entry.
 """
 
 from __future__ import annotations
@@ -10,5 +9,9 @@ from collections.abc import Callable
 from typing import Any
 
 from .house_votes import HouseVotesConnector
+from .senate_votes import SenateVotesConnector
 
-VOTE_CONNECTORS: dict[str, Callable[..., Any]] = {"house": HouseVotesConnector}
+VOTE_CONNECTORS: dict[str, Callable[..., Any]] = {
+    "house": HouseVotesConnector,
+    "senate": SenateVotesConnector,
+}

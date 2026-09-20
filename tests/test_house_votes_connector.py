@@ -24,7 +24,7 @@ from psycopg.types.json import Jsonb
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
 from opendiscourse_research.db import _alembic_config, _engine, apply_migrations, connect
-from opendiscourse_research.ingestion import bulk, house_votes
+from opendiscourse_research.ingestion import bulk, house_votes, roll_call_votes
 from opendiscourse_research.ingestion.billstatus_record import xml_to_record
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion.connector import Connector, run_connector
@@ -598,6 +598,20 @@ def test_an_openstates_roll_call_is_enriched_in_place_not_duplicated(clerk: Fake
     ) == [("core.roll_call", 2, 1)]
 
 
+def test_the_official_result_replaces_a_stale_provider_result_even_when_it_is_not_pass_or_fail(clerk: FakeClerk) -> None:
+    roll_id = _openstates_roll(2, {})
+    with connect() as conn:
+        conn.execute("UPDATE core.roll_call SET result = 'pass' WHERE roll_call_id = %s", (roll_id,))
+        conn.commit()
+    clerk.publish(YEAR, 2, _roll_xml(2, result="Tabled"), modified=MODIFIED)
+
+    _sync(clerk)
+
+    roll = _roll(2)
+    assert str(roll["roll_call_id"]) == roll_id
+    assert roll["vote_result"] == "Tabled" and roll["result"] is None
+
+
 def test_a_count_disagreement_with_existing_votes_is_reported_not_hidden(clerk: FakeClerk) -> None:
     # a provider vote by a person the official file does not list makes the stored yes-count differ
     _add_people({"T998009": "Extra"})
@@ -795,7 +809,7 @@ def test_the_migration_refuses_to_downgrade_while_official_rows_exist(clerk: Fak
     with pytest.raises(RuntimeError, match=rf"core\.roll_call_source_record holds {rows} rows"):
         command.downgrade(_alembic_config(), "b7e4c2a19d63")
 
-    assert _one("SELECT version_num AS v FROM alembic_version") == "d5a1f8c37e26"
+    assert _one("SELECT version_num AS v FROM alembic_version") == "c8e2a5f1b937"
     assert _roll_calls() == 3 and len(_votes(2)) == 5  # nothing was dropped
 
 
@@ -844,7 +858,7 @@ def test_the_capacity_gate_stops_before_any_download(clerk: FakeClerk) -> None:
         "filesystem_free_bytes": 1,
     }
     with (
-        patch.object(house_votes, "storage_preview", return_value=refusal),
+        patch.object(roll_call_votes, "storage_preview", return_value=refusal),
         pytest.raises(RuntimeError, match="capacity gate"),
     ):
         _sync(clerk)

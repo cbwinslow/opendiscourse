@@ -31,17 +31,22 @@ items:
       disposable database; loaded roll calls compared with the Clerk's own listing by `research-db coverage`.
     next: Review, then the live run for Congresses 108-119 into the operator's warehouse (see docs/PROJECT-STATE.md).
   - id: congsenvotes
-    dataset: null
-    state: planned
+    dataset: congress.senate_votes
+    state: ready
     scope: >-
-      Senate roll-call votes (senate.gov XML: vote menus per Congress and session, one file per vote; senators carry
-      `lis_member_id`). Story 11.2; it shares the tables Story 11.1 added (`core.roll_call_source_record`, the typed
-      roll-call columns, `fact.member_vote`). The dataset id is added to `sources.yaml` with that story.
-    origin: https://www.senate.gov/legislative/LIS/roll_call_lists/
-    provenance: not_yet_acquired
+      Senate roll-call votes, Congresses 108-119 (about 8,200 XML files, roughly 0.2 GB), from senate.gov's official
+      files (vote menus per Congress and session, one file per vote). Built in Story 11.2 as `research-db sync-votes
+      --chamber senate` on the same Connector base as the House: one retained artifact per file, whole record as JSON,
+      typed header, document, amendment and tie-breaker blocks, and senator votes joined on the LIS member id (never
+      names); the 427 OpenStates-derived Senate roll calls are enriched in place; documents that name a bill core.bill
+      holds are linked by Congress, type and number.
+    origin: https://www.senate.gov/legislative/LIS/roll_call_votes/
+    provenance: authoritative_official_publisher
     sensitivity: public
-    validate: Not yet run; the coverage comparator already reads the Senate vote menus for expected counts.
-    next: Spec and build Story 11.2 after the House live run (join senators through the LIS identifier namespace, never names).
+    validate: >-
+      Fixtures from every era, a corpus test that compares every stored record with its XML, and the menus checked against
+      each file (`disagreements_with_menu`); loaded roll calls compared with the official menus by `research-db coverage`.
+    next: Review, then the live run for Congresses 108-119 into the operator's warehouse (see docs/PROJECT-STATE.md).
   - id: cong118
     dataset: congress.legislation
     state: found

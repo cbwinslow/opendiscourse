@@ -821,6 +821,26 @@ core_roll_call = Table(
     Column("nay_total", Integer),
     Column("present_total", Integer),
     Column("not_voting_total", Integer),
+    # From the Senate's official XML (Story 11.2); null on House and OpenStates-only rows.
+    Column("vote_question_text", Text),
+    Column("vote_document_text", Text),
+    Column("vote_result_text", Text),
+    Column("vote_title", Text),
+    Column("majority_requirement", Text),
+    Column("modified_at", DateTime(timezone=True)),
+    Column("document_congress", Integer),
+    Column("document_type", Text),
+    Column("document_number", Text),
+    Column("document_name", Text),
+    Column("document_title", Text),
+    Column("document_short_title", Text),
+    Column("amendment_to_amendment_number", Text),
+    Column("amendment_to_amendment_to_amendment_number", Text),
+    Column("amendment_to_document_number", Text),
+    Column("amendment_to_document_short_title", Text),
+    Column("amendment_purpose", Text),
+    Column("tie_breaker_by", Text),
+    Column("tie_breaker_vote", Text),
     Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
     UniqueConstraint("jurisdiction", "legislative_session", "external_id"),
     Index("roll_call_ocd_id_idx", "ocd_id", unique=True, postgresql_where=text("ocd_id IS NOT NULL")),
@@ -839,7 +859,18 @@ core_roll_call_source_record = Table(
     Column("entry_count", Integer, nullable=False, server_default=text("0")),
     Column("typed_count", Integer, nullable=False, server_default=text("0")),
     Column("entries_without_id", Integer, nullable=False, server_default=text("0")),
-    Column("unresolved_bioguide_ids", ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")),
+    # BioGuide ids (House) or LIS member ids (Senate) the warehouse could not resolve; the column keeps its
+    # Story 11.1 name so no merged migration or House query changes.
+    Column(
+        "unresolved_bioguide_ids",
+        ARRAY(Text),
+        nullable=False,
+        server_default=text("'{}'::text[]"),
+        comment=(
+            "Ids of the file's entries the warehouse could not resolve: BioGuide ids for the House, LIS member ids "
+            "(or a marker for an entry with no id) for the Senate. A rerun tries them again."
+        ),
+    ),
     Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     UniqueConstraint("source_artifact_id"),
     Index("roll_call_source_record_roll_idx", "roll_call_id"),
@@ -877,6 +908,10 @@ fact_member_vote = Table(
     Column("sort_name_at_vote", Text),
     Column("unaccented_name_at_vote", Text),
     Column("role_at_vote", Text),
+    # As the Senate printed them at the vote (Story 11.2); null on House and OpenStates-only rows.
+    Column("last_name_at_vote", Text),
+    Column("first_name_at_vote", Text),
+    Column("lis_member_id_at_vote", Text),
     CheckConstraint(
         "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
         name="member_vote_source_evidence",
