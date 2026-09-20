@@ -32,8 +32,9 @@ State of things to know:
   unranked dataset, kind or geography type. **Operator decision (2026-09-20): `core.person.full_name` shows the common
   name** (`display: [common, official]`); official is kept as an assertion and is the fallback. Guard scope is a
   decision, not an omission: the trigger applies to every role including the owner (it stops accidental writes, not a determined
-  one: any session can `SET LOCAL opendiscourse.resolver = 'on'`), but only for a row that already has a
-  `name_source_id`, because the three geography writers still overwrite `name` until story 3 (which makes it
+  one: any session can `SET LOCAL opendiscourse.resolver = 'on'`). It has two rules: a change to `name_source_id` is always
+  refused outside the resolver, and a change to the name columns is refused only for a row that already has a
+  `name_source_id`, because the three geography writers still overwrite `name` until story 3 (which makes that rule
   unconditional). To delete assertions a resolved row points at, the wipe transaction sets that flag and nulls the
   pointer first. ADR-0005's column `UPDATE` revoke was not done: the app role owns the tables and no role can be
   created without a superuser. `merge_person` repoints a duplicate's assertions (colliding keys dropped and counted in
