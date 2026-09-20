@@ -18,13 +18,13 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
 import httpx
 
 from .official_counts import HOUSE_INDEX
 from .paced import PacedClient, Send
+from .remote_roll import RemoteRoll, RollFileError, RollFileNotFound
 
 USER_AGENT = "opendiscourse-research/0.1 (House votes connector; polite, resumable)"
 PACE_SECONDS = 0.25
@@ -35,27 +35,16 @@ _LIST_PAGE = re.compile(r'href="(ROLL_\d+\.asp)"', re.IGNORECASE)
 _ROLL_LINK = re.compile(r"year=(\d{4})&(?:amp;)?rollnumber=(\d+)", re.IGNORECASE)
 
 
-class ClerkError(RuntimeError):
+class ClerkError(RollFileError):
     """A Clerk lookup failed or returned something unusable."""
 
 
-class ClerkNotFound(ClerkError):
+class ClerkNotFound(ClerkError, RollFileNotFound):
     """The Clerk answered 404: that file is not published."""
 
 
 def _error(message: str, status: int | None) -> ClerkError:
     return (ClerkNotFound if status == 404 else ClerkError)(message)
-
-
-@dataclass(frozen=True)
-class RemoteRoll:
-    """What the Clerk says about one roll-call file, without downloading it."""
-
-    year: int
-    number: int
-    url: str
-    size: int
-    last_modified: str
 
 
 def roll_url(year: int, number: int) -> str:

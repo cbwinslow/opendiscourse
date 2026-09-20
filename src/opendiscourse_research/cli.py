@@ -636,12 +636,14 @@ def sync_votes_command(
 ) -> None:
     """Download official roll-call votes into DATA_ROOT, inventory them, and load them (idempotent).
 
-    Rerun cost: even when nothing changed, a rerun makes one paced HEAD request per roll call and
-    hashes each retained file (about 15,600 files for Congresses 108-119: roughly 2 hours at the default
-    0.25 s pace). Use --congress to rerun one Congress.
+    Rerun cost: even when nothing changed, a rerun makes one paced request per roll call to check the
+    origin and hashes each retained file (House: about 15,600 files for Congresses 108-119, roughly 2 hours
+    at the default 0.25 s pace; Senate: about 8,200 files, roughly 1 hour). Use --congress to rerun one
+    Congress.
 
     Exit code 0: complete. 1: failed (a rerun resumes). 2: loaded, but something needs a look (see
-    `unresolved_bioguide_ids`, `failed`, `malformed` and `unlisted` in the output).
+    `unresolved_bioguide_ids` / `unresolved_lis_member_ids`, `failed`, `malformed`, `unlisted` and
+    `disagreements_with_menu` in the output).
     """
     factory = VOTE_CONNECTORS.get(chamber)
     if factory is None:

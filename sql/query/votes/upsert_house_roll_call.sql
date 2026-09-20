@@ -1,6 +1,7 @@
 -- One official House roll call. A row OpenStates already created under the same key
 -- (us-<year>-lower-<number>) is enriched in place: same roll_call_id, official fields added,
--- and the official time, question and result replace the provider's. A new key inserts.
+-- and the official time and question replace the provider's, and so does the result (NULL when the
+-- official word is not a plain pass or fail: a stale provider pass/fail must not sit beside it). A new key inserts.
 -- `inserted` tells the two apart; `openstates` says whether the enriched row came from OpenStates.
 INSERT INTO core.roll_call (
   jurisdiction, legislative_session, chamber, external_id, occurred_at, question, result, metadata,
@@ -17,7 +18,7 @@ INSERT INTO core.roll_call (
 ON CONFLICT (jurisdiction, legislative_session, external_id) DO UPDATE SET
   occurred_at = COALESCE(EXCLUDED.occurred_at, core.roll_call.occurred_at),
   question = COALESCE(EXCLUDED.question, core.roll_call.question),
-  result = COALESCE(EXCLUDED.result, core.roll_call.result),
+  result = EXCLUDED.result,
   organization_id = COALESCE(core.roll_call.organization_id, EXCLUDED.organization_id),
   legislative_session_id = COALESCE(core.roll_call.legislative_session_id, EXCLUDED.legislative_session_id),
   roll_number = EXCLUDED.roll_number,

@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-20 (Story 11.1 House votes built, live run pending), see "Session handoff" below (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live; sources review evaluated, ADR-0004; backup risk found, see "Stop-and-fix items"). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-20 (Story 11.2 Senate votes built, live runs of 11.1 and 11.2 pending), see "Session handoff" below (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live; sources review evaluated, ADR-0004; backup risk found, see "Stop-and-fix items"). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -274,7 +274,7 @@ coverage incomplete.
 
 Spec `_bmad-output/implementation-artifacts/spec-11-1-house-votes.md` (git-ignored). Command:
 `research-db sync-votes --chamber house [--congress N ...] [--download-only] [--batch-size N] [--pace S]` (exit 0 clean, 1 failed and a rerun resumes,
-2 loaded but something needs a look). The Senate (Story 11.2) adds one entry to `ingestion/votes.py::VOTE_CONNECTORS`.
+2 loaded but something needs a look). The Senate (Story 11.2, next section) is the second entry of `ingestion/votes.py::VOTE_CONNECTORS`.
 
 - **Code:** `providers/clerk.py` (listing and HEAD, paced), `ingestion/house_votes.py` (Connector, dataset `congress.house_votes`),
   `ingestion/house_vote_parse.py` (XML to the lossless record and typed rows; reuses `billstatus_record`, which gained an optional
@@ -304,6 +304,51 @@ Spec `_bmad-output/implementation-artifacts/spec-11-1-house-votes.md` (git-ignor
 - **Live run, when approved:** `research-db init-db` (applies `d5a1f8c37e26`, expand only), then `research-db sync-votes --chamber house`,
   then `research-db coverage` and `uv run pytest -m slow tests/test_house_votes_record_corpus.py` against the real `DATA_ROOT`.
   Record the counts here afterwards.
+
+## Story 11.2: Senate roll-call votes from senate.gov's XML (built 2026-09-20, live run pending review)
+
+Spec `_bmad-output/implementation-artifacts/spec-11-2-senate-votes.md` (git-ignored). Command: `research-db sync-votes --chamber senate`
+(same options and exit codes as the House). It is the House Connector's base, not a copy: `ingestion/roll_call_votes.py` now holds the ten stages,
+the ledger, resume, lock and result once; `house_votes.py` and `senate_votes.py` are small subclasses (listing, file naming, parser, save, member
+identifier). What changed in the House tests and SQL: the migration head pin (four test files), the capacity-gate patch target (now the shared module), one new House test (the official `result` replaces a stale provider one), and in `roll_call_count_disagreements.sql` (Guilty / Not Guilty counted as yea / nay, any letter case) and `upsert_house_roll_call.sql` (`result` is now replaced by the official value, NULL included, no longer kept when the official word is not a plain pass or fail).
+
+- **Code:** `providers/senate.py` (menus and per-file origin state), `providers/remote_roll.py` (shared `RemoteRoll` and error types; `clerk.py`
+  re-uses them), `ingestion/senate_vote_parse.py`, `ingestion/senate_votes.py` (dataset `congress.senate_votes`), `repositories/votes.py`
+  (`save_senate_roll_call`, shared `_save_roll_call`), `sql/query/votes/*senate*`, `lis_people.sql`, `link_senate_roll_call_bills.sql`,
+  migration `c8e2a5f1b937` (expand only: 19 nullable `core.roll_call` columns for the document, amendment, tie-breaker and long-text fields, 3 on
+  `fact.member_vote`; downgrade refuses while Senate detail exists), checklist `inventory/fields/congress.senate_votes.yaml`.
+- **Shape:** 8,174 files for 108-119 (the 24 menus; about 0.2 GB), one retained artifact each (`senate-roll-<year>-<NNN>.xml`, saved as
+  `<DATA_ROOT>/congress/senate_votes/<year>/vote_<C>_<S>_<NNNNN>.<sha>.xml`). The whole record is in `core.roll_call_source_record` (same table as
+  the House). Senators join on the LIS member id through `core.person_identifier` namespace `lis` (328 senators loaded by `research-db load-legislators`, which reads the legislators YAML), never on names. A senator
+  entry with a missing or unknown LIS id is not created, is listed in the result (`unresolved_lis_member_ids`, `(no lis_member_id) <printed name>`
+  for a missing one) and the run is `partial`; no exceptions mechanism was built (none is needed so far: every id in a 287-file sample across all
+  24 sessions resolves). The Vice President's tie-break is `core.roll_call.tie_breaker_by/_vote`, never a member vote. Guilty, Not Guilty and
+  Present keep their word in `position_raw` with `position` = `other`. `core.roll_call.bill_id` is set from the document block when it names a
+  bill (H.R., S., H.Res., S.Res., H.Con.Res., S.Con.Res., H.J.Res., S.J.Res.) that `core.bill` holds, by Congress, type and number; older files
+  with no `document_congress` use the roll call's own Congress. It is re-run at the end of each sync so a bill loaded later gets linked.
+  The column `core.roll_call_source_record.unresolved_bioguide_ids` also holds LIS ids for the Senate (kept the name; it has a column comment).
+- **OpenStates match:** all 427 existing Senate roll calls (`us-<year>-upper-<n>`) equal the official menu's roll number of that calendar year, same
+  day (checked 2026-09-20 against all 24 menus), so they are enriched in place. **Finding:** the OpenStates Senate times are 12 hours early for
+  afternoon votes (it dropped the PM: `us-2023-upper-196` is 09:34 UTC, the official vote was 5:34 PM Eastern = 21:34 UTC); the official time
+  replaces it for the 427 matched rows; other OpenStates Senate rows (any it adds later, until a file is loaded for them) keep the wrong time. Existing OpenStates member votes that the file also has are replaced by the official ones (evidence, party, state and name at the vote).
+- **Origin quirks found live:** (1) senate.gov HEAD gives no `Content-Length` (identity) or the gzip length, so the client reads the size from an
+  identity GET whose body it does not read; (2) 13 of the first 1,588 files (the largest, 60 KB and up) are served chunked with no length, so the
+  client reads the body once and uses its length; (3) a missing file or menu is a 301/302 to an HTML "not available" page, so redirects are not
+  followed and mean "not published". The size is checked again after download.
+- **Verified against the real Senate (2026-09-20, disposable database, not the live warehouse):** the 118th and 119th Congresses: 1,588 files
+  (46.5 MB), 158,784 senator votes, 0 unknown LIS ids, 0 disagreements with the menu, 0 count disagreements, 5 copied OpenStates rows enriched in
+  place, 14 roll calls linked to the 4 copied bills; `research-db coverage` shows loaded equals the menu (118: 691 of 691, 119: 897 of 897);
+  `tests/test_senate_votes_record_corpus.py` on all 1,588 files: 0 mismatches. The first run stopped `partial` on the 13 chunked files, the fix was
+  tested, and the rerun downloaded exactly those 13 and reused the other 1,575. Time: about 19 minutes at 0.1 s pace for the first run (the origin
+  check about 8, download and load the rest); a full 108-119 run is roughly 2 hours at the default 0.25 s pace, a rerun about 1 hour.
+  15 of the 1,575 roll calls have a result that is not a plain outcome (Point of Order Well Taken, Veto Sustained, Decision of the Chair
+  Sustained): `result` is NULL and `vote_result` holds the word, listed under `parse_problems`.
+- **Result mapping:** `normalize_result` maps a positive ending (agreed to, confirmed, passed, adopted) to `pass` unless "not" stands directly before it (`fail`); rejected, failed, defeated are `fail`; anything else is NULL. Every `vote_result` in 1,883 files (the loaded 118th/119th and a 287-file all-era sample) was classified on purpose; the odd ones: Veto Sustained, Veto Overridden, Point of Order (Not) Well Taken, Decision of Chair (Not) Sustained, Objection Not Sustained, Not Guilty stay NULL (their meaning is not a plain pass or fail); Bill/Joint Resolution Defeated and Motion to Table Failed are `fail`; 15 rolls have no result at all.
+- **Not done:** the live runs (Story 11.1 and 11.2 both wait for review): `research-db init-db` (applies `d5a1f8c37e26` then `c8e2a5f1b937`, expand
+  only), `research-db sync-votes --chamber house`, `research-db sync-votes --chamber senate`, then `research-db coverage` and
+  `uv run pytest -m slow tests/test_senate_votes_record_corpus.py tests/test_house_votes_record_corpus.py`. Record the counts here afterwards.
+  `plans.yaml` was not changed, as in 11.1 (a plan needs a `plans.py` handler and the spec forbids touching it). No party totals are stored (the
+  Senate file has none and none are derived).
 
 ## Story 9.5b: lossless BILLSTATUS records and typed promotion (built and run live, 2026-09-19)
 
@@ -573,7 +618,7 @@ each passing the 9.1 harness, and only after the 17 cluster is restarted with th
 2. Rerun `scripts/bench/benchmark_load_strategies.py` (about 8 minutes) and refresh the ADR-0003
    tables with the tuned-settings numbers.
 3. Story 9.3 coverage comparator: built (see "Coverage report"); use it after every backfill.
-4. Bills, actions, sponsors, and (9.5b) full records, summaries, laws, related bills, amendments: done. Member terms and posts: done (Story 3.3). Next: votes (wrap `unitedstates/congress`), bill text, amendment detail, then typing the CBO estimates and committee reports already in the record. Each through a Connector with the harness. Full source list: `docs/data-source-map.md`.
+4. Bills, actions, sponsors, and (9.5b) full records, summaries, laws, related bills, amendments: done. Member terms and posts: done (Story 3.3). Next: run the votes live (Stories 11.1 and 11.2 are built), bill text, amendment detail, then typing the CBO estimates and committee reports already in the record. Each through a Connector with the harness. Full source list: `docs/data-source-map.md`.
 4b. Remove the old fixed-path BILLSTATUS loaders listed under "Known debt" (move `coverage.py`'s `_bill_details` and the `congresshealth` check first).
 5. Then: FRED/OpenStates redo (2.2, 2.3, 8.2), Treasury and FRED failures, FEC promotion.
 6. Decide the `fact.acs_bulk_estimate` redesign (docs/performance-audit-2026-09-19.md) when Epics 5-6

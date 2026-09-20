@@ -56,7 +56,7 @@ what would type it), `not_stored` (not kept; a reason is required, and only for 
 |---|---|---|
 | `congress.govinfo_billstatus` | `fields/congress.govinfo_billstatus.yaml` | audited |
 | `congress.house_votes` (Clerk XML, House) | `fields/congress.house_votes.yaml` | audited (Story 11.1); live run pending |
-| Senate roll-call votes (senate.gov XML) | written with Story 11.2 | not built |
+| `congress.senate_votes` (senate.gov XML) | `fields/congress.senate_votes.yaml` | audited (Story 11.2); live run pending |
 | `congress.legislators` | none yet | **needs audit** |
 | `congress.legislation` (Congress.gov members) | none yet | **needs audit** |
 | `openstates.legislation` | none yet | **needs audit** |

@@ -1,0 +1,90 @@
+dataset: congress.senate_votes
+audited_on: '2026-09-20'
+origin: https://www.senate.gov/legislative/LIS/roll_call_votes/vote<C><S>/vote_<C>_<S>_<NNNNN>.xml (one XML file per roll call; the session menu at https://www.senate.gov/legislative/LIS/roll_call_lists/vote_menu_<C>_<S>.xml lists the roll numbers)
+capture:
+  whole_record: core.roll_call_source_record
+  notes: >-
+    Every roll-call file is a retained artifact (ingest.artifact, key senate-roll-<year>-<NNN>.xml, checksum, size and
+    Last-Modified). Every element and attribute of every file is also kept as JSON, one row per artifact, and proved
+    equal to the XML at load (the record must hold every path and value or the file is reported malformed). Path list
+    audited on a 287-file sample (first, last and ten random rolls of every session 2003-2026, plus the tie-breaker, the
+    nomination, the treaty amendment and the impeachment trial); the older files have no modify_date or document_congress
+    and one amendment level fewer, a few 2021 rolls have no document block. The corpus test
+    (tests/test_senate_votes_record_corpus.py) repeats the proof on every file on a machine that has run
+    `research-db sync-votes --chamber senate`. Paths first seen after this audit are in the record and are covered by the
+    last group below until they are typed. The Senate publishes no totals by party; none are derived.
+fields:
+- name: congress, session
+  status: typed
+  where: core.roll_call.legislative_session (Congress) and core.roll_call.congress_session ('1st', '2nd', the file's 1 and 2 as ordinals, the House's form)
+- name: congress_year
+  status: typed
+  where: core.roll_call.roll_year (the calendar year; the Senate roll number restarts each session, so year and number identify a roll call; external_id is us-<year>-upper-<number>, the key OpenStates rows already use)
+- name: vote_number
+  status: typed
+  where: core.roll_call.roll_number
+- name: vote_date
+  status: typed
+  where: core.roll_call.action_date, action_time_etz (24-hour clock as posted) and occurred_at (Eastern time converted to UTC)
+  reason: the file gives 'April 19, 2005,  02:51 PM' with no zone; the Senate posts Eastern time (checked on the 2025 roll 100, 6:27 PM on 3 March), and the verbatim text stays in the whole record
+- name: modify_date
+  status: typed
+  where: core.roll_call.modified_at (Eastern time converted to UTC; NULL where the file has none, as in files before about 2011)
+- name: vote_question_text
+  status: typed
+  where: core.roll_call.vote_question_text (the full question with the document, 'On the Amendment S.Amdt. 931 to S. 2226')
+- name: question
+  status: typed
+  where: core.roll_call.question (the short form, 'On the Amendment'; the same column the House's vote-question fills)
+- name: vote_document_text
+  status: typed
+  where: core.roll_call.vote_document_text
+- name: vote_result_text
+  status: typed
+  where: core.roll_call.vote_result_text (result with the tally and any required majority, 'Cloture on the Motion to Proceed Rejected (51-45, 3/5 majority required)')
+- name: vote_result
+  status: typed
+  where: core.roll_call.vote_result (verbatim) and core.roll_call.result (pass or fail where the word ends in a plain outcome; NULL for Guilty, Not Guilty, Sustained, Well Taken and the like, counted in the run result)
+- name: vote_title
+  status: typed
+  where: core.roll_call.vote_title
+- name: majority_requirement
+  status: typed
+  where: core.roll_call.majority_requirement ('1/2', '3/5', '2/3')
+- name: 'document: document_congress, document_type, document_number, document_name, document_title, document_short_title'
+  status: typed
+  where: core.roll_call.document_congress, document_type, document_number, document_name, document_title, document_short_title (as the file gives them, empty stays NULL; a nomination is type PN, a treaty amendment has an empty block and names the treaty in amendment_to_document_number)
+  reason: the block is absent on a few 2021 rolls (the objection votes of 6 January), then all six columns are NULL
+- name: document link to a bill
+  status: typed
+  where: core.roll_call.bill_id (set when document_type is H.R., S., H.Res., S.Res., H.Con.Res., S.Con.Res., H.J.Res. or S.J.Res. and core.bill holds that Congress, type and number; never by title; where an older file omits document_congress the roll call's own Congress is used, since a bill lives and dies within its Congress; nominations, treaties and amendments link to nothing)
+  reason: derived from the document block, not a field of the file; re-run at the end of every sync so a bill loaded later is linked
+- name: 'amendment: amendment_number, amendment_to_amendment_number, amendment_to_amendment_to_amendment_number, amendment_to_document_number, amendment_to_document_short_title, amendment_purpose'
+  status: typed
+  where: core.roll_call.amendment_number (the column the House's amendment-num fills), amendment_to_amendment_number, amendment_to_amendment_to_amendment_number, amendment_to_document_number, amendment_to_document_short_title, amendment_purpose
+  reason: files before about 2011 lack the third nesting level and often the short-title field; absent is NULL
+- name: 'count: yeas, nays, present, absent'
+  status: typed
+  where: core.roll_call.yea_total, nay_total, present_total and not_voting_total (absent)
+  reason: the Senate prints an empty element for none, which is stored as 0 (checked on every fixture and the run compares the totals with the stored senator positions); a file with no count block leaves them NULL
+- name: 'tie_breaker: by_whom, tie_breaker_vote'
+  status: typed
+  where: core.roll_call.tie_breaker_by and tie_breaker_vote (the Vice President breaks a tie; he is not a member and has no fact.member_vote row)
+- name: members/member/lis_member_id
+  status: typed
+  where: fact.member_vote.person_id through core.person_identifier (namespace lis) and fact.member_vote.lis_member_id_at_vote; never matched by name, an unknown or missing id is listed in the run result and the run is partial
+- name: members/member/member_full, last_name, first_name, party, state
+  status: typed
+  where: fact.member_vote.name_at_vote (member_full, 'Akaka (D-HI)'), last_name_at_vote, first_name_at_vote, party_at_vote, state_at_vote (as printed at the vote)
+- name: members/member/vote_cast
+  status: typed
+  where: fact.member_vote.position_raw (the word as printed) and fact.member_vote.position (yes, no, not voting, other; Present, Guilty and Not Guilty are other and keep their word)
+- name: Session menu (vote_number, vote_date, issue, question, result, vote_tally, title per vote)
+  status: not_stored
+  reason: discovery index; the XML files are the evidence (the menu lists the roll numbers and cross-checks each file's number, tally and calendar day, reported as disagreements_with_menu; every other column repeats a field of the file in shorter words)
+- name: XML prolog and declaration
+  status: not_stored
+  reason: no data; the retained artifact holds the exact file
+- name: any other element or attribute the Senate adds to the file
+  status: whole_record_only
+  reason: kept in core.roll_call_source_record.record; type it when a question needs it

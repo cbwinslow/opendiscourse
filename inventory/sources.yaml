@@ -223,6 +223,20 @@ providers:
         notes: >-
           Public domain. Members join on the BioGuide name-id the file states, never on the printed name.
           Enriches the OpenStates-derived roll calls in place (matched by year and roll number).
+      - id: congress.senate_votes
+        title: Senate roll-call votes from senate.gov's official XML (one file per roll call, 108th Congress on)
+        access: >-
+          senate.gov/legislative/LIS/roll_call_votes/vote<C><S>/vote_<C>_<S>_<NNNNN>.xml, listed by the session menu
+          senate.gov/legislative/LIS/roll_call_lists/vote_menu_<C>_<S>.xml
+        client: httpx; xml.etree for parsing
+        grain: roll call × senator position
+        identifiers: [congress, session, roll_year, roll_number, lis_member_id]
+        cadence: daily_when_in_session
+        priority: 1
+        notes: >-
+          Public domain. Senators join on the LIS member id the file states (core.person_identifier namespace lis),
+          never on the printed name. Enriches the OpenStates-derived roll calls in place (matched by year and roll
+          number). The Vice President's tie-break is on the roll call, not a member vote.
       - id: govinfo.bulk
         title: Bill status/text, Congressional Record, statutes, CFR, and Federal Register
         access: GovInfo API and bulk XML/JSON

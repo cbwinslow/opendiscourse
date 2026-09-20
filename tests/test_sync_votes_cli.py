@@ -8,19 +8,36 @@ from typer.testing import CliRunner
 
 from opendiscourse_research.cli import app
 from opendiscourse_research.ingestion.house_votes import HouseVotesConnector
+from opendiscourse_research.ingestion.senate_votes import SenateVotesConnector
 from opendiscourse_research.ingestion.votes import VOTE_CONNECTORS
 
 runner = CliRunner()
 
 
-def test_the_house_connector_is_registered_and_is_the_default_chamber() -> None:
-    assert VOTE_CONNECTORS == {"house": HouseVotesConnector}
+def test_both_chambers_are_registered_and_the_house_is_the_default() -> None:
+    assert VOTE_CONNECTORS == {"house": HouseVotesConnector, "senate": SenateVotesConnector}
 
 
 def test_an_unknown_chamber_is_refused_naming_the_available_ones() -> None:
-    result = runner.invoke(app, ["sync-votes", "--chamber", "senate"])
+    result = runner.invoke(app, ["sync-votes", "--chamber", "assembly"])
     assert result.exit_code == 2
-    assert "no connector for 'senate'" in result.output and "house" in result.output
+    assert "no connector for 'assembly'" in result.output and "house" in result.output and "senate" in result.output
+
+
+def test_the_senate_chamber_is_chosen_from_the_registry_and_forwards_every_option(monkeypatch) -> None:
+    import json
+
+    stub = type("Stub", (_Stub,), {"partial": False, "seen": {}})
+    monkeypatch.setitem(VOTE_CONNECTORS, "senate", stub)
+    result = runner.invoke(app, ["sync-votes", "--chamber", "senate", "--congress", "119", "--pace", "0.5"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout[result.stdout.index("{") :]) == {"partial": False, "marker": "stub"}
+    assert stub.seen["congresses"] == [119] and stub.seen["download_pace_seconds"] == 0.5
+
+
+def test_the_senate_connector_refuses_a_congress_outside_the_supported_range() -> None:
+    result = runner.invoke(app, ["sync-votes", "--chamber", "senate", "--congress", "500"])
+    assert result.exit_code == 1 and "108-119" in result.output
 
 
 def test_a_congress_outside_the_supported_range_fails_with_the_range() -> None:
