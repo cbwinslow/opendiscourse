@@ -32,6 +32,13 @@ PRD. Also load `opendiscourse-provenance` and `opendiscourse-testing`.
 - `docs/adding-a-provider.md` is stale where it tells you to branch
   `registry.sync`. Follow this skill and AD-2 instead.
 
+- A source that names people or geographies records what it says as name assertions
+  (`repositories/names.py`: `upsert_person_name_sources`, `upsert_geography_name_sources`) with its artifact or
+  payload and run, and gets a ranking in `inventory/precedence.yaml`. It never writes `core.person` names or
+  `core.geography.name`; `research-db resolve` shows the winner after the loader commits (a guard trigger stops
+  accidental writes to a resolved row, not a determined one). An unranked dataset makes
+  resolve fail. Any name assertion from FEC or disclosure data calls `identitygate.require_person_join` first.
+
 ## Do not
 
 - Add source-specific branches to `cli.py`, `plans.py` `run_plan()` / HANDLERS,

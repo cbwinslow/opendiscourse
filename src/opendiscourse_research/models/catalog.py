@@ -414,3 +414,55 @@ class SnapshotResource(SQLModel, table=True):
             primary_key=True,
         )
     )
+
+
+catalog_attribute_precedence = Table(
+    "attribute_precedence",
+    SQLModel.metadata,
+    Column("entity", Text, primary_key=True),
+    Column("name_kind", Text, primary_key=True),
+    # '' for person (no types); the geography type otherwise.
+    Column("geography_type", Text, primary_key=True, server_default=text("''")),
+    Column("rank", SmallInteger, nullable=False),
+    Column("dataset_id", Text, ForeignKey("catalog.dataset.dataset_id"), primary_key=True),
+    Column("field", Text, nullable=False),
+    Column("updated_at", _timestamp, nullable=False, server_default=text("now()")),
+    UniqueConstraint(
+        "entity", "name_kind", "geography_type", "rank",
+        name="attribute_precedence_rank_key", deferrable=True, initially="DEFERRED",
+    ),
+    CheckConstraint("rank > 0", name="attribute_precedence_rank_check"),
+    CheckConstraint(
+        "(entity = 'person' AND name_kind IN ('official', 'common') AND geography_type = '') "
+        "OR (entity = 'geography' AND name_kind IN ('short', 'full') AND geography_type <> '')",
+        name="attribute_precedence_scope_check",
+    ),
+    schema="catalog",
+)
+
+catalog_name_display = Table(
+    "name_display",
+    SQLModel.metadata,
+    Column("entity", Text, primary_key=True),
+    Column("name_kind", Text, primary_key=True),
+    Column("position", SmallInteger, nullable=False),
+    Column("updated_at", _timestamp, nullable=False, server_default=text("now()")),
+    UniqueConstraint("entity", "position", name="name_display_position_key", deferrable=True, initially="DEFERRED"),
+    CheckConstraint("position > 0", name="name_display_position_check"),
+    CheckConstraint(
+        "(entity = 'person' AND name_kind IN ('official', 'common')) "
+        "OR (entity = 'geography' AND name_kind IN ('short', 'full'))",
+        name="name_display_kind_check",
+    ),
+    schema="catalog",
+)
+
+
+def attribute_precedence_table() -> Table:
+    """Return the file-synced ranking of sources per name kind (and geography type)."""
+    return catalog_attribute_precedence
+
+
+def name_display_table() -> Table:
+    """Return the file-synced order of name kinds that feed each resolved column."""
+    return catalog_name_display

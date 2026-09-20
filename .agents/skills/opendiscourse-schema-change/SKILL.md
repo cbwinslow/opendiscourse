@@ -31,6 +31,14 @@ and ADR-0002 (`docs/adr/0002-schema-invariants.md`) first.
   reference, not a second migration path.
 - Bound parameters only. JSON via `psycopg.types.json.Jsonb`.
 - `dlt` writes `stage` only, never `core`/`fact`.
+- Shared attributes (ADR-0005, Story 10.2): a value two sources can describe for one entity gets an assertion table
+  (`core.person_name_source`, `core.geography_name_source` are the pattern: entity, kind, value, `dataset_id`,
+  `source_vintage`, artifact OR payload, run; unique `NULLS NOT DISTINCT`), a ranking in `inventory/precedence.yaml`, and
+  a resolver-owned column with a `name_source_id`-style pointer, all in the same change that adds the second source.
+  Loaders write assertions (`repositories/names.py`), never the resolved column; `research-db resolve` is the writer.
+  A guard trigger refuses other writes to a resolved row (SQLSTATE `42501`); it stops accidental writes, not a
+  determined one (any session can set `opendiscourse.resolver`). To delete assertions a resolved row points at, the
+  wipe transaction sets that flag and nulls the pointer first.
 
 ## Do not
 
