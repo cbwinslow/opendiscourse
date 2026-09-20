@@ -92,6 +92,31 @@ Stated by the operator; work them in this order. Plain-language replies are mand
    clean-up story plus a test that fails on new multi-line SQL strings. Also consider Postgres functions and triggers where they simplify.
 4. **Later, on real data:** index placement (load first, index after, keep the indexes), data types, and benchmarks (`scripts/bench/`).
 
+## Votes loaded live: Congresses 108-117, both chambers (2026-09-20)
+
+Migrations `d5a1f8c37e26` and `c8e2a5f1b937` applied to live (expand only); fingerprints of `core.roll_call` (1,827), `fact.member_vote`
+(473,490) and `core.person` (12,770) were identical before and after, and the totals afterwards were exactly the old rows plus the new ones.
+`research-db sync-votes --chamber house|senate --congress N ...` (repeat `--congress`; one flag per Congress) then loaded, from the official
+Clerk and Senate.gov XML, each file kept whole as a retained artifact (19,854 files, 1,215 MB under `DATA_ROOT`):
+
+| | Roll calls | Individual votes |
+|---|---|---|
+| House 108-117 | 13,268 | 5,735,595 |
+| Senate 108-117 | 6,586 | 658,258 |
+
+`research-db coverage` shows loaded equals expected for every Congress 108-117 (bills, actions, House and Senate roll calls, memberships).
+The 118th and 119th still hold the incomplete OpenStates roll calls (House 912 of 1,241 and 488 of 676; Senate 176 of 691 and 251 of 897);
+loading them with the same commands enriches the existing rows in place (waiting for the operator's go).
+
+Known, all reported by the run and not hidden:
+- One House entry is not a person we hold: `L000555` "Letlow" is listed Not Voting on the opening roll call of the 117th (Luke Letlow died
+  before he was sworn in). The vote is kept whole in `core.roll_call_source_record`; the roll reads 6 typed of 7 Not Voting. It keeps the
+  117th House run at "needs a look" (exit 2) until a reviewed-exception mechanism exists (deferred; this is its first real case).
+- Senate roll 2003-262: the vote menu dates it 27 June, its own file 26 June (an upstream discrepancy).
+- Senate roll 2020-216: the file's totals are blank but it lists 100 Not Voting entries.
+- Speaker elections and procedural outcomes have no plain pass/fail: `result` is empty, the exact word is in `vote_result` (10 House in 109-117, 44 Senate).
+- The full 108-117 House load took a bit over an hour (faster than the 5-hour estimate).
+
 ## Goal
 
 A reusable, provenance-backed research database for U.S. political and policy
