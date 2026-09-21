@@ -15,7 +15,6 @@ server will not start.
 | `opendiscourse-congress` | Congress.gov and GovInfo exploration, including bill text and committees | `CONGRESS_API_KEY` | `vendor/mcp/congress` at `838687d2037421ad79b0cb31dd90cf3bf5136533` |
 | `opendiscourse-fec` | OpenFEC discovery and validation only | `FEC_API_KEY` | `vendor/mcp/fec` at `79f9ffd8a1619531a0b4777c37c963b623a7d482` |
 | `opendiscourse-openstates` | OpenStates API discovery and FDW/connector spot checks | `OPENSTATES_API_KEY` | `vendor/mcp/openstates` at `77afca6d5999544d28380c4e930c41d51704b222` |
-| `opendiscourse-census` | Census dataset and variable discovery, geography checks, and spot checks | `CENSUS_API_KEY` | `vendor/mcp/census` at `5dcaa637871b9ded5dab415118f9008c06d13f2a` |
 
 ## First use
 
@@ -29,9 +28,10 @@ server will not start.
    - FEC: `npm ci && npm run build` in `vendor/mcp/fec`
    - OpenStates: `uv sync` in `vendor/mcp/openstates` (this clone currently
      fails to start because of an upstream library conflict; leave it unused)
-   - Census: from `vendor/mcp/census`,
-     `docker compose --profile prod run --rm census-mcp-db-init sh -c "npm run migrate:up && npm run seed"`.
-     `scripts/mcp_run.sh census` then starts its local containers as needed.
+   - Do not start the official Census MCP. It wants its own Postgres 16 Docker
+     database (`mcp_db`). Warehouse facts stay in the one bare-metal
+     PostgreSQL 17 database `opendiscourse` on port 5434. Census ACS/CBP/TIGER
+     data already loaded there is the source of truth.
 4. Restart Codex or Claude Code. Claude will ask for approval before using the
    project-scoped servers. Check availability with `codex mcp list` or
    `claude mcp list`.
@@ -45,3 +45,6 @@ server will not start.
   bytes through OpenDiscourse before publishing facts.
 - Re-audit and deliberately update each `vendor/mcp/` clone before changing a
   pinned revision.
+- Never point an MCP helper at the warehouse, and never start the Census MCP's
+  companion Postgres. Throwaway databases for tests and the Compose fallback on
+  port 5433 are still allowed. Congress and FEC helpers talk to remote APIs only.

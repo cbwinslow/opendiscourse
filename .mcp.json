@@ -17,12 +17,6 @@
       "command": "bash",
       "args": ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" openstates"],
       "env": { "OPENSTATES_API_KEY": "${OPENSTATES_API_KEY:-}" }
-    },
-    "opendiscourse-census": {
-      "type": "stdio",
-      "command": "bash",
-      "args": ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" census"],
-      "env": { "CENSUS_API_KEY": "${CENSUS_API_KEY:-}" }
     }
   }
 }
