@@ -8,8 +8,13 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 dest="$root/vendor/mcp/$name"
 
 if [[ -z "$name" ]]; then
-  echo "usage: scripts/mcp_run.sh congress|fec|openstates|census" >&2
+  echo "usage: scripts/mcp_run.sh congress|fec|openstates" >&2
   exit 2
+fi
+if [[ "$name" == "census" ]]; then
+  echo "The official Census MCP is disabled: it starts a second Postgres." >&2
+  echo "Census facts belong in database opendiscourse on port 5434." >&2
+  exit 1
 fi
 if [[ ! -d "$dest/.git" ]]; then
   echo "MCP source missing: $dest" >&2
@@ -31,11 +36,6 @@ case "$name" in
     ;;
   openstates)
     exec uv --directory "$dest" run python -m app --transport stdio
-    ;;
-  census)
-    echo "The official Census MCP is disabled: it starts a second Postgres." >&2
-    echo "Census facts belong in database opendiscourse on port 5434." >&2
-    exit 1
     ;;
   *)
     echo "unknown MCP server: $name" >&2

@@ -45,5 +45,6 @@ server will not start.
   bytes through OpenDiscourse before publishing facts.
 - Re-audit and deliberately update each `vendor/mcp/` clone before changing a
   pinned revision.
-- Never point an MCP helper at the warehouse, and never run a second Postgres
-  for OpenDiscourse. Congress and FEC helpers talk to remote APIs only.
+- Never point an MCP helper at the warehouse, and never start the Census MCP's
+  companion Postgres. Throwaway databases for tests and the Compose fallback on
+  port 5433 are still allowed. Congress and FEC helpers talk to remote APIs only.
