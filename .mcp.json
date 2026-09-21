@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "opendiscourse-congress": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" congress"],
+      "env": { "CONGRESS_API_KEY": "${CONGRESS_API_KEY:-}" }
+    },
+    "opendiscourse-fec": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" fec"],
+      "env": { "FEC_API_KEY": "${FEC_API_KEY:-}" }
+    },
+    "opendiscourse-openstates": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" openstates"],
+      "env": { "OPENSTATES_API_KEY": "${OPENSTATES_API_KEY:-}" }
+    },
+    "opendiscourse-census": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" census"],
+      "env": { "CENSUS_API_KEY": "${CENSUS_API_KEY:-}" }
+    }
+  }
+}

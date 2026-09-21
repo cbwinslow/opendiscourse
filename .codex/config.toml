@@ -1,0 +1,24 @@
+# Project-scoped MCP servers.  Keys are intentionally forwarded from the user's
+# environment; never put them in this repository or in a committed .env file.
+# Launchers run the audited vendor/mcp clones (scripts/mcp_run.sh), never an
+# unpinned registry package.
+
+[mcp_servers.opendiscourse-congress]
+command = "bash"
+args = ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" congress"]
+env_vars = ["CONGRESS_API_KEY"]
+
+[mcp_servers.opendiscourse-fec]
+command = "bash"
+args = ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" fec"]
+env_vars = ["FEC_API_KEY"]
+
+[mcp_servers.opendiscourse-openstates]
+command = "bash"
+args = ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" openstates"]
+env_vars = ["OPENSTATES_API_KEY"]
+
+[mcp_servers.opendiscourse-census]
+command = "bash"
+args = ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" census"]
+env_vars = ["CENSUS_API_KEY"]
