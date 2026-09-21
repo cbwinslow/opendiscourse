@@ -2,26 +2,26 @@
   "mcpServers": {
     "opendiscourse-congress": {
       "type": "stdio",
-      "command": "uvx",
-      "args": ["congressmcp"],
+      "command": "bash",
+      "args": ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" congress"],
       "env": { "CONGRESS_API_KEY": "${CONGRESS_API_KEY:-}" }
     },
     "opendiscourse-fec": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "fec-mcp-server"],
+      "command": "bash",
+      "args": ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" fec"],
       "env": { "FEC_API_KEY": "${FEC_API_KEY:-}" }
     },
     "opendiscourse-openstates": {
       "type": "stdio",
       "command": "bash",
-      "args": ["-lc", "exec uv --directory \"$(git rev-parse --show-toplevel)/vendor/mcp/openstates\" run python -m app --transport stdio"],
+      "args": ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" openstates"],
       "env": { "OPENSTATES_API_KEY": "${OPENSTATES_API_KEY:-}" }
     },
     "opendiscourse-census": {
       "type": "stdio",
       "command": "bash",
-      "args": ["-lc", "exec \"$(git rev-parse --show-toplevel)/vendor/mcp/census/scripts/mcp-connect.sh\""],
+      "args": ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" census"],
       "env": { "CENSUS_API_KEY": "${CENSUS_API_KEY:-}" }
     }
   }

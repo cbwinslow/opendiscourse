@@ -186,7 +186,7 @@ ledger, load strategies, coverage checks) that later models can sit on.
 | Area | Loaded | Gap |
 |---|---|---|
 | Congress bills | 108th-119th, 172,709 bills (GovInfo's 172,703 plus 6 from another source), Story 9.5; every bill's full record plus CRS summaries, laws, related bills and amendments, Story 9.5b | 6 surplus 119th bills, see "Story 9.5"; CBO estimates, committee reports, recorded votes, alternate titles are in the record but not typed |
-| Roll calls / member votes | 118th-119th only (1,827 / 473,490) | 108-117; Senate source is "idea" |
+| Roll calls / member votes | 108th-119th both chambers, official Clerk and Senate XML (see "Votes loaded live") | 117th House Letlow `L000555` exception; committee votes are a later source |
 | People | 12,771 (12,770 with BioGuide; loaded 2026-09-19, Story 3.1) | 1 baseline person has no BioGuide; politician joins still gated (Story 3.2) |
 | Member terms | 45,535 memberships (41,545 House, 3,990 Senate, 1789-present), 740 posts, 690 divisions, Story 3.3; `coverage` memberships 100% for 108-119 | 1,340 terms have no post (unknown district in the source); committee membership not loaded |
 | FEC | 102M rows in `stage.fec_row` (pas2, oppexp, oth complete; indiv 2000-2016 only; unattributed, see above) | staging only; not promoted; person join gated (3.2): needs reviewed contract + cn/cm/ccl files; v1.1 |
@@ -223,6 +223,11 @@ old loader wrote (it is 119-only and superseded by `research-db coverage` / `loa
 
 ## Coverage report (Story 9.3, first measurement 2026-09-19)
 
+This snapshot is 2026-09-19. Bills (Story 9.5) and memberships (Story 3.3) were
+completed later that day. Official House and Senate roll calls for 108-119 were
+completed 2026-09-21; see "Votes loaded live". Do not use the roll-call,
+membership, or 108-117 bill figures below as current warehouse state.
+
 `research-db coverage [--congress N] [--refresh-official] [--json]` is warehouse read-only (it only writes metadata caches). Expected counts are
 official: GovInfo BILLSTATUS manifests (bills), Senate.gov vote menus and House Clerk index (roll
 calls). Actions (`lake_archive`, counted in the unverified BILLSTATUS zips) and members
@@ -237,8 +242,9 @@ Congress and year expire after a day); `latest.json` holds the last report.
   116, 118; short by 1 (113, 115), 11 (117) and 904 (119). This replaces the earlier "2,831
   missing" figure for the 119th.
 - **Actions:** 118 and 119 equal the lake counts; 108-117 not loaded. The 119th has 6 more bills loaded (18,058) than the lake holds (18,052); the extra six came from a source other than these zips and are unexplained.
-- **Roll calls:** House 118 has 912 of 1,241 and 119 has 488 of 676; Senate 118 has 176 of 691 and
-  119 has 251 of 897. Senate member votes: 118 has 407 (49 Senate roll calls with none), 119 has 0.
+- **Roll calls (superseded 2026-09-21):** this snapshot had only partial OpenStates
+  118th/119th rows. Official Clerk and Senate XML for 108-119 are now loaded;
+  see "Votes loaded live".
 - **Members:** `core.membership` is empty: 0 of about 545-560 members per Congress. People are loaded
   (Story 3.1) but no terms.
 - **Unattributed:** 286 of 287 runs have no `code_version`; `stage.fec_row` about 101.7M rows.
@@ -301,7 +307,7 @@ coverage incomplete.
 - `ingest.run.code_version` on the backfill runs reads `<sha>-dirty` because docs were being
   edited (tracked files differ); the SHA is the right commit. Runs before 9.2 stay unattributed.
 
-## Story 11.1: House roll-call votes from the Clerk's XML (built 2026-09-20, live run pending review)
+## Story 11.1: House roll-call votes from the Clerk's XML (built 2026-09-20, loaded live 2026-09-20/21)
 
 Spec `_bmad-output/implementation-artifacts/spec-11-1-house-votes.md` (git-ignored). Command:
 `research-db sync-votes --chamber house [--congress N ...] [--download-only] [--batch-size N] [--pace S]` (exit 0 clean, 1 failed and a rerun resumes,
@@ -329,14 +335,13 @@ Spec `_bmad-output/implementation-artifacts/spec-11-1-house-votes.md` (git-ignor
   fills the gap. (2) With gzip accepted the Clerk answers HEAD with a 20-byte length; the client asks for `identity` (tested).
   (3) 2 of 286 sampled files have an action date in a different year than their folder, so the year comes from the URL. (4) Speaker elections
   have candidate names as votes and candidate tallies (kept as `position_raw`, position `other`, tallies in the record).
-- **Not done:** the live run for 108-119 (needs a review first); `plans.yaml` was not changed because a plan needs a `plans.py` handler and the
-  spec forbids touching `plans.py`; `research-db coverage` expects the Clerk's highest roll number per year, so a roll the Clerk lists but
-  does not serve would show as a gap (it is also in the run result under `not_published`).
-- **Live run, when approved:** `research-db init-db` (applies `d5a1f8c37e26`, expand only), then `research-db sync-votes --chamber house`,
-  then `research-db coverage` and `uv run pytest -m slow tests/test_house_votes_record_corpus.py` against the real `DATA_ROOT`.
-  Record the counts here afterwards.
+- **Live run:** done 2026-09-20 (108-117) and 2026-09-21 (118-119). Counts and the Letlow
+  exception are under "Votes loaded live". `plans.yaml` was not changed because a plan needs a
+  `plans.py` handler and the spec forbids touching `plans.py`. `research-db coverage` expects
+  the Clerk's highest roll number per year, so a roll the Clerk lists but does not serve would
+  show as a gap (it is also in the run result under `not_published`).
 
-## Story 11.2: Senate roll-call votes from senate.gov's XML (built 2026-09-20, live run pending review)
+## Story 11.2: Senate roll-call votes from senate.gov's XML (built 2026-09-20, loaded live 2026-09-20/21)
 
 Spec `_bmad-output/implementation-artifacts/spec-11-2-senate-votes.md` (git-ignored). Command: `research-db sync-votes --chamber senate`
 (same options and exit codes as the House). It is the House Connector's base, not a copy: `ingestion/roll_call_votes.py` now holds the ten stages,
@@ -375,11 +380,9 @@ identifier). What changed in the House tests and SQL: the migration head pin (fo
   15 of the 1,575 roll calls have a result that is not a plain outcome (Point of Order Well Taken, Veto Sustained, Decision of the Chair
   Sustained): `result` is NULL and `vote_result` holds the word, listed under `parse_problems`.
 - **Result mapping:** `normalize_result` maps a positive ending (agreed to, confirmed, passed, adopted) to `pass` unless "not" stands directly before it (`fail`); rejected, failed, defeated are `fail`; anything else is NULL. Every `vote_result` in 1,883 files (the loaded 118th/119th and a 287-file all-era sample) was classified on purpose; the odd ones: Veto Sustained, Veto Overridden, Point of Order (Not) Well Taken, Decision of Chair (Not) Sustained, Objection Not Sustained, Not Guilty stay NULL (their meaning is not a plain pass or fail); Bill/Joint Resolution Defeated and Motion to Table Failed are `fail`; 15 rolls have no result at all.
-- **Not done:** the live runs (Story 11.1 and 11.2 both wait for review): `research-db init-db` (applies `d5a1f8c37e26` then `c8e2a5f1b937`, expand
-  only), `research-db sync-votes --chamber house`, `research-db sync-votes --chamber senate`, then `research-db coverage` and
-  `uv run pytest -m slow tests/test_senate_votes_record_corpus.py tests/test_house_votes_record_corpus.py`. Record the counts here afterwards.
-  `plans.yaml` was not changed, as in 11.1 (a plan needs a `plans.py` handler and the spec forbids touching it). No party totals are stored (the
-  Senate file has none and none are derived).
+- **Live run:** done 2026-09-20 (108-117) and 2026-09-21 (118-119). Counts are under "Votes loaded live".
+  `plans.yaml` was not changed, as in 11.1 (a plan needs a `plans.py` handler and the spec forbids
+  touching it). No party totals are stored (the Senate file has none and none are derived).
 
 ## Story 9.5b: lossless BILLSTATUS records and typed promotion (built and run live, 2026-09-19)
 
@@ -679,7 +682,8 @@ each passing the 9.1 harness, and only after the 17 cluster is restarted with th
    `stage.fec_row` 74 GB/102M, `stage.cbp_row` 22 GB. Reload-by-slice on those means big
    deletes and bloat unless new large tables are partitioned; ADR-0003 must decide.
 4. Story 9.3 coverage comparator (merged); bills for Congresses 108-119 via the BILLSTATUS
-   Connector, Story 9.5 (passes the 9.1 harness). Votes and terms still to do.
+   Connector, Story 9.5 (passes the 9.1 harness). Member terms (3.3) and official votes
+   108-119 (11.1, 11.2) are loaded. Next ingest: GovInfo BILLS text.
 5. Redo 2.2 -> 2.3 (FRED) and 8.2 (OpenStates); fix Treasury and FRED failures.
 6. FEC promotion after 3.1.
 
