@@ -82,6 +82,10 @@ weights (never assign a ZIP to one district without weights).
    fetched again, exit code 0 / 1 (failed, rerun resumes) / 2 (loaded, coverage incomplete).
    `research-db coverage` reads what it fetched through the artifact registry.
 2. Member terms and state posts (built, Story 3.3: `research-db load-legislators` loads terms, posts and divisions with the identifiers; committee membership still to do).
-3. Votes Connector (wrapping `unitedstates/congress`), then amendments and bill text.
+3. Votes Connector (built, Stories 11.1/11.2). Bill text Connector (built, Story 11.3):
+   `research-db sync-bill-text [--congress N] [--session S] [--bill-type T] [--download-only]`
+   downloads GovInfo BILLS zips for Congresses 113-119, keeps every XML member as a lossless
+   record, and attaches versions to existing `core.bill` rows. Live load is pending review.
+   Congresses 108-112 are a later story (no BILLS bulk).
 4. FEC Connector with the masters; districts and crosswalks.
 5. Remove the leftover loaders that read fixed local paths (below).

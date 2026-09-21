@@ -56,6 +56,7 @@ from .ingestion.acs_load import (
     stage_acs_bulk,
     stage_acs_bulk_parallel,
 )
+from .ingestion.bill_text import BillTextConnector
 from .ingestion.billstatus import BillStatusConnector
 from .ingestion.bls import ingest_manifest as ingest_bls_manifest
 from .ingestion.bls import ingest_series as ingest_bls_series
@@ -611,6 +612,49 @@ def sync_billstatus_command(
             run_connector(connector)
     except (OSError, RuntimeError, ValueError, psycopg.Error, SQLAlchemyError) as exc:
         typer.secho(f"sync-billstatus failed: {exc}", err=True, fg=typer.colors.RED)
+        typer.echo("Nothing is lost: rerun the same command to resume.", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(connector.result, indent=2, sort_keys=True, default=str))
+    if connector.result.get("partial"):
+        raise typer.Exit(2)
+
+
+@app.command("sync-bill-text")
+def sync_bill_text_command(
+    congress: list[int] = typer.Option(
+        None, help="Congress to sync (repeatable); default is every Congress GovInfo lists from the 113th through the 119th."
+    ),
+    session: list[int] = typer.Option(
+        None, help="Session to sync (repeatable): 1 or 2; default is every session GovInfo lists."
+    ),
+    bill_type: list[str] = typer.Option(
+        None, help="Bill type (repeatable): hr, s, hres, sres, hjres, sjres, hconres, sconres."
+    ),
+    download_only: bool = typer.Option(
+        False, help="Download and register the zips without loading bill text."
+    ),
+    batch_size: int = typer.Option(
+        200, min=1, max=5000, help="Versions per committed transaction; reruns resume."
+    ),
+) -> None:
+    """Download GovInfo BILLS XML into DATA_ROOT, inventory it, and load every version (idempotent).
+
+    Exit code 0: complete. 1: failed (a rerun resumes). 2: loaded, but something needs a look
+    (see `unknown_bills`, `incomplete_zips` and `malformed_members` in the output).
+    """
+    try:
+        with render_spinner("Syncing GovInfo BILLS text") as report:
+            connector = BillTextConnector(
+                congress or None,
+                tuple(bill_type) if bill_type else BILL_TYPES,
+                tuple(session) if session else None,
+                batch_size=batch_size,
+                download_only=download_only,
+                report=report,
+            )
+            run_connector(connector)
+    except (OSError, RuntimeError, ValueError, psycopg.Error, SQLAlchemyError) as exc:
+        typer.secho(f"sync-bill-text failed: {exc}", err=True, fg=typer.colors.RED)
         typer.echo("Nothing is lost: rerun the same command to resume.", err=True)
         raise typer.Exit(1) from None
     typer.echo(json.dumps(connector.result, indent=2, sort_keys=True, default=str))

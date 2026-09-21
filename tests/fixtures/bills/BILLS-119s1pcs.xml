@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="billres.xsl"?>
+<!DOCTYPE bill PUBLIC "-//US Congress//DTDs/bill.dtd//EN" "bill.dtd">
+<bill bill-stage="Placed-on-Calendar-Senate" dms-id="SPCS1" public-private="public" key="S" bill-type="olc">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dublinCore>
+      <dc:title>119 S 1 PCS: A Senate calendar print</dc:title>
+      <dc:publisher>U.S. Senate</dc:publisher>
+      <dc:date>2025-01-07</dc:date>
+      <dc:format>text/xml</dc:format>
+      <dc:language>EN</dc:language>
+      <dc:rights>Public domain.</dc:rights>
+    </dublinCore>
+  </metadata>
+  <form>
+    <congress>119th CONGRESS</congress>
+    <session>1st Session</session>
+    <legis-num>S. 1</legis-num>
+    <current-chamber>IN THE SENATE OF THE UNITED STATES</current-chamber>
+    <action>
+      <action-date date="20250107">January 7, 2025</action-date>
+      <action-desc>
+        <sponsor name-id="S001234">Ms. Example</sponsor>
+        introduced the following bill; which was read twice and placed on the calendar
+      </action-desc>
+    </action>
+    <legis-type>A BILL</legis-type>
+    <official-title>A bill placed on the Senate calendar.</official-title>
+  </form>
+  <legis-body id="SPCSBODY" style="OLC">
+    <section id="SS1" section-type="section-one">
+      <enum>1.</enum>
+      <header>Short title</header>
+      <text>This Act may be cited as the Calendar Print Act.</text>
+    </section>
+    <section id="SS2">
+      <enum>2.</enum>
+      <header>Findings</header>
+      <subsection id="SS2A">
+        <enum>(a)</enum>
+        <header>In general</header>
+        <text>Congress finds the following:</text>
+        <paragraph id="SP1">
+          <enum>(1)</enum>
+          <text>The calendar print is a real version code.</text>
+        </paragraph>
+      </subsection>
+    </section>
+  </legis-body>
+</bill>

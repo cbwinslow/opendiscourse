@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="billres.xsl"?>
+<!DOCTYPE bill PUBLIC "-//US Congress//DTDs/bill.dtd//EN" "bill.dtd">
+<bill bill-stage="Engrossed-in-House" dms-id="HEH23" public-private="public" key="H" bill-type="olc">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dublinCore>
+      <dc:title>119 HR 23 EH: Illegitimate Court Counteraction Act</dc:title>
+      <dc:publisher>U.S. House of Representatives</dc:publisher>
+      <dc:date>2025-01-09</dc:date>
+      <dc:format>text/xml</dc:format>
+      <dc:language>EN</dc:language>
+      <dc:rights>Public domain.</dc:rights>
+    </dublinCore>
+  </metadata>
+  <form>
+    <congress>119th CONGRESS</congress>
+    <session>1st Session</session>
+    <legis-num>H. R. 23</legis-num>
+    <legis-type>AN ACT</legis-type>
+    <official-title>To impose sanctions with respect to the International Criminal Court.</official-title>
+  </form>
+  <legis-body id="HEHBODY" style="OLC">
+    <section id="HS1" section-type="section-one">
+      <enum>1.</enum>
+      <header>Short title</header>
+      <text>This Act may be cited as the Engrossed Court Act.</text>
+    </section>
+  </legis-body>
+</bill>

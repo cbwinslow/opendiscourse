@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-21 (official House and Senate votes are loaded and coverage-complete for Congresses 108-119), see "Session handoff" below (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live; sources review evaluated, ADR-0004; backup risk found, see "Stop-and-fix items"). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-21 (Story 11.3 GovInfo BILLS text Connector is built; live load of Congresses 113-119 is pending review). Official House and Senate votes are loaded and coverage-complete for Congresses 108-119; see "Session handoff" below (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live; sources review evaluated, ADR-0004; backup risk found, see "Stop-and-fix items"). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -92,6 +92,17 @@ Stated by the operator; work them in this order. Plain-language replies are mand
    clean-up story plus a test that fails on new multi-line SQL strings. Also consider Postgres functions and triggers where they simplify.
 4. **Later, on real data:** index placement (load first, index after, keep the indexes), data types, and benchmarks (`scripts/bench/`).
 5. **Reusable installation and agent guidance:** every completed source must be runnable by a new user from an empty `DATA_ROOT`, using tracked commands and project skills. The shared skills already exist (`opendiscourse-connector`, `opendiscourse-provenance`, `opendiscourse-schema-change`, and `opendiscourse-testing`); the rebuild-kit spec requires the missing `opendiscourse-rebuild` skill. Add narrow source skills only where their upstream format has recurring traps (starting with GovInfo BILLS and FEC), and keep an install/source matrix. Evaluate MCP servers alongside skills: use MCP only for agent discovery, schema inspection, spot checks, and troubleshooting; deterministic Connectors remain the production downloader and loader. Congress and FEC MCP helpers may talk to those APIs. Do not run the official Census MCP: it requires its own Docker Postgres (`mcp_db`), which is not the warehouse. Census rows already in `opendiscourse` on port 5434 stay the source of truth. Trial community OpenStates MCP only in a sandbox with least-privilege credentials. Do not rely on unreviewed third-party skills or MCPs as the source of truth: a 2026-09-21 scan found no credible maintained source-specific skill set covering GovInfo, FEC, Census, and OpenStates.
+
+## Story 11.3: GovInfo BILLS text Connector (built, live load pending)
+
+`research-db sync-bill-text` downloads one GovInfo BILLS zip per Congress × session × bill type
+into `DATA_ROOT` (Congresses 113-119; 108-112 have no BILLS bulk), keeps every XML member as
+`core.bill_text_source_record`, and attaches `core.document` / `core.bill_document` to an
+existing `core.bill` when Congress + type + number already exist. Unknown bills stay as
+records and make the run partial; they do not create a bill. A later sync attaches those
+records once BILLSTATUS has the bill (no re-download). One version identity is one record
+(zip replaces a fallback XML row). Migrations `f4a7c2e8b619` and `b8c4e2a17f03` (expand only;
+not applied to live). Live run for 113-119 is **not done** — do it after review, then record counts here.
 
 ## Votes loaded live: Congresses 108-119, both chambers (2026-09-21)
 

@@ -205,13 +205,29 @@ providers:
         priority: 1
         notes: Public-domain CC0 upstream. Person joins use BioGuide only, never names.
       - id: congress.govinfo_billstatus
-        title: GovInfo bulk bill status and bill text
+        title: GovInfo bulk bill status
         access: GovInfo bulk XML/JSON directory manifests
-        client: httpx; lxml for XML parsing
-        grain: Congress × bill × version/package
-        identifiers: [congress, package_id, bill_type, bill_number]
+        client: httpx; xml.etree for XML parsing
+        grain: Congress × bill
+        identifiers: [congress, bill_type, bill_number]
         cadence: daily
         priority: 1
+        notes: Status only. Bill text is congress.govinfo_bills (Story 11.3).
+      - id: congress.govinfo_bills
+        title: GovInfo bulk bill text (BILLS XML versions)
+        access: >-
+          GovInfo BILLS bulk zips (one per Congress × session × bill type) listed at
+          https://www.govinfo.gov/bulkdata/json/BILLS/{congress}/{session}/{type};
+          individual XML is the fallback when a zip is unpublished
+        client: httpx; xml.etree for XML parsing
+        grain: Congress × session × bill type × bill number × version
+        identifiers: [congress, session, bill_type, bill_number, version_code]
+        cadence: daily
+        priority: 1
+        notes: >-
+          Public domain. Bulk starts at the 113th Congress. Join to core.bill by congress, type and
+          number only; never create a bill from the text file. Sponsor name-id values stay in the
+          record. Do not fetch bill.dtd or billres.xsl. PLAW, BILLSUM, PDF and HTM are out of scope.
       - id: congress.house_votes
         title: House roll-call votes from the Clerk's official XML (one file per roll call, 108th Congress on)
         access: clerk.house.gov/evs/<year>/roll<NNN>.xml, listed by the yearly index (index.asp and ROLL_*.asp)

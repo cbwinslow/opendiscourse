@@ -1,11 +1,12 @@
-"""GovInfo BILLSTATUS bulk-data client: HTTP only (Story 9.5).
+"""GovInfo bulk-data client: HTTP only (Stories 9.5 and 11.3).
 
-Three read-only, unauthenticated lookups against ``www.govinfo.gov/bulkdata``: the
-Congress folders in the root manifest, one HEAD per Congress/bill-type zip (its size
-and ``Last-Modified``, which is how a refresh is detected without downloading), and
-the directory manifest that lists every XML file GovInfo publishes for a type.
-Everything is paced and retried once on transport errors, 429 and 5xx; anything
-else raises :class:`GovInfoError` so a caller never mistakes a failure for "no data".
+Read-only, unauthenticated lookups against ``www.govinfo.gov/bulkdata`` for the
+BILLSTATUS and BILLS collections: Congress (and, for BILLS, session) folders,
+one HEAD per zip (size and ``Last-Modified``, which is how a refresh is detected
+without downloading), the directory manifest of XML members, and — when a BILLS
+zip is unpublished — the individual XML URL as a fallback. Everything is paced
+and retried once on transport errors, 429 and 5xx; anything else raises
+:class:`GovInfoError` so a caller never mistakes a failure for "no data".
 """
 
 from __future__ import annotations
@@ -14,17 +15,24 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 
 import httpx
 
 from .paced import PacedClient, Send
 
-USER_AGENT = "opendiscourse-research/0.1 (BILLSTATUS connector; polite, resumable)"
+USER_AGENT = "opendiscourse-research/0.1 (GovInfo bulk connector; polite, resumable)"
 PACE_SECONDS = 1.0
 BULK_ROOT = "https://www.govinfo.gov/bulkdata"
 ROOT_MANIFEST = f"{BULK_ROOT}/json/BILLSTATUS"
 TYPE_MANIFEST = ROOT_MANIFEST + "/{congress}/{bill_type}"
 ZIP_URL = BULK_ROOT + "/BILLSTATUS/{congress}/{bill_type}/BILLSTATUS-{congress}-{bill_type}.zip"
+BILLS_ROOT_MANIFEST = f"{BULK_ROOT}/json/BILLS"
+BILLS_TYPE_MANIFEST = BILLS_ROOT_MANIFEST + "/{congress}/{session}/{bill_type}"
+BILLS_ZIP_URL = (
+    BULK_ROOT + "/BILLS/{congress}/{session}/{bill_type}/BILLS-{congress}-{session}-{bill_type}.zip"
+)
+BILLS_XML_URL = BULK_ROOT + "/BILLS/{congress}/{session}/{bill_type}/{name}"
 BILL_TYPES: tuple[str, ...] = (
     "hconres",
     "hjres",
@@ -38,6 +46,11 @@ BILL_TYPES: tuple[str, ...] = (
 # BILLSTATUS-118hr184.xml -> (118, "hr", 184). Backtracking resolves hr/hres, s/sres.
 MEMBER_NAME = re.compile(
     r"^BILLSTATUS-(\d+)(hconres|hjres|hr|hres|s|sconres|sjres|sres)(\d+)\.xml$"
+)
+# BILLS-119hr23ih.xml -> (119, "hr", 23, "ih"). Version code is the filename suffix.
+BILLS_MEMBER_NAME = re.compile(
+    r"^BILLS-(\d+)(hconres|hjres|hr|hres|s|sconres|sjres|sres)(\d+)([a-z][a-z0-9]*)\.xml$",
+    re.IGNORECASE,
 )
 
 
@@ -55,13 +68,14 @@ def _error(message: str, status: int | None) -> GovInfoError:
 
 @dataclass(frozen=True)
 class RemoteZip:
-    """What GovInfo says about one BILLSTATUS zip, without downloading it."""
+    """What GovInfo says about one bulk zip (or fallback XML), without downloading it."""
 
     congress: int
     bill_type: str
     url: str
     size: int
     last_modified: str
+    session: int | None = None
 
 
 def _default_send(method: str, url: str) -> httpx.Response:
@@ -78,8 +92,20 @@ def member_identity(name: str) -> tuple[int, str, int] | None:
     return (int(match.group(1)), match.group(2), int(match.group(3))) if match else None
 
 
-class GovInfoBillStatus:
-    """Paced, retrying client for the GovInfo BILLSTATUS bulk-data service."""
+def bills_member_identity(name: str) -> tuple[int, str, int, str] | None:
+    """Parse ``BILLS-<congress><type><number><version>.xml``; None for anything else.
+
+    ``name`` may be a zip path; only the basename is matched. Version code is the
+    filename suffix (``ih``, ``eh``, ``rh``, ``pcs``, …), not a mapping from ``bill-stage``.
+    """
+    match = BILLS_MEMBER_NAME.match(PurePosixPath(name).name)
+    if not match:
+        return None
+    return (int(match.group(1)), match.group(2).lower(), int(match.group(3)), match.group(4).lower())
+
+
+class GovInfoBulk:
+    """Paced, retrying client shared by the BILLSTATUS and BILLS collections."""
 
     def __init__(
         self,
@@ -92,24 +118,41 @@ class GovInfoBillStatus:
     def _request(self, method: str, url: str) -> httpx.Response:
         return self._client.request(method, url)
 
-    def congresses(self) -> list[int]:
-        """Congress folders listed in the BILLSTATUS root manifest, ascending."""
+    def _congresses(self, root_url: str) -> list[int]:
+        """Numeric folder names in a collection root manifest, ascending."""
         try:
-            files = self._request("GET", ROOT_MANIFEST).json()["files"]
+            files = self._request("GET", root_url).json()["files"]
             found = sorted(
                 int(item["name"])
                 for item in files
                 if item.get("folder") and str(item.get("name", "")).isdigit()
             )
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
-            raise GovInfoError(f"{ROOT_MANIFEST}: unreadable manifest ({exc})") from exc
+            raise GovInfoError(f"{root_url}: unreadable manifest ({exc})") from exc
         if not found:
-            raise GovInfoError(f"{ROOT_MANIFEST}: no Congress folders listed")
+            raise GovInfoError(f"{root_url}: no Congress folders listed")
         return found
 
-    def zip_info(self, congress: int, bill_type: str) -> RemoteZip:
-        """Size and ``Last-Modified`` of one zip. Unknown size fails closed."""
-        url = ZIP_URL.format(congress=congress, bill_type=bill_type)
+    def _numeric_folders(self, url: str) -> list[int]:
+        """Numeric child folders of one manifest URL, ascending. Empty is allowed."""
+        try:
+            files = self._request("GET", url).json()["files"]
+            return sorted(
+                int(item["name"])
+                for item in files
+                if item.get("folder") and str(item.get("name", "")).isdigit()
+            )
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            raise GovInfoError(f"{url}: unreadable manifest ({exc})") from exc
+
+    def _head_zip(
+        self,
+        url: str,
+        congress: int,
+        bill_type: str,
+        session: int | None = None,
+    ) -> RemoteZip:
+        """Size and ``Last-Modified`` of one object. Unknown size fails closed."""
         headers = self._request("HEAD", url).headers
         length, modified = headers.get("content-length", ""), headers.get("last-modified")
         if not length.isdigit() or int(length) == 0 or not modified:
@@ -117,11 +160,10 @@ class GovInfoBillStatus:
                 f"{url}: the server gave no usable size or Last-Modified "
                 f"(content-length={length!r}, last-modified={modified!r})"
             )
-        return RemoteZip(congress, bill_type, url, int(length), modified)
+        return RemoteZip(congress, bill_type, url, int(length), modified, session)
 
-    def manifest_xml(self, congress: int, bill_type: str) -> frozenset[str]:
-        """Every XML file name GovInfo lists for one Congress and bill type."""
-        url = TYPE_MANIFEST.format(congress=congress, bill_type=bill_type)
+    def _manifest_xml(self, url: str) -> frozenset[str]:
+        """Every XML file name GovInfo lists at one directory URL."""
         try:
             files = self._request("GET", url).json()["files"]
             names = frozenset(
@@ -132,3 +174,56 @@ class GovInfoBillStatus:
         if not names:  # a degraded 200 must never become an authoritative zero
             raise GovInfoError(f"{url}: manifest lists no XML files")
         return names
+
+
+class GovInfoBillStatus(GovInfoBulk):
+    """Paced, retrying client for the GovInfo BILLSTATUS bulk-data service."""
+
+    def congresses(self) -> list[int]:
+        """Congress folders listed in the BILLSTATUS root manifest, ascending."""
+        return self._congresses(ROOT_MANIFEST)
+
+    def zip_info(self, congress: int, bill_type: str) -> RemoteZip:
+        """Size and ``Last-Modified`` of one zip. Unknown size fails closed."""
+        return self._head_zip(ZIP_URL.format(congress=congress, bill_type=bill_type), congress, bill_type)
+
+    def manifest_xml(self, congress: int, bill_type: str) -> frozenset[str]:
+        """Every XML file name GovInfo lists for one Congress and bill type."""
+        return self._manifest_xml(TYPE_MANIFEST.format(congress=congress, bill_type=bill_type))
+
+
+class GovInfoBills(GovInfoBulk):
+    """Paced, retrying client for the GovInfo BILLS (bill text) bulk-data service."""
+
+    def congresses(self) -> list[int]:
+        """Congress folders listed in the BILLS root manifest, ascending.
+
+        Non-numeric folders (``resources``, ``uslm``) are ignored; they are not data.
+        """
+        return self._congresses(BILLS_ROOT_MANIFEST)
+
+    def sessions(self, congress: int) -> list[int]:
+        """Session folders GovInfo lists for one Congress, ascending."""
+        url = f"{BILLS_ROOT_MANIFEST}/{congress}"
+        found = self._numeric_folders(url)
+        if not found:
+            raise GovInfoError(f"{url}: no session folders listed")
+        return found
+
+    def zip_info(self, congress: int, session: int, bill_type: str) -> RemoteZip:
+        """Size and ``Last-Modified`` of one Congress × session × type zip."""
+        url = BILLS_ZIP_URL.format(congress=congress, session=session, bill_type=bill_type)
+        return self._head_zip(url, congress, bill_type, session)
+
+    def xml_info(self, congress: int, session: int, bill_type: str, name: str) -> RemoteZip:
+        """Size and ``Last-Modified`` of one XML member (fallback when the zip is missing)."""
+        url = BILLS_XML_URL.format(
+            congress=congress, session=session, bill_type=bill_type, name=PurePosixPath(name).name
+        )
+        return self._head_zip(url, congress, bill_type, session)
+
+    def manifest_xml(self, congress: int, session: int, bill_type: str) -> frozenset[str]:
+        """Every XML file name GovInfo lists for one Congress, session and bill type."""
+        return self._manifest_xml(
+            BILLS_TYPE_MANIFEST.format(congress=congress, session=session, bill_type=bill_type)
+        )

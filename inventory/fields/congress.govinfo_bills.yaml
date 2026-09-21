@@ -1,0 +1,61 @@
+dataset: congress.govinfo_bills
+audited_on: '2026-09-21'
+origin: >-
+  https://www.govinfo.gov/bulkdata/BILLS (one zip per Congress, session and bill type;
+  one XML member per bill version). Sample:
+  https://www.govinfo.gov/bulkdata/BILLS/119/1/hr/BILLS-119hr23ih.xml
+capture:
+  whole_record: core.bill_text_source_record
+  notes: >-
+    Every element and attribute of each BILLS XML is kept as JSON, keyed by artifact and
+    member. The zip (or fallback XML) is a retained artifact. Version identity is typed
+    on the record and, when we already hold the bill, on core.document / core.bill_document
+    with a pointer to those bytes.
+fields:
+- name: 'version identity: congress, type, number, version code (filename suffix ih/eh/rh/pcs/…)'
+  status: typed
+  where: core.bill_text_source_record and core.document
+- name: session (from the zip path, not guessed from <session> text)
+  status: typed
+  where: core.bill_text_source_record.session and core.document.session
+- name: official title and Dublin Core date
+  status: typed
+  where: core.document.title and core.document.published_at
+  reason: dc:title is the fallback when official-title is empty
+- name: link to an existing core.bill (congress + type + number)
+  status: typed
+  where: core.bill_document (relation text) and core.bill_text_source_record.bill_id
+  reason: skipped when we do not hold the bill; the version is still stored as a record
+- name: pointer to the retained bytes
+  status: typed
+  where: core.document.artifact_id and core.bill_text_source_record.source_artifact_id
+- name: 'root attributes: bill-stage / resolution-stage, dms-id, public-private, bill-type, key'
+  status: whole_record_only
+  where: core.bill_text_source_record
+  reason: bill-stage is kept in document.metadata; it is not the version code
+- name: metadata/dublinCore (dc:title, dc:publisher, dc:date, dc:format, dc:language, dc:rights)
+  status: whole_record_only
+  where: core.bill_text_source_record
+  reason: title and date are typed; the rest have no query column yet
+- name: 'form: congress, session, legis-num, current-chamber, legis-type, distribution-code, action'
+  status: whole_record_only
+  where: core.bill_text_source_record
+  reason: identity is taken from the filename; the printed form is evidence in the record
+- name: sponsor and cosponsor name-id values in the form
+  status: whole_record_only
+  where: core.bill_text_source_record
+  reason: people already join through BILLSTATUS + BioGuide; do not write people from bill text
+- name: legis-body / resolution-body (the legislative text and every nested element)
+  status: whole_record_only
+  where: core.bill_text_source_record
+  reason: the full XML is the stored record; NLP over body text is later
+- name: attestation, endorsement, and other DTD structural wrappers
+  status: whole_record_only
+  where: core.bill_text_source_record
+  reason: no typed consumer yet
+- name: XML prolog, DOCTYPE (bill.dtd / res.dtd), and xml-stylesheet processing instruction
+  status: not_stored
+  reason: not data; we deliberately do not fetch bill.dtd or billres.xsl
+- name: PLAW, BILLSUM, and PDF/HTM packages
+  status: not_stored
+  reason: out of scope for this Connector (Story 11.3 is BILLS XML only)

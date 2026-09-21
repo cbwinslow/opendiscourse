@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import text
 
 from ..db import session
+
+_BILL_TEXT = (
+    Path(__file__).resolve().parents[3] / "sql" / "query" / "billtext" / "loaded_counts.sql"
+).read_text()
 
 JURISDICTION = "us"
 
@@ -77,6 +82,7 @@ def loaded_counts() -> dict[str, Any]:
         bills: dict[int, dict[str, int]] = {}
         for row in rows(_BILLS):
             bills.setdefault(int(row["congress"]), {})[row["bill_type"]] = row["n"]
+        bill_text = {int(r["congress"]): r["n"] for r in rows(_BILL_TEXT)}
         actions = {int(r["congress"]): r["n"] for r in rows(_ACTIONS)}
         roll_calls: dict[int, dict[str, dict[str, int]]] = {}
         for row in rows(_ROLL_CALLS):
@@ -110,6 +116,7 @@ def loaded_counts() -> dict[str, Any]:
         ).scalar()
     return {
         "bills": bills,
+        "bill_text": bill_text,
         "actions": actions,
         "roll_calls": roll_calls,
         "memberships": members,
