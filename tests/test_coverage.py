@@ -32,8 +32,19 @@ TODAY = date(2026, 9, 19)
 class FakeOfficial:
     """Stands in for OfficialCounts; counts calls and can fail selected lookups."""
 
-    def __init__(self, bills=5, senate=10, house=20, first=108, fail=()):
+    def __init__(
+        self,
+        bills=5,
+        senate=10,
+        house=20,
+        first=108,
+        fail=(),
+        bills_xml=3,
+        bills_sessions=(1, 2),
+    ):
         self.bills, self.senate, self.house, self.first = bills, senate, house, first
+        self.bills_xml_count = bills_xml
+        self.session_list = list(bills_sessions)
         self.fail = set(fail)
         self.calls = 0
 
@@ -55,10 +66,20 @@ class FakeOfficial:
     def house_rolls(self, year: int) -> int:
         return self._go("house", self.house, year)
 
+    def bills_sessions(self, congress: int) -> list[int]:
+        self.calls += 1
+        if "bills_sessions" in self.fail or f"bills_sessions:{congress}" in self.fail:
+            raise OfficialCountError("bills_sessions: down")
+        return list(self.session_list)
+
+    def bills_xml(self, congress: int, session: int, bill_type: str) -> int:
+        return self._go("bills_xml", self.bills_xml_count, f"{session}:{bill_type}")
+
 
 def _loaded(**overrides: Any) -> dict[str, Any]:
     base: dict[str, Any] = {
         "bills": {},
+        "bill_text": {},
         "actions": {},
         "roll_calls": {},
         "memberships": {},
@@ -332,6 +353,44 @@ def test_unknown_fec_estimate_is_none(tmp_path):
         assert "FEC stage rows (estimate): ?" in format_table(result)
 
 
+def test_session_lists_are_cached_as_json_not_ints(tmp_path):
+    cache = OfficialCache(tmp_path / "o.json")
+    assert cache.get_json("bills:sessions:113", lambda: [1, 2]) == [1, 2]
+    cache.save()
+    warm = OfficialCache(tmp_path / "o.json")
+    assert warm.get_json("bills:sessions:113", lambda: pytest.fail("refetched")) == [1, 2]
+    assert warm.get("k", lambda: 3) == 3
+
+
+def test_bill_text_coverage_starts_at_the_113th(tmp_path):
+    cache = OfficialCache(tmp_path / "official.json")
+    result = build_report(
+        [108, 113],
+        official=FakeOfficial(bills_xml=3, bills_sessions=(1, 2)),
+        cache=cache,
+        loaded=_loaded(bill_text={113: 10}),
+        lake=lambda c: None,
+        members={108: set(), 113: set()},
+        today=TODAY,
+    )
+    rows = {row["congress"]: row for row in result["congresses"]}
+    assert rows[108]["bill_text"] is None
+    text = rows[113]["bill_text"]
+    assert text["basis"] == "govinfo_bills_manifest"
+    assert text["expected"] == 2 * 8 * 3
+    assert text["loaded"] == 10
+    table = format_table(result)
+    assert "bill text" in table
+    assert "n/a" in table  # Congress 108 has no BILLS bulk
+
+
+def test_a_failed_bills_session_root_stays_unknown(tmp_path):
+    result, _ = _report(tmp_path, official=FakeOfficial(fail={"bills_sessions"}))
+    text = result["congresses"][0]["bill_text"]
+    assert text["expected"] is None and text["status"] == "unknown"
+    assert text["basis"] == "govinfo_bills_manifest"
+
+
 def test_table_labels_lower_trust_columns():
     header = format_table(
         {
@@ -344,6 +403,7 @@ def test_table_labels_lower_trust_columns():
         }
     )
     assert "actions(lake)" in header and "memberships(yaml)" in header
+    assert "bill text" in header
 
 
 def test_in_progress_congress_and_current_year_are_refetched_after_a_day(tmp_path):
@@ -363,8 +423,9 @@ def test_in_progress_congress_and_current_year_are_refetched_after_a_day(tmp_pat
     clock["now"] += timedelta(days=2)
     official = FakeOfficial()
     run(official)
-    # 8 bill types + 2 senate sessions + house 2026 refetch; closed year 2025 does not
-    assert official.calls == 8 + 2 + 1
+    # 8 bill types + 2 senate sessions + house 2026 refetch + BILLS sessions and
+    # 2×8 type manifests; closed year 2025 does not refetch.
+    assert official.calls == 8 + 2 + 1 + 1 + 16
 
 
 def test_entry_cached_while_volatile_is_refetched_once_it_is_closed(tmp_path):
@@ -461,6 +522,20 @@ def test_coverage_report_keeps_fetched_counts_when_a_later_step_fails(tmp_path, 
     with pytest.raises(RuntimeError):
         coverage.coverage_report([118])
     assert not (tmp_path / "meta" / "latest.json").exists()
+
+
+def test_bills_xml_404_is_unpublished_zero_and_a_failed_session_root_is_unknown():
+    def get(url: str) -> httpx.Response:
+        if url.endswith("/BILLS/113"):
+            return _response(url, json={"files": []})
+        if "/BILLS/113/1/sres" in url:
+            return _response(url, status=404)
+        return _response(url, json={"files": [{"name": "a.xml"}]})
+
+    client = OfficialCounts(get=get, pace_seconds=0, sleep=lambda s: None)
+    assert client.bills_xml(113, 1, "sres") == 0
+    with pytest.raises(OfficialCountError, match="no session"):
+        client.bills_sessions(113)
 
 
 def test_provider_never_turns_an_empty_200_into_zero():

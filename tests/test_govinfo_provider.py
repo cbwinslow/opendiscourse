@@ -7,10 +7,14 @@ import pytest
 
 from opendiscourse_research.providers.govinfo import (
     BILL_TYPES,
+    BILLS_XML_URL,
+    BILLS_ZIP_URL,
     ZIP_URL,
+    GovInfoBills,
     GovInfoBillStatus,
     GovInfoError,
     GovInfoNotFound,
+    bills_member_identity,
     member_identity,
 )
 from opendiscourse_research.providers.paced import PacedClient, retry_after_seconds
@@ -173,6 +177,78 @@ def test_member_identity_parses_only_real_bill_file_names(name: str, expected) -
 def test_every_bill_type_round_trips_through_member_identity() -> None:
     for bill_type in BILL_TYPES:
         assert member_identity(f"BILLSTATUS-110{bill_type}42.xml") == (110, bill_type, 42)
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("BILLS-119hr23ih.xml", (119, "hr", 23, "ih")),
+        ("BILLS-119hres1eh.xml", (119, "hres", 1, "eh")),
+        ("BILLS-119s1pcs.xml", (119, "s", 1, "pcs")),
+        ("BILLS-118hr184rh.xml", (118, "hr", 184, "rh")),
+        ("hr/BILLS-119hr23ih.xml", (119, "hr", 23, "ih")),
+        ("BILLS-119-1-hr.zip", None),
+        ("BILLSTATUS-119hr23.xml", None),
+        ("bill.dtd", None),
+    ],
+)
+def test_bills_member_identity_parses_version_code_from_the_filename(name: str, expected) -> None:
+    assert bills_member_identity(name) == expected
+
+
+def test_every_bill_type_round_trips_through_bills_member_identity() -> None:
+    for bill_type in BILL_TYPES:
+        assert bills_member_identity(f"BILLS-119{bill_type}9enr.xml") == (119, bill_type, 9, "enr")
+
+
+def _bills(script: _Script) -> GovInfoBills:
+    return GovInfoBills(send=script, pace_seconds=0, sleep=lambda _s: None)
+
+
+def test_bills_congresses_ignore_resource_folders() -> None:
+    root = "https://www.govinfo.gov/bulkdata/json/BILLS"
+    files = [
+        {"name": "119", "folder": True},
+        {"name": "113", "folder": True},
+        {"name": "resources", "folder": True},
+        {"name": "uslm", "folder": True},
+    ]
+    assert _bills(_Script({root: [{"json": {"files": files}}]})).congresses() == [113, 119]
+
+
+def test_bills_sessions_lists_numeric_folders() -> None:
+    url = "https://www.govinfo.gov/bulkdata/json/BILLS/119"
+    files = [{"name": "2", "folder": True}, {"name": "1", "folder": True}, {"name": "notes", "folder": True}]
+    assert _bills(_Script({url: [{"json": {"files": files}}]})).sessions(119) == [1, 2]
+
+
+def test_bills_zip_info_includes_the_session() -> None:
+    url = BILLS_ZIP_URL.format(congress=119, session=1, bill_type="hr")
+    script = _Script(
+        {url: [{"headers": {"content-length": "99", "last-modified": "Sat, 20 Jan 2024 00:55:38 GMT"}}]}
+    )
+    remote = _bills(script).zip_info(119, 1, "hr")
+    assert (remote.congress, remote.session, remote.bill_type, remote.size) == (119, 1, "hr", 99)
+    assert remote.url == url
+
+
+def test_bills_xml_info_uses_the_member_url_and_404_is_not_found() -> None:
+    url = BILLS_XML_URL.format(
+        congress=119, session=1, bill_type="hr", name="BILLS-119hr1ih.xml"
+    )
+    script = _Script(
+        {url: [{"headers": {"content-length": "12", "last-modified": "Sat, 20 Jan 2024 00:55:38 GMT"}}]}
+    )
+    remote = _bills(script).xml_info(119, 1, "hr", "BILLS-119hr1ih.xml")
+    assert remote.url == url and remote.size == 12
+    with pytest.raises(GovInfoNotFound):
+        _bills(_Script({url: [{"status": 404}]})).xml_info(119, 1, "hr", "BILLS-119hr1ih.xml")
+
+
+def test_a_missing_bills_zip_is_not_found() -> None:
+    url = BILLS_ZIP_URL.format(congress=119, session=1, bill_type="sres")
+    with pytest.raises(GovInfoNotFound):
+        _bills(_Script({url: [{"status": 404}]})).zip_info(119, 1, "sres")
 
 
 def test_a_403_is_an_error_but_not_a_not_found() -> None:

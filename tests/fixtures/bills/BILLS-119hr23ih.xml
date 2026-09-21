@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="billres.xsl"?>
+<!DOCTYPE bill PUBLIC "-//US Congress//DTDs/bill.dtd//EN" "bill.dtd">
+<bill bill-stage="Introduced-in-House" dms-id="H046BABB0DCB14F88976573E8D2A0299D" public-private="public" key="H" bill-type="olc">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dublinCore>
+      <dc:title>119 HR 23 IH: Illegitimate Court Counteraction Act</dc:title>
+      <dc:publisher>U.S. House of Representatives</dc:publisher>
+      <dc:date>2025-01-03</dc:date>
+      <dc:format>text/xml</dc:format>
+      <dc:language>EN</dc:language>
+      <dc:rights>Public domain.</dc:rights>
+    </dublinCore>
+  </metadata>
+  <form>
+    <congress display="yes">119th CONGRESS</congress>
+    <session display="yes">1st Session</session>
+    <legis-num display="yes">H. R. 23</legis-num>
+    <action display="yes">
+      <action-date date="20250103">January 3, 2025</action-date>
+      <action-desc>
+        <sponsor name-id="R000614">Mr. Roy</sponsor>
+        (for himself,
+        <cosponsor name-id="M001199">Mr. Mast</cosponsor>)
+        introduced the following bill
+      </action-desc>
+    </action>
+    <legis-type>A BILL</legis-type>
+    <official-title display="yes">To impose sanctions with respect to the International Criminal Court.</official-title>
+  </form>
+  <legis-body id="HBODY" style="OLC">
+    <section id="HS1" section-type="section-one">
+      <enum>1.</enum>
+      <header>Short title</header>
+      <text display-inline="no-display-inline">This Act may be cited as the <quote><short-title>Illegitimate Court Counteraction Act</short-title></quote>.</text>
+    </section>
+  </legis-body>
+</bill>

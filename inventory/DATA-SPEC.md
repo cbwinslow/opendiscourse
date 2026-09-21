@@ -55,6 +55,7 @@ what would type it), `not_stored` (not kept; a reason is required, and only for 
 | Dataset | Checklist | State |
 |---|---|---|
 | `congress.govinfo_billstatus` | `fields/congress.govinfo_billstatus.yaml` | audited |
+| `congress.govinfo_bills` | `fields/congress.govinfo_bills.yaml` | audited (Story 11.3); live run pending |
 | `congress.house_votes` (Clerk XML, House) | `fields/congress.house_votes.yaml` | audited (Story 11.1); live run pending |
 | `congress.senate_votes` (senate.gov XML) | `fields/congress.senate_votes.yaml` | audited (Story 11.2); live run pending |
 | `congress.legislators` | none yet | **needs audit** |

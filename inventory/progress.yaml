@@ -64,7 +64,22 @@ items:
     provenance: legacy_cache_unverified
     sensitivity: public_claimed
     validate: Verify package and granule IDs against GovInfo manifests. The 119th Congress comparison found 2,831 XML files absent from local BILLSTATUS listing metadata; treat local data as a partial cache only.
-    next: BILLSTATUS is done (Story 9.5); the missing-file plan is obsolete because the fresh 119th zip matches GovInfo's manifest. Bill text (BILLS) is the next GovInfo Connector.
+    next: BILLSTATUS is done (Story 9.5). BILLS has a Connector (`research-db sync-bill-text`) and is not live-loaded yet.
+  - id: govbills
+    dataset: congress.govinfo_bills
+    state: ready
+    scope: >-
+      GovInfo BILLS XML versions, Congresses 113-119 (108-112 have no BILLS bulk). Built as
+      `research-db sync-bill-text`: one zip per Congress × session × bill type into DATA_ROOT,
+      lossless JSON records, attach to an existing core.bill when Congress + type + number already
+      exist. Not live-loaded yet; do not treat the warehouse as complete for bill text.
+    origin: https://www.govinfo.gov/bulkdata/BILLS
+    provenance: authoritative_official_publisher
+    sensitivity: public
+    validate: >-
+      Connector tests against a fake origin (no live download). Coverage expected counts come from
+      GovInfo BILLS directory manifests starting at the 113th.
+    next: Review, then a live run for Congresses 113-119 (see docs/PROJECT-STATE.md). Do not claim live completeness until that run is recorded.
   - id: congdata
     dataset: congress.legislation
     state: verify

@@ -47,14 +47,33 @@ def _text(element: ElementTree.Element) -> str:
     return (element.text or "").strip()
 
 
+def _tail(element: ElementTree.Element) -> str:
+    return (element.tail or "").strip()
+
+
 def _check_no_tail(child: ElementTree.Element, parent_path: str) -> None:
-    if (child.tail or "").strip():
+    if _tail(child):
         raise ValueError(
             f"text after <{_name(child.tag)}> in {parent_path} (a tail) cannot be recorded"
         )
 
 
-def _value(element: ElementTree.Element, path: str, list_tags: frozenset[str]) -> Any:
+def _with_tail(value: Any, tail: str) -> Any:
+    """Attach a sibling tail to a child value without dropping a scalar."""
+    if not tail:
+        return value
+    if not isinstance(value, dict):
+        value = {"#text": value}
+    value["#tail"] = tail
+    return value
+
+
+def _value(
+    element: ElementTree.Element,
+    path: str,
+    list_tags: frozenset[str],
+    capture_tails: bool,
+) -> Any:
     children = list(element)
     if not children and not element.attrib:
         return _text(element)
@@ -63,23 +82,34 @@ def _value(element: ElementTree.Element, path: str, list_tags: frozenset[str]) -
         value["#text"] = text
     groups: dict[str, list[Any]] = {}
     for child in children:
-        _check_no_tail(child, path)
+        if not capture_tails:
+            _check_no_tail(child, path)
         name = _name(child.tag)
-        groups.setdefault(name, []).append(_value(child, f"{path}/{name}", list_tags))
+        child_value = _value(child, f"{path}/{name}", list_tags, capture_tails)
+        if capture_tails:
+            child_value = _with_tail(child_value, _tail(child))
+        groups.setdefault(name, []).append(child_value)
     for name, values in groups.items():
         value[name] = values if len(values) > 1 or name in list_tags else values[0]
     return value
 
 
 def xml_to_record(
-    root: ElementTree.Element, list_tags: frozenset[str] = LIST_TAGS
+    root: ElementTree.Element,
+    list_tags: frozenset[str] = LIST_TAGS,
+    *,
+    capture_tails: bool = False,
 ) -> dict[str, Any]:
     """The lossless JSON form of ``root``'s content (the root tag itself is not a key).
 
     ``list_tags`` names the tags that are always arrays; BILLSTATUS's are the default, another
     source (the House Clerk's roll calls) passes its own.
+
+    BILLS legislative XML is mixed content (a sponsor name sits next to running text). Pass
+    ``capture_tails=True`` so that text after a child is kept as ``#tail`` on that child
+    instead of raising.
     """
-    value = _value(root, f"/{_name(root.tag)}", list_tags)
+    value = _value(root, f"/{_name(root.tag)}", list_tags, capture_tails)
     return value if isinstance(value, dict) else {"#text": value}
 
 
@@ -116,10 +146,18 @@ def xml_leaves(root: ElementTree.Element) -> Counter[tuple[str, str]]:
             leaves[(f"{path}/@{_name(name)}", value)] += 1
         text = _text(element)
         if not len(element) and not element.attrib:
-            leaves[(path, text)] += 1
+            # A tailed leaf is stored as {#text, #tail}; match that path so lossless
+            # checks do not fail real BILLS mixed content.
+            if _tail(element):
+                leaves[(f"{path}/#text", text)] += 1
+            else:
+                leaves[(path, text)] += 1
         elif text:
             leaves[(f"{path}/#text", text)] += 1
         for child in element:
+            if tail := _tail(child):
+                child_path = f"{path}/{_name(child.tag)}"
+                leaves[(f"{child_path}/#tail", tail)] += 1
             walk(child, path)
 
     walk(root, "")
@@ -140,7 +178,7 @@ def record_paths(record: dict[str, Any], root_tag: str) -> set[str]:
         if not isinstance(value, dict):
             return
         for key, child in value.items():
-            if key == "#text":
+            if key in {"#text", "#tail"}:
                 continue
             if key.startswith("@"):
                 paths.add(f"{path}/{key}")
@@ -161,7 +199,7 @@ def record_leaves(record: dict[str, Any], root_tag: str) -> Counter[tuple[str, s
             leaves[(path, value)] += 1
             return
         for key, child in value.items():
-            if key == "#text" or key.startswith("@"):
+            if key in {"#text", "#tail"} or key.startswith("@"):
                 leaves[(f"{path}/{key}", child)] += 1
                 continue
             for member in _members(child):

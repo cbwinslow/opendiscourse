@@ -85,6 +85,7 @@ def _cleanup() -> None:
         conn.execute("DELETE FROM core.person_identifier WHERE external_id = 'COVTEST1'")
         conn.execute("DELETE FROM core.person WHERE full_name = 'Coverage Test'")
         conn.execute("DELETE FROM core.organization WHERE name = 'Coverage Test Org'")
+        conn.execute("DELETE FROM core.bill_text_source_record WHERE congress = %s", (int(CONGRESS),))
         conn.execute("DELETE FROM ingest.artifact WHERE artifact_key = 'coverage-test'")
         conn.commit()
 
@@ -208,6 +209,13 @@ def test_loaded_counts_read_actions_votes_and_memberships(database):
             "VALUES (%s, %s, 'yea', %s)",
             (voted, person, artifact),
         )
+        conn.execute(
+            "INSERT INTO core.bill_text_source_record ("
+            "source_artifact_id, source_member, congress, session, bill_type, "
+            "bill_number, version_code, record, record_sha256) "
+            "VALUES (%s, 'BILLS-9999hr1ih.xml', %s, 1, 'hr', '1', 'ih', '{}'::jsonb, 'abc')",
+            (artifact, int(CONGRESS)),
+        )
         conn.commit()
     try:
         loaded = loaded_counts()
@@ -221,6 +229,7 @@ def test_loaded_counts_read_actions_votes_and_memberships(database):
         }
         assert loaded["memberships"][number] == {"COVTEST1"}
         assert "COVTEST1" in loaded["bioguide_ids"]
+        assert loaded["bill_text"][number] == 1
     finally:
         _cleanup()
 

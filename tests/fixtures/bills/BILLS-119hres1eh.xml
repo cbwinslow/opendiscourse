@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="billres.xsl"?>
+<!DOCTYPE resolution PUBLIC "-//US Congress//DTDs/res.dtd//EN" "res.dtd">
+<resolution dms-id="H71CD881CA5F04CD9AB1EE80919A601BD" public-private="public" resolution-stage="Engrossed-in-House" resolution-type="house-resolution" star-print="no-star-print" key="H" stage-count="1">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dublinCore>
+      <dc:title>119 HRES 1 EH: Electing officers of the House of Representatives.</dc:title>
+      <dc:publisher>U.S. House of Representatives</dc:publisher>
+      <dc:date>2025-01-03</dc:date>
+      <dc:format>text/xml</dc:format>
+      <dc:language>EN</dc:language>
+      <dc:rights>Public domain.</dc:rights>
+    </dublinCore>
+  </metadata>
+  <form>
+    <congress>119th CONGRESS</congress>
+    <session>1st Session</session>
+    <legis-num>H. RES. 1</legis-num>
+    <legis-type>RESOLUTION</legis-type>
+    <official-title>Electing officers of the House of Representatives.</official-title>
+  </form>
+  <resolution-body style="multiple-resolved-clause" id="HBODY">
+    <section section-type="resolved" id="S1">
+      <text>That Kevin McCumber of the State of Illinois be chosen Clerk of the House of Representatives.</text>
+    </section>
+    <section section-type="resolved" id="S2">
+      <text>That William McFarland of the State of Maryland be chosen Sergeant-at-Arms of the House of Representatives.</text>
+    </section>
+  </resolution-body>
+</resolution>

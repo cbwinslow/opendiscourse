@@ -434,10 +434,25 @@ core_document = Table(
     Column("source_payload_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.raw_payload.payload_id")),
     Column("artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    # Version identity for GovInfo BILLS text (Story 11.3). Nullable so BILLSTATUS link rows stay valid.
+    Column("version_code", Text),
+    Column("congress", Integer),
+    Column("session", Integer),
+    Column("bill_type", Text),
+    Column("bill_number", Text),
+    Column("source_member", Text),
     UniqueConstraint("document_type", "source_key"),
     CheckConstraint(
         "artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
         name="document_check",
+    ),
+    Index(
+        "document_bill_version_idx",
+        "congress",
+        "bill_type",
+        "bill_number",
+        "version_code",
+        postgresql_where=text("version_code IS NOT NULL"),
     ),
     schema="core",
 )
@@ -598,6 +613,51 @@ def document_table():
 def bill_document_table():
     """Return the Alembic-adopted canonical bill-document table."""
     return core_bill_document
+
+
+core_bill_text_source_record = Table(
+    "bill_text_source_record",
+    SQLModel.metadata,
+    Column(
+        "bill_text_source_record_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column("bill_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.bill.bill_id")),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("source_member", Text, nullable=False),
+    Column("congress", Integer, nullable=False),
+    Column("session", Integer, nullable=False),
+    Column("bill_type", Text, nullable=False),
+    Column("bill_number", Text, nullable=False),
+    Column("version_code", Text, nullable=False),
+    Column("record", JSONB, nullable=False),
+    Column("record_sha256", Text, nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    UniqueConstraint("source_artifact_id", "source_member"),
+    Index("bill_text_source_record_bill_idx", "bill_id"),
+    Index(
+        "bill_text_source_record_identity_idx",
+        "congress",
+        "session",
+        "bill_type",
+        "bill_number",
+        "version_code",
+        unique=True,
+    ),
+    schema="core",
+)
+
+
+def bill_text_source_record_table():
+    """Return the lossless GovInfo BILLS version record table."""
+    return core_bill_text_source_record
 
 
 core_organization = Table(

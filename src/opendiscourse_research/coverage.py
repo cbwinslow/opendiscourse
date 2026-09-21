@@ -33,6 +33,7 @@ from .repositories.coverage import loaded_counts
 
 FIRST_CONGRESS = 108
 LAST_CONGRESS = 119
+FIRST_BILLS_CONGRESS = 113
 BILL_TYPES = ("hconres", "hjres", "hr", "hres", "s", "sconres", "sjres", "sres")
 SENATE_SESSIONS = (1, 2)
 VOLATILE_MAX_AGE = timedelta(days=1)
@@ -109,12 +110,22 @@ class OfficialCache:
         for key, entry in (raw.items() if isinstance(raw, dict) else ()):
             try:
                 datetime.fromisoformat(entry["fetched_at"])
-                int(entry["value"])
+                entry["value"]
             except (KeyError, TypeError, ValueError):
                 continue  # a malformed entry is refetched, never trusted
             self.entries[key] = entry
         self.errors: list[str] = []
         self.requests = 0
+
+    def _fresh(self, key: str, volatile: bool) -> Any | None:
+        """Return a cached value that does not need a refetch, else None."""
+        entry = self.entries.get(key)
+        if entry is None or self.refresh:
+            return None
+        age = self.now() - datetime.fromisoformat(entry["fetched_at"])
+        if not (volatile or entry.get("volatile")) or (volatile and age < VOLATILE_MAX_AGE):
+            return entry["value"]
+        return None
 
     def get(self, key: str, fetch: Callable[[], int], volatile: bool = False) -> int | None:
         """Return a cached count, fetching once when absent, stale, or refreshed.
@@ -123,13 +134,30 @@ class OfficialCache:
         refetched after a day, and once more after the source stops changing.
         A failed refetch falls back to the stale value rather than to unknown.
         """
+        cached = self._fresh(key, volatile)
+        if isinstance(cached, int) and not isinstance(cached, bool):
+            return cached
         entry = self.entries.get(key)
-        if entry is not None and not self.refresh:
-            age = self.now() - datetime.fromisoformat(entry["fetched_at"])
-            if not (volatile or entry.get("volatile")) or (
-                volatile and age < VOLATILE_MAX_AGE
-            ):
-                return entry["value"]
+        self.requests += 1
+        try:
+            value = fetch()
+        except OfficialCountError as exc:
+            self.errors.append(f"{key}: {exc}")
+            stale = entry["value"] if entry is not None else None
+            return stale if isinstance(stale, int) and not isinstance(stale, bool) else None
+        self.entries[key] = {
+            "value": value,
+            "fetched_at": self.now().isoformat(),
+            "volatile": volatile,
+        }
+        return value
+
+    def get_json(self, key: str, fetch: Callable[[], Any], volatile: bool = False) -> Any | None:
+        """Cache a JSON value (session lists, not counts). A failed fetch stays unknown."""
+        cached = self._fresh(key, volatile)
+        if cached is not None and not isinstance(cached, bool):
+            return cached
+        entry = self.entries.get(key)
         self.requests += 1
         try:
             value = fetch()
@@ -374,12 +402,38 @@ def build_report(
             len(expected_people & loaded["memberships"].get(congress, set())),
             "legislators_yaml",
         )
+        bill_text = None
+        if congress >= FIRST_BILLS_CONGRESS and hasattr(official, "bills_xml"):
+            session_list = cache.get_json(
+                f"bills:sessions:{congress}",
+                lambda c=congress: official.bills_sessions(c),
+                volatile=in_progress,
+            )
+            if isinstance(session_list, list):
+                parts = [
+                    cache.get(
+                        f"bills:{congress}:{session}:{bill_type}",
+                        lambda s=session, t=bill_type, c=congress: official.bills_xml(c, s, t),
+                        volatile=in_progress,
+                    )
+                    for session in session_list
+                    for bill_type in BILL_TYPES
+                ]
+                expected_text = None if None in parts else sum(p for p in parts if p is not None)
+            else:
+                expected_text = None
+            bill_text = cell(
+                expected_text,
+                loaded.get("bill_text", {}).get(congress, 0),
+                "govinfo_bills_manifest",
+            )
         rows.append(
             {
                 "congress": congress,
                 "years": list(years),
                 "in_progress": in_progress,
                 "bills": bills,
+                "bill_text": bill_text,
                 "actions": actions,
                 "votes": votes,
                 "members": {"people": people, "memberships": memberships},
@@ -474,15 +528,16 @@ def format_table(result: dict[str, Any]) -> str:
             f"{start['first_official_congress']} (confirmed: {start['confirmed']})"
         ),
         (
-            "loaded/expected   bills      actions(lake)   house rc    senate rc"
+            "loaded/expected   bills      bill text      actions(lake)   house rc    senate rc"
             "   memberships(yaml)"
         ),
     ]
     for row in result["congresses"]:
         mark = "*" if row["in_progress"] else " "
+        text = row.get("bill_text")
         lines.append(
             f"{row['congress']}{mark:<2}"
-            f"{fmt(row['bills']):>17}{fmt(row['actions']):>16}"
+            f"{fmt(row['bills']):>17}{(fmt(text) if text else 'n/a'):>16}{fmt(row['actions']):>16}"
             f"{fmt(row['votes']['house']):>12}{fmt(row['votes']['senate']):>13}"
             f"{fmt(row['members']['memberships']):>14}"
         )

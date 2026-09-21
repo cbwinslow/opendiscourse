@@ -23,6 +23,8 @@ USER_AGENT = "opendiscourse-research/0.1 (coverage comparator; read-only)"
 PACE_SECONDS = 1.0
 GOVINFO_ROOT = "https://www.govinfo.gov/bulkdata/json/BILLSTATUS"
 GOVINFO_MANIFEST = "https://www.govinfo.gov/bulkdata/json/BILLSTATUS/{congress}/{bill_type}"
+GOVINFO_BILLS_ROOT = "https://www.govinfo.gov/bulkdata/json/BILLS"
+GOVINFO_BILLS_MANIFEST = "https://www.govinfo.gov/bulkdata/json/BILLS/{congress}/{session}/{bill_type}"
 SENATE_MENU = "https://www.senate.gov/legislative/LIS/roll_call_lists/vote_menu_{congress}_{session}.xml"
 HOUSE_INDEX = "https://clerk.house.gov/evs/{year}/index.asp"
 _ROLL_NUMBER = re.compile(r"rollnumber=(\d+)", re.IGNORECASE)
@@ -88,6 +90,40 @@ class OfficialCounts:
             raise OfficialCountError(f"{url}: unreadable manifest ({exc})") from exc
         if count == 0:  # a degraded 200 must never become an authoritative zero
             raise OfficialCountError(f"{url}: manifest lists no XML files")
+        return count
+
+    def bills_sessions(self, congress: int) -> list[int]:
+        """Session folders GovInfo lists for one BILLS Congress."""
+        url = f"{GOVINFO_BILLS_ROOT}/{congress}"
+        try:
+            names = [
+                int(item["name"])
+                for item in self._fetch(url).json()["files"]
+                if item.get("folder") and str(item.get("name", "")).isdigit()
+            ]
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            raise OfficialCountError(f"{url}: unreadable manifest ({exc})") from exc
+        if not names:
+            raise OfficialCountError(f"{url}: no session folders listed")
+        return sorted(names)
+
+    def bills_xml(self, congress: int, session: int, bill_type: str) -> int:
+        """Return the number of BILLS XML files GovInfo lists for one type and session.
+
+        A 404 means that type is unpublished (expected zero), not an unknown count.
+        """
+        url = GOVINFO_BILLS_MANIFEST.format(congress=congress, session=session, bill_type=bill_type)
+        try:
+            response = self._fetch(url)
+        except OfficialCountError as exc:
+            if "404" in str(exc):
+                return 0
+            raise
+        try:
+            files = response.json()["files"]
+            count = sum(1 for item in files if item.get("name", "").endswith(".xml"))
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            raise OfficialCountError(f"{url}: unreadable manifest ({exc})") from exc
         return count
 
     def senate_votes(self, congress: int, session: int) -> int:
