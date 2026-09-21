@@ -33,7 +33,9 @@ case "$name" in
     exec uv --directory "$dest" run python -m app --transport stdio
     ;;
   census)
-    exec "$dest/scripts/mcp-connect.sh"
+    echo "The official Census MCP is disabled: it starts a second Postgres." >&2
+    echo "Census facts belong in database opendiscourse on port 5434." >&2
+    exit 1
     ;;
   *)
     echo "unknown MCP server: $name" >&2

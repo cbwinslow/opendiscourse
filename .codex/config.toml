@@ -17,8 +17,3 @@ env_vars = ["FEC_API_KEY"]
 command = "bash"
 args = ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" openstates"]
 env_vars = ["OPENSTATES_API_KEY"]
-
-[mcp_servers.opendiscourse-census]
-command = "bash"
-args = ["-lc", "exec \"$(git rev-parse --show-toplevel)/scripts/mcp_run.sh\" census"]
-env_vars = ["CENSUS_API_KEY"]
