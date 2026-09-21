@@ -41,7 +41,12 @@ from ..providers.govinfo import (
     bills_member_identity,
 )
 from ..repositories.artifacts import get_current_artifact
-from ..repositories.bill_text import loaded_members, save_bill_text, supersede_records
+from ..repositories.bill_text import (
+    loaded_members,
+    save_bill_text,
+    supersede_dropped,
+    supersede_records,
+)
 from ..repositories.billstatus import superseded_artifact_ids
 from ..repositories.legislation import register_artifact
 from .base import IngestionRun
@@ -63,9 +68,13 @@ def artifact_key(congress: int, session: int, bill_type: str) -> str:
     return f"BILLS-{congress}-{session}-{bill_type}.zip"
 
 
-def xml_artifact_key(name: str) -> str:
-    """Registry key for one fallback XML when the zip is unpublished."""
-    return PurePosixPath(name).name
+def xml_artifact_key(congress: int, session: int, bill_type: str, name: str) -> str:
+    """Registry key for one fallback XML: congress, session and type plus the filename.
+
+    The filename alone is not unique across sessions (``BILLS-119hr1ih.xml`` can exist
+    in session 1 and session 2).
+    """
+    return f"BILLS-{congress}-{session}-{bill_type}/{PurePosixPath(name).name}"
 
 
 @dataclass
@@ -93,7 +102,9 @@ class _Item:
     def key(self) -> str:
         if self.kind == "xml":
             assert self.member_name is not None
-            return xml_artifact_key(self.member_name)
+            return xml_artifact_key(
+                self.remote.congress, self.session, self.remote.bill_type, self.member_name
+            )
         return artifact_key(self.remote.congress, self.session, self.remote.bill_type)
 
     @property
@@ -637,6 +648,16 @@ class BillTextConnector:
             finally:
                 if bundle is not None:
                     bundle.close()
+            if (
+                not malformed
+                and item.kind == "zip"
+                and item.coverage.get("status") == "complete"
+                and item.older_versions
+            ):
+                keep = [PurePosixPath(m).name for m in item.members]
+                dropped = supersede_dropped(conn, keep, item.older_versions)
+                if dropped:
+                    conn.commit()
             if not malformed and (
                 artifact["status"] != "loaded"
                 or (artifact["metadata"] or {}).get("coverage") != item.coverage

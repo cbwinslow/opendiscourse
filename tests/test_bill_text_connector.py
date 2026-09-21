@@ -231,7 +231,8 @@ class FakeOrigin:
         if spec.artifact_key.endswith(".zip"):
             payload = self.data[:-5] if self.truncate else self.data
         else:
-            payload = self.members[spec.artifact_key].encode()
+            payload = self.members[Path(spec.artifact_key).name].encode()
+        source.parent.mkdir(parents=True, exist_ok=True)
         source.write_bytes(payload)
         return register_local(spec, source)
 
@@ -406,6 +407,23 @@ def test_changed_origin_appends_a_version_and_replaces_the_old_records(origin: F
     assert Path(first["local_path"]).is_file()
 
 
+def test_a_complete_refresh_drops_versions_the_new_zip_no_longer_has(origin: FakeOrigin) -> None:
+    _seed_bills(1, 2, 3)
+    _sync(origin)
+    assert _records() == 6
+    origin.publish(_members(range(1, 3), ("ih", "eh")), LATER)
+
+    _sync(origin)
+
+    assert _records() == 4
+    names = {
+        row[0]
+        for row in _rows("SELECT source_member FROM core.bill_text_source_record")
+    }
+    assert f"BILLS-{CONGRESS}hr3ih.xml" not in names
+    assert f"BILLS-{CONGRESS}hr3eh.xml" not in names
+
+
 def test_a_downloaded_zip_missing_manifest_xml_is_incomplete_not_unpublished(origin: FakeOrigin) -> None:
     _seed_bills(1, 2, 3)
     origin.extra_manifest = {f"BILLS-{CONGRESS}hr99ih.xml"}
@@ -449,7 +467,7 @@ def test_fallback_xml_when_the_zip_is_missing(tmp_path: Path) -> None:
     assert connector.result["xml_fallbacks"] == 1
     assert connector.result["zips"] == 0
     assert _records() == 1
-    assert origin.downloads == [f"BILLS-{CONGRESS}hr1ih.xml"]
+    assert origin.downloads == [f"BILLS-{CONGRESS}-{SESSION}-hr/BILLS-{CONGRESS}hr1ih.xml"]
 
 
 def test_a_later_zip_replaces_fallback_xml_records(tmp_path: Path) -> None:
@@ -458,7 +476,7 @@ def test_a_later_zip_replaces_fallback_xml_records(tmp_path: Path) -> None:
     origin.absent = {"hr"}
     _seed_bills(1)
     _sync(origin)
-    xml_key = f"BILLS-{CONGRESS}hr1ih.xml"
+    xml_key = f"BILLS-{CONGRESS}-{SESSION}-hr/BILLS-{CONGRESS}hr1ih.xml"
     xml_artifact = _artifact(xml_key)
     assert _records() == 1
     assert _one(

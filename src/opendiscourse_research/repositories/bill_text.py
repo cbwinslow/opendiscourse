@@ -73,6 +73,18 @@ def supersede_records(conn: Any, members: list[str], old_artifact_ids: list[UUID
         return cur.rowcount
 
 
+def supersede_dropped(conn: Any, keep_members: list[str], old_artifact_ids: list[UUID]) -> int:
+    """Delete older-version records whose members the new complete zip no longer has."""
+    if not old_artifact_ids:
+        return 0
+    with conn.cursor() as cur:
+        cur.execute(
+            _query("supersede_dropped"),
+            {"keep_members": keep_members, "old_artifact_ids": old_artifact_ids},
+        )
+        return cur.rowcount
+
+
 def save_bill_text(
     parsed: BillText,
     *,

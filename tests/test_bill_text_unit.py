@@ -11,9 +11,12 @@ from opendiscourse_research.config import settings
 from opendiscourse_research.coverage import FIRST_BILLS_CONGRESS, LAST_CONGRESS
 from opendiscourse_research.ingestion.bill_text import (
     FIRST_CONGRESS,
-    LAST_CONGRESS as BILLS_LAST_CONGRESS,
     BillTextConnector,
     _matches_origin,
+    xml_artifact_key,
+)
+from opendiscourse_research.ingestion.bill_text import (
+    LAST_CONGRESS as BILLS_LAST_CONGRESS,
 )
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, artifact_path
 from opendiscourse_research.providers.govinfo import RemoteZip
@@ -67,6 +70,14 @@ def test_discovery_bounds_come_from_coverage() -> None:
 def test_document_source_key_includes_the_session() -> None:
     assert document_source_key(1, "hr/BILLS-119hr1ih.xml") == "1/BILLS-119hr1ih.xml"
     assert document_source_key(2, "BILLS-119hr1ih.xml") == "2/BILLS-119hr1ih.xml"
+
+
+def test_fallback_xml_artifact_key_includes_congress_session_and_type() -> None:
+    assert xml_artifact_key(119, 1, "hr", "BILLS-119hr1ih.xml") == "BILLS-119-1-hr/BILLS-119hr1ih.xml"
+    assert xml_artifact_key(119, 2, "hr", "BILLS-119hr1ih.xml") == "BILLS-119-2-hr/BILLS-119hr1ih.xml"
+    assert xml_artifact_key(119, 1, "hr", "BILLS-119hr1ih.xml") != xml_artifact_key(
+        119, 2, "hr", "BILLS-119hr1ih.xml"
+    )
 
 
 def test_constructor_rejects_congresses_before_the_113th_and_unknown_types() -> None:
