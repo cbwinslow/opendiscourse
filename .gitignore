@@ -46,6 +46,8 @@ _bmad-output/implementation-artifacts/
 .trae/
 .zcode/
 .zencoder/
+.codex/*
+!.codex/config.toml
 
 # Wrapped upstream clones (see vendor/README.md and scripts/bootstrap_upstream.sh)
 vendor/*

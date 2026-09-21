@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-20 (Story 11.2 Senate votes built, live runs of 11.1 and 11.2 pending), see "Session handoff" below (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live; sources review evaluated, ADR-0004; backup risk found, see "Stop-and-fix items"). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-21 (official House and Senate votes are loaded and coverage-complete for Congresses 108-119), see "Session handoff" below (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live; sources review evaluated, ADR-0004; backup risk found, see "Stop-and-fix items"). Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -91,8 +91,9 @@ Stated by the operator; work them in this order. Plain-language replies are mand
    `openstatesstage.py` and `votereconcile.py` about 33; migrations, tests and one-liners are fine). The geography part goes with story 3; then a small
    clean-up story plus a test that fails on new multi-line SQL strings. Also consider Postgres functions and triggers where they simplify.
 4. **Later, on real data:** index placement (load first, index after, keep the indexes), data types, and benchmarks (`scripts/bench/`).
+5. **Reusable installation and agent guidance:** every completed source must be runnable by a new user from an empty `DATA_ROOT`, using tracked commands and project skills. The shared skills already exist (`opendiscourse-connector`, `opendiscourse-provenance`, `opendiscourse-schema-change`, and `opendiscourse-testing`); the rebuild-kit spec requires the missing `opendiscourse-rebuild` skill. Add narrow source skills only where their upstream format has recurring traps (starting with GovInfo BILLS and FEC), and keep an install/source matrix. Evaluate MCP servers alongside skills: use MCP only for agent discovery, schema inspection, spot checks, and troubleshooting; deterministic Connectors remain the production downloader and loader. First audit the official Census MCP and local CongressMCP; trial community FEC/OpenStates MCPs only in a sandbox with least-privilege credentials. Do not rely on unreviewed third-party skills or MCPs as the source of truth: a 2026-09-21 scan found no credible maintained source-specific skill set covering GovInfo, FEC, Census, and OpenStates.
 
-## Votes loaded live: Congresses 108-117, both chambers (2026-09-20)
+## Votes loaded live: Congresses 108-119, both chambers (2026-09-21)
 
 Migrations `d5a1f8c37e26` and `c8e2a5f1b937` applied to live (expand only); fingerprints of `core.roll_call` (1,827), `fact.member_vote`
 (473,490) and `core.person` (12,770) were identical before and after, and the totals afterwards were exactly the old rows plus the new ones.
@@ -104,9 +105,14 @@ Clerk and Senate.gov XML, each file kept whole as a retained artifact (19,854 fi
 | House 108-117 | 13,268 | 5,735,595 |
 | Senate 108-117 | 6,586 | 658,258 |
 
-`research-db coverage` shows loaded equals expected for every Congress 108-117 (bills, actions, House and Senate roll calls, memberships).
-The 118th and 119th still hold the incomplete OpenStates roll calls (House 912 of 1,241 and 488 of 676; Senate 176 of 691 and 251 of 897);
-loading them with the same commands enriches the existing rows in place (waiting for the operator's go).
+On 2026-09-21, the official 118th and 119th loads completed and enriched the partial OpenStates rows in place:
+
+| Congress | House roll calls / member votes | Senate roll calls / member votes |
+|---|---:|---:|
+| 118 | 1,241 / 539,642 | 691 / 69,096 |
+| 119 | 676 / 292,310 | 897 / 89,688 |
+
+`research-db coverage --congress 118 --congress 119 --json` at 2026-09-21T08:35Z confirms all four roll-call counts equal their current official indexes, with no roll call lacking individual votes. The House run remains `partial` only because of the pre-existing 117th Letlow exception below; the 118th and 119th House coverage is complete. The 118th and 119th Senate run succeeded.
 
 Known, all reported by the run and not hidden:
 - One House entry is not a person we hold: `L000555` "Letlow" is listed Not Voting on the opening roll call of the 117th (Luke Letlow died
@@ -643,7 +649,7 @@ each passing the 9.1 harness, and only after the 17 cluster is restarted with th
 2. Rerun `scripts/bench/benchmark_load_strategies.py` (about 8 minutes) and refresh the ADR-0003
    tables with the tuned-settings numbers.
 3. Story 9.3 coverage comparator: built (see "Coverage report"); use it after every backfill.
-4. Bills, actions, sponsors, and (9.5b) full records, summaries, laws, related bills, amendments: done. Member terms and posts: done (Story 3.3). Next: run the votes live (Stories 11.1 and 11.2 are built), bill text, amendment detail, then typing the CBO estimates and committee reports already in the record. Each through a Connector with the harness. Full source list: `docs/data-source-map.md`.
+4. Bills, actions, sponsors, and (9.5b) full records, summaries, laws, related bills, amendments: done. Member terms and posts: done (Story 3.3). Official House and Senate votes for 108-119: done (Stories 11.1 and 11.2). Next: GovInfo BILLS text (and PLAW), then amendment detail, then typing the CBO estimates and committee reports already in the record. Each through a Connector with the harness. Full source list: `docs/data-source-map.md`.
 4b. Remove the old fixed-path BILLSTATUS loaders listed under "Known debt" (move `coverage.py`'s `_bill_details` and the `congresshealth` check first).
 5. Then: FRED/OpenStates redo (2.2, 2.3, 8.2), Treasury and FRED failures, FEC promotion.
 6. Decide the `fact.acs_bulk_estimate` redesign (docs/performance-audit-2026-09-19.md) when Epics 5-6

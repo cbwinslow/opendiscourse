@@ -1,0 +1,22 @@
+# Project-scoped MCP servers.  Keys are intentionally forwarded from the user's
+# environment; never put them in this repository or in a committed .env file.
+
+[mcp_servers.opendiscourse-congress]
+command = "uvx"
+args = ["congressmcp"]
+env_vars = ["CONGRESS_API_KEY"]
+
+[mcp_servers.opendiscourse-fec]
+command = "npx"
+args = ["-y", "fec-mcp-server"]
+env_vars = ["FEC_API_KEY"]
+
+[mcp_servers.opendiscourse-openstates]
+command = "bash"
+args = ["-lc", "exec uv --directory \"$(git rev-parse --show-toplevel)/vendor/mcp/openstates\" run python -m app --transport stdio"]
+env_vars = ["OPENSTATES_API_KEY"]
+
+[mcp_servers.opendiscourse-census]
+command = "bash"
+args = ["-lc", "exec \"$(git rev-parse --show-toplevel)/vendor/mcp/census/scripts/mcp-connect.sh\""]
+env_vars = ["CENSUS_API_KEY"]
