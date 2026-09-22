@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-22 (Story 11.3 `sync-bill-text` merged as #70; live 113-119 load not started). Official House and Senate votes are loaded for Congresses 108-119. See "Session handoff (2026-09-22)" below. Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-22 (Story 11.3 live GovInfo BILLS text load finished: 131,832 versions, Congresses 113-119, run `partial`). Official House and Senate votes are loaded for Congresses 108-119. See "Session handoff (2026-09-22)" below. Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -8,23 +8,31 @@ decision or story status changes.
 
 ## Session handoff (2026-09-22)
 
-Stop here. Next session: live GovInfo BILLS text load. Do not start extra databases.
+Stop here. Bill-text load for Congresses 113-119 is in the warehouse. Do not start extra databases.
 
-**Warehouse:** one bare-metal PostgreSQL 17, port **5434**, database **`opendiscourse`** (~240 GB). App DSN `postgresql:///opendiscourse?port=5434`. Census MCP Docker Postgres was removed (#69); do not start it.
+**Warehouse:** one bare-metal PostgreSQL 17, port **5434**, database **`opendiscourse`** (~242 GB). App DSN `postgresql:///opendiscourse?port=5434`. Table files live in tablespace `odspace` on the large workspace volume (`~/workspace/data-lake/opendiscourse/pg17`). Census MCP Docker Postgres was removed (#69); do not start it.
 
-**Merged this stretch:** votes 108-119 (#65–#67, live counts in "Votes loaded live"); MCP pin + no second Postgres (#68, #69); Story 11.3 bill-text Connector (#70).
+**Merged this stretch:** votes 108-119 (#65–#67); MCP pin + no second Postgres (#68, #69); Story 11.3 bill-text Connector (#70); this handoff (#71).
 
-**Live, verified:** 12,770 people; 45,535 memberships; 172,709 bills; 23,359 official roll calls (108-119 both chambers); ~7M member votes; ACS/FEC/geography still present. 117th House Letlow `L000555` is the known vote exception.
+**Live, verified:** 12,770 people; 45,535 memberships; 172,709 bills; 23,359 official roll calls (108-119 both chambers); ~7M member votes; **131,832** GovInfo BILLS text versions (113-119); ACS/FEC/geography still present. 117th House Letlow `L000555` is the known vote exception.
 
-**Ready, not live:** `research-db sync-bill-text` (Congresses **113-119** only; 108-112 have no GovInfo BILLS bulk). Migrations `f4a7c2e8b619` and `b8c4e2a17f03` are in the repo, **not applied to live**.
+**Live bill text (2026-09-22, 11:03–11:40 UTC, ~37 minutes):** `research-db init-db` applied `f4a7c2e8b619` then `b8c4e2a17f03` (expand only). `research-db sync-bill-text` downloaded **112** zips (~1.04 GB) into `DATA_ROOT` and loaded **131,832** versions (`core.bill_text_source_record` 1.7 GB). **131,823** attached to an existing `core.bill`; **9** 119th files have no matching bill yet (text kept). Run status `partial` (exit 2), as designed.
 
-**Resume command (when the operator wants the download):**
-1. `git pull` on `main`.
-2. `research-db init-db` (expand only).
-3. `research-db sync-bill-text` (long run; zips under `DATA_ROOT`; attaches to existing BILLSTATUS bills).
-4. Record counts here.
+| Congress | Text versions |
+|---:|---:|
+| 113 | 13,656 |
+| 114 | 16,076 |
+| 115 | 18,491 |
+| 116 | 20,092 |
+| 117 | 20,204 |
+| 118 | 21,814 |
+| 119 | 21,499 |
 
-Spec (local): `_bmad-output/implementation-artifacts/spec-11-3-govinfo-bills.md`. Then: names work (ADR-0005 stories 3–5), committee membership, FEC.
+Known, reported by the run, not hidden:
+- **9 unknown bills** (119th, introduced after BILLSTATUS last ran): `hr 10518/10525/10526 ih`, `hres 1567–1572 ih`. Rerun `sync-billstatus` then `sync-bill-text` to attach; no re-download.
+- **3,297 XML members skipped as malformed** because the Dublin Core title inside the file names a different Congress than the filename (example: `BILLS-113hr15ih.xml` is 113th H.R. 15; the title says “99 HR 15 IH”). The zip is kept. Follow-up: trust the filename (spec identity), keep the mismatch in the JSON record, rerun to load those members.
+
+**Next:** committee membership, then FEC (needs a downloader off `/mnt/storage`). Names work (ADR-0005 stories 3–5) still after ingest. Optional: load the 3,297 skipped versions.
 
 ## Session handoff (2026-09-19, end of day)
 
@@ -113,7 +121,7 @@ Stated by the operator; work them in this order. Plain-language replies are mand
 4. **Later, on real data:** index placement (load first, index after, keep the indexes), data types, and benchmarks (`scripts/bench/`).
 5. **Reusable installation and agent guidance:** every completed source must be runnable by a new user from an empty `DATA_ROOT`, using tracked commands and project skills. The shared skills already exist (`opendiscourse-connector`, `opendiscourse-provenance`, `opendiscourse-schema-change`, and `opendiscourse-testing`); the rebuild-kit spec requires the missing `opendiscourse-rebuild` skill. Add narrow source skills only where their upstream format has recurring traps (starting with GovInfo BILLS and FEC), and keep an install/source matrix. Evaluate MCP servers alongside skills: use MCP only for agent discovery, schema inspection, spot checks, and troubleshooting; deterministic Connectors remain the production downloader and loader. Congress and FEC MCP helpers may talk to those APIs. Do not run the official Census MCP: it requires its own Docker Postgres (`mcp_db`), which is not the warehouse. Census rows already in `opendiscourse` on port 5434 stay the source of truth. Trial community OpenStates MCP only in a sandbox with least-privilege credentials. Do not rely on unreviewed third-party skills or MCPs as the source of truth: a 2026-09-21 scan found no credible maintained source-specific skill set covering GovInfo, FEC, Census, and OpenStates.
 
-## Story 11.3: GovInfo BILLS text Connector (built, live load pending)
+## Story 11.3: GovInfo BILLS text Connector (built, live-loaded 2026-09-22)
 
 `research-db sync-bill-text` downloads one GovInfo BILLS zip per Congress × session × bill type
 into `DATA_ROOT` (Congresses 113-119; 108-112 have no BILLS bulk), keeps every XML member as
@@ -121,9 +129,9 @@ into `DATA_ROOT` (Congresses 113-119; 108-112 have no BILLS bulk), keeps every X
 existing `core.bill` when Congress + type + number already exist. Unknown bills stay as
 records and make the run partial; they do not create a bill. A later sync attaches those
 records once BILLSTATUS has the bill (no re-download). One version identity is one record
-(zip replaces a fallback XML row). Merged as #70. Migrations `f4a7c2e8b619` and `b8c4e2a17f03`
-(expand only; **not applied to live**). Live run for 113-119 is **not done** — `research-db init-db`
-then `research-db sync-bill-text`, then record counts here.
+(zip replaces a fallback XML row). Merged as #70. Migrations applied live 2026-09-22.
+Live run: **131,832** versions, **112** zips, run `partial` (9 unknown 119th bills; 3,297
+filename/Dublin-Core mismatches skipped). Counts in the 2026-09-22 handoff.
 
 ## Votes loaded live: Congresses 108-119, both chambers (2026-09-21)
 
@@ -678,10 +686,11 @@ each passing the 9.1 harness, and only after the 17 cluster is restarted with th
 
 ## Next steps when resuming
 
-1. **Live bill text (Story 11.3):** `research-db init-db` then `research-db sync-bill-text` for
-   Congresses 113-119. Needs disk under `DATA_ROOT` and a long uninterrupted run. Record counts
-   in "Story 11.3" above when it finishes.
-2. Operator (optional, leftover from 2026-09-19): `sudo systemctl restart postgresql@17-main` if
+1. **Bill text follow-up (optional):** load the 3,297 skipped XML members by trusting the
+   filename when Dublin Core titles name the wrong Congress; then `sync-billstatus` +
+   `sync-bill-text` to attach the 9 unknown 119th bills.
+2. **Committee membership**, then a reusable FEC downloader (off `/mnt/storage`).
+3. Operator (optional, leftover from 2026-09-19): `sudo systemctl restart postgresql@17-main` if
    the tuned `shared_buffers` / `max_worker_processes` / `pg_stat_statements` are not yet live;
    then `CREATE EXTENSION pg_stat_statements` in `opendiscourse`.
 4. Rerun `scripts/bench/benchmark_load_strategies.py` (about 8 minutes) and refresh the ADR-0003
