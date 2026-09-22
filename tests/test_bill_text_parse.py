@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
-
-from xml.etree import ElementTree
 
 from opendiscourse_research.ingestion.bill_text_parse import (
     parse_bills_xml,
@@ -127,7 +126,9 @@ def test_nbsp_and_mdash_parse_without_fetching_a_dtd() -> None:
     assert parsed.bill_number == "1"
 
 
-def test_xml_body_that_contradicts_the_filename_is_refused() -> None:
+def test_xml_body_that_contradicts_the_filename_still_uses_the_filename() -> None:
     raw = (FIXTURES / "BILLS-119hr23ih.xml").read_bytes()
-    with pytest.raises(ValueError, match="not the version its name promises"):
-        parse_bills_xml(raw, "BILLS-119hr24ih.xml")
+    parsed = parse_bills_xml(raw, "BILLS-119hr24ih.xml")
+    assert parsed.bill_number == "24"
+    assert parsed.stale_dublin_core == (119, "hr", 23, "ih")
+    assert "119 HR 23 IH" in parsed.record["metadata"]["dublinCore"]["dc:title"]

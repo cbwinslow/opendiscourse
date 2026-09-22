@@ -188,6 +188,7 @@ class BillTextConnector:
         self._partial = False
         self._not_published: list[str] = []
         self._problems: list[str] = []
+        self._stale_dublin_core = 0
         self.result: dict[str, Any] = {}
 
     def discover(self, ctx: ConnectorContext) -> ConnectorContext:
@@ -503,6 +504,7 @@ class BillTextConnector:
             "superseded_rows_replaced": totals["superseded"],
             "unknown_bills": unknown_bills[:50],
             "unknown_bill_count": len(unknown_bills),
+            "stale_dublin_core": self._stale_dublin_core,
             "partial": self._partial,
             "incomplete_zips": [
                 {"key": i.key, **{k: i.coverage[k] for k in ("missing", "extra", "missing_examples") if k in i.coverage}}
@@ -617,6 +619,8 @@ class BillTextConnector:
                                 malformed.append(member)
                                 self._problems.append(problem)
                                 continue
+                            if parsed.stale_dublin_core is not None:
+                                self._stale_dublin_core += 1
                             saved = save_bill_text(
                                 parsed,
                                 session=item.session,
@@ -683,10 +687,7 @@ class BillTextConnector:
 
     @staticmethod
     def _identity_problem(item: _Item, member: str, parsed: Any) -> str | None:
-        found = (parsed.congress, parsed.bill_type, int(parsed.bill_number), parsed.version_code)
         named = bills_member_identity(member)
-        if found != named:
-            return f"{item.key}:{member} describes {found}, not the version its name promises"
         if named is not None and named[:2] != (item.remote.congress, item.remote.bill_type):
             return f"{item.key}:{member} does not belong in this zip"
         return None
