@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-22 (Story 11.3 live GovInfo BILLS text load finished: 131,832 versions, Congresses 113-119, run `partial`). Official House and Senate votes are loaded for Congresses 108-119. See "Session handoff (2026-09-22)" below. Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-22 evening (bill text 113-119 complete except 6 broken GovInfo XML files; 119th votes/members refreshed; FEC bulk downloaded into DATA_ROOT). Official House and Senate votes are loaded for Congresses 108-119. See "Session handoff (2026-09-22)" below. Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -14,7 +14,11 @@ Stop here. Bill-text load for Congresses 113-119 is in the warehouse. Do not sta
 
 **Merged this stretch:** votes 108-119 (#65–#67); MCP pin + no second Postgres (#68, #69); Story 11.3 bill-text Connector (#70); this handoff (#71).
 
-**Live, verified:** 12,770 people; 45,535 memberships; 172,709 bills; 23,359 official roll calls (108-119 both chambers); ~7M member votes; **131,832** GovInfo BILLS text versions (113-119); ACS/FEC/geography still present. 117th House Letlow `L000555` is the known vote exception.
+**Live, verified:** 12,770 people; 45,535 memberships; **172,736** bills; 23,359 official roll calls (108-119 both chambers: House 119 = 676, Senate 119 = 897); ~7M member votes; **135,136** GovInfo BILLS text versions (113-119, all attached to a bill); ACS/geography still present. 117th House Letlow `L000555` is the known vote exception.
+
+**Bill text follow-up (same day):** parser now trusts the filename when Dublin Core titles name the wrong Congress (#73). Rerun loaded the 3,297 skipped members (`stale_dublin_core` 3,291). **6** XML members are still unreadable (invalid token in the GovInfo zip). Coverage for 114-118 matches GovInfo manifests; 113 is 6 short (those files); 119 is live and growing (22,036 versions).
+
+**FEC files (download only, 2026-09-22):** official zips from `https://www.fec.gov/files/bulk-downloads` into `DATA_ROOT/fec/bulk` (~21 GB, 102 zips: cn/cm/ccl/weball + pas2/oth/indiv 2000-2024, oppexp 2004-2024). `weblate` is 404 at FEC (not a real zip). Not registered, not staged, not joined to people (Epic 7 / `person_join` still gated). Legacy copies remain under `/mnt/storage`.
 
 **Live bill text (2026-09-22, 11:03–11:40 UTC, ~37 minutes):** `research-db init-db` applied `f4a7c2e8b619` then `b8c4e2a17f03` (expand only). `research-db sync-bill-text` downloaded **112** zips (~1.04 GB) into `DATA_ROOT` and loaded **131,832** versions (`core.bill_text_source_record` 1.7 GB). **131,823** attached to an existing `core.bill`; **9** 119th files have no matching bill yet (text kept). Run status `partial` (exit 2), as designed.
 
@@ -32,7 +36,7 @@ Known, reported by the run, not hidden:
 - **9 unknown bills** (119th, introduced after BILLSTATUS last ran): `hr 10518/10525/10526 ih`, `hres 1567–1572 ih`. Rerun `sync-billstatus` then `sync-bill-text` to attach; no re-download.
 - **3,297 XML members skipped as malformed** because the Dublin Core title inside the file names a different Congress than the filename (example: `BILLS-113hr15ih.xml` is 113th H.R. 15; the title says “99 HR 15 IH”). The zip is kept. Follow-up: trust the filename (spec identity), keep the mismatch in the JSON record, rerun to load those members.
 
-**Next:** committee membership, then FEC (needs a downloader off `/mnt/storage`). Names work (ADR-0005 stories 3–5) still after ingest. Optional: load the 3,297 skipped versions.
+**Next:** committee membership loader (not built). Then FEC register/stage from `DATA_ROOT/fec/bulk` (replace `/mnt/storage` paths). Names work (ADR-0005 stories 3–5) still after ingest. Optional: the 6 unreadable 113th XML files.
 
 ## Session handoff (2026-09-19, end of day)
 
