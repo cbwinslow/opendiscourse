@@ -1,10 +1,30 @@
 # Project state and handoff
 
-Last updated: 2026-09-21 (Story 11.3 GovInfo BILLS text Connector is built; live load of Congresses 113-119 is pending review). Official House and Senate votes are loaded and coverage-complete for Congresses 108-119; see "Session handoff" below (Stories 3.1, 3.2, 9.1, 9.2, 9.3, 9.5 merged; 9.5b lossless BILLSTATUS records and typed summaries, laws, related bills, amendments loaded live; 3.3 member terms, posts and divisions loaded live; sources review evaluated, ADR-0004; backup risk found, see "Stop-and-fix items"). Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-22 (Story 11.3 `sync-bill-text` merged as #70; live 113-119 load not started). Official House and Senate votes are loaded for Congresses 108-119. See "Session handoff (2026-09-22)" below. Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
 decision or story status changes.
+
+## Session handoff (2026-09-22)
+
+Stop here. Next session: live GovInfo BILLS text load. Do not start extra databases.
+
+**Warehouse:** one bare-metal PostgreSQL 17, port **5434**, database **`opendiscourse`** (~240 GB). App DSN `postgresql:///opendiscourse?port=5434`. Census MCP Docker Postgres was removed (#69); do not start it.
+
+**Merged this stretch:** votes 108-119 (#65–#67, live counts in "Votes loaded live"); MCP pin + no second Postgres (#68, #69); Story 11.3 bill-text Connector (#70).
+
+**Live, verified:** 12,770 people; 45,535 memberships; 172,709 bills; 23,359 official roll calls (108-119 both chambers); ~7M member votes; ACS/FEC/geography still present. 117th House Letlow `L000555` is the known vote exception.
+
+**Ready, not live:** `research-db sync-bill-text` (Congresses **113-119** only; 108-112 have no GovInfo BILLS bulk). Migrations `f4a7c2e8b619` and `b8c4e2a17f03` are in the repo, **not applied to live**.
+
+**Resume command (when the operator wants the download):**
+1. `git pull` on `main`.
+2. `research-db init-db` (expand only).
+3. `research-db sync-bill-text` (long run; zips under `DATA_ROOT`; attaches to existing BILLSTATUS bills).
+4. Record counts here.
+
+Spec (local): `_bmad-output/implementation-artifacts/spec-11-3-govinfo-bills.md`. Then: names work (ADR-0005 stories 3–5), committee membership, FEC.
 
 ## Session handoff (2026-09-19, end of day)
 
@@ -101,8 +121,9 @@ into `DATA_ROOT` (Congresses 113-119; 108-112 have no BILLS bulk), keeps every X
 existing `core.bill` when Congress + type + number already exist. Unknown bills stay as
 records and make the run partial; they do not create a bill. A later sync attaches those
 records once BILLSTATUS has the bill (no re-download). One version identity is one record
-(zip replaces a fallback XML row). Migrations `f4a7c2e8b619` and `b8c4e2a17f03` (expand only;
-not applied to live). Live run for 113-119 is **not done** — do it after review, then record counts here.
+(zip replaces a fallback XML row). Merged as #70. Migrations `f4a7c2e8b619` and `b8c4e2a17f03`
+(expand only; **not applied to live**). Live run for 113-119 is **not done** — `research-db init-db`
+then `research-db sync-bill-text`, then record counts here.
 
 ## Votes loaded live: Congresses 108-119, both chambers (2026-09-21)
 
@@ -657,16 +678,19 @@ each passing the 9.1 harness, and only after the 17 cluster is restarted with th
 
 ## Next steps when resuming
 
-1. Operator: `sudo systemctl restart postgresql@17-main` (applies `shared_buffers`,
-   `max_worker_processes`, `pg_stat_statements`); then `CREATE EXTENSION pg_stat_statements`
-   in `opendiscourse`. Optional: cap `autovacuum_work_mem` on the 16 cluster.
-2. Rerun `scripts/bench/benchmark_load_strategies.py` (about 8 minutes) and refresh the ADR-0003
+1. **Live bill text (Story 11.3):** `research-db init-db` then `research-db sync-bill-text` for
+   Congresses 113-119. Needs disk under `DATA_ROOT` and a long uninterrupted run. Record counts
+   in "Story 11.3" above when it finishes.
+2. Operator (optional, leftover from 2026-09-19): `sudo systemctl restart postgresql@17-main` if
+   the tuned `shared_buffers` / `max_worker_processes` / `pg_stat_statements` are not yet live;
+   then `CREATE EXTENSION pg_stat_statements` in `opendiscourse`.
+4. Rerun `scripts/bench/benchmark_load_strategies.py` (about 8 minutes) and refresh the ADR-0003
    tables with the tuned-settings numbers.
-3. Story 9.3 coverage comparator: built (see "Coverage report"); use it after every backfill.
-4. Bills, actions, sponsors, and (9.5b) full records, summaries, laws, related bills, amendments: done. Member terms and posts: done (Story 3.3). Official House and Senate votes for 108-119: done (Stories 11.1 and 11.2). Next: GovInfo BILLS text (and PLAW), then amendment detail, then typing the CBO estimates and committee reports already in the record. Each through a Connector with the harness. Full source list: `docs/data-source-map.md`.
-4b. Remove the old fixed-path BILLSTATUS loaders listed under "Known debt" (move `coverage.py`'s `_bill_details` and the `congresshealth` check first).
-5. Then: FRED/OpenStates redo (2.2, 2.3, 8.2), Treasury and FRED failures, FEC promotion.
-6. Decide the `fact.acs_bulk_estimate` redesign (docs/performance-audit-2026-09-19.md) when Epics 5-6
+5. Story 9.3 coverage comparator: built (see "Coverage report"); use it after every backfill.
+6. Bills, actions, sponsors, and (9.5b) full records, summaries, laws, related bills, amendments: done. Member terms and posts: done (Story 3.3). Official House and Senate votes for 108-119: done (Stories 11.1 and 11.2). Next after the 11.3 live load: PLAW, amendment detail, then typing the CBO estimates and committee reports already in the record. Each through a Connector with the harness. Full source list: `docs/data-source-map.md`.
+7. Remove the old fixed-path BILLSTATUS loaders listed under "Known debt" (move `coverage.py`'s `_bill_details` and the `congresshealth` check first).
+8. Then: FRED/OpenStates redo (2.2, 2.3, 8.2), Treasury and FRED failures, FEC promotion.
+9. Decide the `fact.acs_bulk_estimate` redesign (docs/performance-audit-2026-09-19.md) when Epics 5-6
    define real queries.
 
 ## Roadmap (also in `epics.md`, "Suggested next build")
