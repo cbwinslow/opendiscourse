@@ -561,20 +561,32 @@ def test_a_malformed_member_is_skipped_and_the_zip_is_not_loaded(origin: FakeOri
     assert _artifact()["status"] == "downloaded"
 
 
-def test_xml_that_contradicts_its_file_name_is_skipped_and_reported(origin: FakeOrigin) -> None:
+def test_xml_that_contradicts_its_file_name_is_loaded_under_the_filename(
+    origin: FakeOrigin,
+) -> None:
     origin.publish({**_members([1], ("ih",)), f"BILLS-{CONGRESS}hr7ih.xml": _bills_xml(8)})
     _seed_bills(1, 7, 8)
     connector = _sync(origin)
 
-    assert _records() == 1
-    assert _one(
-        "SELECT count(*) AS n FROM core.bill_text_source_record "
-        "WHERE congress = 998 AND bill_number IN ('7', '8')"
-    ) == 0
-    assert connector.result["malformed_members"] == {KEY: [f"BILLS-{CONGRESS}hr7ih.xml"]}
-    assert "not the version its name promises" in connector.result["problems"][0]
-    assert connector.result["partial"] is True and _run_status() == "partial"
-    assert _artifact()["status"] == "downloaded"
+    assert _records() == 2
+    assert (
+        _one(
+            "SELECT count(*) AS n FROM core.bill_text_source_record "
+            "WHERE congress = 998 AND bill_number = '7'"
+        )
+        == 1
+    )
+    assert (
+        _one(
+            "SELECT count(*) AS n FROM core.bill_text_source_record "
+            "WHERE congress = 998 AND bill_number = '8'"
+        )
+        == 0
+    )
+    assert connector.result["malformed_members"] == {}
+    assert connector.result["stale_dublin_core"] == 1
+    assert connector.result["partial"] is False and _run_status() == "succeeded"
+    assert _artifact()["status"] == "loaded"
 
 
 def test_no_published_bills_congresses_is_a_clear_error_not_an_index_error(

@@ -5,7 +5,8 @@ Congress × session × bill type). Two things come out of a file, both from the 
 
 - ``record``: every element and attribute, as JSON (the encoding of ``billstatus_record``);
 - typed version identity: congress, type, number and version code from the *filename*,
-  plus a title and date when the file states them.
+  plus a title and date when the file states them. A Dublin Core title that names a
+  different Congress or bill is kept in the lossless record; it does not change identity.
 
 The parser never fetches ``bill.dtd`` / ``billres.xsl``. Sponsor ``name-id`` values stay
 in the record; they are not used to find a person. Version code is the filename suffix
@@ -80,6 +81,7 @@ class BillText:
     bill_stage: str | None
     root_tag: str
     source_member: str
+    stale_dublin_core: tuple[int, str, int, str] | None = None
 
 
 def parse_xml_without_dtd(content: bytes) -> ElementTree.Element:
@@ -97,7 +99,8 @@ def _body_identity(root: ElementTree.Element) -> tuple[int, str, int, str] | Non
     """Congress, type, number and version as the XML body states them, if it does.
 
     Taken from Dublin Core title (``119 HR 23 IH: …``). Unparseable titles are ignored
-    rather than guessed; a filename that disagrees with a parseable title is refused.
+    rather than guessed. GovInfo often copies a stale Congress into that title; identity
+    stays on the filename and the title remains in the record.
     """
     raw = _dc(root, "title")
     if not raw:
@@ -147,10 +150,7 @@ def parse_bills_xml(content: bytes, member_name: str) -> BillText:
     congress, bill_type, number, version_code = identity
     root = parse_xml_without_dtd(content)
     body = _body_identity(root)
-    if body is not None and body != identity:
-        raise ValueError(
-            f"{member_name} describes {body}, not the version its name promises"
-        )
+    stale = body if body is not None and body != identity else None
     record = xml_to_record(root, list_tags=BILLS_LIST_TAGS, capture_tails=True)
     problems = record_problems(root, record)
     if problems:
@@ -169,4 +169,5 @@ def parse_bills_xml(content: bytes, member_name: str) -> BillText:
         bill_stage=stage,
         root_tag=root.tag.split("}", 1)[-1],
         source_member=member_name,
+        stale_dublin_core=stale,
     )
