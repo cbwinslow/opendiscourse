@@ -80,7 +80,9 @@ items:
     validate: >-
       Connector tests against a fake origin (no live download). Coverage expected counts come from
       GovInfo BILLS directory manifests starting at the 113th.
-    next: Live-loaded 2026-09-22 evening (135,136 versions). Optional: 6 unreadable 113th XML files. See docs/PROJECT-STATE.md.
+    next: >-
+      Live-loaded 2026-09-22 evening (135,136 versions). Six unreadable 113th XML
+      files remain. See docs/PROJECT-STATE.md.
   - id: congcommittees
     dataset: congress.committee_membership
     state: found
@@ -109,7 +111,7 @@ items:
     state: found
     scope: >-
       CBO cost estimates already present in BILLSTATUS whole records (cboCostEstimates).
-      Extra XML index from cbo.gov/cost-estimates/xml downloaded 2026-09-22.
+      CBO XML index URL returned HTTP 403 to scripted fetch; type the JSON first.
     origin: BILLSTATUS JSON plus https://www.cbo.gov/cost-estimates/xml
     provenance: authoritative_official_publisher
     sensitivity: public
