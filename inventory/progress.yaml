@@ -67,19 +67,20 @@ items:
     next: BILLSTATUS is done (Story 9.5). BILLS has a Connector (`research-db sync-bill-text`) and is not live-loaded yet.
   - id: govbills
     dataset: congress.govinfo_bills
-    state: ready
+    state: loaded
     scope: >-
       GovInfo BILLS XML versions, Congresses 113-119 (108-112 have no BILLS bulk). Built as
       `research-db sync-bill-text`: one zip per Congress × session × bill type into DATA_ROOT,
       lossless JSON records, attach to an existing core.bill when Congress + type + number already
-      exist. Not live-loaded yet; do not treat the warehouse as complete for bill text.
+      exist. Live-loaded 2026-09-22: 112 zips, 131,832 versions, run partial (9 unknown 119th
+      bills; 3,297 filename/Dublin-Core mismatches skipped).
     origin: https://www.govinfo.gov/bulkdata/BILLS
     provenance: authoritative_official_publisher
     sensitivity: public
     validate: >-
       Connector tests against a fake origin (no live download). Coverage expected counts come from
       GovInfo BILLS directory manifests starting at the 113th.
-    next: Review, then a live run for Congresses 113-119 (see docs/PROJECT-STATE.md). Do not claim live completeness until that run is recorded.
+    next: Optional follow-up to load the 3,297 skipped members (trust filename; keep DC mismatch in the record). Rerun sync-billstatus then sync-bill-text to attach the 9 unknown 119th bills. See docs/PROJECT-STATE.md.
   - id: congdata
     dataset: congress.legislation
     state: verify
