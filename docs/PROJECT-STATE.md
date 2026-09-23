@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-22 evening (bill text 113-119 complete except 6 broken GovInfo XML files; 119th votes/members refreshed; FEC bulk downloaded into DATA_ROOT). Official House and Senate votes are loaded for Congresses 108-119. See "Session handoff (2026-09-22)" below. Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-22 (analysis-source files downloading: committee YAML, Voteview CSVs, CBO index; no website). Official House and Senate votes are loaded for Congresses 108-119. See "Session handoff (2026-09-22)" below. Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -36,7 +36,7 @@ Stop here. Bill-text load for Congresses 113-119 is in the warehouse. Do not sta
 
 **135,136** versions, **0** unattached. Outstanding: **6** unreadable 113th XML files (`BILLS-113hres148ih.xml`, `BILLS-113hres276ih.xml`, `BILLS-113s1339is.xml`, `BILLS-113sconres13is.xml`, `BILLS-113sres104is.xml`, `BILLS-113sres264ats.xml`) — invalid tokens in the GovInfo zip, not a missing download.
 
-**Next:** committee membership loader (not built). Then FEC register/stage from `DATA_ROOT/fec/bulk` (replace `/mnt/storage` paths). Names work (ADR-0005 stories 3–5) still after ingest. Optional: those 6 unreadable 113th XML files.
+**Next (no website):** wrap existing projects, do not invent a second Congress DB. Research note: `docs/research/2026-09-22-existing-congress-research-stack.md`. Files landing under `DATA_ROOT` for the next Connectors: `congress/legislators/` (committee YAML), `congress/voteview/` (UCLA CSVs), `cbo/cost-estimates.xml`. Then stories: `sync-committee-membership`, type CBO from BILLSTATUS JSON, `sync-voteview` (ICPSR join). FEC person join stays gated. Scorecards later as derived marts.
 
 ## Session handoff (2026-09-19, end of day)
 
@@ -690,9 +690,11 @@ each passing the 9.1 harness, and only after the 17 cluster is restarted with th
 
 ## Next steps when resuming
 
-1. **Committee membership** loader (not built). Then FEC register/stage from
-   `DATA_ROOT/fec/bulk` (the official zips are already there; stop using `/mnt/storage`).
-2. Optional: the 6 unreadable 113th GovInfo XML files listed in the 2026-09-22 handoff.
+1. **Committee membership Connector** wrapping `unitedstates/congress-legislators`
+   YAML already in `DATA_ROOT/congress/legislators/` (`research-db sync-committee-membership`).
+2. **CBO columns** from BILLSTATUS JSON already in the warehouse (no new download required;
+   CBO XML index is extra). Then **Voteview ideology** CSVs in `DATA_ROOT/congress/voteview/`
+   joined on ICPSR. FEC person join still gated. No website in this stretch.
 3. Operator (optional, leftover from 2026-09-19): `sudo systemctl restart postgresql@17-main` if
    the tuned `shared_buffers` / `max_worker_processes` / `pg_stat_statements` are not yet live;
    then `CREATE EXTENSION pg_stat_statements` in `opendiscourse`.

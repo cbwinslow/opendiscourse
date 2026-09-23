@@ -80,7 +80,43 @@ items:
     validate: >-
       Connector tests against a fake origin (no live download). Coverage expected counts come from
       GovInfo BILLS directory manifests starting at the 113th.
-    next: Optional follow-up to load the 3,297 skipped members (trust filename; keep DC mismatch in the record). Rerun sync-billstatus then sync-bill-text to attach the 9 unknown 119th bills. See docs/PROJECT-STATE.md.
+    next: >-
+      Live-loaded 2026-09-22 evening (135,136 versions). Six unreadable 113th XML
+      files remain. See docs/PROJECT-STATE.md.
+  - id: congcommittees
+    dataset: congress.committee_membership
+    state: found
+    scope: >-
+      Current committee and subcommittee assignments from unitedstates/congress-legislators
+      (committee-membership-current.yaml, committees-current.yaml, committees-historical.yaml).
+      Files downloaded 2026-09-22 into DATA_ROOT/congress/legislators/. Join on BioGuide.
+    origin: https://github.com/unitedstates/congress-legislators
+    provenance: authoritative_community_crosswalk
+    sensitivity: public
+    validate: YAML maps committee thomas_id to members with bioguide, rank, title, party.
+    next: Story + Connector `research-db sync-committee-membership`. Do not scrape Clerk HTML.
+  - id: voteview
+    dataset: congress.voteview
+    state: found
+    scope: >-
+      UCLA Voteview member ideology (DW-NOMINATE) and roll-call index CSVs. Join on ICPSR
+      already in core.person_identifier. Does not replace Clerk/Senate.gov votes.
+    origin: https://voteview.com/data
+    provenance: academic_official_export
+    sensitivity: public
+    validate: Cite Lewis, Poole, Rosenthal et al. Voteview Congressional Roll-Call Votes Database.
+    next: Connector `research-db sync-voteview` after committee membership.
+  - id: cbocost
+    dataset: congress.cbo_cost_estimates
+    state: found
+    scope: >-
+      CBO cost estimates already present in BILLSTATUS whole records (cboCostEstimates).
+      CBO XML index URL returned HTTP 403 to scripted fetch; type the JSON first.
+    origin: BILLSTATUS JSON plus https://www.cbo.gov/cost-estimates/xml
+    provenance: authoritative_official_publisher
+    sensitivity: public
+    validate: Type pubDate, title, url, description from the JSON; PDF fetch is later.
+    next: Schema story to type CBO into a table. No new bill download.
   - id: congdata
     dataset: congress.legislation
     state: verify

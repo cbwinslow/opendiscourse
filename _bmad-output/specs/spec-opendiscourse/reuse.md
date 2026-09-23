@@ -6,7 +6,10 @@ search, or export code. Wrap behind provenance.
 | Upstream | Decision |
 |---|---|
 | `unitedstates/congress` | Wrap as vote/bill producer (`vendor/unitedstates-congress`) |
-| `unitedstates/congress-legislators` | Identity crosswalk (`vendor/congress-legislators`) |
+| `unitedstates/congress-legislators` | Identity crosswalk (`vendor/congress-legislators`). Same repo is the source for current committee/subcommittee membership YAML (`committee-membership-current.yaml`); wrap that next, do not scrape Clerk HTML. |
+| Voteview / DW-NOMINATE (UCLA) | Official CSVs at voteview.com/data; join on ICPSR already in `core.person_identifier`. Wrap member ideology + roll-call index; do not replace Clerk/Senate.gov votes. |
+| BICAM (MIT, *Scientific Data* 2025) | Academic bulk Congress.gov/GovInfo ingest (`bicam.net`, `bicam-data/bicam`). Use as schema/methods literature and a completeness check, not as our system of record. |
+| CBO cost estimates | BILLSTATUS JSON already holds `cboCostEstimates` (`pubDate`, `title`, `url`, `description`). Type those first. A scripted fetch of cbo.gov/cost-estimates/xml returned HTTP 403 (2026-09-22). |
 | OpenStates / Plural dumps | Isolated DB + FDW `openstates_source`; OCD language in `core`, not Django dump schema |
 | `pyopenstates` | Evaluate for API v3 incremental after dump promote |
 | `openstates-core` | Model reference; do not clone internal schema |

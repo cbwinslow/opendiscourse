@@ -253,6 +253,37 @@ providers:
           Public domain. Senators join on the LIS member id the file states (core.person_identifier namespace lis),
           never on the printed name. Enriches the OpenStates-derived roll calls in place (matched by year and roll
           number). The Vice President's tie-break is on the roll call, not a member vote.
+      - id: congress.committee_membership
+        title: Current committee and subcommittee assignments (BioGuide)
+        access: unitedstates/congress-legislators YAML (committee-membership-current.yaml)
+        client: pyyaml; httpx for GitHub raw into DATA_ROOT
+        grain: committee × member
+        identifiers: [thomas_id, bioguide]
+        cadence: on_upstream_change
+        priority: 1
+        notes: >-
+          Public-domain CC0. Join members on BioGuide only. Current assignments only;
+          historical membership is not in this file. Do not scrape Clerk HTML.
+      - id: congress.voteview
+        title: Voteview member ideology (DW-NOMINATE) and roll-call index
+        access: https://voteview.com/data CSV exports
+        client: httpx
+        grain: member × congress (ideology); roll call (index)
+        identifiers: [icpsr, congress, chamber, rollnumber]
+        cadence: as_votes_occur
+        priority: 2
+        notes: >-
+          Cite Lewis, Poole, Rosenthal et al. Join people on ICPSR already in
+          core.person_identifier. Does not replace Clerk or Senate.gov votes.
+      - id: congress.cbo_cost_estimates
+        title: CBO cost estimates already carried in BILLSTATUS records
+        access: core.bill_source_record JSON (cboCostEstimates); CBO.gov pages for PDFs
+        client: existing BILLSTATUS Connector; optional later PDF fetch
+        grain: bill × estimate
+        identifiers: [congress, bill_type, bill_number, pubDate, url]
+        cadence: with_billstatus
+        priority: 1
+        notes: Type from JSON first. CBO XML index returned HTTP 403 to scripted fetch (2026-09-22).
       - id: govinfo.bulk
         title: Bill status/text, Congressional Record, statutes, CFR, and Federal Register
         access: GovInfo API and bulk XML/JSON
