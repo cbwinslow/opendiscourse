@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-23 (committee-membership loader committed, not yet on the live database). Official House and Senate votes are loaded for Congresses 108-119. See "Session handoff (2026-09-23)" below. Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-23 (committee membership loaded live: 559 committees, 3,895 assignments, every member linked on BioGuide). Official House and Senate votes are loaded for Congresses 108-119. See "Session handoff (2026-09-23)" below. Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
@@ -8,13 +8,15 @@ decision or story status changes.
 
 ## Session handoff (2026-09-23)
 
-Stop here. The committee-membership loader is committed on `feat/sync-committee-membership` and is not loaded into the live warehouse. Do not start Voteview, CBO, or a second database until this pull request is merged and the live command has been run.
+Stop here. Committee membership is in the live warehouse. Do not start a second database. Next loader is Voteview, then CBO columns already inside the bill files.
 
-**Command:** `research-db sync-committee-membership`. It downloads three files from `unitedstates/congress-legislators` at commit `8a3c7e6987f890b32e56058f7ddbdf380860b4a3` into `DATA_ROOT/congress/committee_membership/` and loads them. Migration `c4e8a1b93d27` (parent `b8c4e2a17f03`). A subcommittee key is the parent code plus the short code. People join on BioGuide only. A printed roster name is stored as kind `roster` and does not change the shown person name. Unknown BioGuide ids are kept with an empty person link and the command exits 2.
+**Merged:** #76 squash `cfcc8de`, `research-db sync-committee-membership`. Migration `c4e8a1b93d27` applied live with `research-db init-db` (expand only, parent was `b8c4e2a17f03`). Files are the three congress-legislators YAML files at commit `8a3c7e6987f890b32e56058f7ddbdf380860b4a3`, kept under `DATA_ROOT/congress/committee_membership/`.
 
-**Checked:** pinned files parse as 559 committees and 3,895 members. `JCSE` (Helsinki Commission) is `joint` in the current file and `senate` in the historical file; the current wording wins. Database tests for the loader passed, including a second run that changes nothing. Name-resolution tests passed after the fix that stopped a roster row from making `research-db resolve` refuse to run. Not run: `just check-fast` after the last review fixes. Not written: tests for two loads at once, a committee that disappears, a changed rank, and downgrade-while-rows.
+**Live, this run (exit 0):** 559 committees (76 full committees, 483 subcommittees; House 327, Senate 227, joint 5); 3,895 current assignments; 0 unknown BioGuide ids; 531 roster-name notes. A second run inserted, updated, and deleted nothing. Shown person names did not change (0 rows display a roster name). People 12,770, bills 172,736, roll calls 23,359, member votes 7,384,589, and bill-text versions 135,136 were the same before and after.
 
-**Next, in order:** merge the pull request when CI is green; `research-db init-db` on port 5434 (expand only); `research-db sync-committee-membership`; record the live counts here. Then Voteview (`sync-voteview`, join on ICPSR), then CBO columns already inside BILLSTATUS JSON. FEC person join stays gated. No website.
+**Known gap:** merging two people does not yet move `core.committee_assignment`. CI on #76 failed only on `test_merge_covers_every_table_that_references_a_person` for that reason. A merge of someone who has a committee seat will stop until that table is added to the person-merge list. The load itself is fine.
+
+**Next, in order:** teach person-merge about committee seats (small fix), then Voteview (`sync-voteview`, join on ICPSR), then CBO columns already inside BILLSTATUS JSON. FEC person join stays gated. No website.
 
 ## Session handoff (2026-09-22)
 
