@@ -809,7 +809,7 @@ def test_the_migration_refuses_to_downgrade_while_official_rows_exist(clerk: Fak
     with pytest.raises(RuntimeError, match=rf"core\.roll_call_source_record holds {rows} rows"):
         command.downgrade(_alembic_config(), "b7e4c2a19d63")
 
-    assert _one("SELECT version_num AS v FROM alembic_version") == "c4e8a1b93d27"
+    assert _one("SELECT version_num AS v FROM alembic_version") == "e7c2a9d14b58"
     assert _roll_calls() == 3 and len(_votes(2)) == 5  # nothing was dropped
 
 
