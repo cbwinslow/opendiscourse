@@ -290,7 +290,9 @@ def merge_person(
 ) -> dict[str, Any]:
     """Apply one reviewed ``same_person`` exception in a single transaction.
 
-    Identifiers, sponsorships, memberships and votes move to the survivor. A vote the
+    Identifiers, sponsorships, memberships, committee seats and votes move to the survivor.
+    A committee seat keeps the roster id that was loaded; only the person it points at
+    changes. A vote the
     survivor also cast is kept whole in ``ingest.person_merge_vote`` and dropped from
     the fact table; a term that would collide with the survivor's aborts the merge. Name
     assertions move too; where the survivor asserts the same kind, dataset and vintage its

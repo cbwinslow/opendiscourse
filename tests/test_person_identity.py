@@ -87,6 +87,13 @@ def _cleanup() -> None:
             "WHERE metadata->>'identity_test' = 'true')"
         )
         conn.execute(
+            "DELETE FROM core.committee_assignment WHERE person_id IN "
+            "(SELECT person_id FROM core.person WHERE metadata->>'identity_test' = 'true') "
+            "OR bioguide LIKE %s",
+            (like,),
+        )
+        conn.execute("DELETE FROM core.committee WHERE thomas_key LIKE %s", (like,))
+        conn.execute(
             "DELETE FROM core.membership WHERE person_id IN (SELECT person_id FROM core.person "
             "WHERE metadata->>'identity_test' = 'true')"
         )
@@ -367,6 +374,81 @@ def _merge(exception: SamePerson):
         result = merge_person(conn, exception)
         conn.commit()
     return result
+
+
+def _seat(person, bioguide: str, artifact, run_id, stated_name: str = "Roster Name"):
+    """One current committee seat, linked the way the loader links it: person owns that BioGuide."""
+    thomas_key = _ids()[0]
+    with connect() as conn:
+        committee = conn.execute(
+            "INSERT INTO core.committee (thomas_key, kind, chamber, name, source_artifact_id, run_id) "
+            "VALUES (%s, 'committee', 'house', 'Identity test committee', %s, %s) "
+            "RETURNING committee_id",
+            (thomas_key, artifact, run_id),
+        ).fetchone()["committee_id"]
+        assignment = conn.execute(
+            "INSERT INTO core.committee_assignment "
+            "(committee_id, person_id, bioguide, party, rank, stated_name, chamber, "
+            "source_artifact_id, run_id) "
+            "VALUES (%s, %s, %s, 'majority', 1, %s, 'house', %s, %s) "
+            "RETURNING committee_assignment_id",
+            (committee, person, bioguide, stated_name, artifact, run_id),
+        ).fetchone()["committee_assignment_id"]
+        conn.commit()
+    return committee, assignment
+
+
+def test_merge_moves_a_committee_seat_with_its_bioguide(catalog_database: None) -> None:
+    """The allowed merge: the survivor has no BioGuide, the duplicate's seat follows them."""
+    survivor_ocd, roster_id = _ids(2)
+    survivor = _resolve([("ocd", survivor_ocd)])["person_id"]
+    duplicate = _resolve([("bioguide", roster_id)])["person_id"]
+    exception = SamePerson(f"{PREFIX}-{uuid.uuid4().hex[:6]}", ("ocd", survivor_ocd), ("bioguide", roster_id))
+    artifact, run_id = _run_and_artifact()
+    committee, assignment = _seat(duplicate, roster_id, artifact, run_id)
+    result = _merge(exception)
+    assert result["status"] == "merged"
+    assert result["counts"]["core.committee_assignment"] == 1
+    assert result["counts"]["core.person_identifier"] == 1
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT committee_assignment_id, committee_id, person_id, bioguide, party, rank, stated_name "
+            "FROM core.committee_assignment WHERE committee_assignment_id = %s",
+            (assignment,),
+        ).fetchone()
+        audit = conn.execute(
+            "SELECT counts FROM ingest.person_merge WHERE exception_id = %s",
+            (exception.id,),
+        ).fetchone()
+        assert conn.execute("SELECT 1 FROM core.person WHERE person_id = %s", (duplicate,)).fetchone() is None
+    assert row["person_id"] == survivor
+    assert row["bioguide"] == roster_id and row["stated_name"] == "Roster Name"
+    assert row["party"] == "majority" and row["rank"] == 1 and row["committee_id"] == committee
+    assert audit["counts"]["core.committee_assignment"] == 1
+    assert _owner("bioguide", roster_id) == survivor
+    assert _merge(exception)["status"] == "already_merged"
+
+
+def test_merge_of_two_bioguides_leaves_committee_seats(catalog_database: None) -> None:
+    """Two BioGuide ids are two people. Their seats stay where they were."""
+    first_bg, second_bg = _ids(2)
+    first = _resolve([("bioguide", first_bg)])["person_id"]
+    second = _resolve([("bioguide", second_bg)])["person_id"]
+    artifact, run_id = _run_and_artifact()
+    _, first_seat = _seat(first, first_bg, artifact, run_id, stated_name="First")
+    _, second_seat = _seat(second, second_bg, artifact, run_id, stated_name="Second")
+    with pytest.raises(ValueError, match="two people"):
+        _merge(SamePerson(f"{PREFIX}-two-bioguides-seats", ("bioguide", first_bg), ("bioguide", second_bg)))
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT committee_assignment_id, person_id FROM core.committee_assignment "
+            "WHERE committee_assignment_id IN (%s, %s)",
+            (first_seat, second_seat),
+        ).fetchall()
+    assert {row["committee_assignment_id"]: row["person_id"] for row in rows} == {
+        first_seat: first,
+        second_seat: second,
+    }
 
 
 def test_merge_moves_identifiers_and_deletes_the_duplicate(catalog_database: None) -> None:
