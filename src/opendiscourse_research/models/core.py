@@ -264,7 +264,7 @@ core_person_name_source = Table(
     Column("given_name", Text),
     Column("family_name", Text),
     *_evidence_columns(),
-    CheckConstraint("name_kind IN ('official', 'common')", name="person_name_source_kind_check"),
+    CheckConstraint("name_kind IN ('official', 'common', 'roster')", name="person_name_source_kind_check"),
     CheckConstraint("artifact_id IS NOT NULL OR payload_id IS NOT NULL", name="person_name_source_evidence"),
     CheckConstraint("btrim(full_name) <> ''", name="person_name_source_name_check"),
     CheckConstraint(_VINTAGE_CHECK, name="person_name_source_vintage_check"),
@@ -1003,6 +1003,160 @@ def post_table():
 def membership_table():
     """Return the Alembic-adopted canonical membership table."""
     return core_membership
+
+
+core_committee_source_record = Table(
+    "committee_source_record",
+    SQLModel.metadata,
+    Column(
+        "committee_source_record_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column("source_file", Text, nullable=False),
+    Column("thomas_key", Text, nullable=False),
+    Column("bioguide", Text, nullable=False, server_default=text("''")),
+    Column("record", JSONB, nullable=False),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("btrim(source_file) <> ''", name="committee_source_record_file_check"),
+    CheckConstraint("btrim(thomas_key) <> ''", name="committee_source_record_key_check"),
+    UniqueConstraint(
+        "source_file", "thomas_key", "bioguide", name="committee_source_record_identity_key"
+    ),
+    schema="core",
+)
+
+
+core_committee = Table(
+    "committee",
+    SQLModel.metadata,
+    Column(
+        "committee_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    # Membership-file key. A subcommittee is parent thomas id plus its short code.
+    Column("thomas_key", Text, nullable=False),
+    Column("parent_thomas_key", Text),
+    Column("kind", Text, nullable=False),
+    Column("chamber", Text, nullable=False),
+    Column("name", Text, nullable=False),
+    Column("url", Text),
+    Column("minority_url", Text),
+    Column("house_committee_id", Text),
+    Column("senate_committee_id", Text),
+    Column("address", Text),
+    Column("phone", Text),
+    Column("rss_url", Text),
+    Column("minority_rss_url", Text),
+    Column("jurisdiction", Text),
+    Column("jurisdiction_source", Text),
+    Column("wikipedia", Text),
+    Column("youtube_id", Text),
+    Column(
+        "congresses",
+        ARRAY(Integer),
+        nullable=False,
+        server_default=text("'{}'::integer[]"),
+    ),
+    Column("former_names", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    # Set when a historical file also describes this key. Congresses and former
+    # names come from that file; the other columns come from source_artifact_id.
+    Column(
+        "history_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+    ),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("btrim(thomas_key) <> ''", name="committee_thomas_key_check"),
+    CheckConstraint("btrim(name) <> ''", name="committee_name_check"),
+    CheckConstraint("chamber IN ('house', 'senate', 'joint')", name="committee_chamber_check"),
+    CheckConstraint(
+        "(kind = 'committee' AND parent_thomas_key IS NULL) "
+        "OR (kind = 'subcommittee' AND parent_thomas_key IS NOT NULL "
+        "AND btrim(parent_thomas_key) <> '')",
+        name="committee_kind_parent_check",
+    ),
+    UniqueConstraint("thomas_key", name="committee_thomas_key_key"),
+    Index("committee_parent_idx", "parent_thomas_key"),
+    schema="core",
+)
+
+
+core_committee_assignment = Table(
+    "committee_assignment",
+    SQLModel.metadata,
+    Column(
+        "committee_assignment_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column(
+        "committee_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.committee.committee_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("person_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.person.person_id")),
+    Column("bioguide", Text, nullable=False),
+    Column("party", Text, nullable=False),
+    Column("rank", Integer, nullable=False),
+    Column("title", Text),
+    Column("stated_name", Text, nullable=False),
+    Column("chamber", Text),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("btrim(bioguide) <> ''", name="committee_assignment_bioguide_check"),
+    CheckConstraint("btrim(stated_name) <> ''", name="committee_assignment_name_check"),
+    CheckConstraint("party IN ('majority', 'minority')", name="committee_assignment_party_check"),
+    CheckConstraint(
+        "chamber IS NULL OR chamber IN ('house', 'senate')",
+        name="committee_assignment_chamber_check",
+    ),
+    UniqueConstraint(
+        "committee_id", "bioguide", name="committee_assignment_committee_bioguide_key"
+    ),
+    Index("committee_assignment_person_idx", "person_id"),
+    schema="core",
+)
+
+
+def committee_source_record_table():
+    """Return the whole-file-row record for committee YAML."""
+    return core_committee_source_record
+
+
+def committee_table():
+    """Return the committee body keyed by the membership-file id."""
+    return core_committee
+
+
+def committee_assignment_table():
+    """Return the current committee-assignment snapshot."""
+    return core_committee_assignment
 
 
 def roll_call_table():

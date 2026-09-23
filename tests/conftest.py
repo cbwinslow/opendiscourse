@@ -17,6 +17,7 @@ _DB_FILES = {
     "test_coverage_db.py",
     "test_billstatus_connector.py",
     "test_bill_text_connector.py",
+    "test_committee_membership_connector.py",
     "test_house_votes_connector.py",
     "test_senate_votes_connector.py",
 }

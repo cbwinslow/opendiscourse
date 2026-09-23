@@ -255,15 +255,20 @@ providers:
           number). The Vice President's tie-break is on the roll call, not a member vote.
       - id: congress.committee_membership
         title: Current committee and subcommittee assignments (BioGuide)
-        access: unitedstates/congress-legislators YAML (committee-membership-current.yaml)
-        client: pyyaml; httpx for GitHub raw into DATA_ROOT
-        grain: committee × member
-        identifiers: [thomas_id, bioguide]
+        access: >-
+          unitedstates/congress-legislators YAML at a pinned commit:
+          committees-current.yaml, committees-historical.yaml, committee-membership-current.yaml
+        client: httpx; pyyaml
+        grain: committee (membership-file key) × current member
+        identifiers: [thomas_key, bioguide]
         cadence: on_upstream_change
         priority: 1
         notes: >-
-          Public-domain CC0. Join members on BioGuide only. Current assignments only;
-          historical membership is not in this file. Do not scrape Clerk HTML.
+          Public-domain CC0. `research-db sync-committee-membership` downloads the three
+          files into DATA_ROOT. A subcommittee key is the parent thomas id plus the short
+          code, because short codes such as 01 repeat. Join members on BioGuide only.
+          Current assignments only; the historical file has committees but no membership.
+          Do not scrape Clerk HTML.
       - id: congress.voteview
         title: Voteview member ideology (DW-NOMINATE) and roll-call index
         access: https://voteview.com/data CSV exports

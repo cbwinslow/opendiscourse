@@ -1,10 +1,20 @@
 # Project state and handoff
 
-Last updated: 2026-09-22 (analysis-source files downloading: committee YAML, Voteview CSVs, CBO index; no website). Official House and Senate votes are loaded for Congresses 108-119. See "Session handoff (2026-09-22)" below. Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-23 (committee-membership loader committed, not yet on the live database). Official House and Senate votes are loaded for Congresses 108-119. See "Session handoff (2026-09-23)" below. Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
 decision or story status changes.
+
+## Session handoff (2026-09-23)
+
+Stop here. The committee-membership loader is committed on `feat/sync-committee-membership` and is not loaded into the live warehouse. Do not start Voteview, CBO, or a second database until this pull request is merged and the live command has been run.
+
+**Command:** `research-db sync-committee-membership`. It downloads three files from `unitedstates/congress-legislators` at commit `8a3c7e6987f890b32e56058f7ddbdf380860b4a3` into `DATA_ROOT/congress/committee_membership/` and loads them. Migration `c4e8a1b93d27` (parent `b8c4e2a17f03`). A subcommittee key is the parent code plus the short code. People join on BioGuide only. A printed roster name is stored as kind `roster` and does not change the shown person name. Unknown BioGuide ids are kept with an empty person link and the command exits 2.
+
+**Checked:** pinned files parse as 559 committees and 3,895 members. `JCSE` (Helsinki Commission) is `joint` in the current file and `senate` in the historical file; the current wording wins. Database tests for the loader passed, including a second run that changes nothing. Name-resolution tests passed after the fix that stopped a roster row from making `research-db resolve` refuse to run. Not run: `just check-fast` after the last review fixes. Not written: tests for two loads at once, a committee that disappears, a changed rank, and downgrade-while-rows.
+
+**Next, in order:** merge the pull request when CI is green; `research-db init-db` on port 5434 (expand only); `research-db sync-committee-membership`; record the live counts here. Then Voteview (`sync-voteview`, join on ICPSR), then CBO columns already inside BILLSTATUS JSON. FEC person join stays gated. No website.
 
 ## Session handoff (2026-09-22)
 

@@ -18,7 +18,10 @@ from .repositories.names import query
 
 PRECEDENCE_PATH = Path(__file__).resolve().parents[2] / "inventory" / "precedence.yaml"
 
-KINDS = {"person": ("official", "common"), "geography": ("short", "full")}
+# ``roster`` is ranked so a committee loader may record it, and it is not a display
+# kind: the shown person name does not change when a roster assertion is written.
+DISPLAY_KINDS = {"person": ("official", "common"), "geography": ("short", "full")}
+KINDS = {"person": ("official", "common", "roster"), "geography": ("short", "full")}
 
 
 def load_precedence(path: Path | None = None) -> dict[str, Any]:
@@ -55,6 +58,7 @@ def validate_precedence(document: dict[str, Any], dataset_ids: set[str]) -> list
     if document.get("version") != 1:
         errors.append("precedence.yaml: version must be 1")
     for entity, allowed in KINDS.items():
+        displayed = DISPLAY_KINDS[entity]
         section = document.get(entity)
         if not isinstance(section, dict):
             errors.append(f"precedence.yaml: {entity} section is missing")
@@ -63,7 +67,11 @@ def validate_precedence(document: dict[str, Any], dataset_ids: set[str]) -> list
         if not isinstance(display, list) or not display or len(set(display)) != len(display):
             display = []
             errors.append(f"precedence.yaml: {entity}.display must list each name kind once")
-        errors += [f"precedence.yaml: {entity} display kind {kind!r} is not one of {allowed}" for kind in display if kind not in allowed]
+        errors += [
+            f"precedence.yaml: {entity} display kind {kind!r} is not one of {displayed}"
+            for kind in display
+            if kind not in displayed
+        ]
         kinds = section.get("kinds")
         if not isinstance(kinds, dict) or not kinds:
             errors.append(f"precedence.yaml: {entity}.kinds is missing")
@@ -71,7 +79,7 @@ def validate_precedence(document: dict[str, Any], dataset_ids: set[str]) -> list
         for kind, scope in kinds.items():
             if kind not in allowed:
                 errors.append(f"precedence.yaml: {entity} kind {kind!r} is not one of {allowed}")
-            if kind not in display:
+            if kind in displayed and kind not in display:
                 errors.append(f"precedence.yaml: {entity} kind {kind!r} is ranked but never displayed")
             if entity == "geography":
                 if not isinstance(scope, dict) or not scope:

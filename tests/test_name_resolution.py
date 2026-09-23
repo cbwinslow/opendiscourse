@@ -81,6 +81,8 @@ def test_person_display_is_common_then_official_with_the_documented_ranks() -> N
         ("official", 1, LEGISLATORS),
         ("official", 2, CONGRESS_GOV),
         ("official", 3, OPENSTATES),
+        # Ranked, and deliberately not in display, so a roster does not change the shown name.
+        ("roster", 1, "congress.committee_membership"),
     ]
     geography = {(kind, geography_type): [row[4] for row in rows]
                  for (kind, geography_type), rows in _group(_entries(document), "geography").items()}
@@ -520,7 +522,9 @@ def test_precedence_sync_removes_dropped_rows_and_survives_a_reordering(warehous
     swapped = _ranked(["common", "official"], common=[OPENSTATES],
                       official=[OPENSTATES, CONGRESS_GOV, LEGISLATORS])  # ranks 1 and 3 change places
     counts = sync_precedence(swapped)
-    assert counts["ranks_written"] == 4 and counts["ranks_removed"] == 0  # the field text differs from the file too
+    # Field text differs on the four replaced rows. Roster is ranked but not in this
+    # replacement, so that one rank is removed.
+    assert counts["ranks_written"] == 4 and counts["ranks_removed"] == 1
     with connect() as conn:
         order = [r["dataset_id"] for r in conn.execute(
             "SELECT dataset_id FROM catalog.attribute_precedence WHERE entity = 'person' AND name_kind = 'official' "
@@ -572,6 +576,18 @@ def test_the_shipped_file_shows_the_common_name_and_falls_back_to_official(wareh
     assert _person_row(both)["full_name"] == "Mike Lawler"
     assert _source("person_name_source", _person_row(both)["name_source_id"])["name_kind"] == "common"
     assert _person_row(official_only)["full_name"] == "Only Official"
+
+
+@db
+def test_a_roster_name_does_not_block_resolve_or_change_the_shown_name(warehouse: None) -> None:
+    """A committee roster is ranked and not displayed. Resolve still runs."""
+    person = _person("Placeholder")
+    _say(person, "common", OPENSTATES, "2024", "Mike Lawler", "Mike", "Lawler")
+    _say(person, "roster", "congress.committee_membership", "2026-09-03", "Printed Mike")
+    assert _resolve()["changed"] == 1
+    row = _person_row(person)
+    assert row["full_name"] == "Mike Lawler"
+    assert _source("person_name_source", row["name_source_id"])["name_kind"] == "common"
 
 
 @db
@@ -915,7 +931,7 @@ def test_downgrade_refuses_while_assertions_exist(warehouse: None) -> None:
         command.downgrade(_alembic_config(), "a4d9e1c7b356")
     with connect() as conn:  # nothing was dropped
         assert conn.execute("SELECT to_regclass('core.person_name_source') AS t").fetchone()["t"] is not None
-        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()["version_num"] == "b8c4e2a17f03"
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()["version_num"] == "c4e8a1b93d27"
 
 
 @db
@@ -1012,7 +1028,8 @@ def test_a_same_value_duplicate_in_one_batch_stores_one_row(warehouse: None) -> 
 def test_sync_precedence_dry_run_returns_the_counts_and_writes_nothing(warehouse: None) -> None:
     dropped = _ranked(["common"], common=[OPENSTATES])
     preview = sync_precedence(dropped, dry_run=True)
-    assert preview["ranks_removed"] == 3 and preview["display_removed"] == 1
+    # Official's three ranks plus roster, which this document does not rank.
+    assert preview["ranks_removed"] == 4 and preview["display_removed"] == 1
     with connect() as conn:
         assert conn.execute("SELECT count(*) AS n FROM catalog.attribute_precedence WHERE entity = 'person' "
                             "AND name_kind = 'official'").fetchone()["n"] == 3

@@ -1,0 +1,92 @@
+dataset: congress.committee_membership
+audited_on: '2026-09-23'
+origin: >-
+  https://github.com/unitedstates/congress-legislators (committees-current.yaml,
+  committees-historical.yaml, committee-membership-current.yaml) at a pinned commit,
+  downloaded over HTTP into DATA_ROOT
+capture:
+  whole_record: core.committee_source_record
+  notes: >-
+    Each file is a retained artifact. Every committee and subcommittee object, and every
+    membership-file member, is also one JSON row. A parent row keeps its nested subcommittees
+    list. A key that appears in both committee files is still one core.committee. The
+    membership file has no historical assignments.
+fields:
+- name: type
+  status: typed
+  where: core.committee.chamber (house, senate, or joint)
+- name: name
+  status: typed
+  where: core.committee.name (the current file wins when the key is in both committee files)
+- name: url, minority_url
+  status: typed
+  where: core.committee.url and core.committee.minority_url
+- name: thomas_id
+  status: typed
+  where: >-
+    core.committee.thomas_key. A subcommittee key is the parent thomas id plus the short
+    code (SSAF + 13). The short code alone is not unique.
+- name: parent committee
+  status: typed
+  where: core.committee.parent_thomas_key (empty on a full committee) and core.committee.kind
+- name: house_committee_id, senate_committee_id
+  status: typed
+  where: core.committee.house_committee_id and core.committee.senate_committee_id
+- name: address, phone
+  status: typed
+  where: core.committee.address and core.committee.phone
+- name: rss_url, minority_rss_url
+  status: typed
+  where: core.committee.rss_url and core.committee.minority_rss_url
+- name: jurisdiction, jurisdiction_source
+  status: typed
+  where: core.committee.jurisdiction and core.committee.jurisdiction_source
+- name: wikipedia
+  status: typed
+  where: core.committee.wikipedia
+- name: youtube_id
+  status: typed
+  where: core.committee.youtube_id
+- name: congresses
+  status: typed
+  where: core.committee.congresses (from the historical file; empty when that file has none)
+- name: names
+  status: typed
+  where: core.committee.former_names (Congress number to the name the historical file gives)
+- name: subcommittees
+  status: whole_record_only
+  reason: >-
+    kept nested on the parent source record; each subcommittee is also its own committee
+    row, because that is how the membership file names it
+- name: member bioguide
+  status: typed
+  where: >-
+    core.committee_assignment.bioguide, and person_id when core.person_identifier already
+    has that BioGuide. An unknown id stays on the assignment with an empty person link.
+    There is no name matching.
+- name: member name
+  status: typed
+  where: >-
+    core.committee_assignment.stated_name. When the BioGuide matches a person it is also
+    a roster assertion (core.person_name_source). Roster is not a displayed name.
+- name: member party
+  status: typed
+  where: core.committee_assignment.party (majority or minority, as the file prints it)
+- name: member rank
+  status: typed
+  where: core.committee_assignment.rank
+- name: member title
+  status: typed
+  where: core.committee_assignment.title
+- name: member chamber
+  status: typed
+  where: core.committee_assignment.chamber (only when the file includes it; joint committees)
+- name: any other key on a committee, subcommittee, or member
+  status: whole_record_only
+  reason: the whole object is the source record; a new key would be typed when a query needs it
+- name: historical committee membership
+  status: not_stored
+  reason: committee-membership-current.yaml has no historical assignments, and this load does not invent any
+- name: Clerk HTML committee pages
+  status: not_stored
+  reason: the YAML files are the source; Clerk HTML is not scraped

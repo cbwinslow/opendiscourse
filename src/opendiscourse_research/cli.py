@@ -80,6 +80,7 @@ from .ingestion.census import (
     review_bulk_contract,
     search_acs_tables,
 )
+from .ingestion.committee_membership import CommitteeMembershipConnector
 from .ingestion.congress import ingest_bill
 from .ingestion.connector import run_connector
 from .ingestion.dhc_bulk import preview_dhc_bulk_plan, write_dhc_bulk_plan
@@ -655,6 +656,26 @@ def sync_bill_text_command(
             run_connector(connector)
     except (OSError, RuntimeError, ValueError, psycopg.Error, SQLAlchemyError) as exc:
         typer.secho(f"sync-bill-text failed: {exc}", err=True, fg=typer.colors.RED)
+        typer.echo("Nothing is lost: rerun the same command to resume.", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(connector.result, indent=2, sort_keys=True, default=str))
+    if connector.result.get("partial"):
+        raise typer.Exit(2)
+
+
+@app.command("sync-committee-membership")
+def sync_committee_membership_command() -> None:
+    """Download committee YAML into DATA_ROOT and load current membership (idempotent).
+
+    Exit code 0: complete. 1: failed (a rerun is safe; retained files are not overwritten).
+    2: loaded, but a BioGuide on the roster is not a person yet (see ``unknown_bioguide_ids``).
+    """
+    try:
+        with render_spinner("Syncing committee membership") as report:
+            connector = CommitteeMembershipConnector(report=report)
+            run_connector(connector)
+    except (OSError, RuntimeError, ValueError, psycopg.Error, SQLAlchemyError) as exc:
+        typer.secho(f"sync-committee-membership failed: {exc}", err=True, fg=typer.colors.RED)
         typer.echo("Nothing is lost: rerun the same command to resume.", err=True)
         raise typer.Exit(1) from None
     typer.echo(json.dumps(connector.result, indent=2, sort_keys=True, default=str))

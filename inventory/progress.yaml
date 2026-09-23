@@ -85,16 +85,22 @@ items:
       files remain. See docs/PROJECT-STATE.md.
   - id: congcommittees
     dataset: congress.committee_membership
-    state: found
+    state: ready
     scope: >-
-      Current committee and subcommittee assignments from unitedstates/congress-legislators
-      (committee-membership-current.yaml, committees-current.yaml, committees-historical.yaml).
-      Files downloaded 2026-09-22 into DATA_ROOT/congress/legislators/. Join on BioGuide.
+      Current committee bodies and membership from unitedstates/congress-legislators
+      (committees-current.yaml, committees-historical.yaml, committee-membership-current.yaml),
+      downloaded by `research-db sync-committee-membership` from a pinned GitHub commit into
+      DATA_ROOT. Subcommittee identity is the parent thomas id plus the short code. Join on
+      BioGuide. Historical-only bodies load with no members. Not applied to the live warehouse yet.
     origin: https://github.com/unitedstates/congress-legislators
     provenance: authoritative_community_crosswalk
     sensitivity: public
-    validate: YAML maps committee thomas_id to members with bioguide, rank, title, party.
-    next: Story + Connector `research-db sync-committee-membership`. Do not scrape Clerk HTML.
+    validate: >-
+      Connector tests against a fake origin (no live download). A repeated short code stays
+      two committees. An unknown BioGuide is kept with an empty person link and exit 2.
+    next: >-
+      After the pull request merges and checks are green, apply the migration on port 5434
+      and run the command. Do not scrape Clerk HTML.
   - id: voteview
     dataset: congress.voteview
     state: found
