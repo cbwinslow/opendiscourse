@@ -103,15 +103,22 @@ items:
       ids. Person-merge does not yet repoint core.committee_assignment. Do not scrape Clerk HTML.
   - id: voteview
     dataset: congress.voteview
-    state: found
+    state: ready
     scope: >-
-      UCLA Voteview member ideology (DW-NOMINATE) and roll-call index CSVs. Join on ICPSR
-      already in core.person_identifier. Does not replace Clerk/Senate.gov votes.
-    origin: https://voteview.com/data
+      UCLA Voteview member ideology (DW-NOMINATE and Nokken-Poole), the roll-call index,
+      and party medians, for every Congress in the files. Join on ICPSR already in
+      core.person_identifier. Does not replace Clerk/Senate.gov votes. Does not download
+      HSall_votes.csv.
+    origin: https://voteview.com/static/data/out/
     provenance: academic_official_export
     sensitivity: public
-    validate: Cite Lewis, Poole, Rosenthal et al. Voteview Congressional Roll-Call Votes Database.
-    next: Connector `research-db sync-voteview` after committee membership.
+    validate: >-
+      Cite Lewis, Poole, Rosenthal, Boche, Rudkin, and Sonnet, Voteview: Congressional
+      Roll-Call Votes Database, https://voteview.com/. Connector tests use a fake origin.
+    next: >-
+      `research-db sync-voteview` is in the tree (migration e7c2a9d14b58). It is not
+      applied to the live database on port 5434. Run init-db there only when the live
+      load is requested, then the sync.
   - id: cbocost
     dataset: congress.cbo_cost_estimates
     state: found

@@ -51,6 +51,8 @@ PERSON_REFERENCES = (
     "core.membership",
     "fact.member_vote",
     "core.person_name_source",
+    "core.committee_assignment",
+    "core.voteview_member",
 )
 
 # Repointed by their own statement: a plain UPDATE would collide with the survivor's assertions.

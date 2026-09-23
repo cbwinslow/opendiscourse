@@ -10,6 +10,7 @@ from sqlalchemy import (
     Column,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -264,7 +265,10 @@ core_person_name_source = Table(
     Column("given_name", Text),
     Column("family_name", Text),
     *_evidence_columns(),
-    CheckConstraint("name_kind IN ('official', 'common', 'roster')", name="person_name_source_kind_check"),
+    CheckConstraint(
+        "name_kind IN ('official', 'common', 'roster', 'voteview')",
+        name="person_name_source_kind_check",
+    ),
     CheckConstraint("artifact_id IS NOT NULL OR payload_id IS NOT NULL", name="person_name_source_evidence"),
     CheckConstraint("btrim(full_name) <> ''", name="person_name_source_name_check"),
     CheckConstraint(_VINTAGE_CHECK, name="person_name_source_vintage_check"),
@@ -1144,6 +1148,154 @@ core_committee_assignment = Table(
 )
 
 
+core_voteview_member = Table(
+    "voteview_member",
+    SQLModel.metadata,
+    Column(
+        "voteview_member_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column("congress", Integer, nullable=False),
+    Column("chamber", Text, nullable=False),
+    Column("icpsr", Text, nullable=False),
+    Column("state_icpsr", Integer),
+    Column("district_code", Integer),
+    Column("state_abbrev", Text),
+    Column("party_code", Integer, nullable=False),
+    Column("occupancy", Integer),
+    Column("last_means", Integer),
+    Column("bioname", Text, nullable=False),
+    Column("bioguide", Text),
+    Column("born", Float),
+    Column("died", Float),
+    Column("nominate_dim1", Float),
+    Column("nominate_dim2", Float),
+    Column("nominate_log_likelihood", Float),
+    Column("nominate_geo_mean_probability", Float),
+    Column("nominate_number_of_votes", Integer),
+    Column("nominate_number_of_errors", Integer),
+    Column("conditional", Text),
+    Column("nokken_poole_dim1", Float),
+    Column("nokken_poole_dim2", Float),
+    Column("person_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.person.person_id")),
+    Column("record", JSONB, nullable=False),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("congress > 0", name="voteview_member_congress_check"),
+    CheckConstraint(
+        "chamber IN ('house', 'senate', 'president')", name="voteview_member_chamber_check"
+    ),
+    CheckConstraint("btrim(icpsr) <> ''", name="voteview_member_icpsr_check"),
+    CheckConstraint("btrim(bioname) <> ''", name="voteview_member_bioname_check"),
+    UniqueConstraint("congress", "chamber", "icpsr", name="voteview_member_identity_key"),
+    Index("voteview_member_person_idx", "person_id"),
+    schema="core",
+)
+
+
+core_voteview_roll_call = Table(
+    "voteview_roll_call",
+    SQLModel.metadata,
+    Column(
+        "voteview_roll_call_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column("congress", Integer, nullable=False),
+    Column("chamber", Text, nullable=False),
+    Column("rollnumber", Integer, nullable=False),
+    Column("session", Integer),
+    Column("clerk_rollnumber", Integer),
+    Column("vote_date", Date),
+    Column("majority_requirement", Text),
+    Column("yea_count", Integer),
+    Column("nay_count", Integer),
+    Column("nominate_mid_1", Float),
+    Column("nominate_mid_2", Float),
+    Column("nominate_spread_1", Float),
+    Column("nominate_spread_2", Float),
+    Column("nominate_log_likelihood", Float),
+    Column("bill_number", Text),
+    Column("vote_result", Text),
+    Column("vote_desc", Text),
+    Column("vote_question", Text),
+    Column("dtl_desc", Text),
+    Column("issue_codes", JSONB),
+    Column("peltzman_codes", JSONB),
+    Column("clausen_codes", JSONB),
+    Column("crs_policy_area", Text),
+    Column("crs_subjects", JSONB),
+    Column("congress_url", Text),
+    Column("source_documents", JSONB),
+    Column("roll_call_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.roll_call.roll_call_id")),
+    Column("record", JSONB, nullable=False),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("congress > 0", name="voteview_roll_call_congress_check"),
+    CheckConstraint("rollnumber > 0", name="voteview_roll_call_number_check"),
+    CheckConstraint("chamber IN ('house', 'senate')", name="voteview_roll_call_chamber_check"),
+    UniqueConstraint(
+        "congress", "chamber", "rollnumber", name="voteview_roll_call_identity_key"
+    ),
+    Index("voteview_roll_call_link_idx", "roll_call_id"),
+    schema="core",
+)
+
+
+core_voteview_party = Table(
+    "voteview_party",
+    SQLModel.metadata,
+    Column(
+        "voteview_party_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column("congress", Integer, nullable=False),
+    Column("chamber", Text, nullable=False),
+    Column("party_code", Integer, nullable=False),
+    Column("party_name", Text, nullable=False),
+    Column("n_members", Integer),
+    Column("nominate_dim1_median", Float),
+    Column("nominate_dim2_median", Float),
+    Column("nominate_dim1_mean", Float),
+    Column("nominate_dim2_mean", Float),
+    Column("record", JSONB, nullable=False),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("congress > 0", name="voteview_party_congress_check"),
+    CheckConstraint(
+        "chamber IN ('house', 'senate', 'president')", name="voteview_party_chamber_check"
+    ),
+    CheckConstraint("btrim(party_name) <> ''", name="voteview_party_name_check"),
+    UniqueConstraint(
+        "congress", "chamber", "party_code", name="voteview_party_identity_key"
+    ),
+    schema="core",
+)
+
+
 def committee_source_record_table():
     """Return the whole-file-row record for committee YAML."""
     return core_committee_source_record
@@ -1157,6 +1309,21 @@ def committee_table():
 def committee_assignment_table():
     """Return the current committee-assignment snapshot."""
     return core_committee_assignment
+
+
+def voteview_member_table():
+    """Return Voteview's member-Congress ideology rows."""
+    return core_voteview_member
+
+
+def voteview_roll_call_table():
+    """Return Voteview's roll-call index."""
+    return core_voteview_roll_call
+
+
+def voteview_party_table():
+    """Return Voteview's party medians."""
+    return core_voteview_party
 
 
 def roll_call_table():

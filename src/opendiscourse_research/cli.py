@@ -95,6 +95,7 @@ from .ingestion.tiger_bulk import preview_tiger_bulk_plan, write_tiger_bulk_plan
 from .ingestion.tiger_load import load_tiger, stage_tiger
 from .ingestion.treasury import ingest_yield_curve
 from .ingestion.votes import VOTE_CONNECTORS
+from .ingestion.voteview import VoteviewConnector
 from .legload import load_billstatus
 from .legreconcile import reconcile_billstatus
 from .legvalidate import validate_billstatus
@@ -676,6 +677,28 @@ def sync_committee_membership_command() -> None:
             run_connector(connector)
     except (OSError, RuntimeError, ValueError, psycopg.Error, SQLAlchemyError) as exc:
         typer.secho(f"sync-committee-membership failed: {exc}", err=True, fg=typer.colors.RED)
+        typer.echo("Nothing is lost: rerun the same command to resume.", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(connector.result, indent=2, sort_keys=True, default=str))
+    if connector.result.get("partial"):
+        raise typer.Exit(2)
+
+
+@app.command("sync-voteview")
+def sync_voteview_command() -> None:
+    """Download Voteview ideology and the roll-call index into DATA_ROOT and load them.
+
+    Exit code 0: complete. 1: failed (a rerun is safe; retained files are not overwritten).
+    2: loaded, but a House or Senate ICPSR is unknown or a BioGuide disagrees
+    (see ``unlinked_members`` and ``bioguide_disagreements``). A President with no
+    person does not do this. NOMINATE stays Voteview's measurement.
+    """
+    try:
+        with render_spinner("Syncing Voteview") as report:
+            connector = VoteviewConnector(report=report)
+            run_connector(connector)
+    except (OSError, RuntimeError, ValueError, psycopg.Error, SQLAlchemyError) as exc:
+        typer.secho(f"sync-voteview failed: {exc}", err=True, fg=typer.colors.RED)
         typer.echo("Nothing is lost: rerun the same command to resume.", err=True)
         raise typer.Exit(1) from None
     typer.echo(json.dumps(connector.result, indent=2, sort_keys=True, default=str))

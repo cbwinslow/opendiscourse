@@ -7,7 +7,7 @@ search, or export code. Wrap behind provenance.
 |---|---|
 | `unitedstates/congress` | Wrap as vote/bill producer (`vendor/unitedstates-congress`) |
 | `unitedstates/congress-legislators` | Identity crosswalk (`vendor/congress-legislators`). Same repo is the source for current committee/subcommittee membership YAML (`committee-membership-current.yaml`); wrap that next, do not scrape Clerk HTML. |
-| Voteview / DW-NOMINATE (UCLA) | Official CSVs at voteview.com/data; join on ICPSR already in `core.person_identifier`. Wrap member ideology + roll-call index; do not replace Clerk/Senate.gov votes. |
+| Voteview / DW-NOMINATE (UCLA) | Wrap the three current official exports: `HSall_members.csv`, `HSall_rollcalls.json`, and `HSall_parties.csv`; join people on ICPSR. Do not replace Clerk/Senate.gov votes, download `HSall_votes.csv`, or run the obsolete `unitedstates/congress` Voteview task. |
 | BICAM (MIT, *Scientific Data* 2025) | Academic bulk Congress.gov/GovInfo ingest (`bicam.net`, `bicam-data/bicam`). Use as schema/methods literature and a completeness check, not as our system of record. |
 | CBO cost estimates | BILLSTATUS JSON already holds `cboCostEstimates` (`pubDate`, `title`, `url`, `description`). Type those first. A scripted fetch of cbo.gov/cost-estimates/xml returned HTTP 403 (2026-09-22). |
 | OpenStates / Plural dumps | Isolated DB + FDW `openstates_source`; OCD language in `core`, not Django dump schema |
@@ -28,7 +28,6 @@ search, or export code. Wrap behind provenance.
 | Meltano/Singer | Not the foundation |
 | `censusdis` | Optional convenience; not required (license) |
 | Serena, Context7, GitHub MCP | Agent retrieval; not authority |
-| Voteview (UCLA) | Wrap through the `voteview` task in `unitedstates/congress`; joins on ICPSR |
 | `pygris`, `datamade/census` | EVALUATE when the source's story starts; adopt if licence and maintenance are fine (ADR-0004) |
 | `fredapi` | Optional extra `fred`; our FRED client stays |
 | LDA.gov API (lobbying) | Candidate, gate `later`: official REST API; verify limits and licence before use |

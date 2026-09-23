@@ -8,15 +8,17 @@ decision or story status changes.
 
 ## Session handoff (2026-09-23)
 
-Stop here. Committee membership is in the live warehouse. Do not start a second database. Next loader is Voteview, then CBO columns already inside the bill files.
+Stop here. Committee membership is in the live warehouse. Do not start a second database. Voteview's loader is written (`research-db sync-voteview`, migration `e7c2a9d14b58`) and is not applied to port 5434. Next is that live load when asked, then CBO columns already inside the bill files.
 
 **Merged:** #76 squash `cfcc8de`, `research-db sync-committee-membership`. Migration `c4e8a1b93d27` applied live with `research-db init-db` (expand only, parent was `b8c4e2a17f03`). Files are the three congress-legislators YAML files at commit `8a3c7e6987f890b32e56058f7ddbdf380860b4a3`, kept under `DATA_ROOT/congress/committee_membership/`.
 
 **Live, this run (exit 0):** 559 committees (76 full committees, 483 subcommittees; House 327, Senate 227, joint 5); 3,895 current assignments; 0 unknown BioGuide ids; 531 roster-name notes. A second run inserted, updated, and deleted nothing. Shown person names did not change (0 rows display a roster name). People 12,770, bills 172,736, roll calls 23,359, member votes 7,384,589, and bill-text versions 135,136 were the same before and after.
 
-**Known gap:** merging two people does not yet move `core.committee_assignment`. CI on #76 failed only on `test_merge_covers_every_table_that_references_a_person` for that reason. A merge of someone who has a committee seat will stop until that table is added to the person-merge list. The load itself is fine.
+**Known gap:** merging two people did not move `core.committee_assignment`. CI on #76 failed only on `test_merge_covers_every_table_that_references_a_person` for that reason. This branch's person-merge list includes that table and `core.voteview_member`. The live 3,895 seats were not rewritten.
 
-**Next, in order:** teach person-merge about committee seats (small fix), then Voteview (`sync-voteview`, join on ICPSR), then CBO columns already inside BILLSTATUS JSON. FEC person join stays gated. No website.
+**Next, in order:** Voteview is implemented and not loaded live. Person-merge now needs `core.committee_assignment` and `core.voteview_member` (both are on the merge list in this change). Apply migration `e7c2a9d14b58` with `research-db init-db` only when asked, then `research-db sync-voteview`. Then CBO columns already inside BILLSTATUS JSON. FEC person join stays gated. No website. Do not download `HSall_votes.csv`.
+
+**Architecture guardrail (2026-09-23):** `docs/architecture/source-connector-boundaries.md` records the required source boundaries: provider HTTP only, Connector lifecycle/parsing, repository database operations, SQL in `sql/query/<source>/`, inventory + field checklist, and source tests. Do not grow `cli.py` or `repositories/legislation.py` with source-specific shortcuts; update the reuse catalog's obsolete Voteview scraper note during the Voteview cleanup.
 
 ## Session handoff (2026-09-22)
 

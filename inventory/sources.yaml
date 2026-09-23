@@ -271,15 +271,22 @@ providers:
           Do not scrape Clerk HTML.
       - id: congress.voteview
         title: Voteview member ideology (DW-NOMINATE) and roll-call index
-        access: https://voteview.com/data CSV exports
+        access: >-
+          https://voteview.com/static/data/out/members/HSall_members.csv,
+          https://voteview.com/static/data/out/rollcalls/HSall_rollcalls.json,
+          https://voteview.com/static/data/out/parties/HSall_parties.csv
         client: httpx
-        grain: member × congress (ideology); roll call (index)
+        grain: member × congress (ideology); roll call (index); party × congress
         identifiers: [icpsr, congress, chamber, rollnumber]
         cadence: as_votes_occur
         priority: 2
         notes: >-
-          Cite Lewis, Poole, Rosenthal et al. Join people on ICPSR already in
-          core.person_identifier. Does not replace Clerk or Senate.gov votes.
+          Cite Lewis, Poole, Rosenthal, Boche, Rudkin, and Sonnet, Voteview:
+          Congressional Roll-Call Votes Database, https://voteview.com/.
+          `research-db sync-voteview` keeps those three files and joins people on
+          ICPSR already in core.person_identifier. It does not download
+          HSall_votes.csv and does not replace Clerk or Senate.gov votes. NOMINATE
+          stays Voteview's measurement.
       - id: congress.cbo_cost_estimates
         title: CBO cost estimates already carried in BILLSTATUS records
         access: core.bill_source_record JSON (cboCostEstimates); CBO.gov pages for PDFs

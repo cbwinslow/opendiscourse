@@ -25,6 +25,10 @@ person:
     # omitted from display so the shown person name does not change.
     roster:
       - {dataset: congress.committee_membership, field: member.name}
+    # Voteview bioname. Ranked so resolve does not fail closed, and omitted from
+    # display so the shown person name does not change.
+    voteview:
+      - {dataset: congress.voteview, field: bioname}
 geography:
   display: [short, full]
   kinds:

@@ -1,0 +1,136 @@
+dataset: congress.voteview
+audited_on: '2026-09-23'
+origin: >-
+  https://voteview.com/static/data/out/members/HSall_members.csv,
+  https://voteview.com/static/data/out/rollcalls/HSall_rollcalls.json,
+  and https://voteview.com/static/data/out/parties/HSall_parties.csv
+capture:
+  whole_record: core.voteview_member.record, core.voteview_roll_call.record, and core.voteview_party.record
+  notes: >-
+    Each file is a retained artifact. Every member CSV row, every roll-call JSON
+    object (including keys the CSV export drops), and every party CSV row is also
+    one JSON row. NOMINATE and Nokken-Poole numbers stay Voteview's measurements.
+    HSall_votes.csv is not downloaded. Cite Lewis, Poole, Rosenthal, Boche, Rudkin,
+    and Sonnet, Voteview: Congressional Roll-Call Votes Database, https://voteview.com/.
+fields:
+- name: members congress, chamber, icpsr
+  status: typed
+  where: >-
+    core.voteview_member.congress, chamber (house, senate, or president), and icpsr.
+    The row key is those three. person_id is set only when that ICPSR already
+    belongs to exactly one person. No person is created and no identifier moves.
+- name: members bioguide_id
+  status: typed
+  where: >-
+    core.voteview_member.bioguide. When it is non-empty and the ICPSR person has a
+    different BioGuide, person_id stays empty. Identifiers are not changed.
+- name: members bioname
+  status: typed
+  where: >-
+    core.voteview_member.bioname. When the person is linked it is also a voteview
+    name note (core.person_name_source, dataset congress.voteview, vintage the
+    Congress number zero-padded). That kind is ranked and not displayed.
+- name: members state_icpsr, district_code, state_abbrev, party_code
+  status: typed
+  where: >-
+    core.voteview_member.state_icpsr, district_code, state_abbrev, and party_code
+- name: members occupancy, last_means
+  status: typed
+  where: core.voteview_member.occupancy and last_means
+- name: members born, died
+  status: typed
+  where: core.voteview_member.born and died (the year Voteview prints, including a fraction)
+- name: members nominate_dim1, nominate_dim2
+  status: typed
+  where: >-
+    core.voteview_member.nominate_dim1 and nominate_dim2. DW-NOMINATE is one number
+    for a career. It is not written onto core.person.
+- name: members nominate_log_likelihood, nominate_geo_mean_probability
+  status: typed
+  where: core.voteview_member.nominate_log_likelihood and nominate_geo_mean_probability
+- name: members nominate_number_of_votes, nominate_number_of_errors
+  status: typed
+  where: core.voteview_member.nominate_number_of_votes and nominate_number_of_errors
+- name: members conditional
+  status: typed
+  where: core.voteview_member.conditional
+- name: members nokken_poole_dim1, nokken_poole_dim2
+  status: typed
+  where: >-
+    core.voteview_member.nokken_poole_dim1 and nokken_poole_dim2. One number per
+    Congress. It is not written onto core.person.
+- name: members any other column
+  status: whole_record_only
+  reason: kept on core.voteview_member.record; type it when a question needs it
+- name: rollcalls congress, chamber, rollnumber
+  status: typed
+  where: >-
+    core.voteview_roll_call.congress, chamber (house or senate), and rollnumber.
+    rollnumber is Voteview's own number, not the Clerk's number.
+- name: rollcalls date, session
+  status: typed
+  where: core.voteview_roll_call.vote_date and session
+- name: rollcalls clerk_rollnumber
+  status: typed
+  where: >-
+    core.voteview_roll_call.clerk_rollnumber. House and Senate both link on this
+    number with session 1 or 2 (stored on the official vote as 1st or 2nd).
+    Voteview's own rollnumber is not the official number. No clerk number, or a
+    session other than 1 or 2, means no link. The official vote is not updated.
+- name: rollcalls official vote link
+  status: typed
+  where: >-
+    core.voteview_roll_call.roll_call_id, and only when exactly one core.roll_call
+    matches. Both chambers use Congress, chamber, congress_session (1st or 2nd),
+    and roll_number = clerk_rollnumber. Two matches leave the link empty.
+- name: rollcalls yea_count, nay_count
+  status: typed
+  where: core.voteview_roll_call.yea_count and nay_count
+- name: rollcalls majority_requirement
+  status: typed
+  where: core.voteview_roll_call.majority_requirement
+- name: rollcalls nominate_mid_1, nominate_mid_2, nominate_spread_1, nominate_spread_2
+  status: typed
+  where: >-
+    core.voteview_roll_call.nominate_mid_1, nominate_mid_2, nominate_spread_1, and
+    nominate_spread_2. These are Voteview's cut points, not a score we computed.
+- name: rollcalls nominate_log_likelihood
+  status: typed
+  where: core.voteview_roll_call.nominate_log_likelihood
+- name: rollcalls bill_number, vote_result, vote_desc, vote_question, dtl_desc
+  status: typed
+  where: >-
+    core.voteview_roll_call.bill_number, vote_result, vote_desc, vote_question, and
+    dtl_desc. They do not replace the official vote's question or result.
+- name: rollcalls issue_codes, peltzman_codes, clausen_codes
+  status: typed
+  where: >-
+    core.voteview_roll_call.issue_codes, peltzman_codes, and clausen_codes. The
+    roll-call CSV drops these; the JSON keeps them.
+- name: rollcalls crs_policy_area, crs_subjects
+  status: typed
+  where: core.voteview_roll_call.crs_policy_area and crs_subjects (JSON only)
+- name: rollcalls congress_url, source_documents
+  status: typed
+  where: core.voteview_roll_call.congress_url and source_documents (JSON only)
+- name: rollcalls any other key
+  status: whole_record_only
+  reason: kept on core.voteview_roll_call.record; type it when a question needs it
+- name: parties congress, chamber, party_code, party_name, n_members
+  status: typed
+  where: >-
+    core.voteview_party.congress, chamber, party_code, party_name, and n_members.
+    The row key is Congress, chamber, and party code.
+- name: parties nominate_dim1_median, nominate_dim2_median, nominate_dim1_mean, nominate_dim2_mean
+  status: typed
+  where: >-
+    core.voteview_party.nominate_dim1_median, nominate_dim2_median,
+    nominate_dim1_mean, and nominate_dim2_mean
+- name: parties any other column
+  status: whole_record_only
+  reason: kept on core.voteview_party.record; type it when a question needs it
+- name: HSall_votes.csv
+  status: not_stored
+  reason: >-
+    individual votes the Clerk and Senate.gov already supply; this loader refuses
+    to download the file

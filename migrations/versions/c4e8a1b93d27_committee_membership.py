@@ -222,7 +222,22 @@ def _create_assignment() -> None:
     )
 
 
+def _constraint_allows(name: str, token: str) -> bool:
+    """True when a check already names ``token``.
+
+    An adoption replay runs this revision again after a later one has widened
+    the same check. Replacing it with the older text would reject those rows.
+    """
+    definition = op.get_bind().execute(
+        sa.text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = :name"),
+        {"name": name},
+    ).scalar()
+    return bool(definition and token in definition)
+
+
 def _widen_name_kinds() -> None:
+    if _constraint_allows("person_name_source_kind_check", "voteview"):
+        return
     op.drop_constraint(
         "person_name_source_kind_check",
         "person_name_source",
