@@ -5,6 +5,7 @@ companions:
   - v1-scope.md
   - schema-invariants.md
   - resolved-questions.md
+  - legislative-north-star.md
   - ../../planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md
   - ../../planning-artifacts/prds/prd-opendiscourse-2026-09-14/prd.md
   - ../../../docs/adr/0002-schema-invariants.md
@@ -80,6 +81,13 @@ not authorize a redesign.
     equivalent) distinct from Census geography; membership can reference a
     post; FDW remains read-only; Congress.gov/GovInfo/clerk rows are not
     written into database `openstates`.
+- **CAP-10**
+  - **intent:** A researcher can trust bills, official votes, and members for
+    Congresses 108–119 as complete, field-accounted, and repeatable.
+  - **success:** Every check in `legislative-north-star.md` is recorded as met
+    or as a named exception. A silent field or an unmeasured count means the
+    workflow is not done. Scorecards stay out of this capability (see
+    non-goals); do not number them CAP-9 inside this spec.
 
 ## Constraints
 
@@ -121,6 +129,9 @@ not authorize a redesign.
   move tables to CFA until a CFA repo exists.
 - Story 8.3 session unique keys wait until `legislative_session_id` is
   non-null on every bill and roll_call.
+- Legislative completeness for Congresses 108–119 is
+  `legislative-north-star.md`. Code merged to `main` is not "loaded" until
+  the live database and `inventory/progress.yaml` agree with that file.
 
 ## Non-goals
 
@@ -148,9 +159,12 @@ not authorize a redesign.
 
 ## Success signal
 
-A later session can ship Stories 2.2/2.3 and 8.1 from `_bmad-output/`
-without opening ChatGPT files, without opening Epic 7, and without treating
-text session columns or `stage.fec_row` as canonical product.
+The legislative workflow is done when `legislative-north-star.md` is met for
+Congresses 108–119: coverage matches the publisher, every offered field is
+accounted for, and each source command is safe to run twice. A later session
+can see that from this spec and `docs/PROJECT-STATE.md` without opening the
+archived ChatGPT essays, without opening Epic 7, and without treating text
+session columns or `stage.fec_row` as the product.
 
 ## Assumptions
 

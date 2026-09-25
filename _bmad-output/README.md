@@ -9,6 +9,7 @@ operator decisions that followed (BMAD Method v6 + TEA; Fast path).
 | PRD | `planning-artifacts/prds/prd-opendiscourse-2026-09-14/prd.md` |
 | Architecture spine | `planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md` |
 | Spec kernel | `specs/spec-opendiscourse/SPEC.md` |
+| Legislative done-state (CAP-10) | `specs/spec-opendiscourse/legislative-north-star.md` |
 | Epics and stories | `planning-artifacts/epics.md` |
 
 Sources (absorbed; do not re-ingest unless updating the spec):

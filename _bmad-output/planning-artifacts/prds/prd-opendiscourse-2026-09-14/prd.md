@@ -183,6 +183,10 @@ FRED branch.
   FR-1.
 - **SM-3:** Senate roll calls exist without a homegrown XML scraper. Validates
   FR-7.
+- **SM-4:** Bills, official votes, and members for Congresses 108–119 meet
+  `specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10): publisher
+  counts match, every offered field is on a checklist, and the live database
+  agrees with `inventory/progress.yaml`. Validates the 2026-09-25 operator goal.
 
 **Counter-metric SM-C1:** Number of datasets registered. Do not optimize
 catalog size.

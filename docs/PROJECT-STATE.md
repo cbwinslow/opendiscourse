@@ -1,10 +1,43 @@
 # Project state and handoff
 
-Last updated: 2026-09-23 (committee membership loaded live: 559 committees, 3,895 assignments, every member linked on BioGuide). Official House and Senate votes are loaded for Congresses 108-119. See "Session handoff (2026-09-23)" below. Read this first when resuming, then `AGENTS.md`,
+Last updated: 2026-09-25. The done-state for bills, votes, and members is
+`_bmad-output/specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10).
+Voteview's command is on `main` (#78) and is **not** in the live database.
+CBO columns are written in the working tree (migration `e8c2a9d14b59`) and are
+**not** on `main` and **not** live. Committee membership is loaded (559
+committees, 3,895 assignments). See "Session handoff (2026-09-25)" below.
+Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
 decision or story status changes.
+
+## Session handoff (2026-09-25)
+
+Stop here if you are about to start a new source. The legislative north star
+is written. Do not start a second database. Do not open Epic 7.
+
+**Decision:** Success for this workflow is CAP-10, spelled out in
+`_bmad-output/specs/spec-opendiscourse/legislative-north-star.md`. The same
+bar is Epic 9's goal, PRD success metric SM-4, and the coverage target in
+`v1-scope.md`. A command on `main` is not "loaded".
+
+**Live check (port 5434, this session):** `core.voteview_member` is missing.
+`core.bill_cbo_cost_estimate` is missing. People 12,770, bills 172,736, roll
+calls 23,359, committees 559, committee assignments 3,895.
+
+**Pull request #79** (`feat/type-cbo-cost-estimates`): CBO typing, migration
+`e8c2a9d14b59`. Not merged. Not applied to port 5434. Checked this session:
+18 non-database billstatus tests passed, and 4 database tests passed
+(promote, refresh, backfill, load contract). `ruff check` on the touched
+Python files passed. Do not apply the migration until this pull request is
+on `main`.
+
+**Next, in order:** verify and ship the CBO change, then apply Voteview on
+port 5434 (`research-db init-db`, then `research-db sync-voteview`; do not
+download `HSall_votes.csv`), then the member field checklist. Person-merge
+still does not move `core.committee_assignment` on the live database; that
+fix is branch `feat/person-merge-committee-seats`.
 
 ## Session handoff (2026-09-23)
 
