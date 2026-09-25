@@ -144,16 +144,30 @@ def _text(value: Any, where: str, *, required: bool) -> str | None:
 
 
 def _whole(value: Any, where: str, *, required: bool) -> int | None:
+    """An integer, including a whole number Voteview wrote as ``1.0``.
+
+    The member and party CSVs store some codes with a trailing ``.0``. A
+    fraction such as ``1.5`` is still refused.
+    """
     if _missing(value):
         if required:
             raise ValueError(f"{where} is missing")
         return None
-    if isinstance(value, bool | float):
+    if isinstance(value, bool):
         raise ValueError(f"{where} must be an integer")
     if isinstance(value, int):
         return value
-    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
-        return int(value.strip())
+    if isinstance(value, float):
+        if value.is_integer():
+            return int(value)
+        raise ValueError(f"{where} must be an integer")
+    if isinstance(value, str):
+        text = value.strip()
+        whole, dot, fraction = text.partition(".")
+        if dot and fraction.strip("0") == "" and whole.lstrip("-").isdigit() and whole not in {"", "-"}:
+            return int(whole)
+        if not dot and whole.lstrip("-").isdigit() and whole not in {"", "-"}:
+            return int(whole)
     raise ValueError(f"{where} must be an integer")
 
 
