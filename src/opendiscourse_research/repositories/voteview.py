@@ -46,19 +46,28 @@ def _deleted(cur: Any, name: str) -> int:
 _MAX_BATCH_BYTES = 48 * 1024 * 1024
 
 
+def _encoded(row: dict[str, Any]) -> bytes:
+    """One row as ``Jsonb`` will send it. Spacing must match that serializer."""
+    return json.dumps(row).encode()
+
+
 def _batches(rows: list[dict[str, Any]], max_bytes: int = _MAX_BATCH_BYTES) -> list[list[dict[str, Any]]]:
-    """Split rows so each JSON array sent to Postgres stays under ``max_bytes``."""
+    """Split rows so each JSON array sent to Postgres stays under ``max_bytes``.
+
+    The measured size is ``json.dumps(batch)``: ``[``, ``]``, and a comma-space
+    between rows. That is what ``Jsonb`` sends.
+    """
     batches: list[list[dict[str, Any]]] = []
     current: list[dict[str, Any]] = []
     size = 2
     for row in rows:
-        encoded = json.dumps(row, default=str, separators=(",", ":")).encode()
+        encoded = _encoded(row)
         if len(encoded) + 2 > max_bytes:
             raise ValueError(
                 f"one Voteview row is {len(encoded)} bytes and cannot be stored "
                 f"in a single database value under {max_bytes} bytes"
             )
-        added = len(encoded) if not current else len(encoded) + 1
+        added = len(encoded) if not current else len(encoded) + 2
         if current and size + added > max_bytes:
             batches.append(current)
             current = [row]
