@@ -8,6 +8,7 @@ linked person. The caller owns the transaction.
 
 from __future__ import annotations
 
+import json
 from functools import cache
 from pathlib import Path
 from typing import Any
@@ -40,10 +41,52 @@ def _deleted(cur: Any, name: str) -> int:
     return len(cur.fetchall())
 
 
+# Postgres refuses one jsonb value at 256 MiB. A full roll-call file is already
+# near that once each source object is wrapped with its typed columns.
+_MAX_BATCH_BYTES = 48 * 1024 * 1024
+
+
+def _encoded(row: dict[str, Any]) -> bytes:
+    """One row as ``Jsonb`` will send it. Spacing must match that serializer."""
+    return json.dumps(row).encode()
+
+
+def _batches(rows: list[dict[str, Any]], max_bytes: int = _MAX_BATCH_BYTES) -> list[list[dict[str, Any]]]:
+    """Split rows so each JSON array sent to Postgres stays under ``max_bytes``.
+
+    The measured size is ``json.dumps(batch)``: ``[``, ``]``, and a comma-space
+    between rows. That is what ``Jsonb`` sends.
+    """
+    batches: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    size = 2
+    for row in rows:
+        encoded = _encoded(row)
+        if len(encoded) + 2 > max_bytes:
+            raise ValueError(
+                f"one Voteview row is {len(encoded)} bytes and cannot be stored "
+                f"in a single database value under {max_bytes} bytes"
+            )
+        added = len(encoded) if not current else len(encoded) + 2
+        if current and size + added > max_bytes:
+            batches.append(current)
+            current = [row]
+            size = 2 + len(encoded)
+        else:
+            current.append(row)
+            size += added
+    if current:
+        batches.append(current)
+    return batches
+
+
 def _inserted(cur: Any, name: str, rows: list[dict[str, Any]]) -> int:
-    cur.execute(_query(name), {"rows": Jsonb(rows)})
-    row = cur.fetchone()
-    return int(row["inserted"]) if row else 0
+    total = 0
+    for batch in _batches(rows):
+        cur.execute(_query(name), {"rows": Jsonb(batch)})
+        row = cur.fetchone()
+        total += int(row["inserted"]) if row else 0
+    return total
 
 
 def stored_counts(conn: Any) -> dict[str, int]:

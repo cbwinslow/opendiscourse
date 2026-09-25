@@ -14,6 +14,8 @@ from opendiscourse_research.ingestion.voteview import (
     parse_members,
     parse_parties,
 )
+from opendiscourse_research.repositories import voteview as voteview_repo
+from opendiscourse_research.repositories.voteview import _batches, _inserted
 
 
 def _csv(fields: tuple[str, ...], row: dict[str, object]) -> bytes:
@@ -77,3 +79,34 @@ def test_member_and_party_rows_keep_codes_voteview_wrote_as_decimals() -> None:
         )
     )
     assert parties[0]["party_code"] == 200
+
+
+def test_rows_are_split_before_a_database_value_gets_too_large() -> None:
+    rows = [{"n": index, "record": "x" * 30} for index in range(5)]
+    batches = _batches(rows, max_bytes=120)
+    assert len(batches) > 1
+    assert [row for batch in batches for row in batch] == rows
+    oversized = [{"record": "x" * 200}]
+    with pytest.raises(ValueError, match="cannot be stored"):
+        _batches(oversized, max_bytes=80)
+
+
+def test_inserted_keeps_every_row_when_the_file_is_split(monkeypatch: pytest.MonkeyPatch) -> None:
+    rows = [{"n": 1}, {"n": 2}, {"n": 3}]
+    monkeypatch.setattr(voteview_repo, "_batches", lambda incoming: [incoming[:1], incoming[1:]])
+    monkeypatch.setattr(voteview_repo, "_query", lambda name: name)
+
+    class Cursor:
+        def __init__(self) -> None:
+            self.seen: list[list[dict[str, int]]] = []
+
+        def execute(self, query: str, params: dict[str, object]) -> None:
+            assert query == "replace_roll_calls"
+            self.seen.append(params["rows"].obj)  # type: ignore[attr-defined]
+
+        def fetchone(self) -> dict[str, int]:
+            return {"inserted": len(self.seen[-1])}
+
+    cursor = Cursor()
+    assert _inserted(cursor, "replace_roll_calls", rows) == 3
+    assert cursor.seen == [[{"n": 1}], [{"n": 2}, {"n": 3}]]
