@@ -26,18 +26,19 @@ bar is Epic 9's goal, PRD success metric SM-4, and the coverage target in
 `core.bill_cbo_cost_estimate` is missing. People 12,770, bills 172,736, roll
 calls 23,359, committees 559, committee assignments 3,895.
 
-**Pull request #79** (`feat/type-cbo-cost-estimates`): CBO typing, migration
-`e8c2a9d14b59`. Not merged. Not applied to port 5434. Checked this session:
-18 non-database billstatus tests passed, and 4 database tests passed
-(promote, refresh, backfill, load contract). `ruff check` on the touched
-Python files passed. Do not apply the migration until this pull request is
-on `main`.
+**Live apply (2026-09-25, after #79 merged as `e176eca`):** `research-db init-db`
+moved port 5434 from `c4e8a1b93d27` to `e8c2a9d14b59`. That created the empty
+Voteview tables and filled `core.bill_cbo_cost_estimate` from bills already
+stored: **17,640** estimates on **11,426** bills. Every row has a publication
+date, title, and link. **17,617** have a description (23 source items omit it).
+People, bills, and official roll calls were unchanged (12,770 / 172,736 /
+23,359). Voteview rows were still 0 at the moment the migration finished;
+`research-db sync-voteview` is the load. Do not download `HSall_votes.csv`.
 
-**Next, in order:** verify and ship the CBO change, then apply Voteview on
-port 5434 (`research-db init-db`, then `research-db sync-voteview`; do not
-download `HSall_votes.csv`), then the member field checklist. Person-merge
-still does not move `core.committee_assignment` on the live database; that
-fix is branch `feat/person-merge-committee-seats`.
+**Next, in order:** finish the Voteview load, merge this goals pull request,
+then the member field checklist. Person-merge still does not move
+`core.committee_assignment` on the live database; that fix is branch
+`feat/person-merge-committee-seats`.
 
 ## Session handoff (2026-09-23)
 

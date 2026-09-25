@@ -292,10 +292,11 @@ Built (`research-db sync-billstatus`, `ingestion/billstatus.py`, `providers/govi
 Keep-and-refine. Do not start Epic 7. The legislative north star
 (`specs/spec-opendiscourse/legislative-north-star.md`) is the order:
 
-1. Merge pull request #79 (CBO columns from BILLSTATUS, migration
-   `e8c2a9d14b59`), then apply it on the live database. Not applied yet.
-2. Apply Voteview on the live database (`research-db sync-voteview`, pull
-   request #78). Do not download `HSall_votes.csv`.
+1. CBO columns are merged (#79) and applied on the live database
+   (17,640 estimates). A later bill-file refresh keeps them current.
+2. Finish `research-db sync-voteview` on the live database (tables exist;
+   rows were empty when the migration finished). Do not download
+   `HSall_votes.csv`.
 3. Write the `congress.legislators` field checklist and a per-person whole
    record for any field that checklist cannot mark typed or explicitly skipped.
 4. Merge the person-merge fix so committee seats move with the person

@@ -54,12 +54,12 @@ what would type it), `not_stored` (not kept; a reason is required, and only for 
 
 | Dataset | Checklist | State |
 |---|---|---|
-| `congress.govinfo_billstatus` | `fields/congress.govinfo_billstatus.yaml` | audited; CBO columns written, not live |
+| `congress.govinfo_billstatus` | `fields/congress.govinfo_billstatus.yaml` | audited; CBO columns live 2026-09-25 |
 | `congress.govinfo_bills` | `fields/congress.govinfo_bills.yaml` | audited; live-loaded 2026-09-22 |
 | `congress.house_votes` (Clerk XML, House) | `fields/congress.house_votes.yaml` | audited; live-loaded 2026-09-21 |
 | `congress.senate_votes` (senate.gov XML) | `fields/congress.senate_votes.yaml` | audited; live-loaded 2026-09-21 |
 | `congress.committee_membership` | `fields/congress.committee_membership.yaml` | audited; live-loaded 2026-09-23 |
-| `congress.voteview` | `fields/congress.voteview.yaml` | audited; command on `main`, not live |
+| `congress.voteview` | `fields/congress.voteview.yaml` | audited; tables live, score rows not loaded yet |
 | `congress.legislators` | none yet | **needs audit** (north star: members are not done) |
 | `congress.legislation` (Congress.gov members) | none yet | **needs audit** |
 | `openstates.legislation` | none yet | **needs audit** |

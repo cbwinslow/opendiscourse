@@ -100,17 +100,16 @@ above.
 |---|---|
 | Bills 108–119 loaded, full record kept | Met (172,736 bills). Six surplus 119th bills are the named exception. |
 | Bill field checklist | Met. Committee reports, recorded votes named on actions, alternate titles, text-version links, notes, and 13 old-style files are still whole-record only, each with a reason. |
-| CBO date, title, link, description as columns | Pull request #79 (migration `e8c2a9d14b59`). Not on `main`. Not in the live database. |
+| CBO date, title, link, description as columns | Met on the live database (2026-09-25, migration `e8c2a9d14b59`, pull request #79). 17,640 estimates on 11,426 bills; every row has a date, title, and link. 23 items have no description in the source. |
 | Bill text 113–119 | Met (135,136 versions, none unattached). Six unreadable 113th XML files are named in `docs/PROJECT-STATE.md`. No bulk text for 108–112. |
 | Official votes 108–119, both chambers | Met (23,359 roll calls, about 7.4 million member votes). Letlow and the two Senate quirks above are the exceptions. |
-| Voteview scores on the live database | Not met. The command is on `main` (pull request #78). The live database has no Voteview tables. |
+| Voteview scores on the live database | Schema is on the live database. The score rows were empty when the migration finished. `research-db sync-voteview` is the load. Do not download `HSall_votes.csv`. |
 | People, BioGuide, terms 108–119 | Met for identity and terms (12,770 people, 45,535 memberships). |
 | Current committee seats | Met (559 committees, 3,895 assignments, every seat linked on BioGuide). |
 | Merging two people moves committee seats | Not met on the live database. The fix is on branch `feat/person-merge-committee-seats`, not merged. |
 | Member field checklist and per-person whole record | Not met. No `inventory/fields/` file for `congress.legislators`. Biography, leadership, contact, and social media are not in a per-person database record. |
 | Progress register matches the live database | Not met. House and Senate votes are still marked `ready` in `inventory/progress.yaml` even though they are loaded. |
 
-Next work, in order: finish and ship the CBO columns, load Voteview on the live
-database, then write the member field checklist and close whatever it shows is
-missing. Do not start FEC person joins or a website to get this goal across the
-line.
+Next work, in order: finish the Voteview load on the live database, then write
+the member field checklist and close whatever it shows is missing. Do not start
+FEC person joins or a website to get this goal across the line.
