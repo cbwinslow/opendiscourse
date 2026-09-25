@@ -2,7 +2,7 @@
 title: OpenDiscourse epics and stories
 status: final
 created: 2026-09-14
-updated: 2026-09-17
+updated: 2026-09-25
 inputDocuments:
   - planning-artifacts/prds/prd-opendiscourse-2026-09-14/prd.md
   - planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md
@@ -11,6 +11,7 @@ inputDocuments:
   - specs/spec-opendiscourse/v1-scope.md
   - specs/spec-opendiscourse/schema-invariants.md
   - specs/spec-opendiscourse/resolved-questions.md
+  - specs/spec-opendiscourse/legislative-north-star.md
 ---
 
 # OpenDiscourse — epics and stories
@@ -226,10 +227,14 @@ promote). Stories TBD.
 
 ## Epic 9 — Ingestion contract, run ledger, coverage (v1 completeness)
 
-Goal (operator, 2026-09-19): complete, trustworthy datasets, ingested by
-idempotent and fast workflows, with an exact record of what went where.
-Federal legislation scope is **Congresses 108-119**. Details and rationale:
-`docs/PROJECT-STATE.md`.
+Goal (operator, 2026-09-19; north star written 2026-09-25): complete,
+trustworthy datasets, ingested by repeatable workflows, with an exact record
+of what went where. For bills, official votes, and members the done-state is
+`specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10). Federal
+legislation scope is **Congresses 108-119**. A dataset is not done because
+its command exists on `main`. It is done when coverage matches the publisher,
+every offered field is on a checklist, and the live database matches
+`inventory/progress.yaml`. Details: `docs/PROJECT-STATE.md`.
 
 ### Story 9.1 — Load contract ADR-0003 and idempotency harness
 As an operator, every source loads by the strategy that fits its grain, and a
@@ -275,26 +280,29 @@ Built (`research-db sync-billstatus`, `ingestion/billstatus.py`, `providers/govi
 
 ## Later (not started; do not begin without a spec)
 
-- **Scorecards** (CAP-9, needs its own spec): derived `mart` outputs over
+- **Scorecards** (CAP-9, reserved; needs its own spec before it is added to
+  SPEC.md): derived `mart` outputs over
   evidence-backed rows; transparent indicators; no opaque corruption score.
 - **Text/NLP/vectors:** keep bill text as immutable artifacts and `core.document`
   now; embeddings, summaries, and kNN only after chunks exist (ADR first).
 - Crime data (Epic 7), FRED depth, ACS/housing marts.
 
-## Suggested next build (updated 2026-09-19)
+## Suggested next build (updated 2026-09-25)
 
-Keep-and-refine. Do not start Epic 7. Order:
+Keep-and-refine. Do not start Epic 7. The legislative north star
+(`specs/spec-opendiscourse/legislative-north-star.md`) is the order:
 
-1. **Merge Story 1.7** (`fix/1-7-immutable-artifacts`) after the operator sees the
-   review. Evidence must be immutable before any re-ingest.
-2. **Story 9.1** (benchmark, ADR-0003, harness), then **9.2** (run ledger).
-3. **Story 3.1** BioGuide identity (`congress-legislators`), idempotent.
-4. **Story 9.3** coverage comparator, then backfill Congresses 108-119 through
-   Connectors (bills/actions/members via GovInfo BILLSTATUS; votes via
-   `unitedstates/congress`, Story 4.1). Each source must pass the 9.1 harness.
-5. Redo **2.2 -> 2.3** (FRED) and **8.2** (OpenStates promote); fix the failed
-   Treasury (24 runs) and FRED (6 runs) ingests.
-6. Promote FEC only after 3.1 (cycles 2004+, v1.1).
+1. CBO columns are merged (#79) and applied on the live database
+   (17,640 estimates). A later bill-file refresh keeps them current.
+2. Finish `research-db sync-voteview` on the live database (tables exist;
+   rows were empty when the migration finished). Do not download
+   `HSall_votes.csv`.
+3. Write the `congress.legislators` field checklist and a per-person whole
+   record for any field that checklist cannot mark typed or explicitly skipped.
+4. Merge the person-merge fix so committee seats move with the person
+   (`feat/person-merge-committee-seats`).
+5. Leave recorded votes on bill actions, alternate titles, and committee
+   reports as whole-record until a story needs them as columns.
 
 Independent tracks stay on separate branches. Improve evidence, identity,
 temporal membership, and vote completeness before broadening sources.

@@ -48,15 +48,17 @@ tables; no market-price ingest.
 
 ## Already true on the cluster
 
-- Database name `opendiscourse` (234 GiB, port 5434).
-- OpenStates 38 GiB stays in database `openstates`; 11 OCD relations mapped
-  via FDW. Do not merge the dump. Do not treat FDW as the researcher
-  contract; promote into `core` (AD-8).
-- `vector` extension 0.8.5 installed; `core.embedding` still portable `real[]`.
-- Loaded (updated 2026-09-19): 172,709 bills for Congresses 108-119 with full BILLSTATUS records, CRS
-  summaries, laws, related bills and amendments (Stories 9.5, 9.5b); 45,535 member terms with 740 posts
-  and 690 divisions (Story 3.3); ~465k member votes for Congresses 118-119 only; ACS bulk ~99 GiB,
-  TIGER boundaries ~10 GiB, `stage.fec_row` ~74 GiB.
-- Still empty / missing: market tables, `core.document_chunk`, `core.embedding`, votes for
-  Congresses 108-117, committee membership. The live database is at the latest Alembic head.
+Live status moves. The legislative done-state is `legislative-north-star.md`.
+The handoff with counts is `docs/PROJECT-STATE.md` (read that, not this list,
+when they disagree).
+
+- Database name `opendiscourse`, port 5434 (~242 GB as of 2026-09-22).
+- OpenStates stays in database `openstates`; OCD relations mapped via FDW.
+  Do not merge the dump. Do not treat FDW as the researcher contract;
+  promote into `core` (AD-8).
+- `core.embedding` stays portable `real[]` until a chunk story needs pgvector.
+- Loaded through 2026-09-23: bills 108–119 with full BILLSTATUS records;
+  official House and Senate votes 108–119; bill text 113–119; people, terms,
+  and current committee seats. Not loaded live: Voteview (command is on
+  `main`) and typed CBO columns (written, not merged).
 - `api` schema exists with no reviewed views. Some `mart` / `leg` views exist.

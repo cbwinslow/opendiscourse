@@ -50,15 +50,17 @@ fields:            # group fields when there are hundreds; name every group
 Statuses: `typed` (own column), `whole_record_only` (kept in the stored record, not yet a column; the reason says
 what would type it), `not_stored` (not kept; a reason is required, and only for content we decided is out of scope).
 
-## Audit state (2026-09-20)
+## Audit state (updated 2026-09-25)
 
 | Dataset | Checklist | State |
 |---|---|---|
-| `congress.govinfo_billstatus` | `fields/congress.govinfo_billstatus.yaml` | audited |
-| `congress.govinfo_bills` | `fields/congress.govinfo_bills.yaml` | audited (Story 11.3); live run pending |
-| `congress.house_votes` (Clerk XML, House) | `fields/congress.house_votes.yaml` | audited (Story 11.1); live run pending |
-| `congress.senate_votes` (senate.gov XML) | `fields/congress.senate_votes.yaml` | audited (Story 11.2); live run pending |
-| `congress.legislators` | none yet | **needs audit** |
+| `congress.govinfo_billstatus` | `fields/congress.govinfo_billstatus.yaml` | audited; CBO columns live 2026-09-25 |
+| `congress.govinfo_bills` | `fields/congress.govinfo_bills.yaml` | audited; live-loaded 2026-09-22 |
+| `congress.house_votes` (Clerk XML, House) | `fields/congress.house_votes.yaml` | audited; live-loaded 2026-09-21 |
+| `congress.senate_votes` (senate.gov XML) | `fields/congress.senate_votes.yaml` | audited; live-loaded 2026-09-21 |
+| `congress.committee_membership` | `fields/congress.committee_membership.yaml` | audited; live-loaded 2026-09-23 |
+| `congress.voteview` | `fields/congress.voteview.yaml` | audited; tables live, score rows not loaded yet |
+| `congress.legislators` | none yet | **needs audit** (north star: members are not done) |
 | `congress.legislation` (Congress.gov members) | none yet | **needs audit** |
 | `openstates.legislation` | none yet | **needs audit** |
 | `census.*` (ACS, CBP, PEP, DHC, TIGER) | none yet | **needs audit** |
