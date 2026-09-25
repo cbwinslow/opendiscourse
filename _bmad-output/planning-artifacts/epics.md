@@ -294,8 +294,9 @@ Keep-and-refine. Do not start Epic 7. The legislative north star
 
 1. CBO columns are merged (#79) and applied on the live database
    (17,640 estimates). A later bill-file refresh keeps them current.
-2. Finish `research-db sync-voteview` on the live database (tables exist;
-   rows were empty when the migration finished). Do not download
+2. Voteview scores are loaded. 546 member rows in Congresses 108–119 are
+   not linked to a person: the BioGuide matches, and the ICPSR is not stored.
+   Decide whether those rows may link on that BioGuide. Do not download
    `HSall_votes.csv`.
 3. Write the `congress.legislators` field checklist and a per-person whole
    record for any field that checklist cannot mark typed or explicitly skipped.

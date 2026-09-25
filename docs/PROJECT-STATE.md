@@ -2,10 +2,11 @@
 
 Last updated: 2026-09-25. The done-state for bills, votes, and members is
 `_bmad-output/specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10).
-Voteview's command is on `main` (#78) and is **not** in the live database.
-CBO columns are written in the working tree (migration `e8c2a9d14b59`) and are
-**not** on `main` and **not** live. Committee membership is loaded (559
-committees, 3,895 assignments). See "Session handoff (2026-09-25)" below.
+Voteview scores are loaded and the run needs a look: 546 member rows in
+Congresses 108–119 did not link, because their ICPSR number is not stored on
+the person even though the BioGuide on the row matches someone we have.
+CBO columns are live (17,640 estimates). Committee membership is loaded
+(559 committees, 3,895 assignments). See "Session handoff (2026-09-25)" below.
 Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
@@ -22,9 +23,11 @@ is written. Do not start a second database. Do not open Epic 7.
 bar is Epic 9's goal, PRD success metric SM-4, and the coverage target in
 `v1-scope.md`. A command on `main` is not "loaded".
 
-**Live check (port 5434, this session):** `core.voteview_member` is missing.
-`core.bill_cbo_cost_estimate` is missing. People 12,770, bills 172,736, roll
-calls 23,359, committees 559, committee assignments 3,895.
+**Live check (port 5434, after the Voteview load):** people 12,770, bills
+172,736, official roll calls 23,359, committees 559, committee assignments
+3,895, CBO estimates 17,640, Voteview members 51,064 (50,280 linked),
+Voteview roll calls 113,553 (23,303 linked to an official vote), Voteview
+parties 848.
 
 **Live apply (2026-09-25, after #79 merged as `e176eca`):** `research-db init-db`
 moved port 5434 from `c4e8a1b93d27` to `e8c2a9d14b59`. That created the empty
@@ -32,13 +35,26 @@ Voteview tables and filled `core.bill_cbo_cost_estimate` from bills already
 stored: **17,640** estimates on **11,426** bills. Every row has a publication
 date, title, and link. **17,617** have a description (23 source items omit it).
 People, bills, and official roll calls were unchanged (12,770 / 172,736 /
-23,359). Voteview rows were still 0 at the moment the migration finished;
-`research-db sync-voteview` is the load. Do not download `HSall_votes.csv`.
+23,359). Voteview rows were still 0 at the moment the migration finished.
 
-**Next, in order:** finish the Voteview load, merge this goals pull request,
-then the member field checklist. Person-merge still does not move
+**Voteview load (2026-09-25, exit 2, "needs a look"):** `research-db sync-voteview`
+loaded 51,064 member rows, 113,553 roll calls, and 848 party rows. It did not
+download `HSall_votes.csv`. BioGuide disagreements: 0. Presidents left unlinked
+on purpose: 129. House and Senate rows with no person: 655, of which **546**
+are in Congresses 108–119 (294 people). All 546 carry a BioGuide that already
+belongs to a person; none of those Voteview ICPSR numbers are stored on that
+person, and the loader links only on an ICPSR it already has. Example: Tony
+Wied, BioGuide `W000829`, Voteview ICPSR `22383`, no ICPSR stored for him.
+Official votes linked: 23,303 of 23,359. Voteview rolls with no clerk number,
+left unlinked: 78,306. Clerk number present but no single official vote
+matched: 11,944. Ambiguous matches: 0.
+
+**Next, in order:** decide whether a Voteview row may link when its BioGuide
+matches exactly one person and that person has no ICPSR yet (recommended; not
+done). Then the member field checklist. Person-merge still does not move
 `core.committee_assignment` on the live database; that fix is branch
-`feat/person-merge-committee-seats`.
+`feat/person-merge-committee-seats`. Batching for the next Voteview run is
+pull request #82.
 
 ## Session handoff (2026-09-23)
 
