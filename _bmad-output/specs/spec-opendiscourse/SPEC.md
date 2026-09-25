@@ -87,7 +87,7 @@ not authorize a redesign.
   - **success:** Every check in `legislative-north-star.md` is recorded as met
     or as a named exception. A silent field or an unmeasured count means the
     workflow is not done. Scorecards stay out of this capability (see
-    non-goals); do not number them CAP-9 inside this spec.
+    non-goals). CAP-9 stays reserved for that later scorecard spec.
 
 ## Constraints
 

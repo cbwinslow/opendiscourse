@@ -39,9 +39,10 @@ Met when all of these are true:
    Congresses 108–119 match the publisher's own menus in `research-db coverage`.
 2. Every member's vote on those roll calls is stored and linked to a person by
    BioGuide (House) or the Senate's member id. Display names are never the join.
-3. House and Senate field checklists list every offered field. The roll-call header,
-   each member's position, and the party totals are columns. The original XML is
-   kept whole.
+3. House and Senate field checklists list every offered field. The roll-call header
+   and each member's position are columns in both chambers. House party totals are
+   columns. The Senate file has no party totals, and none are invented. The original
+   XML is kept whole.
 4. Known publisher quirks are written down and do not get "fixed" by dropping the
    file. Today those are: House BioGuide `L000555` (Letlow, died before being sworn
    in) on the opening roll call of the 117th; Senate roll 2003-262 (menu date and

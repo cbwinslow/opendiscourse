@@ -280,7 +280,8 @@ Built (`research-db sync-billstatus`, `ingestion/billstatus.py`, `providers/govi
 
 ## Later (not started; do not begin without a spec)
 
-- **Scorecards** (needs its own spec before it gets a capability id): derived `mart` outputs over
+- **Scorecards** (CAP-9, reserved; needs its own spec before it is added to
+  SPEC.md): derived `mart` outputs over
   evidence-backed rows; transparent indicators; no opaque corruption score.
 - **Text/NLP/vectors:** keep bill text as immutable artifacts and `core.document`
   now; embeddings, summaries, and kNN only after chunks exist (ADR first).
