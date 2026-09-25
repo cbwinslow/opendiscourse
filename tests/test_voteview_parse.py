@@ -14,6 +14,7 @@ from opendiscourse_research.ingestion.voteview import (
     parse_members,
     parse_parties,
 )
+from opendiscourse_research.repositories.voteview import _batches
 
 
 def _csv(fields: tuple[str, ...], row: dict[str, object]) -> bytes:
@@ -77,3 +78,13 @@ def test_member_and_party_rows_keep_codes_voteview_wrote_as_decimals() -> None:
         )
     )
     assert parties[0]["party_code"] == 200
+
+
+def test_rows_are_split_before_a_database_value_gets_too_large() -> None:
+    rows = [{"n": index, "record": "x" * 30} for index in range(5)]
+    batches = _batches(rows, max_bytes=120)
+    assert len(batches) > 1
+    assert [row for batch in batches for row in batch] == rows
+    oversized = [{"record": "x" * 200}]
+    with pytest.raises(ValueError, match="cannot be stored"):
+        _batches(oversized, max_bytes=80)
