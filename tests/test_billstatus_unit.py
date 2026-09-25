@@ -149,3 +149,38 @@ def test_a_file_with_no_identity_at_all_is_still_refused() -> None:
 
     with pytest.raises(ValueError, match="core bill identity"):
         parse_billstatus_xml("<billStatus><bill><congress>117</congress></bill></billStatus>")
+
+
+def test_cbo_cost_estimates_map_optional_text_and_empty_sections() -> None:
+    from opendiscourse_research.repositories.legislation import parse_billstatus_xml
+
+    parsed = parse_billstatus_xml(
+        """<billStatus><bill><number>1</number><type>HR</type><congress>117</congress>
+        <cboCostEstimates><item><pubDate>2024-02-01T05:00:00Z</pubDate><title> A title </title>
+        <url> https://www.cbo.gov/publication/1 </url></item><item><description> Details </description></item>
+        </cboCostEstimates></bill></billStatus>""",
+        member_name="BILLSTATUS-117hr1.xml",
+    )
+
+    assert parsed["cbo_cost_estimates"] == [
+        {
+            "published_at": "2024-02-01T05:00:00Z",
+            "title": "A title",
+            "source_url": "https://www.cbo.gov/publication/1",
+            "description": None,
+            "source_ordinal": 1,
+            "source_member": "BILLSTATUS-117hr1.xml",
+        },
+        {
+            "published_at": None,
+            "title": None,
+            "source_url": None,
+            "description": "Details",
+            "source_ordinal": 2,
+            "source_member": "BILLSTATUS-117hr1.xml",
+        },
+    ]
+    assert parse_billstatus_xml(
+        "<billStatus><bill><number>1</number><type>HR</type><congress>117</congress></bill></billStatus>",
+        member_name="BILLSTATUS-117hr1.xml",
+    )["cbo_cost_estimates"] == []

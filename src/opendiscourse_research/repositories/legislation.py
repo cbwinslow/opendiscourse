@@ -1004,6 +1004,7 @@ def parse_billstatus_xml(
         "laws": billstatus_sections.laws(bill, member_name),
         "related_bills": billstatus_sections.related_bills(bill, member_name),
         "amendments": billstatus_sections.amendments(bill, member_name),
+        "cbo_cost_estimates": billstatus_sections.cbo_cost_estimates(bill, member_name),
         # everything the file says, so a field nobody has modelled yet is still stored
         "record": xml_to_record(root),
     }
@@ -1195,6 +1196,7 @@ _PROMOTED_SECTIONS = (
     ("laws", "upsert_bill_law", ()),
     ("related_bills", "upsert_bill_related_bill", ("relationships",)),
     ("amendments", "upsert_bill_amendment", ("metadata",)),
+    ("cbo_cost_estimates", "upsert_bill_cbo_cost_estimate", ()),
 )
 
 

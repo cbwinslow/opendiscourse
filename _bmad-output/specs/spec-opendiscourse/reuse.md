@@ -9,7 +9,7 @@ search, or export code. Wrap behind provenance.
 | `unitedstates/congress-legislators` | Identity crosswalk (`vendor/congress-legislators`). Same repo is the source for current committee/subcommittee membership YAML (`committee-membership-current.yaml`); wrap that next, do not scrape Clerk HTML. |
 | Voteview / DW-NOMINATE (UCLA) | Wrap the three current official exports: `HSall_members.csv`, `HSall_rollcalls.json`, and `HSall_parties.csv`; join people on ICPSR. Do not replace Clerk/Senate.gov votes, download `HSall_votes.csv`, or run the obsolete `unitedstates/congress` Voteview task. |
 | BICAM (MIT, *Scientific Data* 2025) | Academic bulk Congress.gov/GovInfo ingest (`bicam.net`, `bicam-data/bicam`). Use as schema/methods literature and a completeness check, not as our system of record. |
-| CBO cost estimates | BILLSTATUS JSON already holds `cboCostEstimates` (`pubDate`, `title`, `url`, `description`). Type those first. A scripted fetch of cbo.gov/cost-estimates/xml returned HTTP 403 (2026-09-22). |
+| CBO cost estimates | Retained GovInfo BILLSTATUS XML carries `cboCostEstimates` (`pubDate`, `title`, `url`, `description`), promoted with bill/artifact/member/ordinal evidence. A scripted fetch of cbo.gov/cost-estimates/xml returned HTTP 403 (2026-09-22). |
 | OpenStates / Plural dumps | Isolated DB + FDW `openstates_source`; OCD language in `core`, not Django dump schema |
 | `pyopenstates` | Evaluate for API v3 incremental after dump promote |
 | `openstates-core` | Model reference; do not clone internal schema |

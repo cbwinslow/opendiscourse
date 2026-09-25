@@ -1087,7 +1087,7 @@ def test_the_migration_refuses_to_downgrade_while_senate_rows_exist(senate: Fake
     with pytest.raises(RuntimeError, match=r"3 Senate rows in core\.roll_call_source_record"):
         command.downgrade(_alembic_config(), "d5a1f8c37e26")
 
-    assert _one("SELECT version_num AS v FROM alembic_version") == "e7c2a9d14b58"
+    assert _one("SELECT version_num AS v FROM alembic_version") == "e8c2a9d14b59"
     assert _roll_calls() == 3 and len(_votes(2)) == 5  # nothing was dropped
 
 
@@ -1098,7 +1098,7 @@ def test_the_migration_also_refuses_for_an_enriched_row_without_a_vote_title_or_
         conn.commit()
     with pytest.raises(RuntimeError, match=r"core\.roll_call rows carry Senate detail"):
         command.downgrade(_alembic_config(), "d5a1f8c37e26")
-    assert _one("SELECT version_num AS v FROM alembic_version") == "e7c2a9d14b58"
+    assert _one("SELECT version_num AS v FROM alembic_version") == "e8c2a9d14b59"
 
     with connect() as conn:  # no roll-call column set, but a Senate source record exists
         conn.execute("UPDATE core.roll_call SET tie_breaker_by = NULL WHERE roll_call_id = %s", (roll,))
@@ -1113,7 +1113,7 @@ def test_the_migration_also_refuses_for_an_enriched_row_without_a_vote_title_or_
         conn.commit()
     with pytest.raises(RuntimeError, match=r"Senate rows in core\.roll_call_source_record"):
         command.downgrade(_alembic_config(), "d5a1f8c37e26")
-    assert _one("SELECT version_num AS v FROM alembic_version") == "e7c2a9d14b58"
+    assert _one("SELECT version_num AS v FROM alembic_version") == "e8c2a9d14b59"
 
 
 def test_the_official_result_replaces_a_stale_provider_result_even_when_it_is_not_pass_or_fail(senate: FakeSenate) -> None:

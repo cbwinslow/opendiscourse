@@ -38,6 +38,10 @@ WITH actions AS (
   DELETE FROM core.bill_amendment
   WHERE bill_id = ANY(%(bill_ids)s::uuid[]) AND source_artifact_id = ANY(%(old_artifact_ids)s::uuid[])
   RETURNING 1
+), cbo_cost_estimates AS (
+  DELETE FROM core.bill_cbo_cost_estimate
+  WHERE bill_id = ANY(%(bill_ids)s::uuid[]) AND source_artifact_id = ANY(%(old_artifact_ids)s::uuid[])
+  RETURNING 1
 )
 SELECT
   (SELECT count(*) FROM actions) AS actions,
@@ -48,4 +52,5 @@ SELECT
   (SELECT count(*) FROM summaries) AS summaries,
   (SELECT count(*) FROM laws) AS laws,
   (SELECT count(*) FROM related_bills) AS related_bills,
-  (SELECT count(*) FROM amendments) AS amendments;
+  (SELECT count(*) FROM amendments) AS amendments,
+  (SELECT count(*) FROM cbo_cost_estimates) AS cbo_cost_estimates;
