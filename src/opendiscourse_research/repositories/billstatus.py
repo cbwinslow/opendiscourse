@@ -18,6 +18,7 @@ SUPERSEDED_TABLES = (
     "laws",
     "related_bills",
     "amendments",
+    "cbo_cost_estimates",
 )
 
 _QUERY_ROOT = Path(__file__).resolve().parents[3] / "sql" / "query" / "legislation"

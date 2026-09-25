@@ -35,9 +35,9 @@ fields:
   status: typed
   where: core.bill_amendment
 - name: CBO cost estimates
-  status: whole_record_only
-  where: core.bill_source_record
-  reason: type into a table when cost analysis needs it; no download needed
+  status: typed
+  where: core.bill_cbo_cost_estimate
+  reason: pubDate, title, url, and description are promoted from BILLSTATUS; no CBO files are downloaded
 - name: committee reports
   status: whole_record_only
   where: core.bill_source_record

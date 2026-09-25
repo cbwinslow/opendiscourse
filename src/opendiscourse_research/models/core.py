@@ -569,6 +569,21 @@ core_bill_amendment = Table(
 )
 
 
+core_bill_cbo_cost_estimate = Table(
+    "bill_cbo_cost_estimate",
+    SQLModel.metadata,
+    Column("bill_cbo_cost_estimate_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    *_bill_source_columns(),
+    Column("published_at", DateTime(timezone=True)),
+    Column("title", Text),
+    Column("source_url", Text),
+    Column("description", Text),
+    UniqueConstraint("bill_id", "source_artifact_id", "source_member", "source_ordinal"),
+    Index("bill_cbo_cost_estimate_published_at_idx", "published_at"),
+    schema="core",
+)
+
+
 def person_identifier_table():
     """Return the Alembic-adopted canonical person-identifier table."""
     return core_person_identifier

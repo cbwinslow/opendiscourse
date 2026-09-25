@@ -121,15 +121,15 @@ items:
       load is requested, then the sync.
   - id: cbocost
     dataset: congress.cbo_cost_estimates
-    state: found
+    state: ready
     scope: >-
-      CBO cost estimates already present in BILLSTATUS whole records (cboCostEstimates).
-      CBO XML index URL returned HTTP 403 to scripted fetch; type the JSON first.
-    origin: BILLSTATUS JSON plus https://www.cbo.gov/cost-estimates/xml
+      CBO cost estimates already present in retained BILLSTATUS records (cboCostEstimates),
+      promoted into core.bill_cbo_cost_estimate without acquiring CBO files.
+    origin: BILLSTATUS XML
     provenance: authoritative_official_publisher
     sensitivity: public
-    validate: Type pubDate, title, url, description from the JSON; PDF fetch is later.
-    next: Schema story to type CBO into a table. No new bill download.
+    validate: Typed pubDate, title, url, and description retain bill, artifact, member, and ordinal evidence.
+    next: A separate CBO Connector is required before any CBO XML or PDF acquisition.
   - id: congdata
     dataset: congress.legislation
     state: verify

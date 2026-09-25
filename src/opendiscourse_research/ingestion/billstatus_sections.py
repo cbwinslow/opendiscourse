@@ -130,3 +130,18 @@ def amendments(bill: ElementTree.Element, member: str | None) -> list[dict[str, 
             }
         )
     return rows
+
+
+def cbo_cost_estimates(bill: ElementTree.Element, member: str | None) -> list[dict[str, Any]]:
+    """CBO estimates published with a bill (``cboCostEstimates/item``)."""
+    return [
+        {
+            "published_at": _first(item, "pubDate"),
+            "title": _first(item, "title"),
+            "source_url": _first(item, "url"),
+            "description": _first(item, "description"),
+            "source_ordinal": ordinal,
+            "source_member": member,
+        }
+        for ordinal, item in enumerate(bill.findall("./cboCostEstimates/item"), start=1)
+    ]

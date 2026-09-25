@@ -28,7 +28,7 @@ Empty and waiting: `core.document_chunk`, `core.embedding`.
 
 ## 2. In the BILLSTATUS record but not yet typed (no new download needed)
 
-CBO cost estimates (`cboCostEstimates`), committee reports (`committeeReports`), recorded votes
+CBO cost estimates (`cboCostEstimates`; code and migration ready, live backfill pending), committee reports (`committeeReports`), recorded votes
 inside actions, action detail (committees, calendar numbers, source system), alternate titles
 (`titles`), every text format (`textVersions/item/formats`), notes, calendar numbers, amendment
 actions, cosponsors and their withdrawal dates. 13 old-style files (`billType`/`billNumber`) also
@@ -133,7 +133,7 @@ identifier cross-references only.
 2. Votes Connector wrapping `unitedstates/congress`: House and Senate XML plus Voteview, Congresses
    108-119.
 3. GovInfo BILLS text and PLAW, then Congress.gov amendment detail and committee reports; type the
-   CBO estimates, committee reports and recorded votes already in the BILLSTATUS record.
+   committee reports and recorded votes already in the BILLSTATUS record.
 4. FEC linkage files, then CREC, CHRG and CRPT evidence packages.
 
 Not in scope: news, stock and market-price domains, opaque corruption scores (SPEC non-goals).

@@ -21,7 +21,7 @@ from idempotency_harness import IdempotencyCase, check_all
 
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
-from opendiscourse_research.db import _engine, apply_migrations, connect
+from opendiscourse_research.db import _engine, apply_migrations, connect, engine
 from opendiscourse_research.ingestion import billstatus
 from opendiscourse_research.ingestion.billstatus import BillStatusConnector
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
@@ -67,7 +67,14 @@ def catalog_database() -> Iterator[None]:
 _BILL_IDS = "(SELECT bill_id FROM core.bill WHERE jurisdiction = 'us' AND legislative_session = '998')"
 
 
-PROMOTED = ("bill_source_record", "bill_summary", "bill_law", "bill_related_bill", "bill_amendment")
+PROMOTED = (
+    "bill_source_record",
+    "bill_summary",
+    "bill_law",
+    "bill_related_bill",
+    "bill_amendment",
+    "bill_cbo_cost_estimate",
+)
 _PROMOTED_DELETES = tuple(f"DELETE FROM core.{t} WHERE bill_id IN {_BILL_IDS}" for t in PROMOTED)
 
 
@@ -173,7 +180,8 @@ def _bill_xml(
     <latestAction><actionDate>2024-01-06</actionDate><text>Amendment offered</text></latestAction>
   </amendment></amendments>
   <cboCostEstimates><item><title>CBO estimate {number}</title><pubDate>2024-02-01T05:00:00Z</pubDate>
-    <url>https://www.cbo.gov/publication/{number}</url></item></cboCostEstimates>
+    <url>https://www.cbo.gov/publication/{number}</url><description>CBO description {number}</description>
+  </item></cboCostEstimates>
   <futureField><nested>nothing models this yet</nested></futureField>
 </bill></billStatus>"""
 
@@ -318,6 +326,7 @@ def test_unchanged_rerun_makes_no_download_and_no_change(origin: FakeOrigin) -> 
     assert connector.result["reused"] == 1 and connector.result["bills_loaded"] == 0
     assert connector.result["items"][0]["already_loaded"] == 3
     assert _one("SELECT count(*) AS n FROM ingest.artifact WHERE artifact_key = %s", KEY) == 1
+    assert _count("bill_cbo_cost_estimate") == 3
 
 
 def test_download_only_registers_bytes_and_a_later_sync_loads_without_refetching(
@@ -607,6 +616,21 @@ def test_first_sync_stores_the_whole_record_and_promotes_the_sections(origin: Fa
 
     assert (_count("bill_summary"), _count("bill_law")) == (6, 3)
     assert (_count("bill_related_bill"), _count("bill_amendment")) == (3, 3)
+    cbo = _rows(
+        "SELECT c.source_ordinal, c.published_at, c.title, c.source_url, c.description, c.source_member "
+        "FROM core.bill_cbo_cost_estimate c JOIN core.bill b USING (bill_id) "
+        "WHERE b.bill_number = '1' AND b.legislative_session = '998' ORDER BY 1"
+    )
+    assert len(cbo) == 1
+    ordinal, published_at, title, source_url, description, source_member = cbo[0]
+    assert (ordinal, title, source_url, description, source_member) == (
+        1,
+        "CBO estimate 1",
+        "https://www.cbo.gov/publication/1",
+        "CBO description 1",
+        "BILLSTATUS-998hr1.xml",
+    )
+    assert published_at.isoformat().startswith("2024-02-01T05:00:00")
     summary = _rows(
         "SELECT s.source_ordinal, s.version_code, s.action_date, s.action_description, s.text, "
         "s.update_date, s.source_member FROM core.bill_summary s JOIN core.bill b USING (bill_id) "
@@ -681,11 +705,30 @@ def test_a_refresh_replaces_the_record_and_the_promoted_rows(origin: FakeOrigin)
                     first["artifact_id"]) == 0, table
     assert (_count("bill_source_record"), _count("bill_summary")) == (3, 6)  # replaced, not added
     assert (_count("bill_law"), _count("bill_related_bill"), _count("bill_amendment")) == (3, 3, 3)
+    assert _count("bill_cbo_cost_estimate") == 3
     assert _one(
         "SELECT s.text FROM core.bill_summary s JOIN core.bill b USING (bill_id) "
         "WHERE b.bill_number = '1' AND b.legislative_session = '998' AND s.version_code = '00'"
     ) == "<p>Revised of 1</p>"
     assert connector.result["superseded_rows_replaced"] > 0
+
+
+def test_cbo_migration_backfills_existing_records_idempotently(origin: FakeOrigin) -> None:
+    """Existing complete members are backfilled without waiting for a future source refresh."""
+    import importlib
+
+    _sync(origin)
+    with connect() as conn:
+        conn.execute(f"DELETE FROM core.bill_cbo_cost_estimate WHERE bill_id IN {_BILL_IDS}")
+        conn.commit()
+    assert _count("bill_source_record") == 3 and _count("bill_cbo_cost_estimate") == 0
+
+    migration = importlib.import_module("migrations.versions.e8c2a9d14b59_bill_cbo_cost_estimates")
+    with engine().begin() as connection:
+        migration._backfill(connection)
+        migration._backfill(connection)
+
+    assert _count("bill_cbo_cost_estimate") == 3
 
 
 def test_the_record_is_never_left_without_its_bill_after_a_killed_batch(tmp_path: Path) -> None:
@@ -732,6 +775,8 @@ def _snapshot() -> dict[str, object]:
         f"FROM core.bill_related_bill r JOIN core.bill b USING (bill_id) {where}",
         "amendments": f"SELECT {key}, a.amendment_number, a.sponsor_bioguide_id FROM core.bill_amendment a "
         f"JOIN core.bill b USING (bill_id) {where}",
+        "cbo_cost_estimates": f"SELECT {key}, c.source_ordinal, c.published_at, c.title, c.source_url, c.description "
+        f"FROM core.bill_cbo_cost_estimate c JOIN core.bill b USING (bill_id) {where}",
     }
     out: dict[str, object] = {}
     for name, sql in tables.items():

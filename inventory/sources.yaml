@@ -289,13 +289,13 @@ providers:
           stays Voteview's measurement.
       - id: congress.cbo_cost_estimates
         title: CBO cost estimates already carried in BILLSTATUS records
-        access: core.bill_source_record JSON (cboCostEstimates); CBO.gov pages for PDFs
+        access: retained GovInfo BILLSTATUS XML (cboCostEstimates) -> core.bill_cbo_cost_estimate; CBO.gov pages for PDFs
         client: existing BILLSTATUS Connector; optional later PDF fetch
         grain: bill × estimate
         identifiers: [congress, bill_type, bill_number, pubDate, url]
         cadence: with_billstatus
         priority: 1
-        notes: Type from JSON first. CBO XML index returned HTTP 403 to scripted fetch (2026-09-22).
+        notes: Typed from existing BILLSTATUS evidence; no CBO XML index or PDF is fetched. CBO XML index returned HTTP 403 to scripted fetch (2026-09-22).
       - id: govinfo.bulk
         title: Bill status/text, Congressional Record, statutes, CFR, and Federal Register
         access: GovInfo API and bulk XML/JSON
