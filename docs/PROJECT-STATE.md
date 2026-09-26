@@ -2,9 +2,10 @@
 
 Last updated: 2026-09-25. The done-state for bills, votes, and members is
 `_bmad-output/specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10).
-Voteview scores are loaded and the run needs a look: 546 member rows in
-Congresses 108–119 did not link, because their ICPSR number is not stored on
-the person even though the BioGuide on the row matches someone we have.
+Voteview scores are loaded. A 2026-09-26 rerun stored a missing ICPSR when
+the row's BioGuide already matched one person. Congresses 108–119 still have
+32 unlinked member rows (16 people) because Voteview's number conflicts with
+one already stored, or the file gives that person two numbers.
 CBO columns are live (17,640 estimates). Committee membership is loaded
 (559 committees, 3,895 assignments). See "Session handoff (2026-09-25)" below.
 Read this first when resuming, then `AGENTS.md`,
@@ -23,11 +24,11 @@ is written. Do not start a second database. Do not open Epic 7.
 bar is Epic 9's goal, PRD success metric SM-4, and the coverage target in
 `v1-scope.md`. A command on `main` is not "loaded".
 
-**Live check (port 5434, after the Voteview load):** people 12,770, bills
-172,736, official roll calls 23,359, committees 559, committee assignments
-3,895, CBO estimates 17,640, Voteview members 51,064 (50,280 linked),
-Voteview roll calls 113,553 (23,303 linked to an official vote), Voteview
-parties 848.
+**Live check (port 5434, after the 2026-09-26 Voteview relink):** people
+12,770, bills 172,736, official roll calls 23,359, committees 559, committee
+assignments 3,895, CBO estimates 17,640, Voteview members 51,064 (50,803
+linked), Voteview roll calls 113,553 (23,303 linked to an official vote),
+Voteview parties 848. The relink stored 284 new ICPSR numbers.
 
 **Live apply (2026-09-25, after #79 merged as `e176eca`):** `research-db init-db`
 moved port 5434 from `c4e8a1b93d27` to `e8c2a9d14b59`. That created the empty
@@ -49,12 +50,25 @@ Official votes linked: 23,303 of 23,359. Voteview rolls with no clerk number,
 left unlinked: 78,306. Clerk number present but no single official vote
 matched: 11,944. Ambiguous matches: 0.
 
-**Next, in order:** decide whether a Voteview row may link when its BioGuide
-matches exactly one person and that person has no ICPSR yet (recommended; not
-done). Then the member field checklist. Person-merge still does not move
+**Voteview relink (2026-09-26, exit 2):** approved rule applied from the
+retained member file (no new download). Unlinked House and Senate rows fell
+from 655 to 132. In Congresses 108–119, unlinked rows fell from 546 to 32
+(16 people). Those 16 stay unlinked because the number Voteview printed
+conflicts with an ICPSR already stored (often a `9` prefix on the same
+digits) or the file itself gives that person two numbers. Examples: Ralph
+Hall, stored `14828`, Voteview `94828`; Kevin Kiley, Voteview `22336` and
+`92336`, nothing stored. BioGuide disagreements remain 0. Presidents remain
+129 unlinked on purpose.
+
+**Next, in order:** member field checklist (biography, leadership, office
+contact, and social media are not yet accounted for). Bills and official
+votes already cover Congresses 108–119, so the Bush years 2003–2008 and the
+Obama years 2009–2016 can be compared now. Years 2000–2002 are Congresses
+106–107, and GovInfo's bill files do not include them; that needs a separate
+source (GovTrack bulk is the one already named for Congresses 93–107). Do
+not read the old machine-local bill folder. Person-merge still does not move
 `core.committee_assignment` on the live database; that fix is branch
-`feat/person-merge-committee-seats`. Batching for the next Voteview run is
-pull request #82.
+`feat/person-merge-committee-seats`.
 
 ## Session handoff (2026-09-23)
 

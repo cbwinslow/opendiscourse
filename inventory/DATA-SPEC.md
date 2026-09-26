@@ -59,7 +59,7 @@ what would type it), `not_stored` (not kept; a reason is required, and only for 
 | `congress.house_votes` (Clerk XML, House) | `fields/congress.house_votes.yaml` | audited; live-loaded 2026-09-21 |
 | `congress.senate_votes` (senate.gov XML) | `fields/congress.senate_votes.yaml` | audited; live-loaded 2026-09-21 |
 | `congress.committee_membership` | `fields/congress.committee_membership.yaml` | audited; live-loaded 2026-09-23 |
-| `congress.voteview` | `fields/congress.voteview.yaml` | audited; live-loaded 2026-09-25, 546 recent rows unlinked |
+| `congress.voteview` | `fields/congress.voteview.yaml` | audited; relinked 2026-09-26, 32 recent rows still unlinked |
 | `congress.legislators` | none yet | **needs audit** (north star: members are not done) |
 | `congress.legislation` (Congress.gov members) | none yet | **needs audit** |
 | `openstates.legislation` | none yet | **needs audit** |
