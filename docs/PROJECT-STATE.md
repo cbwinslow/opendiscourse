@@ -22,11 +22,12 @@ seconds on its own and only made about 2,200 requests an hour, which was about
 three days. A 10-second count of gate turns on 2026-09-26 was 52, about 18,700
 an hour, against the live header of 20,000.
 
-**Running:** `research-db sync-congress-bills` for Congresses 106 and 107,
-pull request #85, branch `feat/congress-gov-bills`. Process 3783082 (`uv`),
-Python 3783215. Still running at the last check, about 29 minutes in. Log
+**Running:** `research-db sync-congress-bills` for Congresses 106 and 107.
+Process 3783082 (`uv`), Python 3783215, started from branch
+`feat/congress-gov-bills` before that branch was merged. Still running at
+the last check, about 51 minutes in. Log
 `/tmp/congress-bills-106-107.log` (buffered; empty does not mean stopped).
-The command holds a database lock.
+The command holds a database lock. Do not start a second copy.
 
 **Congress.gov speed is in the code.** `src/opendiscourse_research/rate_gate.py`
 is the shared turnstile. `providers/congress_api.py` and
@@ -42,16 +43,26 @@ vote downloaders. Next code task: put GovInfo, then those other downloaders,
 on the shared turnstile using each site's own limit.
 
 **Resume:** if process 3783082 is gone, run `uv run research-db sync-congress-bills`
-from this branch (or from `main` after #85 is merged). It skips bills already
-marked loaded. A finished run exits 0 and prints `bills` and `skipped`.
+from `main`. It skips a bill whose detail file is already marked loaded.
+A finished run exits 0 and prints `bills` and `skipped`.
 
-**Not merged yet.** Pull request #85 is on GitHub at `2f61548` and later. The
-checks failed because the progress-list id `congress-gov-bills` contains a
-hyphen, and those ids must be one lower-case word. The id is now
-`conggovbills`. The loader's source id stays `congress.congress_gov_bills`,
-so this rename does not change which bills the running download skips.
-Merge #85 only after the checks pass. Do not merge it by switching this
-checkout while process 3783082 is alive.
+**Merged.** Pull request #85 is on `main` as `eb99a62`. Pull request #86,
+the committee-seat tests, is on `main` as `2ce035c`. The progress-list id
+is `conggovbills`. The loader's source id stays `congress.congress_gov_bills`.
+
+**Known limits, fix after this download, not during it:**
+- If the job is killed in the short moment after a bill's file is marked
+  loaded and before the database row is saved, a restart skips that bill
+  even though it is not in the database. The long downloading part does
+  not have this hole.
+- A bill part longer than 40 pages would be saved short, with no error.
+  A real bill is not expected to be that long.
+- A page link is followed even if it leaves Congress.gov, and the API key
+  would go with it. The official pages stay on Congress.gov.
+- The run note always says Congresses 106–107, even if someone asks for
+  other years. This run is those years.
+- Subject names from this download may not use the same id spelling as
+  the GovInfo bills. Compare them after the load, before joining subjects.
 
 **Already done, do not redo:** Voteview relink is merged (#84). Budget-office
 columns are live. Official bills, votes, and members for Congresses 108–119
