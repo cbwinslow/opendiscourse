@@ -27,10 +27,32 @@ Process 3783082 (`uv`, parent is now pid 1), Python 3783215. Moved out from
 under Grok on 2026-09-26 into the user service group
 `od-congress-bills.scope`. Quitting Grok does not stop it. Do not stop that
 service group while the download is running: stopping it stops the download.
-Still running at the last check, about 73 minutes in, and still taking
-Congress.gov requests. Log `/tmp/congress-bills-106-107.log` (buffered; empty
-does not mean stopped). The command holds a database lock. Do not start a
-second copy.
+Still running at the 06:13 UTC check, about 76 minutes in. About 4,300
+Congress 106 bill files were saved; Congress 107 had barely started. At that
+pace the rest is about five hours, so around 11:15 UTC. The older eight-hour
+estimate, counted from the start, runs out at 13:00 UTC. Log
+`/tmp/congress-bills-106-107.log` (buffered; empty does not mean stopped).
+The command holds a database lock. Do not start a second copy.
+
+**It stops itself when it finishes.** Exit 0 means the whole list was
+handled. The log then gets a short JSON note with `bills` (saved this run)
+and `skipped` (already on disk). The service group goes idle on its own.
+Do not stop `od-congress-bills.scope` by hand. A failure also stops the
+process, with exit 1 and a line that starts `sync-congress-bills failed`.
+Nothing already loaded is lost.
+
+**Check at 13:00 UTC on 2026-09-26**, after the eight-hour estimate. A
+one-time reminder on this server writes
+`/home/cbwinslow/congress-bills-CHECK.txt` at that time.
+- If process 3783082 is still running, leave it. Look again later. Do not
+  start a second copy.
+- If it is gone and the log shows the JSON counts, compare `core.bill` for
+  Congresses 106 and 107 with Congress.gov's own list totals, then the
+  member field checklist (biography, leadership, office contact, social
+  media).
+- If it is gone and the log says failed, run
+  `uv run research-db sync-congress-bills` from `main`. That skips bills
+  already marked loaded.
 
 **Congress.gov speed is in the code.** `src/opendiscourse_research/rate_gate.py`
 is the shared turnstile. `providers/congress_api.py` and
@@ -45,9 +67,11 @@ rate-limit header. Same pattern for the fixed pauses in the clerk, Senate, and
 vote downloaders. Next code task: put GovInfo, then those other downloaders,
 on the shared turnstile using each site's own limit.
 
-**Resume:** if process 3783082 is gone, run `uv run research-db sync-congress-bills`
-from `main`. It skips a bill whose detail file is already marked loaded.
-A finished run exits 0 and prints `bills` and `skipped`.
+**Resume:** if process 3783082 is gone before the log shows a finished
+JSON count, run `uv run research-db sync-congress-bills` from `main`. It
+skips a bill whose detail file is already marked loaded. A finished run
+exits 0 and prints `bills` and `skipped`. Do not start that command when
+the JSON counts are already in the log.
 
 **Merged.** Pull request #85 is on `main` as `eb99a62`. Pull request #86,
 the committee-seat tests, is on `main` as `2ce035c`. The progress-list id
@@ -72,9 +96,8 @@ columns are live. Official bills, votes, and members for Congresses 108–119
 are loaded. This download is only the 2000–2002 gap. Qodo skills were removed
 from `~/.claude/skills` and should stay removed. Push this branch after commits.
 
-**After the download:** compare `core.bill` counts for 106 and 107 with
-Congress.gov's list totals, then the member field checklist (biography,
-leadership, office contact, social media). Do not start that while 3783082
+**After the download:** the check at 13:00 UTC above is the next action.
+Do not start the count comparison or the member checklist while 3783082
 is alive.
 
 ## Session handoff (2026-09-25)
