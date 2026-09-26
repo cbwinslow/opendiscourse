@@ -583,6 +583,70 @@ def test_one_icpsr_is_not_given_to_two_people() -> None:
     ) == [(0,)]
 
 
+def test_a_shared_new_icpsr_does_not_attach_the_other_persons_row() -> None:
+    _add_bioguide("V998003", "Bioguide Only Bea")
+    _add_person("V998004", "998004", "Bioguide Only Cam")
+    origin = _Origin(
+        _files(
+            members=[
+                _member(congress=119, icpsr=998003, bioguide_id="V998003", bioname="BEA, Bioguide"),
+                _member(
+                    congress=119,
+                    chamber="Senate",
+                    icpsr=998003,
+                    bioguide_id="V998004",
+                    bioname="CAM, Bioguide",
+                ),
+            ],
+            rolls=[_roll(chamber="House", rollnumber=8, session=1, clerk_rollnumber=None)],
+        )
+    )
+    loaded = _sync(origin)
+    assert loaded.result["unlinked_members"] == 1
+    assert _rows(
+        "SELECT bioguide, person_id IS NOT NULL FROM core.voteview_member ORDER BY bioguide"
+    ) == [("V998003", True), ("V998004", False)]
+    assert _rows(
+        "SELECT external_id FROM core.person_identifier WHERE namespace = 'icpsr' "
+        "AND external_id IN ('998003', '998004') ORDER BY external_id"
+    ) == [("998003",), ("998004",)]
+    assert _rows(
+        "SELECT p.full_name FROM core.person_identifier i "
+        "JOIN core.person p ON p.person_id = i.person_id "
+        "WHERE i.namespace = 'icpsr' AND i.external_id = '998003'"
+    ) == [("Bioguide Only Bea",)]
+
+
+def test_a_member_file_from_the_old_rule_reloads_once() -> None:
+    _add_bioguide("V998003", "Bioguide Only Bea")
+    origin = _Origin(
+        _files(
+            members=[_member(icpsr=998003, bioguide_id="V998003", bioname="BEA, Bioguide")],
+            rolls=[_roll(chamber="House", rollnumber=8, session=1, clerk_rollnumber=None)],
+        )
+    )
+    _sync(origin)
+    with connect() as conn:
+        conn.execute(
+            "UPDATE ingest.artifact SET metadata = metadata - 'link_rule' "
+            "WHERE dataset_id = 'congress.voteview' AND artifact_key = %s",
+            (MEMBERS,),
+        )
+        conn.commit()
+    reloaded = _sync(origin)
+    assert MEMBERS not in reloaded.result["reused"]
+    assert reloaded.result["members_inserted"] == 1
+    assert _rows(
+        "SELECT metadata->>'link_rule' FROM ingest.artifact "
+        "WHERE dataset_id = 'congress.voteview' AND artifact_key = %s "
+        "ORDER BY artifact_version DESC LIMIT 1",
+        (MEMBERS,),
+    ) == [("bioguide-row-must-match",)]
+    third = _sync(origin)
+    assert MEMBERS in third.result["reused"]
+    assert third.result["members_inserted"] == 0
+
+
 def test_a_bioguide_disagreement_links_nobody_and_moves_no_identifier() -> None:
     _add_person("V998001", "998001", "Database Ann")
     origin = _Origin(

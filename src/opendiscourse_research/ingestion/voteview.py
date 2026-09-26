@@ -42,7 +42,7 @@ SOURCE_ID = "congress.voteview"
 LOCK_KEY = f"{SOURCE_ID}:sync"
 # Bumped when member linking changes. A retained file is reloaded once so an
 # existing database picks up the new rule without a second download.
-LINK_RULE = "bioguide-if-no-icpsr"
+LINK_RULE = "bioguide-row-must-match"
 CITATION = (
     "Lewis, Poole, Rosenthal, Boche, Rudkin, and Sonnet, "
     "Voteview: Congressional Roll-Call Votes Database, https://voteview.com/"

@@ -119,7 +119,9 @@ WITH incoming AS (
         OR bios.bioguides IS NULL
         OR bios.bioguide = ANY (bios.bioguides)
       ) THEN (bios.icpsr_people)[1]
-      WHEN safe.person_id IS NOT NULL THEN safe.person_id
+      WHEN safe.person_id IS NOT NULL
+       AND cardinality(bios.guide_people) = 1
+       AND (bios.guide_people)[1] = safe.person_id THEN safe.person_id
       ELSE NULL
     END,
     bios.record, bios.source_artifact_id, bios.run_id
