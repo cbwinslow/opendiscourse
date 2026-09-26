@@ -1,18 +1,67 @@
 # Project state and handoff
 
-Last updated: 2026-09-25. The done-state for bills, votes, and members is
+Last updated: 2026-09-26. Stop here and clear context. The 2000–2002 bill
+download is running and must be left alone. See "Session handoff (2026-09-26)".
+The done-state for bills, votes, and members remains
 `_bmad-output/specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10).
-Voteview scores are loaded. A 2026-09-26 rerun stored a missing ICPSR when
-the row's BioGuide already matched one person. Congresses 108–119 still have
-32 unlinked member rows (16 people) because Voteview's number conflicts with
-one already stored, or the file gives that person two numbers.
-CBO columns are live (17,640 estimates). Committee membership is loaded
-(559 committees, 3,895 assignments). See "Session handoff (2026-09-25)" below.
 Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
 decision or story status changes.
+
+## Session handoff (2026-09-26)
+
+Stop here. Clear the context window. Do not start a second download.
+
+**Why about eight hours, down from about three days:** Congresses 106 and 107
+are about 21,600 bills, and each bill is about seven requests, so the job is
+about 150,000 requests. The server allows 20,000 an hour, and 150,000 divided
+by 20,000 is about eight hours. That is the floor. The old client waited 0.8
+seconds on its own and only made about 2,200 requests an hour, which was about
+three days. A 10-second count of gate turns on 2026-09-26 was 52, about 18,700
+an hour, against the live header of 20,000.
+
+**Running:** `research-db sync-congress-bills` for Congresses 106 and 107,
+pull request #85, branch `feat/congress-gov-bills`. Process 3783082 (`uv`),
+Python 3783215. Still running at the last check, about 29 minutes in. Log
+`/tmp/congress-bills-106-107.log` (buffered; empty does not mean stopped).
+The command holds a database lock.
+
+**Congress.gov speed is in the code.** `src/opendiscourse_research/rate_gate.py`
+is the shared turnstile. `providers/congress_api.py` and
+`providers/congress_bills.py` use it for this download and the older one-bill
+commands. It follows `X-RateLimit-Limit` (20,000 on this key, not the README's
+5,000), spaces requests across the rolling hour, and slows down on a 429 or an
+empty remaining count. Several bills download at once.
+
+**GovInfo is not on that turnstile.** `providers/govinfo.py` still waits a
+fixed 1.0 second between requests (`PACE_SECONDS`). It does not read a live
+rate-limit header. Same pattern for the fixed pauses in the clerk, Senate, and
+vote downloaders. Next code task: put GovInfo, then those other downloaders,
+on the shared turnstile using each site's own limit.
+
+**Resume:** if process 3783082 is gone, run `uv run research-db sync-congress-bills`
+from this branch (or from `main` after #85 is merged). It skips bills already
+marked loaded. A finished run exits 0 and prints `bills` and `skipped`.
+
+**Not merged yet.** Pull request #85 is on GitHub at `2f61548` and later. The
+checks failed because the progress-list id `congress-gov-bills` contains a
+hyphen, and those ids must be one lower-case word. The id is now
+`conggovbills`. The loader's source id stays `congress.congress_gov_bills`,
+so this rename does not change which bills the running download skips.
+Merge #85 only after the checks pass. Do not merge it by switching this
+checkout while process 3783082 is alive.
+
+**Already done, do not redo:** Voteview relink is merged (#84). Budget-office
+columns are live. Official bills, votes, and members for Congresses 108–119
+are loaded. This download is only the 2000–2002 gap. Qodo skills were removed
+from `~/.claude/skills` and should stay removed. Push this branch after commits.
+
+**After the download:** compare `core.bill` counts for 106 and 107 with
+Congress.gov's list totals, then the member field checklist (biography,
+leadership, office contact, social media). Do not start that while 3783082
+is alive.
 
 ## Session handoff (2026-09-25)
 
@@ -60,15 +109,13 @@ Hall, stored `14828`, Voteview `94828`; Kevin Kiley, Voteview `22336` and
 `92336`, nothing stored. BioGuide disagreements remain 0. Presidents remain
 129 unlinked on purpose.
 
-**Next, in order:** member field checklist (biography, leadership, office
-contact, and social media are not yet accounted for). Bills and official
-votes already cover Congresses 108–119, so the Bush years 2003–2008 and the
-Obama years 2009–2016 can be compared now. Years 2000–2002 are Congresses
-106–107, and GovInfo's bill files do not include them; that needs a separate
-source (GovTrack bulk is the one already named for Congresses 93–107). Do
-not read the old machine-local bill folder. Person-merge still does not move
-`core.committee_assignment` on the live database; that fix is branch
-`feat/person-merge-committee-seats`.
+**Next, in order:** finish `research-db sync-congress-bills` for Congresses
+106 and 107 (Congress.gov JSON; GovInfo has no bill files before 108, and
+GovTrack no longer publishes a bulk download). A killed run resumes. Then
+the member field checklist. Moving `core.committee_assignment` when two
+people are combined is already in the code on `main` (it arrived with the
+Voteview load, pull request #78). The tests for that move merged as
+`2ce035c` (pull request #86).
 
 ## Session handoff (2026-09-23)
 

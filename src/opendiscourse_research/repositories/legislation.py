@@ -1018,6 +1018,7 @@ def save_billstatus_bill(
     source_member: str | None = None,
     conn: Any | None = None,
     person_cache: dict[tuple[str, str], str | None] | None = None,
+    source_name: str = "govinfo_billstatus",
 ) -> str:
     """Upsert core.bill plus identifiers, actions, sponsorships, committees, subjects, and documents.
 
@@ -1052,7 +1053,7 @@ def save_billstatus_bill(
                     "introduced_date": bill_data.get("introduced_date"),
                     "latest_action_date": bill_data.get("latest_action_date"),
                     "latest_action": bill_data.get("latest_action"),
-                    "metadata": Jsonb({"source": "govinfo_billstatus"}),
+                    "metadata": Jsonb({"source": source_name}),
                     "legislative_session_id": legislative_session_id,
                     "ocd_id": None,
                 },

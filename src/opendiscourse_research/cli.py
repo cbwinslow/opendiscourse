@@ -684,6 +684,40 @@ def sync_committee_membership_command() -> None:
         raise typer.Exit(2)
 
 
+@app.command("sync-congress-bills")
+def sync_congress_bills_command(
+    congress: list[int] = typer.Option(
+        None,
+        help="Congress to sync (repeatable). Default is 106 and 107, the 2000-2002 gap. 108 and later are refused.",
+    ),
+    limit: int = typer.Option(
+        None, min=1, help="Stop after this many bills in each Congress. For a trial run."
+    ),
+) -> None:
+    """Download Congress.gov bills from before GovInfo's files and load them.
+
+    Exit code 0: complete. 1: failed (a rerun skips bills already loaded).
+    """
+    from .catalog import sync_inventory
+    from .ingestion.congress_bills import CongressBillConnector
+    from .ingestion.connector import run_connector
+
+    sync_inventory()
+    try:
+        with render_spinner("Syncing Congress.gov bills") as report:
+            connector = CongressBillConnector(
+                tuple(congress) if congress else None,
+                limit=limit,
+                report=report,
+            )
+            run_connector(connector)
+    except (OSError, RuntimeError, ValueError, psycopg.Error, SQLAlchemyError) as exc:
+        typer.secho(f"sync-congress-bills failed: {exc}", err=True, fg=typer.colors.RED)
+        typer.echo("Nothing already loaded is lost: rerun the same command to resume.", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(connector.result, indent=2, sort_keys=True))
+
+
 @app.command("sync-voteview")
 def sync_voteview_command() -> None:
     """Download Voteview ideology and the roll-call index into DATA_ROOT and load them.

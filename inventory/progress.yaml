@@ -101,6 +101,21 @@ items:
     next: >-
       Live-loaded 2026-09-23: 559 committees, 3,895 assignments, 0 unknown BioGuide
       ids. Person-merge does not yet repoint core.committee_assignment. Do not scrape Clerk HTML.
+  - id: conggovbills
+    dataset: congress.congress_gov_bills
+    state: ready
+    scope: >-
+      Congress.gov bill records for Congresses 106 and 107 (2000-2002), the years
+      before GovInfo BILLSTATUS. Identity, title, dates, sponsor and cosponsor
+      BioGuide, actions, committees, subjects, summaries, and text-version links.
+      The whole JSON is kept. Congress 108 and later stay on GovInfo.
+    origin: https://api.congress.gov/v3/bill/
+    provenance: authoritative_official_publisher
+    sensitivity: public
+    validate: Parser tests use captured JSON. A live run requires CONGRESS_API_KEY.
+    next: >-
+      `research-db sync-congress-bills` (default Congresses 106 and 107). A rerun
+      skips bills already marked loaded.
   - id: voteview
     dataset: congress.voteview
     state: loaded
