@@ -294,10 +294,10 @@ Keep-and-refine. Do not start Epic 7. The legislative north star
 
 1. CBO columns are merged (#79) and applied on the live database
    (17,640 estimates). A later bill-file refresh keeps them current.
-2. Voteview scores are loaded. 546 member rows in Congresses 108–119 are
-   not linked to a person: the BioGuide matches, and the ICPSR is not stored.
-   Decide whether those rows may link on that BioGuide. Do not download
-   `HSall_votes.csv`.
+2. Voteview scores are loaded and relinked. 32 member rows in Congresses
+   108–119 stay unlinked because the ICPSR conflicts or the file lists two
+   numbers. Do not download `HSall_votes.csv`. The member field checklist is
+   the next gap. Years 2000–2002 need a source other than GovInfo bill files.
 3. Write the `congress.legislators` field checklist and a per-person whole
    record for any field that checklist cannot mark typed or explicitly skipped.
 4. Merge the person-merge fix so committee seats move with the person

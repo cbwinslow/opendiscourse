@@ -116,10 +116,10 @@ items:
       Cite Lewis, Poole, Rosenthal, Boche, Rudkin, and Sonnet, Voteview: Congressional
       Roll-Call Votes Database, https://voteview.com/. Connector tests use a fake origin.
     next: >-
-      Live-loaded 2026-09-25 (exit 2): 51,064 members, 113,553 roll calls, 848
-      parties. 546 member rows in Congresses 108-119 are unlinked because their
-      ICPSR is not stored, though the BioGuide matches a person. See
-      docs/PROJECT-STATE.md. Do not download HSall_votes.csv.
+      Live-loaded 2026-09-25 and relinked 2026-09-26 (exit 2): 51,064 members,
+      50,803 linked, 284 new ICPSR numbers stored. 32 member rows in Congresses
+      108-119 stay unlinked because the ICPSR conflicts or the file lists two.
+      See docs/PROJECT-STATE.md. Do not download HSall_votes.csv.
   - id: cbocost
     dataset: congress.cbo_cost_estimates
     state: loaded

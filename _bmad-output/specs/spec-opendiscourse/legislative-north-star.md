@@ -48,10 +48,14 @@ Met when all of these are true:
    in) on the opening roll call of the 117th; Senate roll 2003-262 (menu date and
    file date disagree); Senate roll 2020-216 (blank totals, 100 Not Voting).
 5. UCLA Voteview is an extra layer: left–right scores, its roll-call index, and
-   party medians, joined to people on the ICPSR number already stored. It does not
-   replace Clerk or Senate votes. Its individual-vote file (`HSall_votes.csv`) is
-   not downloaded. Voteview is met only after `research-db sync-voteview` has run
-   on the live database and the unmatched people are listed.
+   party medians. A row links to a person when its ICPSR number already belongs
+   to exactly one person. When that number is missing and the row's BioGuide
+   matches exactly one person who has no ICPSR yet, the row links and that
+   number is stored. A conflicting number is not overwritten, and no person is
+   created. Voteview does not replace Clerk or Senate votes. Its individual-vote
+   file (`HSall_votes.csv`) is not downloaded. Voteview is met only after
+   `research-db sync-voteview` has run on the live database and the unmatched
+   people are listed.
 
 ## Members
 
@@ -103,14 +107,14 @@ above.
 | CBO date, title, link, description as columns | Met on the live database (2026-09-25, migration `e8c2a9d14b59`, pull request #79). 17,640 estimates on 11,426 bills; every row has a date, title, and link. 23 items have no description in the source. |
 | Bill text 113–119 | Met (135,136 versions, none unattached). Six unreadable 113th XML files are named in `docs/PROJECT-STATE.md`. No bulk text for 108–112. |
 | Official votes 108–119, both chambers | Met (23,359 roll calls, about 7.4 million member votes). Letlow and the two Senate quirks above are the exceptions. |
-| Voteview scores on the live database | Loaded 2026-09-25 (exit 2). 51,064 member rows, 50,280 linked. 546 rows in Congresses 108–119 (294 people) have a BioGuide we already know and an ICPSR we do not, so they are not linked. 23,303 of 23,359 official votes are linked. `HSall_votes.csv` was not downloaded. |
+| Voteview scores on the live database | Loaded, then relinked 2026-09-26 (exit 2). 51,064 member rows, 50,803 linked. 284 missing ICPSR numbers were stored when the BioGuide matched one person. 32 rows in Congresses 108–119 (16 people) stay unlinked because the number conflicts or the file lists two. 23,303 of 23,359 official votes are linked. `HSall_votes.csv` was not downloaded. |
 | People, BioGuide, terms 108–119 | Met for identity and terms (12,770 people, 45,535 memberships). |
 | Current committee seats | Met (559 committees, 3,895 assignments, every seat linked on BioGuide). |
 | Merging two people moves committee seats | Not met on the live database. The fix is on branch `feat/person-merge-committee-seats`, not merged. |
 | Member field checklist and per-person whole record | Not met. No `inventory/fields/` file for `congress.legislators`. Biography, leadership, contact, and social media are not in a per-person database record. |
 | Progress register matches the live database | Not met. House and Senate votes are still marked `ready` in `inventory/progress.yaml` even though they are loaded. |
 
-Next work, in order: decide whether those 294 people may be linked by the
-BioGuide already printed on the Voteview row, then write the member field
-checklist and close whatever it shows is missing. Do not start FEC person
-joins or a website to get this goal across the line.
+Next work, in order: write the member field checklist and close whatever it
+shows is missing. Congresses 106–107 (2000–2002) are not in GovInfo's bill
+files; a later source has to bring those in. Do not start FEC person joins
+or a website to get this goal across the line.
