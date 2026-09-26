@@ -882,7 +882,12 @@ def person_join_status_command() -> None:
 
 @app.command("load-legislators")
 def load_legislators_command() -> None:
-    """Load BioGuide-keyed legislator identifiers from vendor/congress-legislators."""
+    """Load members and terms from the congress-legislators checkout.
+
+    Run scripts/bootstrap_upstream.sh first. This command checks that public
+    checkout, copies the two YAML files into DATA_ROOT, and loads people and
+    terms. It does not download committee seats; use sync-committee-membership.
+    """
     with render_progress("Loading congress-legislators", 10) as advance:
         connector = LegislatorsConnector(report=advance)
         try:
