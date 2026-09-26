@@ -100,7 +100,9 @@ the Washington office printed on each term, social accounts, and district
 offices. Save middle name, suffix, nickname, and earlier names as name facts
 that do not change the shown name. A nickname must not become the shown name.
 Presidents stay in `executive.yaml`, outside this list. New person-linked
-tables go on the person-merge list. Do not load this while the 106–107 bill
+tables go on the person-merge list. A later social or district-office file
+removes an account or office it no longer lists. An unknown BioGuide is kept
+and reported, never matched by name. Do not load this while the 106–107 bill
 download is running in the other checkout.
 
 ## Session handoff (2026-09-25)

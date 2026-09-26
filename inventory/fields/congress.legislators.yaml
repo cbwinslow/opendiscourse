@@ -18,9 +18,17 @@ capture:
     list (core.person_leadership, core.person_social_account, core.district_office,
     and the safety copy when it stores a person id). The safety copy also keeps
     the BioGuide, so the original file can still be found after two people are
-    combined. Social media and district offices are the current roster only.
-    Washington contact is whatever the member file prints on that term, not a
-    history of earlier offices.
+    combined. Social media and district offices are the current roster only. A
+    later file that drops an account or an office removes that row, the same way
+    a current committee seat is removed. An unknown BioGuide is kept on the row
+    with an empty person link and is reported. People are never matched by name.
+    In this copy of the files every social and office id already belongs to a
+    member. Washington contact is whatever the member file prints on that term,
+    not a history of earlier offices. A newer member file updates those columns
+    and clears one the file no longer prints. A term the file drops is still
+    kept, which is the rule the term load already uses. Gender today is M or F
+    (12,317 and 453). A new letter is stored and the run says so. 542 people
+    have no birthday.
 fields:
 - name: id.bioguide
   status: typed
@@ -63,7 +71,7 @@ fields:
   where: core.person.birthday
 - name: bio.gender
   status: typed
-  where: core.person.gender, the letter the file prints
+  where: core.person.gender, the letter the file prints (M or F in this copy)
 - name: family
   status: whole_record_only
   reason: >-
