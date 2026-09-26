@@ -13,5 +13,6 @@ CREATE TEMP TABLE term_stage (
   post_division_class text,
   post_label text,
   post_role text,
-  metadata jsonb NOT NULL
+  metadata jsonb NOT NULL,
+  contact jsonb NOT NULL
 ) ON COMMIT DROP

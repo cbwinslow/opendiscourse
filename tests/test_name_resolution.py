@@ -85,6 +85,11 @@ def test_person_display_is_common_then_official_with_the_documented_ranks() -> N
         ("roster", 1, "congress.committee_membership"),
         # Ranked, and deliberately not in display, so a Voteview bioname does not change the shown name.
         ("voteview", 1, "congress.voteview"),
+        # Ranked, and deliberately not in display, so a nickname cannot become the shown name.
+        ("middle", 1, LEGISLATORS),
+        ("suffix", 1, LEGISLATORS),
+        ("nickname", 1, LEGISLATORS),
+        ("former", 1, LEGISLATORS),
     ]
     geography = {(kind, geography_type): [row[4] for row in rows]
                  for (kind, geography_type), rows in _group(_entries(document), "geography").items()}
@@ -105,7 +110,7 @@ def _group(entries: list[tuple], entity: str) -> dict[tuple[str, str], list[tupl
     ("edit", "message"),
     [
         (lambda d: d["person"]["kinds"]["official"].append({"dataset": "no.such", "field": "x"}), "no.such"),
-        (lambda d: d["person"]["kinds"].update(nickname=[{"dataset": OPENSTATES, "field": "x"}]), "nickname"),
+        (lambda d: d["person"]["kinds"].update(alias=[{"dataset": OPENSTATES, "field": "x"}]), "alias"),
         (lambda d: d["person"].update(display=["official"]), "kind 'common' is ranked but never displayed"),
         (lambda d: d["person"]["kinds"]["official"].append({"dataset": LEGISLATORS, "field": "x"}), "twice"),
         (lambda d: d["person"]["kinds"]["common"][0].pop("field"), "needs a field"),
@@ -524,9 +529,9 @@ def test_precedence_sync_removes_dropped_rows_and_survives_a_reordering(warehous
     swapped = _ranked(["common", "official"], common=[OPENSTATES],
                       official=[OPENSTATES, CONGRESS_GOV, LEGISLATORS])  # ranks 1 and 3 change places
     counts = sync_precedence(swapped)
-    # Field text differs on the four replaced rows. Roster and voteview are ranked
-    # but not in this replacement, so those two ranks are removed.
-    assert counts["ranks_written"] == 4 and counts["ranks_removed"] == 2
+    # Field text differs on the four replaced rows. Roster, voteview, and the four
+    # legislator name parts are ranked but not in this replacement, so those six are removed.
+    assert counts["ranks_written"] == 4 and counts["ranks_removed"] == 6
     with connect() as conn:
         order = [r["dataset_id"] for r in conn.execute(
             "SELECT dataset_id FROM catalog.attribute_precedence WHERE entity = 'person' AND name_kind = 'official' "
@@ -933,7 +938,7 @@ def test_downgrade_refuses_while_assertions_exist(warehouse: None) -> None:
         command.downgrade(_alembic_config(), "a4d9e1c7b356")
     with connect() as conn:  # nothing was dropped
         assert conn.execute("SELECT to_regclass('core.person_name_source') AS t").fetchone()["t"] is not None
-        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()["version_num"] == "e8c2a9d14b59"
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()["version_num"] == "c9e4a1b27d83"
 
 
 @db
@@ -1030,8 +1035,8 @@ def test_a_same_value_duplicate_in_one_batch_stores_one_row(warehouse: None) -> 
 def test_sync_precedence_dry_run_returns_the_counts_and_writes_nothing(warehouse: None) -> None:
     dropped = _ranked(["common"], common=[OPENSTATES])
     preview = sync_precedence(dropped, dry_run=True)
-    # Official's three ranks plus roster and voteview, which this document does not rank.
-    assert preview["ranks_removed"] == 5 and preview["display_removed"] == 1
+    # Official's three ranks, plus roster, voteview, and the four legislator name parts.
+    assert preview["ranks_removed"] == 9 and preview["display_removed"] == 1
     with connect() as conn:
         assert conn.execute("SELECT count(*) AS n FROM catalog.attribute_precedence WHERE entity = 'person' "
                             "AND name_kind = 'official'").fetchone()["n"] == 3

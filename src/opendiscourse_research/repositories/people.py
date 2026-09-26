@@ -53,6 +53,9 @@ PERSON_REFERENCES = (
     "core.person_name_source",
     "core.committee_assignment",
     "core.voteview_member",
+    "core.person_leadership",
+    "core.person_social_account",
+    "core.district_office",
 )
 
 # Repointed by their own statement: a plain UPDATE would collide with the survivor's assertions.
@@ -223,6 +226,7 @@ TERM_STAGE_COLUMNS = (
     "post_label",
     "post_role",
     "metadata",
+    "contact",
 )
 
 

@@ -226,6 +226,9 @@ core_person = Table(
     Column("full_name", Text, nullable=False),
     Column("given_name", Text),
     Column("family_name", Text),
+    Column("birthday", Date),
+    Column("gender", Text),
+    CheckConstraint("gender IS NULL OR btrim(gender) <> ''", name="person_gender_check"),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
     # The assertion that won; the three name columns and this pointer are written only by the resolver.
     Column(
@@ -266,7 +269,7 @@ core_person_name_source = Table(
     Column("family_name", Text),
     *_evidence_columns(),
     CheckConstraint(
-        "name_kind IN ('official', 'common', 'roster', 'voteview')",
+        "name_kind IN ('official', 'common', 'roster', 'voteview', 'middle', 'suffix', 'nickname', 'former')",
         name="person_name_source_kind_check",
     ),
     CheckConstraint("artifact_id IS NOT NULL OR payload_id IS NOT NULL", name="person_name_source_evidence"),
@@ -842,6 +845,14 @@ core_membership = Table(
         ForeignKey("ingest.raw_payload.payload_id"),
     ),
     Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    # Washington office printed on this term. Empty when the file has none.
+    Column("office", Text),
+    Column("address", Text),
+    Column("phone", Text),
+    Column("fax", Text),
+    Column("contact_form", Text),
+    Column("url", Text),
+    Column("rss_url", Text),
     CheckConstraint(
         "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
         name="membership_check",
@@ -1311,6 +1322,164 @@ core_voteview_party = Table(
 )
 
 
+core_legislator_source_record = Table(
+    "legislator_source_record",
+    SQLModel.metadata,
+    Column(
+        "legislator_source_record_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column("source_file", Text, nullable=False),
+    Column("member_key", Text, nullable=False),
+    Column("bioguide", Text, nullable=False),
+    Column("record", JSONB, nullable=False),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("btrim(source_file) <> ''", name="legislator_source_record_file_check"),
+    CheckConstraint("btrim(member_key) <> ''", name="legislator_source_record_key_check"),
+    CheckConstraint("btrim(bioguide) <> ''", name="legislator_source_record_bioguide_check"),
+    UniqueConstraint(
+        "source_file", "member_key", "bioguide", name="legislator_source_record_identity_key"
+    ),
+    schema="core",
+)
+
+
+core_person_leadership = Table(
+    "person_leadership",
+    SQLModel.metadata,
+    Column(
+        "person_leadership_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column(
+        "person_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.person.person_id", ondelete="CASCADE"),
+    ),
+    Column("bioguide", Text, nullable=False),
+    Column("chamber", Text, nullable=False),
+    Column("title", Text, nullable=False),
+    Column("start_date", Date, nullable=False),
+    Column("end_date", Date),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("btrim(bioguide) <> ''", name="person_leadership_bioguide_check"),
+    CheckConstraint("btrim(title) <> ''", name="person_leadership_title_check"),
+    CheckConstraint("chamber IN ('house', 'senate')", name="person_leadership_chamber_check"),
+    UniqueConstraint(
+        "bioguide", "chamber", "title", "start_date", name="person_leadership_identity_key"
+    ),
+    Index("person_leadership_person_idx", "person_id"),
+    schema="core",
+)
+
+
+core_person_social_account = Table(
+    "person_social_account",
+    SQLModel.metadata,
+    Column(
+        "person_social_account_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column(
+        "person_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.person.person_id", ondelete="CASCADE"),
+    ),
+    Column("bioguide", Text, nullable=False),
+    Column("network", Text, nullable=False),
+    Column("handle", Text),
+    Column("external_id", Text),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("btrim(bioguide) <> ''", name="person_social_account_bioguide_check"),
+    CheckConstraint(
+        "network IN ('twitter', 'facebook', 'instagram', 'youtube', 'mastodon')",
+        name="person_social_account_network_check",
+    ),
+    CheckConstraint(
+        "handle IS NOT NULL OR external_id IS NOT NULL",
+        name="person_social_account_value_check",
+    ),
+    UniqueConstraint("bioguide", "network", name="person_social_account_identity_key"),
+    Index("person_social_account_person_idx", "person_id"),
+    schema="core",
+)
+
+
+core_district_office = Table(
+    "district_office",
+    SQLModel.metadata,
+    Column(
+        "district_office_id",
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    ),
+    Column(
+        "person_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("core.person.person_id", ondelete="CASCADE"),
+    ),
+    Column("bioguide", Text, nullable=False),
+    Column("office_key", Text, nullable=False),
+    Column("address", Text),
+    Column("building", Text),
+    Column("suite", Text),
+    Column("city", Text),
+    Column("state", Text),
+    Column("zip", Text),
+    Column("phone", Text),
+    Column("fax", Text),
+    Column("hours", Text),
+    Column("latitude", Float),
+    Column("longitude", Float),
+    Column("location", Geometry("POINT", srid=4326, spatial_index=False)),
+    Column(
+        "source_artifact_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("ingest.artifact.artifact_id"),
+        nullable=False,
+    ),
+    Column("run_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.run.run_id"), nullable=False),
+    Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("btrim(bioguide) <> ''", name="district_office_bioguide_check"),
+    CheckConstraint("btrim(office_key) <> ''", name="district_office_key_check"),
+    CheckConstraint(
+        "(latitude IS NULL AND longitude IS NULL) OR (latitude IS NOT NULL AND longitude IS NOT NULL)",
+        name="district_office_coordinates_check",
+    ),
+    UniqueConstraint("office_key", name="district_office_key_key"),
+    Index("district_office_person_idx", "person_id"),
+    schema="core",
+)
+
+
 def committee_source_record_table():
     """Return the whole-file-row record for committee YAML."""
     return core_committee_source_record
@@ -1324,6 +1493,26 @@ def committee_table():
 def committee_assignment_table():
     """Return the current committee-assignment snapshot."""
     return core_committee_assignment
+
+
+def legislator_source_record_table():
+    """Return the safety copy of a member, social, or district-office file entry."""
+    return core_legislator_source_record
+
+
+def person_leadership_table():
+    """Return one leadership role."""
+    return core_person_leadership
+
+
+def person_social_account_table():
+    """Return one current social account."""
+    return core_person_social_account
+
+
+def district_office_table():
+    """Return one current district office."""
+    return core_district_office
 
 
 def voteview_member_table():

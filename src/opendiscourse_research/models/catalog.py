@@ -433,7 +433,8 @@ catalog_attribute_precedence = Table(
     ),
     CheckConstraint("rank > 0", name="attribute_precedence_rank_check"),
     CheckConstraint(
-        "(entity = 'person' AND name_kind IN ('official', 'common', 'roster', 'voteview') "
+        "(entity = 'person' AND name_kind IN ('official', 'common', 'roster', 'voteview', "
+        "'middle', 'suffix', 'nickname', 'former') "
         "AND geography_type = '') "
         "OR (entity = 'geography' AND name_kind IN ('short', 'full') AND geography_type <> '')",
         name="attribute_precedence_scope_check",
