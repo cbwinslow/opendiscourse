@@ -17,13 +17,19 @@ fields:
   status: typed
   where: >-
     core.voteview_member.congress, chamber (house, senate, or president), and icpsr.
-    The row key is those three. person_id is set only when that ICPSR already
-    belongs to exactly one person. No person is created and no identifier moves.
+    The row key is those three. person_id is set when that ICPSR already belongs
+    to exactly one person. When the ICPSR belongs to nobody and the BioGuide
+    matches exactly one person who has no ICPSR yet, person_id is that person and
+    the ICPSR is stored on them. One number is never given to two people, and a
+    person who already has a different ICPSR is not given another. No person is
+    created.
 - name: members bioguide_id
   status: typed
   where: >-
     core.voteview_member.bioguide. When it is non-empty and the ICPSR person has a
-    different BioGuide, person_id stays empty. Identifiers are not changed.
+    different BioGuide, person_id stays empty and that ICPSR is not moved. When
+    the ICPSR is new and this BioGuide matches one person who has no ICPSR, the
+    number is stored on that person.
 - name: members bioname
   status: typed
   where: >-

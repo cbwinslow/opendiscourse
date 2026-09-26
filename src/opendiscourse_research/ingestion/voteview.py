@@ -2,10 +2,12 @@
 
 Downloads the current all-Congress member, roll-call, and party files from
 voteview.com into ``DATA_ROOT``, keeps each file as evidence, and loads one
-row per member-Congress, one row per roll call, and one row per party. People
-link only on an ICPSR that already belongs to exactly one person. Official
-votes are linked and never rewritten. The individual-vote file is not
-downloaded, and ``vendor/unitedstates-congress`` task ``voteview`` is not run.
+row per member-Congress, one row per roll call, and one row per party. People link on an ICPSR that already belongs to exactly one person. When that
+number is missing and the row's BioGuide matches exactly one person who has no
+ICPSR yet, the row links and that ICPSR is stored. A conflicting number is not
+overwritten, and no person is created. Official votes are linked and never
+rewritten. The individual-vote file is not downloaded, and
+``vendor/unitedstates-congress`` task ``voteview`` is not run.
 """
 
 from __future__ import annotations
@@ -38,6 +40,9 @@ from .connector import ConnectorContext
 
 SOURCE_ID = "congress.voteview"
 LOCK_KEY = f"{SOURCE_ID}:sync"
+# Bumped when member linking changes. A retained file is reloaded once so an
+# existing database picks up the new rule without a second download.
+LINK_RULE = "bioguide-if-no-icpsr"
 CITATION = (
     "Lewis, Poole, Rosenthal, Boche, Rudkin, and Sonnet, "
     "Voteview: Congressional Roll-Call Votes Database, https://voteview.com/"
@@ -488,7 +493,7 @@ class VoteviewConnector:
         """Download a file only when its size or Last-Modified differs from the retained one."""
         for name in FILES:
             current = get_current_artifact(name, dataset_id=SOURCE_ID)
-            decision = self._decide(current, self._remotes[name])
+            decision = self._decide(name, current, self._remotes[name])
             self._decision[name] = decision
             if decision == "reuse":
                 assert current is not None
@@ -509,6 +514,7 @@ class VoteviewConnector:
                 current is not None
                 and current["checksum_sha256"] == digest
                 and current["status"] == "loaded"
+                and self._rule_current(name, current.get("metadata") or {})
             ):
                 # Same bytes, new Last-Modified: keep the version and do not reload rows.
                 self._decision[name] = "same_bytes"
@@ -581,6 +587,7 @@ class VoteviewConnector:
                             "remote_size": self._remotes[name].size,
                             "remote_last_modified": self._remotes[name].last_modified,
                             "citation": CITATION,
+                            **({"link_rule": LINK_RULE} if name == MEMBERS else {}),
                         },
                         conn=conn,
                     )
@@ -671,7 +678,7 @@ class VoteviewConnector:
         self._paths[name] = str(current["local_path"])
         self._artifact_ids[name] = str(current["artifact_id"])
 
-    def _decide(self, current: Mapping[str, Any] | None, remote: Any) -> str:
+    def _decide(self, name: str, current: Mapping[str, Any] | None, remote: Any) -> str:
         if current is None or not current.get("checksum_sha256"):
             return "download"
         meta = current.get("metadata") or {}
@@ -685,8 +692,16 @@ class VoteviewConnector:
         except (ValueError, OSError):
             intact = False
         if headers_match and intact and current.get("bytes_downloaded") == remote.size:
-            return "reuse" if current.get("status") == "loaded" else "reload"
+            if current.get("status") == "loaded" and self._rule_current(name, meta):
+                return "reuse"
+            return "reload"
         return "download"
+
+    def _rule_current(self, name: str, metadata: Mapping[str, Any]) -> bool:
+        """Member files reload once after the link rule changes. Other files do not."""
+        if name != MEMBERS:
+            return True
+        return metadata.get("link_rule") == LINK_RULE
 
     def _acquire_lock(self) -> None:
         """One sync at a time: two would race on a file replace."""

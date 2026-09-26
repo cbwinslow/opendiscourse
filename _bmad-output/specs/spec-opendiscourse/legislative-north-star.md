@@ -48,10 +48,14 @@ Met when all of these are true:
    in) on the opening roll call of the 117th; Senate roll 2003-262 (menu date and
    file date disagree); Senate roll 2020-216 (blank totals, 100 Not Voting).
 5. UCLA Voteview is an extra layer: left–right scores, its roll-call index, and
-   party medians, joined to people on the ICPSR number already stored. It does not
-   replace Clerk or Senate votes. Its individual-vote file (`HSall_votes.csv`) is
-   not downloaded. Voteview is met only after `research-db sync-voteview` has run
-   on the live database and the unmatched people are listed.
+   party medians. A row links to a person when its ICPSR number already belongs
+   to exactly one person. When that number is missing and the row's BioGuide
+   matches exactly one person who has no ICPSR yet, the row links and that
+   number is stored. A conflicting number is not overwritten, and no person is
+   created. Voteview does not replace Clerk or Senate votes. Its individual-vote
+   file (`HSall_votes.csv`) is not downloaded. Voteview is met only after
+   `research-db sync-voteview` has run on the live database and the unmatched
+   people are listed.
 
 ## Members
 

@@ -270,11 +270,13 @@ def _remove_rows() -> None:
             (
                 "DELETE FROM core.person_identifier WHERE "
                 "(namespace = 'bioguide' AND external_id LIKE 'V998%') "
-                "OR (namespace = 'icpsr' AND external_id IN ('998001', '998002', '998009'))"
+                "OR (namespace = 'icpsr' AND external_id IN "
+                "('998001', '998002', '998003', '998004', '998009'))"
             ),
             (
                 "DELETE FROM core.person WHERE full_name IN "
-                "('Database Ann', 'Database Unknown') AND NOT EXISTS ("
+                "('Database Ann', 'Database Unknown', 'Bioguide Only Bea', 'Bioguide Only Cam') "
+                "AND NOT EXISTS ("
                 "SELECT 1 FROM core.person_identifier i WHERE i.person_id = core.person.person_id)"
             ),
             (
@@ -327,6 +329,20 @@ def _clean(catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPat
 def _rows(sql: str, params: tuple[object, ...] = ()) -> list[tuple]:
     with connect() as conn:
         return [tuple(row.values()) for row in conn.execute(sql, params).fetchall()]
+
+
+def _add_bioguide(bioguide: str, name: str) -> None:
+    with connect() as conn:
+        person = conn.execute(
+            "INSERT INTO core.person (full_name) VALUES (%s) RETURNING person_id",
+            (name,),
+        ).fetchone()
+        conn.execute(
+            "INSERT INTO core.person_identifier (person_id, namespace, external_id) "
+            "VALUES (%s, 'bioguide', %s)",
+            (person["person_id"], bioguide),
+        )
+        conn.commit()
 
 
 def _add_person(bioguide: str, icpsr: str, name: str) -> None:
@@ -504,6 +520,67 @@ def test_an_unknown_house_member_is_kept_and_the_run_is_partial() -> None:
         "SELECT count(*) FROM core.person_name_source WHERE dataset_id = 'congress.voteview'"
     ) == [(0,)]
     assert _people() == before
+
+
+def test_a_known_bioguide_with_no_icpsr_links_and_stores_the_number() -> None:
+    _add_bioguide("V998003", "Bioguide Only Bea")
+    origin = _Origin(
+        _files(
+            members=[_member(icpsr=998003, bioguide_id="V998003", bioname="BEA, Bioguide")],
+            rolls=[_roll(chamber="House", rollnumber=8, session=1, clerk_rollnumber=None)],
+        )
+    )
+    loaded = _sync(origin)
+    assert loaded.result["partial"] is False
+    assert loaded.result["unlinked_members"] == 0
+    assert _rows(
+        "SELECT person_id IS NOT NULL FROM core.voteview_member"
+    ) == [(True,)]
+    assert _rows(
+        "SELECT namespace, external_id FROM core.person_identifier "
+        "WHERE external_id IN ('V998003', '998003') ORDER BY namespace"
+    ) == [("bioguide", "V998003"), ("icpsr", "998003")]
+    again = _sync(origin)
+    assert again.result["reused"] == [MEMBERS, ROLLCALLS, PARTIES]
+    assert _rows(
+        "SELECT count(*) FROM core.person_identifier WHERE namespace = 'icpsr' AND external_id = '998003'"
+    ) == [(1,)]
+
+
+def test_a_person_who_already_has_a_different_icpsr_is_not_relinked() -> None:
+    _add_person("V998003", "998004", "Bioguide Only Bea")
+    origin = _Origin(
+        _files(
+            members=[_member(icpsr=998003, bioguide_id="V998003", bioname="BEA, Bioguide")],
+            rolls=[_roll(chamber="House", rollnumber=8, session=1, clerk_rollnumber=None)],
+        )
+    )
+    loaded = _sync(origin)
+    assert loaded.result["partial"] is True
+    assert loaded.result["unlinked_members"] == 1
+    assert _rows(
+        "SELECT namespace, external_id FROM core.person_identifier "
+        "WHERE external_id IN ('998004', '998003') ORDER BY external_id"
+    ) == [("icpsr", "998004")]
+
+
+def test_one_icpsr_is_not_given_to_two_people() -> None:
+    _add_bioguide("V998003", "Bioguide Only Bea")
+    _add_bioguide("V998004", "Bioguide Only Cam")
+    origin = _Origin(
+        _files(
+            members=[
+                _member(congress=119, icpsr=998003, bioguide_id="V998003", bioname="BEA, Bioguide"),
+                _member(congress=119, chamber="Senate", icpsr=998003, bioguide_id="V998004", bioname="CAM, Bioguide"),
+            ],
+            rolls=[_roll(chamber="House", rollnumber=8, session=1, clerk_rollnumber=None)],
+        )
+    )
+    loaded = _sync(origin)
+    assert loaded.result["unlinked_members"] == 2
+    assert _rows(
+        "SELECT count(*) FROM core.person_identifier WHERE namespace = 'icpsr' AND external_id = '998003'"
+    ) == [(0,)]
 
 
 def test_a_bioguide_disagreement_links_nobody_and_moves_no_identifier() -> None:
