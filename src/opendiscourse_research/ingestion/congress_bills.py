@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -249,8 +250,12 @@ def assemble_bill(
 SOURCE_ID = "congress.congress_gov_bills"
 LOCK_KEY = f"{SOURCE_ID}:sync"
 DEFAULT_CONGRESSES = (106, 107)
-# Enough overlap that a ~0.3s round trip still fills a 20,000-per-hour pace.
+# Several bills at once, so a slow reply does not leave the hourly allowance idle.
 PART_WORKERS = 8
+BILL_WINDOW = 8
+# Saving a bill is slower than asking for the next one. A few saves run at once
+# so the hourly allowance does not sit idle while the database catches up.
+SAVE_WINDOW = 3
 
 
 class PartSource(Protocol):
@@ -342,6 +347,7 @@ class CongressBillConnector:
         self._run: IngestionRun | None = None
         self._lock: Any = None
         self._loaded: dict[str, dict[str, Any]] = {}
+        self._loaded_lock = threading.Lock()
         self._finished = False
         self.result: dict[str, Any] = {}
 
@@ -444,23 +450,31 @@ class CongressBillConnector:
             offset = nxt
 
     def _drain(self, todo: list[dict[str, str]], counts: dict[str, int]) -> None:
-        """Save one bill while the next bill's files are already on the way."""
+        """Keep several bills downloading while a few others are saved."""
         if not todo:
             return
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            identity = todo[0]
-            needed, ready = self._plan(identity)
-            incoming = pool.submit(self._download, identity, needed)
-            for nxt in todo[1:]:
-                nxt_needed, nxt_ready = self._plan(nxt)
-                nxt_incoming = pool.submit(self._download, nxt, nxt_needed)
-                self._commit(identity, incoming.result(), ready)
-                counts["bills"] += 1
-                self._report(f"loaded {identity['congress']} {identity['bill_type']} {identity['number']}")
-                identity, ready, incoming = nxt, nxt_ready, nxt_incoming
-            self._commit(identity, incoming.result(), ready)
-            counts["bills"] += 1
-            self._report(f"loaded {identity['congress']} {identity['bill_type']} {identity['number']}")
+        pending = list(todo)
+        inflight: list[tuple[dict[str, str], dict[str, tuple[bytes, str]], Any]] = []
+        saving: list[tuple[dict[str, str], Any]] = []
+        with ThreadPoolExecutor(max_workers=BILL_WINDOW) as pool, ThreadPoolExecutor(max_workers=SAVE_WINDOW) as savers:
+            while pending or inflight or saving:
+                while pending and len(inflight) < BILL_WINDOW:
+                    identity = pending.pop(0)
+                    needed, ready = self._plan(identity)
+                    inflight.append((identity, ready, pool.submit(self._download, identity, needed)))
+                if inflight:
+                    identity, ready, incoming = inflight.pop(0)
+                    fetched = incoming.result()
+                    if pending and len(inflight) < BILL_WINDOW:
+                        nxt = pending.pop(0)
+                        nxt_needed, nxt_ready = self._plan(nxt)
+                        inflight.append((nxt, nxt_ready, pool.submit(self._download, nxt, nxt_needed)))
+                    saving.append((identity, savers.submit(self._commit, identity, fetched, ready)))
+                while saving and (len(saving) >= SAVE_WINDOW or not inflight):
+                    done_id, done = saving.pop(0)
+                    done.result()
+                    counts["bills"] += 1
+                    self._report(f"loaded {done_id['congress']} {done_id['bill_type']} {done_id['number']}")
 
     def _plan(self, identity: dict[str, str]) -> tuple[list[str], dict[str, tuple[bytes, str]]]:
         """Split one bill into files still on disk and parts still to download."""
@@ -470,7 +484,8 @@ class CongressBillConnector:
         needed: list[str] = []
         ready: dict[str, tuple[bytes, str]] = {}
         for name in ("detail", *PARTS):
-            current = self._loaded.get(_key(congress, bill_type, number, name))
+            with self._loaded_lock:
+                current = self._loaded.get(_key(congress, bill_type, number, name))
             if current and current.get("status") == "loaded" and current.get("local_path"):
                 ready[name] = (Path(current["local_path"]).read_bytes(), str(current["artifact_id"]))
             else:
@@ -552,5 +567,6 @@ class CongressBillConnector:
             content_type="application/json",
             metadata={"file": key},
         )
-        self._loaded[key] = artifact
+        with self._loaded_lock:
+            self._loaded[key] = artifact
         return str(artifact["artifact_id"])

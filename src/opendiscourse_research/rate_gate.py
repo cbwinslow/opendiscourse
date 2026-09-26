@@ -91,6 +91,8 @@ class SharedRateGate:
         self._clock = clock
         self._sleep = sleep
         self._thread = threading.Lock()
+        self._cache: dict | None = None
+        self._since_flush = 0
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def acquire(self) -> str:
@@ -98,7 +100,7 @@ class SharedRateGate:
         while True:
             with self._exclusive():
                 now = self._clock()
-                state = self._load()
+                state = self._current()
                 self._prune(state, now)
                 wait = self._wait(state, now)
                 if wait > 0:
@@ -119,7 +121,7 @@ class SharedRateGate:
         """Record one finished response so the next turn follows its headers."""
         with self._exclusive():
             now = self._clock()
-            state = self._load()
+            state = self._current()
             self._prune(state, now)
             state["reservations"] = [item for item in state["reservations"] if item["id"] != token]
             state["sent"].append(now)
@@ -146,7 +148,7 @@ class SharedRateGate:
     def release(self, token: str) -> None:
         """Give back a turn whose request never reached the server."""
         with self._exclusive():
-            state = self._load()
+            state = self._current()
             state["reservations"] = [item for item in state["reservations"] if item["id"] != token]
             # A timeout may already have been counted by the server. Count it here too.
             state["sent"].append(self._clock())
@@ -208,6 +210,16 @@ class SharedRateGate:
         state["sent"] = [stamp for stamp in state["sent"] if stamp > now - window]
         state["reservations"] = [item for item in state["reservations"] if float(item["expires"]) > now]
 
+    def _current(self) -> dict:
+        """The turnstile state for this process.
+
+        The request log stays in memory. Rewriting thousands of timestamps on
+        every request was slower than the hour's own pace.
+        """
+        if self._cache is None:
+            self._cache = self._load()
+        return self._cache
+
     def _load(self) -> dict:
         if not self.path.is_file():
             return self._fresh()
@@ -261,8 +273,15 @@ class SharedRateGate:
         }
 
     def _save(self, state: dict) -> None:
+        payload = dict(state)
+        self._since_flush += 1
+        # The pace and the remaining count are small. The timestamp log is not.
+        if len(state["sent"]) >= 50 and self._since_flush < 25:
+            payload["sent"] = []
+        else:
+            self._since_flush = 0
         temporary = self.path.with_suffix(self.path.suffix + ".tmp")
-        temporary.write_text(json.dumps(state))
+        temporary.write_text(json.dumps(payload))
         os.replace(temporary, self.path)
 
     def _exclusive(self):

@@ -25,22 +25,19 @@ together, and the next bill starts while the current one is saved. A 429 or
 an empty remaining count holds further requests until the hour frees a slot.
 
 **Running:** `research-db sync-congress-bills` for Congresses 106 and 107
-(pull request #85, branch `feat/congress-gov-bills`). The old 0.8-second
-pause (process 752145) was stopped and one replacement was started.
-Process 2762417 (`uv`), Python 2762451. Log
-`/tmp/congress-bills-106-107.log` (the progress line is buffered, so an empty
-log does not mean it stopped). Do not launch another copy; the command holds
-a database lock and the second one will refuse.
+(pull request #85, branch `feat/congress-gov-bills`). Process 3783082
+(`uv`), Python 3783215. Eight bills download at once and three can be saved
+at once. Log `/tmp/congress-bills-106-107.log` (the progress line is
+buffered, so an empty log does not mean it stopped). Do not launch another
+copy; the command holds a database lock and the second one will refuse.
 
-**Progress when the replacement started:** about 2,650 saved JSON files.
-Congress.gov's own count for the 107th Congress is 10,791 bills. The 106th
-is about the same size, so the job is about 21,600 bills and about 150,000
-requests (seven per bill). A 30-second sample after the restart saved 119
-files, about **14,000 an hour**. The header still said limit 20,000 and about
-17,800 remaining, so the allowance was not what held it back in that sample.
-The rest of the gap is the round trip and saving each bill. At 14,000 an hour
-the remainder is on the order of **ten hours**, not three days, and it will
-pause when this hour's allowance is actually used up, then continue.
+**Pace measured 2026-09-26 after that restart:** the server's remaining-count
+dropped by 151 in 30 seconds, about **18,000 requests an hour**. The header
+still said limit 20,000, with about 11,600 left, so the allowance was not
+full. Wider overlap did not go faster than this. This machine is sustaining
+about 18,000 of the 20,000 the key is allowed. At that pace the rest of the
+~150,000 requests is on the order of **eight hours**, and it will pause if
+the hour's allowance is actually used up, then continue.
 
 **Resume:** if process 2762417 is gone, run `uv run research-db sync-congress-bills`
 from this branch (or from `main` after #85 is merged). It skips bills already

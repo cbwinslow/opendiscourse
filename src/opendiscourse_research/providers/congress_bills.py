@@ -16,6 +16,9 @@ from .congress_api import CongressRetryStop, TransientCongressError, congress_ga
 ORIGIN = "https://api.congress.gov/v3"
 USER_AGENT = "opendiscourse-research/congress-bills"
 PARTS = ("actions", "committees", "subjects", "summaries", "cosponsors", "text")
+# 20,000 requests an hour is about 6 a second. A slow reply needs many of those
+# in flight at once, or the hour never fills.
+HTTP_CONNECTIONS = 64
 
 
 class CongressBillClient:
@@ -49,7 +52,10 @@ class CongressBillClient:
                     self._http = httpx.Client(
                         timeout=60,
                         follow_redirects=True,
-                        limits=httpx.Limits(max_connections=8, max_keepalive_connections=8),
+                        limits=httpx.Limits(
+                            max_connections=HTTP_CONNECTIONS,
+                            max_keepalive_connections=HTTP_CONNECTIONS,
+                        ),
                     )
         return self._http
 
