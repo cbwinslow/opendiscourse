@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import insert
 from ..config import settings
 from ..db import session
 from ..models.core import bill_table
+from ..providers.congress_api import congress_get
 from ..repositories.legislation import (
     resolve_bill_sponsorship_people,
     upsert_congress_person,
@@ -64,8 +65,8 @@ def ingest_bill(congress: int, bill_type: str, bill_number: int) -> int:
             {"congress": congress, "bill_type": bill_type, "bill_number": bill_number},
         ) as run,
     ):
-        response = http.get(
-            path, params={"api_key": settings.congress_api_key, "format": "json"}
+        response = congress_get(
+            http, path, params={"api_key": settings.congress_api_key, "format": "json"}
         )
         payload = json_response(response)
         payload_id = run.store_payload(response, payload)
@@ -87,8 +88,8 @@ def ingest_member(bioguide_id: str) -> int:
             "congress.legislation", {"bioguide_id": bioguide_id}, mode="backfill"
         ) as run,
     ):
-        response = http.get(
-            url, params={"api_key": settings.congress_api_key, "format": "json"}
+        response = congress_get(
+            http, url, params={"api_key": settings.congress_api_key, "format": "json"}
         )
         payload = json_response(response)
         run.store_payload(response, payload)
@@ -123,7 +124,8 @@ def ingest_bills(
     ):
         while run.record_count < max_records:
             limit = min(250, max_records - run.record_count)
-            response = http.get(
+            response = congress_get(
+                http,
                 url,
                 params={
                     "api_key": settings.congress_api_key,

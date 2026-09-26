@@ -1,8 +1,9 @@
 # Project state and handoff
 
-Last updated: 2026-09-26. The 2000–2002 bill download is running and is the
-open task. See "Session handoff (2026-09-26)" below. Do not start a second
-copy of `research-db sync-congress-bills` while that process is alive.
+Last updated: 2026-09-26. The 2000–2002 bill download is running on the
+shared Congress.gov turnstile. See "Session handoff (2026-09-26)" below.
+Do not start a second copy of `research-db sync-congress-bills` while that
+process is alive.
 The done-state for bills, votes, and members remains
 `_bmad-output/specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10).
 Read this first when resuming, then `AGENTS.md`,
@@ -15,27 +16,33 @@ decision or story status changes.
 
 Stop here. The code for this step is written. What is left is the download.
 
-**Running:** `research-db sync-congress-bills` for Congresses 106 and 107
-(pull request #85, branch `feat/congress-gov-bills`). Started detached.
-Process 752145. Log `/tmp/congress-bills-106-107.log` (the progress line is
-buffered, so an empty log does not mean it stopped). Do not launch another
-copy; the command holds a database lock and the second one will refuse.
+**Decision (2026-09-26):** trust the live `X-RateLimit-Limit` header, which
+is 20,000 on this key, over the README's 5,000. A shared turnstile
+(`providers/congress_api.py`, used by the bill download and the older
+one-bill commands) spaces requests across that rolling hour and lets every
+Congress.gov script on this machine share one allowance. Bill parts download
+together, and the next bill starts while the current one is saved. A 429 or
+an empty remaining count holds further requests until the hour frees a slot.
 
-**Progress at handoff, corrected 2026-09-26 after reading the live headers:**
+**Running:** `research-db sync-congress-bills` for Congresses 106 and 107
+(pull request #85, branch `feat/congress-gov-bills`). The old 0.8-second
+pause (process 752145) was stopped and one replacement was started.
+Process 2762417 (`uv`), Python 2762451. Log
+`/tmp/congress-bills-106-107.log` (the progress line is buffered, so an empty
+log does not mean it stopped). Do not launch another copy; the command holds
+a database lock and the second one will refuse.
+
+**Progress when the replacement started:** about 2,650 saved JSON files.
 Congress.gov's own count for the 107th Congress is 10,791 bills. The 106th
 is about the same size, so the job is about 21,600 bills and about 150,000
-requests (seven per bill). Saved when last counted: low dozens, list pages
-already on disk. The Library of Congress README still says **5,000 requests
-per hour** (raised from 1,000 in March 2024). The response header on our key
-right now says `X-RateLimit-Limit: 20000` and about 19,500 remaining. There
-is no reset header. Our client waits 0.8 seconds between requests regardless.
-Measured pace is about **1.6 seconds per file**, roughly **2,200 requests an
-hour**, about **three days** for the rest. That wait is our own pause, not
-the server refusing us. Using the header's 20,000 an hour would be about
-**eight hours**. Do not raise the pace until someone confirms the header's
-window, because the written rule is still 5,000.
+requests (seven per bill). A 30-second sample after the restart saved 119
+files, about **14,000 an hour**. The header still said limit 20,000 and about
+17,800 remaining, so the allowance was not what held it back in that sample.
+The rest of the gap is the round trip and saving each bill. At 14,000 an hour
+the remainder is on the order of **ten hours**, not three days, and it will
+pause when this hour's allowance is actually used up, then continue.
 
-**Resume:** if process 752145 is gone, run `uv run research-db sync-congress-bills`
+**Resume:** if process 2762417 is gone, run `uv run research-db sync-congress-bills`
 from this branch (or from `main` after #85 is merged). It skips bills already
 marked loaded. A finished run exits 0 and prints `bills` and `skipped`.
 

@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from ..artifact_storage import retain_artifact_bytes, retained_path
 from ..config import settings
@@ -247,6 +249,58 @@ def assemble_bill(
 SOURCE_ID = "congress.congress_gov_bills"
 LOCK_KEY = f"{SOURCE_ID}:sync"
 DEFAULT_CONGRESSES = (106, 107)
+# Enough overlap that a ~0.3s round trip still fills a 20,000-per-hour pace.
+PART_WORKERS = 8
+
+
+class PartSource(Protocol):
+    """The slice of the bill client the parallel download uses."""
+
+    def part(self, congress: int, bill_type: str, number: str, name: str) -> bytes:
+        """One bill JSON document."""
+
+
+def download_parts(
+    client: PartSource,
+    congress: int,
+    bill_type: str,
+    number: str,
+    names: tuple[str, ...] | list[str],
+    *,
+    workers: int = PART_WORKERS,
+    on_part: Callable[[str, bytes], None] | None = None,
+) -> dict[str, bytes]:
+    """Fetch bill parts together. The shared turnstile still starts each request.
+
+    ``on_part`` runs on this thread as each body arrives, so a later failure
+    keeps the parts already handed over.
+    """
+    chosen = tuple(names)
+
+    def deliver(name: str, body: bytes, found: dict[str, bytes]) -> None:
+        found[name] = body
+        if on_part is not None:
+            on_part(name, body)
+
+    if len(chosen) < 2 or workers < 2:
+        found = {}
+        for name in chosen:
+            deliver(name, client.part(congress, bill_type, number, name), found)
+        return found
+    found = {}
+    with ThreadPoolExecutor(max_workers=min(workers, len(chosen))) as pool:
+        futures = {
+            pool.submit(client.part, congress, bill_type, number, name): name for name in chosen
+        }
+        try:
+            for future in as_completed(futures):
+                name = futures[future]
+                deliver(name, future.result(), found)
+        except Exception:
+            for future in futures:
+                future.cancel()
+            raise
+    return found
 
 
 def _key(congress: int, bill_type: str, number: str, part: str) -> str:
@@ -316,21 +370,21 @@ class CongressBillConnector:
         return ctx
 
     def extract(self, ctx: ConnectorContext) -> ConnectorContext:
-        """Download what is not already loaded. Each bill is saved before the next."""
+        """Download what is not already loaded. The next bill starts while this one is saved."""
         counts = {"bills": 0, "skipped": 0}
         try:
             for congress in self._congresses:
                 identities = self._identities(congress)
                 if self._limit is not None:
                     identities = identities[: self._limit]
+                todo: list[dict[str, str]] = []
                 for identity in identities:
                     key = _key(int(identity["congress"]), identity["bill_type"], identity["number"], "detail")
                     if key in self._loaded and self._loaded[key].get("status") == "loaded":
                         counts["skipped"] += 1
                         continue
-                    self._one(identity)
-                    counts["bills"] += 1
-                    self._report(f"loaded {identity['congress']} {identity['bill_type']} {identity['number']}")
+                    todo.append(identity)
+                self._drain(todo, counts)
         finally:
             self._client.close()
         self.result = counts
@@ -389,28 +443,69 @@ class CongressBillConnector:
                 return found
             offset = nxt
 
-    def _one(self, identity: dict[str, str]) -> None:
+    def _drain(self, todo: list[dict[str, str]], counts: dict[str, int]) -> None:
+        """Save one bill while the next bill's files are already on the way."""
+        if not todo:
+            return
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            identity = todo[0]
+            needed, ready = self._plan(identity)
+            incoming = pool.submit(self._download, identity, needed)
+            for nxt in todo[1:]:
+                nxt_needed, nxt_ready = self._plan(nxt)
+                nxt_incoming = pool.submit(self._download, nxt, nxt_needed)
+                self._commit(identity, incoming.result(), ready)
+                counts["bills"] += 1
+                self._report(f"loaded {identity['congress']} {identity['bill_type']} {identity['number']}")
+                identity, ready, incoming = nxt, nxt_ready, nxt_incoming
+            self._commit(identity, incoming.result(), ready)
+            counts["bills"] += 1
+            self._report(f"loaded {identity['congress']} {identity['bill_type']} {identity['number']}")
+
+    def _plan(self, identity: dict[str, str]) -> tuple[list[str], dict[str, tuple[bytes, str]]]:
+        """Split one bill into files still on disk and parts still to download."""
+        congress = int(identity["congress"])
+        bill_type = identity["bill_type"]
+        number = identity["number"]
+        needed: list[str] = []
+        ready: dict[str, tuple[bytes, str]] = {}
+        for name in ("detail", *PARTS):
+            current = self._loaded.get(_key(congress, bill_type, number, name))
+            if current and current.get("status") == "loaded" and current.get("local_path"):
+                ready[name] = (Path(current["local_path"]).read_bytes(), str(current["artifact_id"]))
+            else:
+                needed.append(name)
+        return needed, ready
+
+    def _download(self, identity: dict[str, str], names: list[str]) -> dict[str, bytes]:
+        """Fetch the missing parts. Safe to run while another bill is being saved."""
+        if not names:
+            return {}
+        return download_parts(
+            self._client,
+            int(identity["congress"]),
+            identity["bill_type"],
+            identity["number"],
+            names,
+        )
+
+    def _commit(self, identity: dict[str, str], fetched: dict[str, bytes], ready: dict[str, tuple[bytes, str]]) -> None:
         congress = int(identity["congress"])
         bill_type = identity["bill_type"]
         number = identity["number"]
         parts: dict[str, bytes] = {}
-        detail_artifact = None
-        for name in ("detail", *PARTS):
-            key = _key(congress, bill_type, number, name)
-            current = self._loaded.get(key)
-            if current and current.get("status") == "loaded" and current.get("local_path"):
-                body = Path(current["local_path"]).read_bytes()
-                artifact_id = str(current["artifact_id"])
-            else:
-                body = self._client.part(congress, bill_type, number, name)
-                artifact_id = self._keep(
-                    key,
-                    CongressBillClient.url_for(congress, bill_type, number, name),
-                    body,
-                )
+        kept: dict[str, str] = {}
+        for name, (body, artifact_id) in ready.items():
             parts[name] = body
-            if name == "detail":
-                detail_artifact = artifact_id
+            kept[name] = artifact_id
+        for name, body in fetched.items():
+            parts[name] = body
+            kept[name] = self._keep(
+                _key(congress, bill_type, number, name),
+                CongressBillClient.url_for(congress, bill_type, number, name),
+                body,
+            )
+        detail_artifact = kept.get("detail")
         assert detail_artifact is not None
         parsed = assemble_bill(
             detail=parts["detail"],
