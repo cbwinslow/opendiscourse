@@ -1,8 +1,7 @@
 # Project state and handoff
 
-Last updated: 2026-09-26. The 2000–2002 bill download is stopped. Do not
-start it again until one broken Congress.gov page can be skipped. See
-"Session handoff (2026-09-26)".
+Last updated: 2026-09-26. The 2000–2002 bill download is running again. Do not
+start a second copy. See "Session handoff (2026-09-26)".
 The done-state for bills, votes, and members remains
 `_bmad-output/specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10).
 Read this first when resuming, then `AGENTS.md`,
@@ -13,8 +12,7 @@ decision or story status changes.
 
 ## Session handoff (2026-09-26)
 
-Stop here. The download is not running. Do not start a second copy, and do
-not rerun this one until the loader can pass a page Congress.gov cannot serve.
+Stop here. The download is running. Do not start a second copy.
 
 **Why about eight hours, down from about three days:** Congresses 106 and 107
 are about 21,600 bills, and each bill is about seven requests, so the job is
@@ -24,20 +22,21 @@ seconds on its own and only made about 2,200 requests an hour, which was about
 three days. A 10-second count of gate turns on 2026-09-26 was 52, about 18,700
 an hour, against the live header of 20,000.
 
-**Stopped.** `research-db sync-congress-bills` for Congresses 106 and 107 is
-not running. It had been moved into the user service group
-`od-congress-bills.scope` (process 3783082). That group started at 06:10 UTC
-and the process ended at 07:28 UTC. The log
-`/tmp/congress-bills-106-107.log` says Congress.gov returned HTTP 500 for
-`https://api.congress.gov/v3/bill/106/sres/218/cosponsors`. Bills already
-saved were kept. The one-time reminder file
-`/home/cbwinslow/congress-bills-CHECK.txt` was removed after this check.
+**Running again.** `research-db sync-congress-bills` for Congresses 106 and 107
+started at 15:03 UTC on 2026-09-26 as the user service `od-congress-bills.service`
+(main process 3115412, Python 3115462). Quitting this session does not stop it.
+Stopping that service does. Log `/tmp/congress-bills-106-107.log`. The command
+holds a database lock. Do not start a second copy.
 
-**Checked again at 14:33 UTC on 2026-09-26.** That cosponsors page still
-returns HTTP 500. The bill's own page returns HTTP 200. Congress.gov's error
-says a member term is missing for BioGuide `C000269`. The loader tries a
-server error five times, then stops the whole run. A rerun skips bills
-already saved and then stops on this same page.
+The earlier copy ended at 07:28 UTC on HTTP 500 for the cosponsors of Senate
+resolution 218 in Congress 106. At 14:33 UTC that page still returned HTTP 500,
+while the bill's own page returned HTTP 200. Congress.gov's error says a member
+term is missing for BioGuide `C000269`. The loader now records an HTTP 5xx on
+one part, saves the bill when the main page is in hand, and continues. A missing
+key, a refused page, or a dropped connection still stops the run. A finished run
+with any such part exits 2 and prints `failed_parts`. Exit 0 means every part
+was saved. Bills already saved were kept. No file had been saved for 106 SRES 218
+before this rerun.
 
 **Saved so far (port 5434):** Congress 106 has 7,336 bills in `core.bill`
 and 7,340 detail files on disk. Congress 107 has 1 bill in `core.bill`.
@@ -58,11 +57,11 @@ rate-limit header. Same pattern for the fixed pauses in the clerk, Senate, and
 vote downloaders. Next code task: put GovInfo, then those other downloaders,
 on the shared turnstile using each site's own limit.
 
-**Do not resume yet.** `uv run research-db sync-congress-bills` from `main`
-is safe for bills already stored, and it will not finish while this one page
-stops the run. Next code change: when one bill part gets a server error,
-record that part and keep going through the rest of 106 and 107. Then rerun
-the same command. A finished run exits 0 and prints `bills` and `skipped`.
+**Resume:** if process 3115412 is gone before the log shows a finished JSON
+count, run `uv run research-db sync-congress-bills` from this branch (or from
+`main` after this change is merged). It skips a bill whose every part is
+already loaded, and it tries a part that was only recorded as a server error.
+Do not start that command while this service is running.
 
 **Merged.** Pull request #85 is on `main` as `eb99a62`. Pull request #86,
 the committee-seat tests, is on `main` as `2ce035c`. Pull request #87
@@ -141,15 +140,14 @@ Hall, stored `14828`, Voteview `94828`; Kevin Kiley, Voteview `22336` and
 `92336`, nothing stored. BioGuide disagreements remain 0. Presidents remain
 129 unlinked on purpose.
 
-**Next, in order:** let `research-db sync-congress-bills` continue past a
-bill part Congress.gov cannot serve (106 SRES 218 cosponsors, HTTP 500,
-BioGuide `C000269`), then finish Congresses 106 and 107. GovInfo has no bill
-files before 108, and GovTrack no longer publishes a bulk download. A killed
-run resumes, but a rerun today stops on that same page. Then the member
-field checklist. Moving `core.committee_assignment` when two people are
-combined is already in the code on `main` (it arrived with the Voteview
-load, pull request #78). The tests for that move merged as `2ce035c`
-(pull request #86).
+**Next, in order:** let the restarted `research-db sync-congress-bills` finish
+Congresses 106 and 107. It now continues past one HTTP 5xx (106 SRES 218
+cosponsors, BioGuide `C000269`) and records that part. GovInfo has no bill
+files before 108, and GovTrack no longer publishes a bulk download. Then
+compare counts and do the member field checklist. Moving
+`core.committee_assignment` when two people are combined is already in the
+code on `main` (it arrived with the Voteview load, pull request #78). The
+tests for that move merged as `2ce035c` (pull request #86).
 
 ## Session handoff (2026-09-23)
 

@@ -697,6 +697,8 @@ def sync_congress_bills_command(
     """Download Congress.gov bills from before GovInfo's files and load them.
 
     Exit code 0: complete. 1: failed (a rerun skips bills already loaded).
+    2: finished, but a bill part Congress.gov could not serve is listed in
+    ``failed_parts``. A rerun tries that part again and does not stop the rest.
     """
     from .catalog import sync_inventory
     from .ingestion.congress_bills import CongressBillConnector
@@ -716,6 +718,8 @@ def sync_congress_bills_command(
         typer.echo("Nothing already loaded is lost: rerun the same command to resume.", err=True)
         raise typer.Exit(1) from None
     typer.echo(json.dumps(connector.result, indent=2, sort_keys=True))
+    if connector.result.get("partial"):
+        raise typer.Exit(2)
 
 
 @app.command("sync-voteview")
