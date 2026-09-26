@@ -24,6 +24,10 @@ No provider is contacted by `init-db`. Each ingestion run records the provider,
 dataset, request parameters, source URL, response checksum, and raw payload so
 typed facts can always be traced back to their source.
 
+Congress bills, members, and votes are one command per source. The order,
+the years each command covers, and what to ignore are in
+`docs/download-congress.md`.
+
 `OD_LAKE_ROOT` and `DATA_ROOT` default to a `./data-lake` folder inside this
 checkout, which is enough for a first run. Point them at real spacious,
 backed-up storage for a real deployment; see `docs/lake.md` before admitting

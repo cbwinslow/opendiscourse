@@ -1,5 +1,9 @@
 # Congressional operations runbook
 
+To download bills, members, and votes, use `docs/download-congress.md`.
+The commands below are health checks and the older OpenStates vote path.
+They do not download GovInfo, Congress.gov, House, or Senate files.
+
 ## Health and reconciliation
 
 Run `research-db congress-health` before a refresh. It writes the source-aware

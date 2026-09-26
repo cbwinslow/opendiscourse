@@ -49,6 +49,7 @@ research-db browse    # interactive catalog browser
 
 ## Next steps
 
+- Download Congress bills, members, and votes: `docs/download-congress.md`
 - Full adapter-by-adapter command reference: `README.md`
 - How to add a new data source: `docs/adding-a-provider.md`
 - How to propose a change: `CONTRIBUTING.md`
