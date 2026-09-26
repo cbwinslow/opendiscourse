@@ -61,7 +61,7 @@ what would type it), `not_stored` (not kept; a reason is required, and only for 
 | `congress.committee_membership` | `fields/congress.committee_membership.yaml` | audited; live-loaded 2026-09-23 |
 | `congress.voteview` | `fields/congress.voteview.yaml` | audited; relinked 2026-09-26, 32 recent rows still unlinked |
 | `congress.congress_gov_bills` | `fields/congress.congress_gov_bills.yaml` | audited; live load of Congresses 106-107 not finished |
-| `congress.legislators` | none yet | **needs audit** (north star: members are not done) |
+| `congress.legislators` | `fields/congress.legislators.yaml` | checklist decided 2026-09-26; whole record, biography, leadership, contact, and social accounts are not loaded yet |
 | `congress.legislation` (Congress.gov members) | none yet | **needs audit** |
 | `openstates.legislation` | none yet | **needs audit** |
 | `census.*` (ACS, CBP, PEP, DHC, TIGER) | none yet | **needs audit** |

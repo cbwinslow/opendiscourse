@@ -203,7 +203,10 @@ providers:
         identifiers: [bioguide, fec, govtrack, opensecrets, icpsr, wikidata]
         cadence: on_upstream_change
         priority: 1
-        notes: Public-domain CC0 upstream. Person joins use BioGuide only, never names.
+        notes: >-
+          Public-domain CC0 upstream. Person joins use BioGuide only, never names.
+          The field list also covers legislators-social-media.yaml and
+          legislators-district-offices.yaml. executive.yaml is not this dataset.
       - id: congress.govinfo_billstatus
         title: GovInfo bulk bill status
         access: GovInfo bulk XML/JSON directory manifests
