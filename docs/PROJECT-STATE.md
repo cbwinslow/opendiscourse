@@ -45,6 +45,14 @@ on the shared turnstile using each site's own limit.
 from this branch (or from `main` after #85 is merged). It skips bills already
 marked loaded. A finished run exits 0 and prints `bills` and `skipped`.
 
+**Not merged yet.** Pull request #85 is on GitHub at `2f61548` and later. The
+checks failed because the progress-list id `congress-gov-bills` contains a
+hyphen, and those ids must be one lower-case word. The id is now
+`conggovbills`. The loader's source id stays `congress.congress_gov_bills`,
+so this rename does not change which bills the running download skips.
+Merge #85 only after the checks pass. Do not merge it by switching this
+checkout while process 3783082 is alive.
+
 **Already done, do not redo:** Voteview relink is merged (#84). Budget-office
 columns are live. Official bills, votes, and members for Congresses 108–119
 are loaded. This download is only the 2000–2002 gap. Qodo skills were removed
@@ -104,9 +112,11 @@ Hall, stored `14828`, Voteview `94828`; Kevin Kiley, Voteview `22336` and
 **Next, in order:** finish `research-db sync-congress-bills` for Congresses
 106 and 107 (Congress.gov JSON; GovInfo has no bill files before 108, and
 GovTrack no longer publishes a bulk download). A killed run resumes. Then
-the member field checklist. Person-merge still does not move
-`core.committee_assignment` on the live database; that fix is branch
-`feat/person-merge-committee-seats`.
+the member field checklist. Moving `core.committee_assignment` when two
+people are combined is already in the code on `main` (it arrived with the
+Voteview load, pull request #78). The extra tests for that move exist only
+on this machine, on `feat/person-merge-committee-seats`, and were never
+pushed. Do not treat that old branch as the fix.
 
 ## Session handoff (2026-09-23)
 
