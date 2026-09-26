@@ -50,7 +50,7 @@ dev = [
   "pytest-xdist>=3.6,<4",
   "respx>=0.22,<1",
   "ruff>=0.15,<1",
-  "sqlfluff>=3.3,<4",
+  "sqlfluff>=3.3,<5",
   "testcontainers[postgres]>=4.7,<5",
   "ty>=0.0.1",
 ]
