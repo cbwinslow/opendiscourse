@@ -1,18 +1,46 @@
 # Project state and handoff
 
-Last updated: 2026-09-25. The done-state for bills, votes, and members is
+Last updated: 2026-09-26. The 2000–2002 bill download is running and is the
+open task. See "Session handoff (2026-09-26)" below. Do not start a second
+copy of `research-db sync-congress-bills` while that process is alive.
+The done-state for bills, votes, and members remains
 `_bmad-output/specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10).
-Voteview scores are loaded. A 2026-09-26 rerun stored a missing ICPSR when
-the row's BioGuide already matched one person. Congresses 108–119 still have
-32 unlinked member rows (16 people) because Voteview's number conflicts with
-one already stored, or the file gives that person two numbers.
-CBO columns are live (17,640 estimates). Committee membership is loaded
-(559 committees, 3,895 assignments). See "Session handoff (2026-09-25)" below.
 Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/specs/spec-opendiscourse/SPEC.md`, and
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
 decision or story status changes.
+
+## Session handoff (2026-09-26)
+
+Stop here. The code for this step is written. What is left is the download.
+
+**Running:** `research-db sync-congress-bills` for Congresses 106 and 107
+(pull request #85, branch `feat/congress-gov-bills`). Started detached.
+Process 752145. Log `/tmp/congress-bills-106-107.log` (the progress line is
+buffered, so an empty log does not mean it stopped). Do not launch another
+copy; the command holds a database lock and the second one will refuse.
+
+**Progress at handoff:** Congress.gov's own count for the 107th Congress is
+10,791 bills. The 106th is about the same size, so the job is about 21,600
+bills. Saved in the live database: **11** from 106 and **1** from 107. The
+list pages for both Congresses are already on disk (about 88 files). Each
+bill then needs its detail plus actions, committees, subjects, summaries,
+cosponsors, and text-version links. Recent files arrived at about 2 bills a
+minute, which is on the order of **six days**. Congress.gov allows only a
+few thousand requests an hour, and this command stays under that on purpose.
+
+**Resume:** if process 752145 is gone, run `uv run research-db sync-congress-bills`
+from this branch (or from `main` after #85 is merged). It skips bills already
+marked loaded. A finished run exits 0 and prints `bills` and `skipped`.
+
+**Already done, do not redo:** Voteview relink is merged (#84). Budget-office
+columns are live. Official bills, votes, and members for Congresses 108–119
+are loaded. This download is only the 2000–2002 gap.
+
+**After the download:** compare `core.bill` counts for 106 and 107 with
+Congress.gov's list totals, then the member field checklist (biography,
+leadership, office contact, social media).
 
 ## Session handoff (2026-09-25)
 
