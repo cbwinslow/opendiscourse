@@ -36,11 +36,11 @@ def test_nickname_is_a_name_fact_and_not_the_only_official_name() -> None:
             "other_names": [{"last": "Levy", "end": "1846-01-12"}],
             "bio": {"birthday": "1941-09-08", "gender": "M"},
         },
-        "2026-09-03",
     )
     kinds = {fact["name_kind"]: fact for fact in facts["names"]}
     assert kinds["nickname"]["full_name"] == "Bernie"
-    assert kinds["nickname"]["source_vintage"] == "2026-09-03"
+    assert kinds["nickname"]["source_vintage"] == "1789"
+    assert kinds["official"]["source_vintage"] == "1789"
     assert kinds["official"]["full_name"] == "Bernard Sanders"
     assert kinds["former"]["source_vintage"] == "1846-01-12"
     assert facts["birthday"].isoformat() == "1941-09-08"

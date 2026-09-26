@@ -15,6 +15,10 @@ from typing import Any
 import yaml
 
 CONTACT_KEYS = ("office", "address", "phone", "fax", "contact_form", "url", "rss_url")
+# Stable vintages. The checkout date must not be one: a later commit would insert a
+# new assertion, delete the old one, and leave the displayed name with an empty source.
+STABLE_NAME_VINTAGE = "1789"
+OPEN_FORMER_VINTAGE = "9999"
 SOCIAL_PAIRS = (
     ("twitter", "twitter", "twitter_id"),
     ("facebook", "facebook", None),
@@ -69,7 +73,7 @@ def entry_bioguide(record: Mapping[str, Any], label: str) -> str:
     return bioguide.upper() if bioguide[0].islower() else bioguide
 
 
-def person_facts(record: Mapping[str, Any], vintage: str) -> dict[str, Any]:
+def person_facts(record: Mapping[str, Any]) -> dict[str, Any]:
     """Biography, leadership, and name facts from one member-file entry."""
     bio = record.get("bio") or {}
     if bio and not isinstance(bio, dict):
@@ -103,11 +107,11 @@ def person_facts(record: Mapping[str, Any], vintage: str) -> dict[str, Any]:
         "birthday": birthday,
         "gender": gender,
         "leadership": roles,
-        "names": _name_facts(record, vintage),
+        "names": _name_facts(record),
     }
 
 
-def _name_facts(record: Mapping[str, Any], vintage: str) -> list[dict[str, Any]]:
+def _name_facts(record: Mapping[str, Any]) -> list[dict[str, Any]]:
     name = record.get("name") or {}
     if name and not isinstance(name, dict):
         raise ValueError("name is not a mapping")
@@ -120,7 +124,7 @@ def _name_facts(record: Mapping[str, Any], vintage: str) -> list[dict[str, Any]]
                 "full_name": official,
                 "given_name": name.get("first"),
                 "family_name": name.get("last"),
-                "source_vintage": vintage,
+                "source_vintage": STABLE_NAME_VINTAGE,
             }
         )
     for kind, key in (("middle", "middle"), ("suffix", "suffix"), ("nickname", "nickname")):
@@ -132,7 +136,7 @@ def _name_facts(record: Mapping[str, Any], vintage: str) -> list[dict[str, Any]]
                     "full_name": value,
                     "given_name": None,
                     "family_name": None,
-                    "source_vintage": vintage,
+                    "source_vintage": STABLE_NAME_VINTAGE,
                 }
             )
     seen: set[tuple[str, str]] = set()
@@ -143,7 +147,7 @@ def _name_facts(record: Mapping[str, Any], vintage: str) -> list[dict[str, Any]]
         if not last:
             raise ValueError("other name has no last name")
         middle = str(other.get("middle") or "").strip() or None
-        end = _date(other["end"], "other name end").isoformat() if other.get("end") else vintage
+        end = _date(other["end"], "other name end").isoformat() if other.get("end") else OPEN_FORMER_VINTAGE
         key = ("former", end)
         if key in seen:
             raise ValueError(f"two earlier names share the end date {end}")

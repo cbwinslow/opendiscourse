@@ -316,7 +316,7 @@ class LegislatorsConnector:
         self._offices = self._records[PROFILE_FILES[1]]
         for name in FILES:
             for record in self._records[name]:
-                person_facts(record, self._commit_date)
+                person_facts(record)
         for record in self._social:
             social_accounts(record)
         for record in self._offices:
@@ -386,7 +386,7 @@ class LegislatorsConnector:
             **profile,
             "terms_unknown_jurisdiction": unknown,
             "profile_unexpected_genders": odd_genders(
-                person_facts(record, self._commit_date)["gender"]
+                person_facts(record)["gender"]
                 for name in FILES
                 for record in self._records[name]
             ),
@@ -473,7 +473,7 @@ class LegislatorsConnector:
             artifact = self._artifacts[name]
             for record in self._records[name]:
                 bioguide = entry_bioguide(record, name)
-                facts = person_facts(record, self._commit_date)
+                facts = person_facts(record)
                 people.append(
                     (bioguide, name, artifact, run, facts["birthday"], facts["gender"], dump(record))
                 )
