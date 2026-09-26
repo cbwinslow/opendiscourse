@@ -529,9 +529,9 @@ def test_precedence_sync_removes_dropped_rows_and_survives_a_reordering(warehous
     swapped = _ranked(["common", "official"], common=[OPENSTATES],
                       official=[OPENSTATES, CONGRESS_GOV, LEGISLATORS])  # ranks 1 and 3 change places
     counts = sync_precedence(swapped)
-    # Field text differs on the four replaced rows. Roster and voteview are ranked
-    # but not in this replacement, so those two ranks are removed.
-    assert counts["ranks_written"] == 4 and counts["ranks_removed"] == 2
+    # Field text differs on the four replaced rows. Roster, voteview, and the four
+    # legislator name parts are ranked but not in this replacement, so those six are removed.
+    assert counts["ranks_written"] == 4 and counts["ranks_removed"] == 6
     with connect() as conn:
         order = [r["dataset_id"] for r in conn.execute(
             "SELECT dataset_id FROM catalog.attribute_precedence WHERE entity = 'person' AND name_kind = 'official' "
@@ -1035,8 +1035,8 @@ def test_a_same_value_duplicate_in_one_batch_stores_one_row(warehouse: None) -> 
 def test_sync_precedence_dry_run_returns_the_counts_and_writes_nothing(warehouse: None) -> None:
     dropped = _ranked(["common"], common=[OPENSTATES])
     preview = sync_precedence(dropped, dry_run=True)
-    # Official's three ranks plus roster and voteview, which this document does not rank.
-    assert preview["ranks_removed"] == 5 and preview["display_removed"] == 1
+    # Official's three ranks, plus roster, voteview, and the four legislator name parts.
+    assert preview["ranks_removed"] == 9 and preview["display_removed"] == 1
     with connect() as conn:
         assert conn.execute("SELECT count(*) AS n FROM catalog.attribute_precedence WHERE entity = 'person' "
                             "AND name_kind = 'official'").fetchone()["n"] == 3
