@@ -53,19 +53,24 @@ fields:
 - name: name.middle, name.suffix
   status: typed
   where: >-
-    core.person_name_source, new kinds middle and suffix, omitted from the
-    displayed-name list so the shown name does not change
+    core.person_name_source, new kinds middle and suffix. The load has to widen
+    the name-kind checks on core.person_name_source and
+    catalog.attribute_precedence, and add both kinds to inventory/precedence.yaml
+    outside the displayed-name list. catalog.name_display stays common and
+    official only, so the shown name does not change.
 - name: name.nickname
   status: typed
   where: >-
-    core.person_name_source kind nickname, omitted from the displayed-name list.
+    core.person_name_source kind nickname, with the same check and precedence
+    updates as middle and suffix, and still outside the displayed-name list.
     Some historical nicknames are phrases such as "of Carrollton", so a nickname
     must not replace the shown name.
 - name: other_names
   status: typed
   where: >-
     core.person_name_source kind former, with the file's end date as the vintage,
-    omitted from the displayed-name list
+    and the same check and precedence updates. Former stays outside the
+    displayed-name list.
 - name: bio.birthday
   status: typed
   where: core.person.birthday
