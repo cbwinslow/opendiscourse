@@ -30,6 +30,10 @@ _SERVER_ATTEMPTS = 5
 _THROTTLE_ATTEMPTS = 48
 
 
+class CongressServerError(RuntimeError):
+    """Congress.gov returned a server error after the retries were used up."""
+
+
 class TransientCongressError(Exception):
     """Congress.gov failed in a way that is worth another try."""
 

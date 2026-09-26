@@ -8,7 +8,11 @@ import time
 import httpx
 import pytest
 
-from opendiscourse_research.ingestion.congress_bills import download_parts
+from opendiscourse_research.ingestion.congress_bills import (
+    download_parts,
+    download_parts_best_effort,
+)
+from opendiscourse_research.providers.congress_api import CongressServerError
 from opendiscourse_research.providers.congress_bills import CongressBillClient
 from opendiscourse_research.rate_gate import SharedRateGate
 
@@ -156,6 +160,33 @@ def test_a_failed_part_keeps_the_bodies_already_returned() -> None:
     assert seen == ["detail"]
 
 
+def test_one_failed_part_keeps_the_parts_that_arrived() -> None:
+    class _Client:
+        def part(self, congress: int, bill_type: str, number: str, name: str) -> bytes:
+            del congress, bill_type, number
+            if name == "cosponsors":
+                raise CongressServerError("HTTP 500")
+            return name.encode()
+
+    found, errors = download_parts_best_effort(
+        _Client(), 106, "sres", "218", ("detail", "actions", "cosponsors")
+    )
+    assert found["detail"] == b"detail"
+    assert found["actions"] == b"actions"
+    assert set(errors) == {"cosponsors"}
+    assert "HTTP 500" in errors["cosponsors"]
+
+
+def test_a_missing_key_is_not_a_skipped_part() -> None:
+    class _Client:
+        def part(self, congress: int, bill_type: str, number: str, name: str) -> bytes:
+            del congress, bill_type, number, name
+            raise RuntimeError("CONGRESS_API_KEY is not set")
+
+    with pytest.raises(RuntimeError, match="CONGRESS_API_KEY"):
+        download_parts_best_effort(_Client(), 106, "sres", "218", ("detail", "cosponsors"))
+
+
 def test_parts_download_overlap() -> None:
     current = 0
     peak = 0
@@ -176,6 +207,31 @@ def test_parts_download_overlap() -> None:
     found = download_parts(_Client(), 106, "hr", "1", ("detail", "actions", "subjects", "text"))
     assert set(found) == {"detail", "actions", "subjects", "text"}
     assert peak >= 2
+
+
+def test_a_server_error_is_not_the_same_as_a_refused_page() -> None:
+    class _Gate:
+        def acquire(self) -> str:
+            return "turn"
+
+        def release(self, token: str) -> None:
+            del token
+
+        def observe(self, token: str, status: int, headers: dict[str, str]) -> None:
+            del token, status, headers
+
+    def http(status: int) -> httpx.Client:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(status, content=b"no", request=request)
+
+        return httpx.Client(transport=httpx.MockTransport(handler))
+
+    server = CongressBillClient(http=http(500), api_key="test", gate=_Gate())
+    with pytest.raises(CongressServerError, match="HTTP 500"):
+        server.part(106, "sres", "218", "cosponsors")
+    refused = CongressBillClient(http=http(404), api_key="test", gate=_Gate())
+    with pytest.raises(RuntimeError, match="refused"):
+        refused.part(106, "sres", "218", "cosponsors")
 
 
 def test_bill_client_follows_the_gate_instead_of_a_fixed_pause(tmp_path) -> None:

@@ -18,6 +18,7 @@ from typing import Any, Protocol
 from ..artifact_storage import retain_artifact_bytes, retained_path
 from ..config import settings
 from ..db import connect
+from ..providers.congress_api import CongressServerError
 from ..providers.congress_bills import PARTS, CongressBillClient
 from ..repositories.artifacts import current_artifacts
 from ..repositories.legislation import (
@@ -278,33 +279,97 @@ def download_parts(
     """Fetch bill parts together. The shared turnstile still starts each request.
 
     ``on_part`` runs on this thread as each body arrives, so a later failure
-    keeps the parts already handed over.
+    keeps the parts already handed over. One failure still raises after that.
     """
-    chosen = tuple(names)
+    return _fetch_parts(
+        client,
+        congress,
+        bill_type,
+        number,
+        names,
+        workers=workers,
+        on_part=on_part,
+        tolerate=(),
+    )
 
-    def deliver(name: str, body: bytes, found: dict[str, bytes]) -> None:
+
+def download_parts_best_effort(
+    client: PartSource,
+    congress: int,
+    bill_type: str,
+    number: str,
+    names: tuple[str, ...] | list[str],
+    *,
+    workers: int = PART_WORKERS,
+) -> tuple[dict[str, bytes], dict[str, str]]:
+    """Fetch bill parts together. One server error does not drop the others."""
+    return _fetch_parts(
+        client,
+        congress,
+        bill_type,
+        number,
+        names,
+        workers=workers,
+        on_part=None,
+        tolerate=(CongressServerError,),
+    )
+
+
+def _fetch_parts(
+    client: PartSource,
+    congress: int,
+    bill_type: str,
+    number: str,
+    names: tuple[str, ...] | list[str],
+    *,
+    workers: int,
+    on_part: Callable[[str, bytes], None] | None,
+    tolerate: tuple[type[BaseException], ...],
+) -> dict[str, bytes] | tuple[dict[str, bytes], dict[str, str]]:
+    chosen = tuple(names)
+    found: dict[str, bytes] = {}
+    errors: dict[str, str] = {}
+    best_effort = bool(tolerate)
+
+    def deliver(name: str, body: bytes) -> None:
         found[name] = body
         if on_part is not None:
             on_part(name, body)
 
-    if len(chosen) < 2 or workers < 2:
-        found = {}
-        for name in chosen:
-            deliver(name, client.part(congress, bill_type, number, name), found)
-        return found
-    found = {}
-    with ThreadPoolExecutor(max_workers=min(workers, len(chosen))) as pool:
-        futures = {
-            pool.submit(client.part, congress, bill_type, number, name): name for name in chosen
-        }
+    def one(name: str, body: bytes | None = None, caught: BaseException | None = None) -> None:
+        if caught is None:
+            assert body is not None
+            deliver(name, body)
+        else:
+            errors[name] = str(caught)
+
+    def read(name: str) -> tuple[bytes | None, BaseException | None]:
         try:
-            for future in as_completed(futures):
-                name = futures[future]
-                deliver(name, future.result(), found)
-        except Exception:
-            for future in futures:
-                future.cancel()
-            raise
+            return client.part(congress, bill_type, number, name), None
+        except tolerate as caught:
+            if not tolerate:
+                raise
+            return None, caught
+
+    if len(chosen) < 2 or workers < 2:
+        for name in chosen:
+            body, caught = read(name)
+            one(name, body, caught)
+    else:
+        with ThreadPoolExecutor(max_workers=min(workers, len(chosen))) as pool:
+            futures = {
+                pool.submit(read, name): name for name in chosen
+            }
+            try:
+                for future in as_completed(futures):
+                    body, caught = future.result()
+                    one(futures[future], body, caught)
+            except Exception:
+                for future in futures:
+                    future.cancel()
+                raise
+    if best_effort:
+        return found, errors
     return found
 
 
@@ -316,7 +381,9 @@ class CongressBillConnector:
     """Download Congress.gov bill JSON and save it beside the GovInfo bills.
 
     Congress 108 and later are refused: those bills already come from GovInfo.
-    A second run skips a part whose retained file is already marked loaded.
+    A second run skips a bill whose every part is already marked loaded.
+    One part the server cannot serve is recorded and the other bills continue.
+    The missing part is tried again on the next run.
     """
 
     source_id = SOURCE_ID
@@ -348,6 +415,8 @@ class CongressBillConnector:
         self._lock: Any = None
         self._loaded: dict[str, dict[str, Any]] = {}
         self._loaded_lock = threading.Lock()
+        self._failed: dict[str, str] = {}
+        self._failure_lock = threading.Lock()
         self._finished = False
         self.result: dict[str, Any] = {}
 
@@ -377,7 +446,7 @@ class CongressBillConnector:
 
     def extract(self, ctx: ConnectorContext) -> ConnectorContext:
         """Download what is not already loaded. The next bill starts while this one is saved."""
-        counts = {"bills": 0, "skipped": 0}
+        counts = {"bills": 0, "skipped": 0, "not_saved": 0}
         try:
             for congress in self._congresses:
                 identities = self._identities(congress)
@@ -385,19 +454,35 @@ class CongressBillConnector:
                     identities = identities[: self._limit]
                 todo: list[dict[str, str]] = []
                 for identity in identities:
-                    key = _key(int(identity["congress"]), identity["bill_type"], identity["number"], "detail")
-                    if key in self._loaded and self._loaded[key].get("status") == "loaded":
+                    if self._bill_complete(identity):
                         counts["skipped"] += 1
                         continue
                     todo.append(identity)
                 self._drain(todo, counts)
         finally:
             self._client.close()
-        self.result = counts
+        failed_parts = [
+            {"key": key, "error": message} for key, message in sorted(self._failed.items())
+        ]
+        self.result = {
+            "bills": counts["bills"],
+            "skipped": counts["skipped"],
+            "not_saved": counts["not_saved"],
+            "partial": bool(failed_parts),
+            "failed_parts": failed_parts,
+        }
         self._finished = True
         if self._run is not None:
             self._run.record_count = counts["bills"]
-            self._run.record_target("core.bill", "106-107", inserted=counts["bills"], skipped=counts["skipped"])
+            if failed_parts:
+                self._run.mark_partial()
+            self._run.record_target(
+                "core.bill",
+                "106-107",
+                inserted=counts["bills"],
+                skipped=counts["skipped"],
+                status="partial" if failed_parts else "succeeded",
+            )
         self._report("extracted bills")
         return ctx
 
@@ -464,17 +549,39 @@ class CongressBillConnector:
                     inflight.append((identity, ready, pool.submit(self._download, identity, needed)))
                 if inflight:
                     identity, ready, incoming = inflight.pop(0)
-                    fetched = incoming.result()
+                    fetched, errors = incoming.result()
                     if pending and len(inflight) < BILL_WINDOW:
                         nxt = pending.pop(0)
                         nxt_needed, nxt_ready = self._plan(nxt)
                         inflight.append((nxt, nxt_ready, pool.submit(self._download, nxt, nxt_needed)))
-                    saving.append((identity, savers.submit(self._commit, identity, fetched, ready)))
+                    saving.append(
+                        (identity, savers.submit(self._commit, identity, fetched, errors, ready))
+                    )
                 while saving and (len(saving) >= SAVE_WINDOW or not inflight):
                     done_id, done = saving.pop(0)
-                    done.result()
-                    counts["bills"] += 1
-                    self._report(f"loaded {done_id['congress']} {done_id['bill_type']} {done_id['number']}")
+                    saved, missing = done.result()
+                    label = f"{done_id['congress']} {done_id['bill_type']} {done_id['number']}"
+                    if saved and missing:
+                        counts["bills"] += 1
+                        self._report(f"loaded {label} without {', '.join(missing)}")
+                    elif saved:
+                        counts["bills"] += 1
+                        self._report(f"loaded {label}")
+                    else:
+                        counts["not_saved"] += 1
+                        self._report(f"recorded a missing part for {label}")
+
+    def _bill_complete(self, identity: dict[str, str]) -> bool:
+        """True when every part already has retained bytes. A failed part does not count."""
+        congress = int(identity["congress"])
+        bill_type = identity["bill_type"]
+        number = identity["number"]
+        for name in ("detail", *PARTS):
+            with self._loaded_lock:
+                current = self._loaded.get(_key(congress, bill_type, number, name))
+            if not (current and current.get("status") == "loaded" and current.get("local_path")):
+                return False
+        return True
 
     def _plan(self, identity: dict[str, str]) -> tuple[list[str], dict[str, tuple[bytes, str]]]:
         """Split one bill into files still on disk and parts still to download."""
@@ -492,11 +599,13 @@ class CongressBillConnector:
                 needed.append(name)
         return needed, ready
 
-    def _download(self, identity: dict[str, str], names: list[str]) -> dict[str, bytes]:
-        """Fetch the missing parts. Safe to run while another bill is being saved."""
+    def _download(
+        self, identity: dict[str, str], names: list[str]
+    ) -> tuple[dict[str, bytes], dict[str, str]]:
+        """Fetch the missing parts. One failure leaves the parts that arrived."""
         if not names:
-            return {}
-        return download_parts(
+            return {}, {}
+        return download_parts_best_effort(
             self._client,
             int(identity["congress"]),
             identity["bill_type"],
@@ -504,7 +613,34 @@ class CongressBillConnector:
             names,
         )
 
-    def _commit(self, identity: dict[str, str], fetched: dict[str, bytes], ready: dict[str, tuple[bytes, str]]) -> None:
+    def _note_failure(self, identity: dict[str, str], name: str, exc: BaseException) -> None:
+        """Remember a part Congress.gov could not serve, without hiding a later good copy."""
+        congress = int(identity["congress"])
+        bill_type = identity["bill_type"]
+        number = identity["number"]
+        key = _key(congress, bill_type, number, name)
+        message = str(exc)
+        register_artifact(
+            SOURCE_ID,
+            CongressBillClient.url_for(congress, bill_type, number, name),
+            f"virtual://{key}",
+            key,
+            status="failed",
+            error_message=message[:500],
+            bytes_downloaded=0,
+            content_type="application/json",
+            metadata={"file": key},
+        )
+        with self._failure_lock:
+            self._failed[key] = message
+
+    def _commit(
+        self,
+        identity: dict[str, str],
+        fetched: dict[str, bytes],
+        errors: dict[str, str],
+        ready: dict[str, tuple[bytes, str]],
+    ) -> tuple[bool, tuple[str, ...]]:
         congress = int(identity["congress"])
         bill_type = identity["bill_type"]
         number = identity["number"]
@@ -520,8 +656,12 @@ class CongressBillConnector:
                 CongressBillClient.url_for(congress, bill_type, number, name),
                 body,
             )
+        for name, message in errors.items():
+            self._note_failure(identity, name, RuntimeError(message))
         detail_artifact = kept.get("detail")
-        assert detail_artifact is not None
+        missing = tuple(name for name in ("detail", *PARTS) if name in errors)
+        if detail_artifact is None:
+            return False, missing
         parsed = assemble_bill(
             detail=parts["detail"],
             actions=parts.get("actions"),
@@ -547,6 +687,7 @@ class CongressBillConnector:
                 source_name=SOURCE_ID,
             )
             conn.commit()
+        return True, missing
 
     def _keep(self, key: str, url: str, body: bytes) -> str:
         digest = hashlib.sha256(body).hexdigest()

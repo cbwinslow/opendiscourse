@@ -11,7 +11,12 @@ from tenacity import Retrying, retry_if_exception_type, wait_exponential
 
 from ..config import settings
 from ..rate_gate import SharedRateGate
-from .congress_api import CongressRetryStop, TransientCongressError, congress_gate
+from .congress_api import (
+    CongressRetryStop,
+    CongressServerError,
+    TransientCongressError,
+    congress_gate,
+)
 
 ORIGIN = "https://api.congress.gov/v3"
 USER_AGENT = "opendiscourse-research/congress-bills"
@@ -86,7 +91,11 @@ class CongressBillClient:
                 with attempt:
                     return self._attempt(url)
         except TransientCongressError as exc:
-            raise RuntimeError(f"Congress.gov did not answer {path}: {exc}") from exc
+            message = f"Congress.gov did not answer {path}: {exc}"
+            # 429 and a dropped connection stop the run. A 5xx is one page, and the caller can go on.
+            if str(exc).startswith("HTTP 5"):
+                raise CongressServerError(message) from exc
+            raise RuntimeError(message) from exc
 
     def _attempt(self, url: str) -> bytes:
         token = self._gate.acquire() if self._gate is not None else None
