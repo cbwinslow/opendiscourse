@@ -1,7 +1,8 @@
 # Project state and handoff
 
-Last updated: 2026-09-26. Stop here and clear context. The 2000–2002 bill
-download is running and must be left alone. See "Session handoff (2026-09-26)".
+Last updated: 2026-09-26. The 2000–2002 bill download is stopped. Do not
+start it again until one broken Congress.gov page can be skipped. See
+"Session handoff (2026-09-26)".
 The done-state for bills, votes, and members remains
 `_bmad-output/specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10).
 Read this first when resuming, then `AGENTS.md`,
@@ -12,7 +13,8 @@ decision or story status changes.
 
 ## Session handoff (2026-09-26)
 
-Stop here. Clear the context window. Do not start a second download.
+Stop here. The download is not running. Do not start a second copy, and do
+not rerun this one until the loader can pass a page Congress.gov cannot serve.
 
 **Why about eight hours, down from about three days:** Congresses 106 and 107
 are about 21,600 bills, and each bill is about seven requests, so the job is
@@ -22,12 +24,26 @@ seconds on its own and only made about 2,200 requests an hour, which was about
 three days. A 10-second count of gate turns on 2026-09-26 was 52, about 18,700
 an hour, against the live header of 20,000.
 
-**Running:** `research-db sync-congress-bills` for Congresses 106 and 107.
-Process 3783082 (`uv`), Python 3783215, started from branch
-`feat/congress-gov-bills` before that branch was merged. Still running at
-the last check, about 51 minutes in. Log
-`/tmp/congress-bills-106-107.log` (buffered; empty does not mean stopped).
-The command holds a database lock. Do not start a second copy.
+**Stopped.** `research-db sync-congress-bills` for Congresses 106 and 107 is
+not running. It had been moved into the user service group
+`od-congress-bills.scope` (process 3783082). That group started at 06:10 UTC
+and the process ended at 07:28 UTC. The log
+`/tmp/congress-bills-106-107.log` says Congress.gov returned HTTP 500 for
+`https://api.congress.gov/v3/bill/106/sres/218/cosponsors`. Bills already
+saved were kept. The one-time reminder file
+`/home/cbwinslow/congress-bills-CHECK.txt` was removed after this check.
+
+**Checked again at 14:33 UTC on 2026-09-26.** That cosponsors page still
+returns HTTP 500. The bill's own page returns HTTP 200. Congress.gov's error
+says a member term is missing for BioGuide `C000269`. The loader tries a
+server error five times, then stops the whole run. A rerun skips bills
+already saved and then stops on this same page.
+
+**Saved so far (port 5434):** Congress 106 has 7,336 bills in `core.bill`
+and 7,340 detail files on disk. Congress 107 has 1 bill in `core.bill`.
+The folder `congress/congress_gov` has 51,415 files whose names start with
+`106` and 51 whose names start with `107` (mostly the 107 bill list). No
+file was saved for 106 SRES 218.
 
 **Congress.gov speed is in the code.** `src/opendiscourse_research/rate_gate.py`
 is the shared turnstile. `providers/congress_api.py` and
@@ -42,13 +58,19 @@ rate-limit header. Same pattern for the fixed pauses in the clerk, Senate, and
 vote downloaders. Next code task: put GovInfo, then those other downloaders,
 on the shared turnstile using each site's own limit.
 
-**Resume:** if process 3783082 is gone, run `uv run research-db sync-congress-bills`
-from `main`. It skips a bill whose detail file is already marked loaded.
-A finished run exits 0 and prints `bills` and `skipped`.
+**Do not resume yet.** `uv run research-db sync-congress-bills` from `main`
+is safe for bills already stored, and it will not finish while this one page
+stops the run. Next code change: when one bill part gets a server error,
+record that part and keep going through the rest of 106 and 107. Then rerun
+the same command. A finished run exits 0 and prints `bills` and `skipped`.
 
 **Merged.** Pull request #85 is on `main` as `eb99a62`. Pull request #86,
-the committee-seat tests, is on `main` as `2ce035c`. The progress-list id
-is `conggovbills`. The loader's source id stays `congress.congress_gov_bills`.
+the committee-seat tests, is on `main` as `2ce035c`. Pull request #87
+recorded that merge. The progress-list id is `conggovbills`. The loader's
+source id stays `congress.congress_gov_bills`. Pull request #88 still said
+the download was running; do not merge that text. Dependabot pull requests
+#11, #12, #14, and #31 stay open on purpose. `wip/lake-registry-homelab`
+stays on this machine and is not shipped.
 
 **Known limits, fix after this download, not during it:**
 - If the job is killed in the short moment after a bill's file is marked
@@ -71,8 +93,7 @@ from `~/.claude/skills` and should stay removed. Push this branch after commits.
 
 **After the download:** compare `core.bill` counts for 106 and 107 with
 Congress.gov's list totals, then the member field checklist (biography,
-leadership, office contact, social media). Do not start that while 3783082
-is alive.
+leadership, office contact, social media).
 
 ## Session handoff (2026-09-25)
 
@@ -120,13 +141,15 @@ Hall, stored `14828`, Voteview `94828`; Kevin Kiley, Voteview `22336` and
 `92336`, nothing stored. BioGuide disagreements remain 0. Presidents remain
 129 unlinked on purpose.
 
-**Next, in order:** finish `research-db sync-congress-bills` for Congresses
-106 and 107 (Congress.gov JSON; GovInfo has no bill files before 108, and
-GovTrack no longer publishes a bulk download). A killed run resumes. Then
-the member field checklist. Moving `core.committee_assignment` when two
-people are combined is already in the code on `main` (it arrived with the
-Voteview load, pull request #78). The tests for that move merged as
-`2ce035c` (pull request #86).
+**Next, in order:** let `research-db sync-congress-bills` continue past a
+bill part Congress.gov cannot serve (106 SRES 218 cosponsors, HTTP 500,
+BioGuide `C000269`), then finish Congresses 106 and 107. GovInfo has no bill
+files before 108, and GovTrack no longer publishes a bulk download. A killed
+run resumes, but a rerun today stops on that same page. Then the member
+field checklist. Moving `core.committee_assignment` when two people are
+combined is already in the code on `main` (it arrived with the Voteview
+load, pull request #78). The tests for that move merged as `2ce035c`
+(pull request #86).
 
 ## Session handoff (2026-09-23)
 
