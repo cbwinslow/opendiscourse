@@ -23,11 +23,14 @@ three days. A 10-second count of gate turns on 2026-09-26 was 52, about 18,700
 an hour, against the live header of 20,000.
 
 **Running:** `research-db sync-congress-bills` for Congresses 106 and 107.
-Process 3783082 (`uv`), Python 3783215, started from branch
-`feat/congress-gov-bills` before that branch was merged. Still running at
-the last check, about 51 minutes in. Log
-`/tmp/congress-bills-106-107.log` (buffered; empty does not mean stopped).
-The command holds a database lock. Do not start a second copy.
+Process 3783082 (`uv`, parent is now pid 1), Python 3783215. Moved out from
+under Grok on 2026-09-26 into the user service group
+`od-congress-bills.scope`. Quitting Grok does not stop it. Do not stop that
+service group while the download is running: stopping it stops the download.
+Still running at the last check, about 73 minutes in, and still taking
+Congress.gov requests. Log `/tmp/congress-bills-106-107.log` (buffered; empty
+does not mean stopped). The command holds a database lock. Do not start a
+second copy.
 
 **Congress.gov speed is in the code.** `src/opendiscourse_research/rate_gate.py`
 is the shared turnstile. `providers/congress_api.py` and
