@@ -91,8 +91,17 @@ are loaded. This download is only the 2000–2002 gap. Qodo skills were removed
 from `~/.claude/skills` and should stay removed. Push this branch after commits.
 
 **After the download:** compare `core.bill` counts for 106 and 107 with
-Congress.gov's list totals, then the member field checklist (biography,
-leadership, office contact, social media).
+Congress.gov's list totals, then load the member field list.
+
+**Member field list (decided 2026-09-26, not loaded):**
+`inventory/fields/congress.legislators.yaml`. Keep a safety copy of each person,
+social-media entry, and district office. Type birthday, gender, leadership,
+the Washington office printed on each term, social accounts, and district
+offices. Save middle name, suffix, nickname, and earlier names as name facts
+that do not change the shown name. A nickname must not become the shown name.
+Presidents stay in `executive.yaml`, outside this list. New person-linked
+tables go on the person-merge list. Do not load this while the 106–107 bill
+download is running in the other checkout.
 
 ## Session handoff (2026-09-25)
 

@@ -110,11 +110,11 @@ above.
 | Voteview scores on the live database | Loaded, then relinked 2026-09-26 (exit 2). 51,064 member rows, 50,803 linked. 284 missing ICPSR numbers were stored when the BioGuide matched one person. 32 rows in Congresses 108–119 (16 people) stay unlinked because the number conflicts or the file lists two. 23,303 of 23,359 official votes are linked. `HSall_votes.csv` was not downloaded. |
 | People, BioGuide, terms 108–119 | Met for identity and terms (12,770 people, 45,535 memberships). |
 | Current committee seats | Met (559 committees, 3,895 assignments, every seat linked on BioGuide). |
-| Merging two people moves committee seats | Not met on the live database. The fix is on branch `feat/person-merge-committee-seats`, not merged. |
-| Member field checklist and per-person whole record | Not met. No `inventory/fields/` file for `congress.legislators`. Biography, leadership, contact, and social media are not in a per-person database record. |
+| Merging two people moves committee seats | Met in code on `main` (pull request #86, `2ce035c`, 2026-09-26). |
+| Member field checklist and per-person whole record | Checklist written 2026-09-26 (`inventory/fields/congress.legislators.yaml`). The safety copy, biography, leadership, contact, and social accounts are not loaded yet. |
 | Progress register matches the live database | Not met. House and Senate votes are still marked `ready` in `inventory/progress.yaml` even though they are loaded. |
 
 Next work, in order: finish the Congress.gov load for Congresses 106–107
-(2000–2002). GovInfo has no bill files before 108. Then write the member
-field checklist. Do not start FEC person joins or a website to get this
-goal across the line.
+(2000–2002). GovInfo has no bill files before 108. The member field checklist
+is written; load it after that download. Do not start FEC person joins or a
+website to get this goal across the line.

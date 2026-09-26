@@ -1,0 +1,106 @@
+dataset: congress.legislators
+audited_on: '2026-09-26'
+origin: >-
+  https://github.com/unitedstates/congress-legislators at a pinned commit,
+  copied from the vendor checkout into DATA_ROOT. This list covers
+  legislators-current.yaml, legislators-historical.yaml,
+  legislators-social-media.yaml, and legislators-district-offices.yaml.
+  executive.yaml (presidents and vice presidents) is a different list.
+capture:
+  whole_record: core.legislator_source_record
+  notes: >-
+    Decided 2026-09-26. One safety-copy row per file entry, with the file name
+    on the row, so a person, a social-media entry, and a district office stay
+    tied to the file they came from. Ids, the displayed name, and terms are
+    already live. Birthday, gender, leadership, Washington contact, social
+    accounts, district offices, name facts, and this safety copy are the target
+    and are not loaded yet. A row that points at a person goes on the person-merge
+    list (core.person_leadership, core.person_social_account, core.district_office,
+    and the safety copy when it stores a person id). The safety copy also keeps
+    the BioGuide, so the original file can still be found after two people are
+    combined. Social media and district offices are the current roster only.
+    Washington contact is whatever the member file prints on that term, not a
+    history of earlier offices.
+fields:
+- name: id.bioguide
+  status: typed
+  where: core.person_identifier namespace bioguide, the only person key
+- name: id.bioguide_previous
+  status: typed
+  where: >-
+    core.person_identifier namespace bioguide_previous. An old id for the same
+    person. It does not create a second person.
+- name: id.thomas, id.lis, id.govtrack, id.opensecrets, id.votesmart, id.fec, id.icpsr, id.cspan, id.wikipedia, id.wikidata, id.ballotpedia, id.google_entity_id, id.house_history, id.house_history_alternate, id.maplight, id.pictorial
+  status: typed
+  where: core.person_identifier, one row per namespace and value the file prints
+- name: name.first, name.last
+  status: typed
+  where: core.person.given_name and core.person.family_name
+- name: name.official_full
+  status: typed
+  where: >-
+    core.person_name_source kind official (dataset congress.legislators). The
+    shown name stays the common name. This fact is the fallback, which is the
+    rule already in inventory/precedence.yaml.
+- name: name.middle, name.suffix
+  status: typed
+  where: >-
+    core.person_name_source, new kinds middle and suffix, omitted from the
+    displayed-name list so the shown name does not change
+- name: name.nickname
+  status: typed
+  where: >-
+    core.person_name_source kind nickname, omitted from the displayed-name list.
+    Some historical nicknames are phrases such as "of Carrollton", so a nickname
+    must not replace the shown name.
+- name: other_names
+  status: typed
+  where: >-
+    core.person_name_source kind former, with the file's end date as the vintage,
+    omitted from the displayed-name list
+- name: bio.birthday
+  status: typed
+  where: core.person.birthday
+- name: bio.gender
+  status: typed
+  where: core.person.gender, the letter the file prints
+- name: family
+  status: whole_record_only
+  reason: >-
+    A few dozen people have a short note such as "son of". Putting that in its
+    own table would claim a family link the file only mentions. The words stay
+    on the safety copy.
+- name: leadership_roles
+  status: typed
+  where: >-
+    core.person_leadership (chamber, title, start, end), one row per role, linked
+    by BioGuide
+- name: terms.type, terms.start, terms.end, terms.state, terms.district, terms.party, terms.class, terms.state_rank, terms.how, terms.end-type, terms.caucus, terms.party_affiliations
+  status: typed
+  where: >-
+    core.membership, core.post, and core.division, as the term load already does.
+    party, class, rank, how the term began or ended, caucus, and party
+    affiliations sit in the membership's metadata.
+- name: terms.office, terms.address, terms.phone, terms.fax, terms.contact_form, terms.url, terms.rss_url
+  status: typed
+  where: >-
+    core.membership columns of the same names. Empty when that term's entry has
+    none. This is the Washington office the file prints, not a history.
+- name: social.twitter, social.twitter_id, social.facebook, social.instagram, social.instagram_id, social.youtube, social.youtube_id, social.mastodon
+  status: typed
+  where: >-
+    core.person_social_account, one row per network (network, handle, external
+    id), linked by BioGuide. The handle and the numeric id from the file stay
+    together. Current roster only.
+- name: offices
+  status: typed
+  where: >-
+    core.district_office, one row per office (id, address, building, suite, city,
+    state, zip, phone, fax, hours). latitude and longitude become a map point
+    (PostGIS, same map numbering the boundaries already use) when the file has
+    both. Current roster only.
+- name: executive.yaml
+  status: not_stored
+  reason: >-
+    Presidents and vice presidents are a different file. A member who later
+    became president remains in the member files. That file needs its own list.
