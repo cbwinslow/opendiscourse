@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
+from .legislator_profile import contact_from_term
+
 COUNTRY = "ocd-division/country:us"
 
 STATES = {
@@ -82,6 +84,7 @@ class Term:
     district: int | None = None
     senate_class: int | None = None
     metadata: dict[str, Any] = field(default_factory=dict, hash=False)
+    contact: dict[str, str] = field(default_factory=dict, hash=False)
 
 
 def parse_terms(records: Iterable[dict[str, Any]] | None) -> tuple[Term, ...]:
@@ -125,6 +128,7 @@ def parse_terms(records: Iterable[dict[str, Any]] | None) -> tuple[Term, ...]:
                 None if district is None else int(district),
                 None if senate_class is None else int(senate_class),
                 meta,
+                contact_from_term(record),
             )
         )
     return tuple(terms)

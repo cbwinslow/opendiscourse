@@ -1,10 +1,11 @@
 """Connector for ``unitedstates/congress-legislators``: the BioGuide crosswalk.
 
-Reads the two legislator YAML files from the ``vendor/`` checkout, retains
+Reads the legislator YAML files from the ``vendor/`` checkout, retains
 verified copies as immutable artifacts, and promotes identifiers into
 ``core.person_identifier`` keyed on BioGuide only (Story 3.1), then promotes every term
-into ``core.membership`` with its state or district post (Story 3.3). Committees and
-social media are out of scope.
+into ``core.membership`` with its state or district post (Story 3.3). The same load
+keeps biography, leadership, the Washington office on each term, social accounts,
+and district offices.
 """
 
 from __future__ import annotations
@@ -27,15 +28,27 @@ from ..artifact_storage import retain_artifact_bytes, retained_path
 from ..config import settings
 from ..db import connect
 from ..repositories.legislation import register_artifact
+from ..repositories.legislator_profile import publish_legislator_profile
 from ..repositories.people import promote_legislators, promote_terms
 from .base import IngestionRun
 from .connector import ConnectorContext
+from .legislator_profile import (
+    district_offices,
+    dump,
+    entry_bioguide,
+    load_yaml,
+    odd_genders,
+    person_facts,
+    social_accounts,
+)
 from .legislator_terms import Term, parse_terms, plan_term
 
 SOURCE_ID = "congress.legislators"
 UPSTREAM = "https://raw.githubusercontent.com/unitedstates/congress-legislators"
 UPSTREAM_REPO = "https://github.com/unitedstates/congress-legislators"
 FILES = ("legislators-current.yaml", "legislators-historical.yaml")
+PROFILE_FILES = ("legislators-social-media.yaml", "legislators-district-offices.yaml")
+ALL_FILES = (*FILES, *PROFILE_FILES)
 BIOGUIDE = re.compile(r"^[A-Z]\d{6}$")
 VENDOR_DIR = Path(__file__).resolve().parents[3] / "vendor" / "congress-legislators"
 
@@ -143,6 +156,14 @@ def _git(vendor: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
+def _commit_date(vendor: Path) -> str:
+    """The checkout's commit date, used as the name-fact vintage."""
+    committed = _git(vendor, "show", "-s", "--format=%cs", "HEAD")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", committed):
+        raise RuntimeError(f"{vendor} commit date {committed!r} is not a calendar day")
+    return committed
+
+
 def _normalize_remote(url: str) -> str:
     """Reduce ssh/https/.git spellings of a GitHub remote to one comparable form."""
     url = url.strip().removesuffix("/").removesuffix(".git")
@@ -208,21 +229,28 @@ class LegislatorsConnector:
         self._checksums: dict[str, str] = {}
         self._artifacts: dict[str, UUID] = {}
         self._people: dict[str, list[Legislator]] = {}
+        self._records: dict[str, list[dict[str, Any]]] = {}
+        self._social: list[dict[str, Any]] = []
+        self._offices: list[dict[str, Any]] = []
+        self._commit_date = ""
         self._shared: list[dict[str, Any]] = []
         self.result: dict[str, Any] = {}
 
     # -- stages -----------------------------------------------------------
     def discover(self, ctx: ConnectorContext) -> ConnectorContext:
         """Locate the checkout and pin the exact upstream commit."""
-        missing = [n for n in FILES if not (self.vendor_dir / n).is_file()]
+        missing = [n for n in ALL_FILES if not (self.vendor_dir / n).is_file()]
         if missing:
             raise FileNotFoundError(
                 f"{', '.join(missing)} not found in {self.vendor_dir}. "
                 "Run scripts/bootstrap_upstream.sh."
             )
         self._commit = verify_checkout(self.vendor_dir, self.expected_origin)
+        self._commit_date = _commit_date(self.vendor_dir)
         self._run = IngestionRun(
-            SOURCE_ID, {"commit": self._commit, "files": list(FILES)}, mode="backfill"
+            SOURCE_ID,
+            {"commit": self._commit, "files": list(ALL_FILES), "vintage": self._commit_date},
+            mode="backfill",
         )
         self._run.__enter__()
         ctx.run_id = str(self._run.run_id)
@@ -230,32 +258,32 @@ class LegislatorsConnector:
         return ctx
 
     def select(self, ctx: ConnectorContext) -> ConnectorContext:
-        """Both files: current members and everyone since 1789."""
-        ctx.selected_ids = FILES
+        """Member files plus the current social and district-office files."""
+        ctx.selected_ids = ALL_FILES
         self._report("selected files")
         return ctx
 
     def plan(self, ctx: ConnectorContext) -> ConnectorContext:
         """Sizes are known; retained copies are small so no capacity waiver is needed."""
         ctx.plan_id = f"{SOURCE_ID}@{self._commit[:12]}"
-        ctx.artifact_urls = tuple(f"{UPSTREAM}/{self._commit}/{n}" for n in FILES)
+        ctx.artifact_urls = tuple(f"{UPSTREAM}/{self._commit}/{n}" for n in ALL_FILES)
         self._report("planned load")
         return ctx
 
     def extract(self, ctx: ConnectorContext) -> ConnectorContext:
         """Read each file once; the hash and the parsed content are the same bytes."""
-        for name in FILES:
+        for name in ALL_FILES:
             content = (self.vendor_dir / name).read_bytes()
             self._content[name] = content
             self._checksums[name] = hashlib.sha256(content).hexdigest()
-        ctx.checksums = tuple(self._checksums[n] for n in FILES)
+        ctx.checksums = tuple(self._checksums[n] for n in ALL_FILES)
         self._report("read files")
         return ctx
 
     def evidence(self, ctx: ConnectorContext) -> ConnectorContext:
         """Retain checksum-addressed copies and register artifact versions."""
         with connect() as conn:
-            for name, url in zip(FILES, ctx.artifact_urls, strict=True):
+            for name, url in zip(ALL_FILES, ctx.artifact_urls, strict=True):
                 checksum = self._checksums[name]
                 source = self.vendor_dir / name
                 retained = retain_artifact_bytes(
@@ -282,7 +310,17 @@ class LegislatorsConnector:
 
     def stage(self, ctx: ConnectorContext) -> ConnectorContext:
         """Parse into typed rows; the temp load table is created at publish."""
+        self._records = {n: load_yaml(self._content[n]) for n in ALL_FILES}
         self._people = {n: parse_legislators(self._content[n]) for n in FILES}
+        self._social = self._records[PROFILE_FILES[0]]
+        self._offices = self._records[PROFILE_FILES[1]]
+        for name in FILES:
+            for record in self._records[name]:
+                person_facts(record, self._commit_date)
+        for record in self._social:
+            social_accounts(record)
+        for record in self._offices:
+            district_offices(record)
         self._report("parsed legislators")
         return ctx
 
@@ -326,7 +364,9 @@ class LegislatorsConnector:
             conn.commit()
             terms = promote_terms(conn, term_rows)
             conn.commit()
-            for name, url in zip(FILES, ctx.artifact_urls, strict=True):
+            profile = publish_legislator_profile(conn, **self._profile_rows(ctx.run_id))
+            conn.commit()
+            for name, url in zip(ALL_FILES, ctx.artifact_urls, strict=True):
                 register_artifact(
                     SOURCE_ID,
                     url,
@@ -343,7 +383,13 @@ class LegislatorsConnector:
         self.result = {
             **counts,
             **terms,
+            **profile,
             "terms_unknown_jurisdiction": unknown,
+            "profile_unexpected_genders": odd_genders(
+                person_facts(record, self._commit_date)["gender"]
+                for name in FILES
+                for record in self._records[name]
+            ),
             "upstream_commit": self._commit,
             "shared_upstream_identifiers": self._shared,
         }
@@ -411,9 +457,114 @@ class LegislatorsConnector:
                             plan.post_label,
                             plan.post_role,
                             json.dumps(term.metadata, sort_keys=True),
+                            json.dumps(term.contact, sort_keys=True),
                         )
                     )
         return rows, unknown
+
+    def _profile_rows(self, run_id: Any) -> dict[str, list[tuple[Any, ...]]]:
+        """Rows for the profile load. The safety copy is the file entry itself."""
+        run = UUID(str(run_id))
+        people: list[tuple[Any, ...]] = []
+        leadership: list[tuple[Any, ...]] = []
+        names: list[tuple[Any, ...]] = []
+        sources: list[tuple[Any, ...]] = []
+        for name in FILES:
+            artifact = self._artifacts[name]
+            for record in self._records[name]:
+                bioguide = entry_bioguide(record, name)
+                facts = person_facts(record, self._commit_date)
+                people.append(
+                    (bioguide, name, artifact, run, facts["birthday"], facts["gender"], dump(record))
+                )
+                sources.append((name, bioguide, bioguide, dump(record), artifact, run))
+                for role in facts["leadership"]:
+                    leadership.append(
+                        (
+                            bioguide,
+                            role["chamber"],
+                            role["title"],
+                            role["start"],
+                            role["end"],
+                            artifact,
+                            run,
+                        )
+                    )
+                for fact in facts["names"]:
+                    names.append(
+                        (
+                            bioguide,
+                            fact["name_kind"],
+                            fact["full_name"],
+                            fact["given_name"],
+                            fact["family_name"],
+                            fact["source_vintage"],
+                            artifact,
+                            run,
+                        )
+                    )
+        social_rows: list[tuple[Any, ...]] = []
+        social_name = PROFILE_FILES[0]
+        social_artifact = self._artifacts[social_name]
+        for record in self._social:
+            bioguide = entry_bioguide(record, social_name)
+            sources.append((social_name, bioguide, bioguide, dump(record), social_artifact, run))
+            for account in social_accounts(record):
+                social_rows.append(
+                    (
+                        bioguide,
+                        account["network"],
+                        account["handle"],
+                        account["external_id"],
+                        social_artifact,
+                        run,
+                        dump(record),
+                    )
+                )
+        office_rows: list[tuple[Any, ...]] = []
+        office_name = PROFILE_FILES[1]
+        office_artifact = self._artifacts[office_name]
+        for record in self._offices:
+            bioguide = entry_bioguide(record, office_name)
+            for office in district_offices(record):
+                sources.append(
+                    (
+                        office_name,
+                        office["office_key"],
+                        bioguide,
+                        dump(office["record"]),
+                        office_artifact,
+                        run,
+                    )
+                )
+                office_rows.append(
+                    (
+                        bioguide,
+                        office["office_key"],
+                        office["address"],
+                        office["building"],
+                        office["suite"],
+                        office["city"],
+                        office["state"],
+                        office["zip"],
+                        office["phone"],
+                        office["fax"],
+                        office["hours"],
+                        office["latitude"],
+                        office["longitude"],
+                        office_artifact,
+                        run,
+                        dump(office["record"]),
+                    )
+                )
+        return {
+            "people": people,
+            "leadership": leadership,
+            "social": social_rows,
+            "offices": office_rows,
+            "names": names,
+            "sources": sources,
+        }
 
     def checkpoint(self, ctx: ConnectorContext) -> ConnectorContext:
         """Write the review report, then close the run ledger exactly once.
@@ -430,6 +581,8 @@ class LegislatorsConnector:
                 or self._shared
                 or self.result["terms_unknown_jurisdiction"]
                 or self.result["terms_unresolved"]
+                or self.result["profile_unknown_bioguides"]
+                or self.result["profile_unexpected_genders"]
             )
             if failure is None and needs_review:
                 self._write_review_report(ctx)

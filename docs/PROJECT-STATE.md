@@ -93,6 +93,13 @@ from `~/.claude/skills` and should stay removed. Push this branch after commits.
 **After the download:** compare `core.bill` counts for 106 and 107 with
 Congress.gov's list totals, then load the member field list.
 
+**Member profile load (written 2026-09-26, not applied to the live database):**
+`research-db load-legislators` now also saves birthday, gender, leadership,
+the Washington office on each term, social accounts, district offices, and a
+safety copy of each file entry. Middle name, suffix, nickname, and earlier
+names are saved as name facts and do not change the shown name. Do not run
+`research-db init-db` on port 5434 while the 2000–2002 bill download is running.
+
 **Member field list (decided 2026-09-26, not loaded):**
 `inventory/fields/congress.legislators.yaml`. Keep a safety copy of each person,
 social-media entry, and district office. Type birthday, gender, leadership,

@@ -29,6 +29,16 @@ person:
     # display so the shown person name does not change.
     voteview:
       - {dataset: congress.voteview, field: bioname}
+    # Parts of the legislator name. Omitted from display. A nickname such as
+    # "of Carrollton" must not become the shown name.
+    middle:
+      - {dataset: congress.legislators, field: name.middle}
+    suffix:
+      - {dataset: congress.legislators, field: name.suffix}
+    nickname:
+      - {dataset: congress.legislators, field: name.nickname}
+    former:
+      - {dataset: congress.legislators, field: other_names.last}
 geography:
   display: [short, full]
   kinds:

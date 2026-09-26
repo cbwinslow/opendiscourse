@@ -96,6 +96,26 @@ def _remove_loaded_rows() -> None:
     """Delete rows this module's loads created, children before parents."""
     with connect() as conn:
         for statement in (
+            (
+                "DELETE FROM core.person_leadership WHERE source_artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE dataset_id = 'congress.legislators')"
+            ),
+            (
+                "DELETE FROM core.person_social_account WHERE source_artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE dataset_id = 'congress.legislators')"
+            ),
+            (
+                "DELETE FROM core.district_office WHERE source_artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE dataset_id = 'congress.legislators')"
+            ),
+            (
+                "DELETE FROM core.legislator_source_record WHERE source_artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE dataset_id = 'congress.legislators')"
+            ),
+            (
+                "DELETE FROM core.person_name_source WHERE dataset_id = 'congress.legislators' "
+                "AND name_kind IN ('official', 'middle', 'suffix', 'nickname', 'former')"
+            ),
             "DELETE FROM ingest.identity_conflict WHERE dataset_id = 'congress.legislators'",
             (
                 "DELETE FROM core.membership WHERE source_artifact_id IN "
@@ -146,7 +166,13 @@ def _git(path: Path, *args: str) -> None:
     subprocess.run(["git", "-C", str(path), *args], check=True, capture_output=True)
 
 
-def _vendor(tmp_path: Path, current: list[dict], historical: list[dict]) -> Path:
+def _vendor(
+    tmp_path: Path,
+    current: list[dict],
+    historical: list[dict],
+    social: str = "[]\n",
+    offices: str = "[]\n",
+) -> Path:
     vendor = tmp_path / "vendor"
     vendor.mkdir(exist_ok=True)
     if not (vendor / ".git").exists():
@@ -155,6 +181,8 @@ def _vendor(tmp_path: Path, current: list[dict], historical: list[dict]) -> Path
         _git(vendor, "config", "user.name", "t")
     (vendor / "legislators-current.yaml").write_text(_yaml(current))
     (vendor / "legislators-historical.yaml").write_text(_yaml(historical))
+    (vendor / "legislators-social-media.yaml").write_text(social)
+    (vendor / "legislators-district-offices.yaml").write_text(offices)
     _git(vendor, "add", "-A")
     _git(vendor, "commit", "-q", "-m", "data", "--allow-empty")
     return vendor
@@ -833,3 +861,74 @@ def test_missing_chamber_organizations_fail_before_any_write_with_the_fix_named(
             conn.execute("UPDATE core.organization SET jurisdiction_geoid = 'us' WHERE organization_type = 'lower'")
             conn.commit()
     assert _memberships(bg) == []
+
+
+def test_profile_saves_biography_and_drops_a_removed_social_account(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bg = _bioguide()
+    term = {**HOUSE_WA7, "phone": "202-224-3441", "office": "311 Hart"}
+    social = f"- id:\n    bioguide: {bg}\n  social:\n    twitter: RepTest\n    twitter_id: '99'\n"
+    offices = (
+        f"- id:\n    bioguide: {bg}\n  offices:\n"
+        f"  - id: {bg}-town\n    city: Town\n    state: WA\n    latitude: 47.6\n    longitude: -122.3\n"
+    )
+    vendor = _vendor(
+        tmp_path,
+        [{"bioguide": bg, "terms": [term]}],
+        [{"bioguide": _bioguide()}],
+        social=social,
+        offices=offices,
+    )
+    current = vendor / "legislators-current.yaml"
+    text = current.read_text().replace(
+        "  name:\n    first: Given\n    last: Family\n",
+        "  name:\n    first: Maria\n    last: Cantwell\n    official_full: Maria Cantwell\n    nickname: Maria\n"
+        "  bio:\n    birthday: '1958-10-13'\n    gender: F\n"
+        "  leadership_roles:\n  - title: Example Chair\n    chamber: house\n"
+        "    start: '2019-01-03'\n    end: '2021-01-03'\n",
+    )
+    current.write_text(text)
+    _git(vendor, "add", "-A")
+    _git(vendor, "commit", "-q", "-m", "profile")
+
+    first = _load(tmp_path, monkeypatch, vendor)
+    with connect() as conn:
+        person = conn.execute(
+            "SELECT birthday, gender FROM core.person p "
+            "JOIN core.person_identifier i ON i.person_id = p.person_id "
+            "WHERE i.namespace = 'bioguide' AND i.external_id = %s",
+            (bg,),
+        ).fetchone()
+        phone = conn.execute(
+            "SELECT phone, office FROM core.membership m "
+            "JOIN core.person_identifier i ON i.person_id = m.person_id "
+            "WHERE i.external_id = %s",
+            (bg,),
+        ).fetchone()
+        social_count = conn.execute(
+            "SELECT count(*) AS n FROM core.person_social_account WHERE bioguide = %s", (bg,)
+        ).fetchone()["n"]
+        office_count = conn.execute(
+            "SELECT count(*) AS n FROM core.district_office WHERE bioguide = %s", (bg,)
+        ).fetchone()["n"]
+    assert str(person["birthday"]) == "1958-10-13" and person["gender"] == "F"
+    assert phone["phone"] == "202-224-3441" and phone["office"] == "311 Hart"
+    assert social_count == 1 and office_count == 1
+    assert first.result["profile_unknown_bioguides"] == []
+
+    second = _load(tmp_path, monkeypatch, vendor)
+    assert second.result["social_changed"] == 0
+    assert second.result["leadership_changed"] == 0
+    assert second.result["profile_names_changed"] == 0
+
+    (vendor / "legislators-social-media.yaml").write_text("[]\n")
+    _git(vendor, "add", "-A")
+    _git(vendor, "commit", "-q", "-m", "drop social")
+    third = _load(tmp_path, monkeypatch, vendor)
+    assert third.result["social_removed"] == 1
+    with connect() as conn:
+        left = conn.execute(
+            "SELECT count(*) AS n FROM core.person_social_account WHERE bioguide = %s", (bg,)
+        ).fetchone()["n"]
+    assert left == 0

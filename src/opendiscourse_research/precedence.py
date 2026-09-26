@@ -18,10 +18,13 @@ from .repositories.names import query
 
 PRECEDENCE_PATH = Path(__file__).resolve().parents[2] / "inventory" / "precedence.yaml"
 
-# ``roster`` and ``voteview`` are ranked so loaders may record them, and they are
-# not display kinds: the shown person name does not change.
+# ``roster``, ``voteview``, and the legislator name parts are ranked so loaders may
+# record them, and they are not display kinds: the shown person name does not change.
 DISPLAY_KINDS = {"person": ("official", "common"), "geography": ("short", "full")}
-KINDS = {"person": ("official", "common", "roster", "voteview"), "geography": ("short", "full")}
+KINDS = {
+    "person": ("official", "common", "roster", "voteview", "middle", "suffix", "nickname", "former"),
+    "geography": ("short", "full"),
+}
 
 
 def load_precedence(path: Path | None = None) -> dict[str, Any]:
