@@ -114,9 +114,8 @@ Hall, stored `14828`, Voteview `94828`; Kevin Kiley, Voteview `22336` and
 GovTrack no longer publishes a bulk download). A killed run resumes. Then
 the member field checklist. Moving `core.committee_assignment` when two
 people are combined is already in the code on `main` (it arrived with the
-Voteview load, pull request #78). The tests for that move are pull request
-#86. Do not merge #86 by switching this checkout while process 3783082
-is alive.
+Voteview load, pull request #78). The tests for that move merged as
+`2ce035c` (pull request #86).
 
 ## Session handoff (2026-09-23)
 
