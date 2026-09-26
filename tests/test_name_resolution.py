@@ -85,6 +85,11 @@ def test_person_display_is_common_then_official_with_the_documented_ranks() -> N
         ("roster", 1, "congress.committee_membership"),
         # Ranked, and deliberately not in display, so a Voteview bioname does not change the shown name.
         ("voteview", 1, "congress.voteview"),
+        # Ranked, and deliberately not in display, so a nickname cannot become the shown name.
+        ("middle", 1, LEGISLATORS),
+        ("suffix", 1, LEGISLATORS),
+        ("nickname", 1, LEGISLATORS),
+        ("former", 1, LEGISLATORS),
     ]
     geography = {(kind, geography_type): [row[4] for row in rows]
                  for (kind, geography_type), rows in _group(_entries(document), "geography").items()}
@@ -105,7 +110,7 @@ def _group(entries: list[tuple], entity: str) -> dict[tuple[str, str], list[tupl
     ("edit", "message"),
     [
         (lambda d: d["person"]["kinds"]["official"].append({"dataset": "no.such", "field": "x"}), "no.such"),
-        (lambda d: d["person"]["kinds"].update(nickname=[{"dataset": OPENSTATES, "field": "x"}]), "nickname"),
+        (lambda d: d["person"]["kinds"].update(alias=[{"dataset": OPENSTATES, "field": "x"}]), "alias"),
         (lambda d: d["person"].update(display=["official"]), "kind 'common' is ranked but never displayed"),
         (lambda d: d["person"]["kinds"]["official"].append({"dataset": LEGISLATORS, "field": "x"}), "twice"),
         (lambda d: d["person"]["kinds"]["common"][0].pop("field"), "needs a field"),
