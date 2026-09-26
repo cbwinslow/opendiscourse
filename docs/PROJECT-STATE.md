@@ -1,9 +1,7 @@
 # Project state and handoff
 
-Last updated: 2026-09-26. The 2000–2002 bill download is running on the
-shared Congress.gov turnstile. See "Session handoff (2026-09-26)" below.
-Do not start a second copy of `research-db sync-congress-bills` while that
-process is alive.
+Last updated: 2026-09-26. Stop here and clear context. The 2000–2002 bill
+download is running and must be left alone. See "Session handoff (2026-09-26)".
 The done-state for bills, votes, and members remains
 `_bmad-output/specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10).
 Read this first when resuming, then `AGENTS.md`,
@@ -14,42 +12,48 @@ decision or story status changes.
 
 ## Session handoff (2026-09-26)
 
-Stop here. The code for this step is written. What is left is the download.
+Stop here. Clear the context window. Do not start a second download.
 
-**Decision (2026-09-26):** trust the live `X-RateLimit-Limit` header, which
-is 20,000 on this key, over the README's 5,000. A shared turnstile
-(`providers/congress_api.py`, used by the bill download and the older
-one-bill commands) spaces requests across that rolling hour and lets every
-Congress.gov script on this machine share one allowance. Bill parts download
-together, and the next bill starts while the current one is saved. A 429 or
-an empty remaining count holds further requests until the hour frees a slot.
+**Why about eight hours, down from about three days:** Congresses 106 and 107
+are about 21,600 bills, and each bill is about seven requests, so the job is
+about 150,000 requests. The server allows 20,000 an hour, and 150,000 divided
+by 20,000 is about eight hours. That is the floor. The old client waited 0.8
+seconds on its own and only made about 2,200 requests an hour, which was about
+three days. A 10-second count of gate turns on 2026-09-26 was 52, about 18,700
+an hour, against the live header of 20,000.
 
-**Running:** `research-db sync-congress-bills` for Congresses 106 and 107
-(pull request #85, branch `feat/congress-gov-bills`). Process 3783082
-(`uv`), Python 3783215. Eight bills download at once and three can be saved
-at once. Log `/tmp/congress-bills-106-107.log` (the progress line is
-buffered, so an empty log does not mean it stopped). Do not launch another
-copy; the command holds a database lock and the second one will refuse.
+**Running:** `research-db sync-congress-bills` for Congresses 106 and 107,
+pull request #85, branch `feat/congress-gov-bills`. Process 3783082 (`uv`),
+Python 3783215. Still running at the last check, about 29 minutes in. Log
+`/tmp/congress-bills-106-107.log` (buffered; empty does not mean stopped).
+The command holds a database lock.
 
-**Pace measured 2026-09-26 after that restart:** the server's remaining-count
-dropped by 151 in 30 seconds, about **18,000 requests an hour**. The header
-still said limit 20,000, with about 11,600 left, so the allowance was not
-full. Wider overlap did not go faster than this. This machine is sustaining
-about 18,000 of the 20,000 the key is allowed. At that pace the rest of the
-~150,000 requests is on the order of **eight hours**, and it will pause if
-the hour's allowance is actually used up, then continue.
+**Congress.gov speed is in the code.** `src/opendiscourse_research/rate_gate.py`
+is the shared turnstile. `providers/congress_api.py` and
+`providers/congress_bills.py` use it for this download and the older one-bill
+commands. It follows `X-RateLimit-Limit` (20,000 on this key, not the README's
+5,000), spaces requests across the rolling hour, and slows down on a 429 or an
+empty remaining count. Several bills download at once.
 
-**Resume:** if process 2762417 is gone, run `uv run research-db sync-congress-bills`
+**GovInfo is not on that turnstile.** `providers/govinfo.py` still waits a
+fixed 1.0 second between requests (`PACE_SECONDS`). It does not read a live
+rate-limit header. Same pattern for the fixed pauses in the clerk, Senate, and
+vote downloaders. Next code task: put GovInfo, then those other downloaders,
+on the shared turnstile using each site's own limit.
+
+**Resume:** if process 3783082 is gone, run `uv run research-db sync-congress-bills`
 from this branch (or from `main` after #85 is merged). It skips bills already
 marked loaded. A finished run exits 0 and prints `bills` and `skipped`.
 
 **Already done, do not redo:** Voteview relink is merged (#84). Budget-office
 columns are live. Official bills, votes, and members for Congresses 108–119
-are loaded. This download is only the 2000–2002 gap.
+are loaded. This download is only the 2000–2002 gap. Qodo skills were removed
+from `~/.claude/skills` and should stay removed. Push this branch after commits.
 
 **After the download:** compare `core.bill` counts for 106 and 107 with
 Congress.gov's list totals, then the member field checklist (biography,
-leadership, office contact, social media).
+leadership, office contact, social media). Do not start that while 3783082
+is alive.
 
 ## Session handoff (2026-09-25)
 
