@@ -21,14 +21,19 @@ Process 752145. Log `/tmp/congress-bills-106-107.log` (the progress line is
 buffered, so an empty log does not mean it stopped). Do not launch another
 copy; the command holds a database lock and the second one will refuse.
 
-**Progress at handoff:** Congress.gov's own count for the 107th Congress is
-10,791 bills. The 106th is about the same size, so the job is about 21,600
-bills. Saved in the live database: **11** from 106 and **1** from 107. The
-list pages for both Congresses are already on disk (about 88 files). Each
-bill then needs its detail plus actions, committees, subjects, summaries,
-cosponsors, and text-version links. Recent files arrived at about 2 bills a
-minute, which is on the order of **six days**. Congress.gov allows only a
-few thousand requests an hour, and this command stays under that on purpose.
+**Progress at handoff, corrected 2026-09-26 after reading the live headers:**
+Congress.gov's own count for the 107th Congress is 10,791 bills. The 106th
+is about the same size, so the job is about 21,600 bills and about 150,000
+requests (seven per bill). Saved when last counted: low dozens, list pages
+already on disk. The Library of Congress README still says **5,000 requests
+per hour** (raised from 1,000 in March 2024). The response header on our key
+right now says `X-RateLimit-Limit: 20000` and about 19,500 remaining. There
+is no reset header. Our client waits 0.8 seconds between requests regardless.
+Measured pace is about **1.6 seconds per file**, roughly **2,200 requests an
+hour**, about **three days** for the rest. That wait is our own pause, not
+the server refusing us. Using the header's 20,000 an hour would be about
+**eight hours**. Do not raise the pace until someone confirms the header's
+window, because the written rule is still 5,000.
 
 **Resume:** if process 752145 is gone, run `uv run research-db sync-congress-bills`
 from this branch (or from `main` after #85 is merged). It skips bills already
