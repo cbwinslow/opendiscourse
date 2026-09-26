@@ -60,13 +60,10 @@ Hall, stored `14828`, Voteview `94828`; Kevin Kiley, Voteview `22336` and
 `92336`, nothing stored. BioGuide disagreements remain 0. Presidents remain
 129 unlinked on purpose.
 
-**Next, in order:** member field checklist (biography, leadership, office
-contact, and social media are not yet accounted for). Bills and official
-votes already cover Congresses 108–119, so the Bush years 2003–2008 and the
-Obama years 2009–2016 can be compared now. Years 2000–2002 are Congresses
-106–107, and GovInfo's bill files do not include them; that needs a separate
-source (GovTrack bulk is the one already named for Congresses 93–107). Do
-not read the old machine-local bill folder. Person-merge still does not move
+**Next, in order:** finish `research-db sync-congress-bills` for Congresses
+106 and 107 (Congress.gov JSON; GovInfo has no bill files before 108, and
+GovTrack no longer publishes a bulk download). A killed run resumes. Then
+the member field checklist. Person-merge still does not move
 `core.committee_assignment` on the live database; that fix is branch
 `feat/person-merge-committee-seats`.
 

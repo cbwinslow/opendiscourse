@@ -114,7 +114,7 @@ above.
 | Member field checklist and per-person whole record | Not met. No `inventory/fields/` file for `congress.legislators`. Biography, leadership, contact, and social media are not in a per-person database record. |
 | Progress register matches the live database | Not met. House and Senate votes are still marked `ready` in `inventory/progress.yaml` even though they are loaded. |
 
-Next work, in order: write the member field checklist and close whatever it
-shows is missing. Congresses 106–107 (2000–2002) are not in GovInfo's bill
-files; a later source has to bring those in. Do not start FEC person joins
-or a website to get this goal across the line.
+Next work, in order: finish the Congress.gov load for Congresses 106–107
+(2000–2002). GovInfo has no bill files before 108. Then write the member
+field checklist. Do not start FEC person joins or a website to get this
+goal across the line.

@@ -1,0 +1,38 @@
+dataset: congress.congress_gov_bills
+audited_on: '2026-09-26'
+origin: https://api.congress.gov/v3/bill/{congress}
+capture:
+  whole_record: core.bill_source_record.record
+  notes: >-
+    Each bill's detail, actions, committees, subjects, summaries, cosponsors,
+    and text-version list are kept in one JSON record. Congress 108 and later
+    are not loaded here. Text files themselves are not downloaded; the version
+    list stores the government URLs.
+fields:
+- name: identity, title, dates, latest action
+  status: typed
+  where: core.bill for jurisdiction us, the Congress number, the bill type, and the number
+- name: sponsor and cosponsor bioguideId
+  status: typed
+  where: >-
+    core.bill_sponsorship. A person is linked only when that BioGuide is already
+    stored. No person is created.
+- name: actions
+  status: typed
+  where: core.bill_action, one row per action text
+- name: committees systemCode and name
+  status: typed
+  where: core.bill_committee
+- name: policy area and legislative subjects
+  status: typed
+  where: core.bill_subject
+- name: summaries
+  status: typed
+  where: core.bill_summary
+- name: text version links
+  status: typed
+  where: core.document plus core.bill_document. The text bytes are not downloaded.
+- name: everything else in the JSON
+  status: whole_record_only
+  where: core.bill_source_record.record
+  reason: The retained JSON is the full Congress.gov answer, including keys not modelled yet.
