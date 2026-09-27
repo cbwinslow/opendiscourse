@@ -60,8 +60,8 @@ what would type it), `not_stored` (not kept; a reason is required, and only for 
 | `congress.senate_votes` (senate.gov XML) | `fields/congress.senate_votes.yaml` | audited; live-loaded 2026-09-21 |
 | `congress.committee_membership` | `fields/congress.committee_membership.yaml` | audited; live-loaded 2026-09-23 |
 | `congress.voteview` | `fields/congress.voteview.yaml` | audited; relinked 2026-09-26, 32 recent rows still unlinked |
-| `congress.congress_gov_bills` | `fields/congress.congress_gov_bills.yaml` | audited; live load of Congresses 106-107 not finished |
-| `congress.legislators` | `fields/congress.legislators.yaml` | checklist decided 2026-09-26; whole record, biography, leadership, contact, and social accounts are not loaded yet |
+| `congress.congress_gov_bills` | `fields/congress.congress_gov_bills.yaml` | audited; Congress 106 matches Congress.gov (10,840) on 2026-09-27; Congress 107 is short H.R. 2842 and H.R. 2843 (detail HTTP 500); three cosponsor pages still HTTP 500 |
+| `congress.legislators` | `fields/congress.legislators.yaml` | checklist decided 2026-09-26; live-loaded 2026-09-27 (birthday 12,228, gender 12,770, leadership 156, social 1,731, district offices 1,306) |
 | `congress.legislation` (Congress.gov members) | none yet | **needs audit** |
 | `openstates.legislation` | none yet | **needs audit** |
 | `census.*` (ACS, CBP, PEP, DHC, TIGER) | none yet | **needs audit** |

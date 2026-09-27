@@ -696,7 +696,7 @@ def sync_congress_bills_command(
 ) -> None:
     """Download Congress.gov bills from before GovInfo's files and load them.
 
-    Exit code 0: complete. 1: failed (a rerun skips bills already loaded).
+    Exit code 0: complete. 1: failed (a rerun skips a bill already in the database).
     2: finished, but a bill part Congress.gov could not serve is listed in
     ``failed_parts``. A rerun tries that part again and does not stop the rest.
     """
