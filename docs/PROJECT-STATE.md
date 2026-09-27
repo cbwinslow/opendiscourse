@@ -66,6 +66,13 @@ Gary Palmer duplicate-leadership rule and retains the later 2025-01-03 end date.
 Congress.gov HTTP 500 pages remain the reason the 106-107 bill source is ready rather than
 loaded. Person-merge committee-seat verification remains separate work.
 
+**Person-merge committee-seat verification (same day).** Read-only live check of
+the reviewed Marlin Stutzman merge passed: the duplicate person is gone, and all four
+committee seats point to the surviving person, retain BioGuide `S001188`, and resolve
+to that person's BioGuide identifier. The merge audit predates the committee load, so
+its historical move count is zero; the current linked-seat result and the database
+regression test prove the later load preserved the merged identity.
+
 **Congress.gov recovery path (same day).** `research-db recover-congress-bills` now
 retries only the five named publisher failures; it never scans the 106–107 bill list.
 If H.R. 2842 or H.R. 2843 still lacks detail, it can be saved as a partial bill from
