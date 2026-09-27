@@ -102,4 +102,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Remove empty archive tables in reverse dependency order."""
     for schema, table in (("core", "housing_microdata_projection"), ("core", "housing_archive_release"), ("stage", "ahs_record"), ("stage", "acs_pums_record")):
+        has_rows = op.get_bind().execute(sa.text(f"SELECT EXISTS (SELECT 1 FROM {schema}.{table})")).scalar()
+        if has_rows:
+            raise RuntimeError(f"refusing to downgrade non-empty {schema}.{table}")
         op.drop_table(table, schema=schema)

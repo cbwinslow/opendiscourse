@@ -242,13 +242,15 @@ class ACSArchiveConnector:
         return ctx
 
     def publish(self, ctx: ConnectorContext) -> ConnectorContext:
-        """Publish one provenance-linked release row per selected source artifact."""
+        """Publish provenance-linked data releases and their current-run projection."""
         release = housing_archive_release_table
+        data_artifact_ids: set[Any] = set()
         with session() as active_session:
             for artifact in self.artifacts:
-                if not artifact.selected:
+                if not artifact.selected or artifact.kind != "data":
                     continue
                 evidence = ctx.extras["evidence"][artifact.artifact_key]
+                data_artifact_ids.add(evidence["artifact_id"])
                 statement = insert(release).values(
                     dataset_id=self.source_id,
                     product=artifact.product,
@@ -259,7 +261,7 @@ class ACSArchiveConnector:
                     metadata={"kind": artifact.kind, "version": artifact.version},
                 )
                 active_session.execute(statement.on_conflict_do_nothing())
-        ctx.extras["projected_rows"] = publish_policy_projection()
+        ctx.extras["projected_rows"] = publish_policy_projection(data_artifact_ids)
         return ctx
 
     def checkpoint(self, ctx: ConnectorContext) -> ConnectorContext:
@@ -338,7 +340,7 @@ def _first(row: dict[str, str], *names: str) -> str | None:
     return next((row[name] for name in names if row.get(name) not in (None, "")), None)
 
 
-def publish_policy_projection() -> int:
+def publish_policy_projection(artifact_ids: set[Any] | None = None) -> int:
     """Idempotently project approved policy fields from retained staged records.
 
     It intentionally reads stage rather than a live download.  A new approved
@@ -351,7 +353,10 @@ def publish_policy_projection() -> int:
             (stage_acs_pums_record, "pums"),
             (stage_ahs_record, None),
         ):
-            for staged in active_session.execute(select(table)).mappings():
+            statement = select(table)
+            if artifact_ids is not None:
+                statement = statement.where(table.c.artifact_id.in_(artifact_ids))
+            for staged in active_session.execute(statement).mappings():
                 raw = dict(staged["raw"])
                 is_pums = table is stage_acs_pums_record
                 values: dict[str, Any] = {

@@ -155,9 +155,10 @@ def discover_archive_index(index: ArchiveIndex) -> list[dict[str, Any]]:
                 lowered = name.lower()
                 if "puf" in lowered and "csv.zip" in lowered and "flat" not in lowered:
                     version = _ahs_version(name)
-                    if version is not None:
-                        component = _ahs_component(lowered)
-                        ahs_current[component] = max(ahs_current.get(component, version), version)
+                    if version is None:
+                        raise ValueError(f"AHS PUF has no parseable version: {url}")
+                    component = _ahs_component(lowered)
+                    ahs_current[component] = max(ahs_current.get(component, version), version)
         for url in links:
             name = unquote(url.rsplit("/", 1)[-1]).lower()
             if not name or name.endswith("/"):
@@ -189,6 +190,8 @@ def discover_archive_index(index: ArchiveIndex) -> list[dict[str, Any]]:
                 entry["component"] = _ahs_component(name)
                 if kind == "data":
                     version = _ahs_version(name)
+                    if version is None:
+                        raise ValueError(f"AHS PUF has no parseable version: {url}")
                     entry["representation"] = "flat" if "flat" in name else "relational"
                     entry["version"] = "current" if version == ahs_current.get(entry["component"]) else "superseded"
             entries.append(entry)
