@@ -60,8 +60,3 @@ At any handoff, a new operator can open this spec and its matrix, select the hig
 ## Assumptions
 
 - The work is an express source-completion plan derived from the existing project contract and state, not a request to expand scope beyond v1.
-- A final choice of the first execution lane is still needed because it determines which short BMAD build spec is written next.
-
-## Open Questions
-
-- Which ready v1 lane should begin first: (A) legislative tracker reconciliation and the five Congress.gov retry exceptions, (B) ACS comprehensive-delta staging/loading for 2021–2024, or (C) source-contract audits for FRED, Treasury, BLS, and OpenStates? A closes the most visible legislative handoff gaps; B completes an already-downloaded, approved Census scope; C makes non-legislative scope measurable before further loading.

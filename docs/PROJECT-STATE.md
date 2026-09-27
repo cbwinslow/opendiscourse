@@ -57,6 +57,16 @@ Policy Committee Chair starting 2021-01-03, with end dates 2023-01-03 and
 safety copy. That one-line SQL change is in the second checkout and is not
 on `main` yet. Do not switch this folder onto `main`.
 
+**Tracker reconciliation (same day).** A read-only check on port 5434 confirms 10,840
+bills in Congress 106, 10,789 in 107, 23,359 official roll calls, 7,384,589 member
+votes, 12,770 people, and 45,535 memberships. `inventory/progress.yaml` now marks the
+official House and Senate vote sources loaded, adds the legislator profile source as
+`ready` (not reproducibly loaded until its duplicate-leadership fix reaches `main`), and
+preserves the five Congress.gov HTTP 500 pages as the reason the 106-107 bill source
+remains ready. The legislative north star now distinguishes the aligned vote tracker from
+the still-pending reproducible profile load; person-merge committee-seat verification
+remains separate work.
+
 ## Session handoff (2026-09-26, evening)
 
 Stop here. The download is finished and the service is stopped. This folder
