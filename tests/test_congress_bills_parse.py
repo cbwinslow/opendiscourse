@@ -85,7 +85,10 @@ def test_a_bill_is_skipped_only_when_every_part_is_loaded() -> None:
         for name in ("detail", *PARTS)
     }
     connector._loaded = complete
+    connector._stored = {("106", "sres", "1")}
     assert connector._bill_complete(_identity("1")) is True
+    connector._stored = set()
+    assert connector._bill_complete(_identity("1")) is False
     missing = dict(complete)
     del missing["106/sres/1/cosponsors"]
     connector._loaded = {key.replace("/1/", "/218/"): value for key, value in missing.items()}
@@ -175,6 +178,7 @@ def test_a_clean_run_records_succeeded_and_a_gap_records_partial() -> None:
 
     connector = CongressBillConnector((106,), http=object())
     connector._client = _Client()
+    connector._stored = set()
     connector._identities = lambda congress: []  # type: ignore[method-assign]
     run = _Run()
     connector._run = run  # type: ignore[assignment]
