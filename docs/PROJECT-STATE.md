@@ -70,9 +70,9 @@ loaded. Person-merge committee-seat verification remains separate work.
 retries only the five named publisher failures; it never scans the 106–107 bill list.
 If H.R. 2842 or H.R. 2843 still lacks detail, it can be saved as a partial bill from
 the retained official list row, with each available child fact linked to its own
-evidence. The three unavailable cosponsor pages remain named retry failures and never
-create inferred people. The command has not been run against port 5434 after this code
-change.
+evidence. The command ran on port 5434: it saved both partial bills, with their own
+list evidence records and no sponsorship rows. The three unavailable cosponsor pages
+remain named retry failures and never create inferred people.
 
 ## Session handoff (2026-09-26, evening)
 
