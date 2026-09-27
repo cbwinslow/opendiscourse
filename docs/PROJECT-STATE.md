@@ -1,8 +1,7 @@
 # Project state and handoff
 
-Last updated: 2026-09-27. Congress 106 bills match Congress.gov (10,840).
-Congress 107 is still short two bills whose detail pages return HTTP 500.
-Member profiles are loaded on port 5434. See "Session handoff (2026-09-27)".
+Last updated: 2026-09-27, end of session. Stop here. No download is
+running. See "Session handoff (2026-09-27, stop)".
 The done-state for bills, votes, and members remains
 `_bmad-output/specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10).
 Read this first when resuming, then `AGENTS.md`,
@@ -10,6 +9,63 @@ Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
 decision or story status changes.
+
+## Session handoff (2026-09-27, stop)
+
+Stop here. Nothing is downloading. Do not start `sync-congress-bills` again
+until Congress.gov answers the five pages below. Do not switch this folder
+off `docs/download-congress`. The code fix is already on `main`.
+
+**This folder.** Branch `docs/download-congress`, commit `ac272e2` plus the
+handoff commit that adds this section. Remote is
+`origin/docs/download-congress`. Leave it as the record of the 106–107 run.
+
+**`main`.** Pull request #95 is merged as `b1a9b47`
+(https://github.com/cbwinslow/opendiscourse/pull/95). It teaches the bill
+loader to write a row when the files are already on disk, and it keeps the
+later end date when the member file lists the same leadership job twice.
+A review note, not a live failure: if one of those saved files were deleted,
+a later rerun could stop on that bill. The files are still on disk.
+
+**Live database, port 5434, migration `c9e4a1b27d83`.**
+
+| What | Count | Note |
+|---|---:|---|
+| Bills, Congress 106 | 10,840 | Matches Congress.gov |
+| Bills, Congress 107 | 10,789 | Congress.gov lists 10,791 |
+| People | 12,770 | Unchanged |
+| Birthdays | 12,228 | 542 people have none in the member file |
+| Gender | 12,770 | Every person |
+| Leadership jobs | 156 | Palmer `P000609` keeps the 2025 end; the 2023 end stays in his saved file |
+| Social accounts | 1,731 | |
+| District offices | 1,306 | |
+| Saved member-file entries | 14,594 | |
+| Roll calls / member votes | 23,359 / 7,384,589 | Congresses 108–119 only |
+| Bill text versions | 135,136 | Congresses 113–119 only |
+
+**Still missing, and why.** Congress.gov returns HTTP 500 for these five
+pages. A rerun on 2026-09-27 tried them again and they still failed. Log:
+`/tmp/congress-bills-gap-2026-09-27.log` (exit 2, `bills` 5, `skipped`
+21,624, `not_saved` 2).
+
+- 107 H.R. 2842 detail — bill not in `core.bill`
+- 107 H.R. 2843 detail — bill not in `core.bill`
+- 106 S. 1378 cosponsors — bill is stored
+- 106 S.Res. 218 cosponsors — bill is stored (BioGuide `C000269`)
+- 107 H.R. 5346 cosponsors — bill is stored
+
+**Do not redo.** Voteview, budget-office columns, committee seats, bills and
+votes and members for Congresses 108–119, bill text for 113–119, the member
+profile load.
+
+**Next, in order.** Read the House Clerk and Senate vote file lists for
+2000–2002 before writing any downloader. If those files exist, use the vote
+loader already on `main`. If they do not, write that down and stop. After
+votes, the unused Congress.gov lists are amendments, related bills, and extra
+titles. Each is another request per bill, so 106–107 would be about three
+more hours at the 20,000-request hourly cap. GovInfo still has no bill zip
+before Congress 108 and no bill-text zip before Congress 113. FEC files stay
+on disk and are not loaded. No website.
 
 ## Session handoff (2026-09-27)
 
@@ -54,8 +110,8 @@ all 12,770. Leadership rows 156, social accounts 1,731, district offices
 stopped because Gary Palmer (`P000609`) is listed twice as House Republican
 Policy Committee Chair starting 2021-01-03, with end dates 2023-01-03 and
 2025-01-03. The typed row keeps the later end. Both entries stay in his
-safety copy. That one-line SQL change is in the second checkout and is not
-on `main` yet. Do not switch this folder onto `main`.
+safety copy. That SQL change is on `main` as pull request #95 (`b1a9b47`). Do not
+switch this folder onto `main`.
 
 ## Session handoff (2026-09-26, evening)
 
