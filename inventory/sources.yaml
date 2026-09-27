@@ -44,6 +44,19 @@ providers:
         cadence: annual
         priority: 1
         notes: Primary browser path for complete ACS releases. The package contains all Detailed Tables, estimates, margins of error, and published geographies; later loads filter to approved canonical scope.
+      - id: census.acs_housing_archive
+        title: Complete ACS PUMS and American Housing Survey archive
+        access: Official Census directory indexes and public-use packages
+        client: httpx
+        grain: product × release period × survey component × source record
+        identifiers: [product, period, component, source_member, source_ordinal]
+        cadence: annual
+        priority: 1
+        notes: >-
+          Retains current official ACS PUMS 1-year/5-year housing and person packages,
+          dictionaries and release notes, plus current relational AHS public-use CSVs and
+          documentation. PUMS is sample microdata at PUMA geography, never identified
+          household or county microdata. The 2020 ACS 1-year absence is recorded.
       - id: census.decennial
         title: Decennial Census
         access: REST API and bulk files

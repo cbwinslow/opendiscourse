@@ -283,7 +283,7 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
             )
         }
 
-    assert revision == "c9e4a1b27d83"
+    assert revision == "f6b2a7c4d913"
     assert {
         "catalog.provider",
         "catalog.dataset",
@@ -316,6 +316,8 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
         "core.organization_identifier",
         "core.division",
         "core.post",
+        "core.housing_archive_release",
+        "core.housing_microdata_projection",
         "core.membership",
         "core.roll_call",
         "core.instrument",
@@ -339,6 +341,8 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
         "stage.fec_row",
         "stage.pep_row",
         "stage.tiger_feature",
+        "stage.acs_pums_record",
+        "stage.ahs_record",
     } <= tables
     assert {"pg_trgm", "unaccent"} <= extensions
     assert {"resource_title_trgm_idx", "resource_fts_idx"} <= indexes
@@ -444,7 +448,7 @@ def test_existing_schema_without_alembic_watermark_is_adopted_safely(
     with engine().connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "c9e4a1b27d83"
+        ).scalar_one() == "f6b2a7c4d913"
         assert connection.execute(
             text("SELECT to_regclass('core.bill')")
         ).scalar_one() == "core.bill"
@@ -484,7 +488,7 @@ def test_alembic_adoptions_can_downgrade_and_reupgrade(
         command.upgrade(config, "head")
 
     with engine().connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "c9e4a1b27d83"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "f6b2a7c4d913"
         assert connection.execute(text("SELECT to_regclass('core.division')")).scalar_one() == "core.division"
         assert connection.execute(text("SELECT to_regclass('core.post')")).scalar_one() == "core.post"
         assert connection.execute(

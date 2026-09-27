@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import json
+import re
+from dataclasses import dataclass
 from hashlib import sha256
+from html.parser import HTMLParser
 from typing import Any
+from urllib.parse import unquote, urljoin
 
+import httpx
 from sqlalchemy import func, literal, select
 from sqlalchemy.dialects.postgresql import insert
 
@@ -20,6 +25,174 @@ ACS_TABLE_BASED_YEARS = (2021, 2022, 2023, 2024)
 CBP_YEARS = tuple(range(2009, 2024))
 TIGER_YEARS = tuple(range(2016, 2026))
 DHC_2020_URL = "https://www2.census.gov/programs-surveys/decennial/2020/data/demographic-and-housing-characteristics-file/National/us2020.dhc.zip"
+ACS_PUMS_BASE_URL = "https://www2.census.gov/programs-surveys/acs/data/pums"
+AHS_BASE_URL = "https://www2.census.gov/programs-surveys/ahs"
+# These are the release directories currently published by Census. AHS was
+# annual through 2005, then moved to odd-year releases; the early odd-year
+# directories include metropolitan PUFs. This is the all-publisher-release
+# list, not a national-series shortcut.
+AHS_RELEASE_YEARS = (2001, 2002, 2003, 2004, 2005, *range(2007, 2024, 2))
+
+
+class _DirectoryLinks(HTMLParser):
+    """Minimal parser for the publisher's Apache-style directory indexes."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.links: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "a":
+            href = dict(attrs).get("href")
+            if href:
+                self.links.append(href)
+
+
+def census_directory_links(index_url: str, html: str) -> list[str]:
+    """Return only safe same-directory official links from a Census index page."""
+    parser = _DirectoryLinks()
+    parser.feed(html)
+    return sorted(
+        {
+            urljoin(index_url, href)
+            for href in parser.links
+            if href not in {"../", "./"} and urljoin(index_url, href).startswith("https://www2.census.gov/")
+        }
+    )
+
+
+@dataclass(frozen=True)
+class ArchiveIndex:
+    """One official directory plus the release identity it describes."""
+
+    url: str
+    product: str
+    period: str
+    component: str
+    version: str = "current"
+
+
+def official_housing_archive_indexes() -> tuple[ArchiveIndex, ...]:
+    """Return every official PUMS/AHS release directory in the approved scope.
+
+    The list is intentionally generated from publication rules, rather than kept
+    as a hand-edited sample.  Discovery still reads the publisher's directory
+    and fails closed if a listed member has no byte count.
+    """
+    # The first four standard releases predate Census's product subfolders.
+    # Their PUMS archives sit directly in the release-year directory; 2009
+    # introduced the 1-Year/ and 5-Year/ layout.
+    indexes = [
+        ArchiveIndex(
+            f"{ACS_PUMS_BASE_URL}/{year}/" if year < 2009 else f"{ACS_PUMS_BASE_URL}/{year}/1-Year/",
+            "acs_pums_1",
+            str(year),
+            "all",
+        )
+        for year in range(2005, 2025)
+        if year != 2020
+    ]
+    indexes.extend(
+        ArchiveIndex(f"{ACS_PUMS_BASE_URL}/{year}/5-Year/", "acs_pums_5", f"{year - 4}-{year}", "all")
+        for year in range(2009, 2025)
+    )
+    indexes.extend(
+        ArchiveIndex(f"{AHS_BASE_URL}/{year}/", "ahs", str(year), "all")
+        for year in AHS_RELEASE_YEARS
+    )
+    return tuple(indexes)
+
+
+def _ahs_component(name: str) -> str:
+    """Classify the two non-overlapping published AHS samples from a filename."""
+    return "metropolitan" if "metropolitan" in name else "national"
+
+
+def _ahs_version(name: str) -> tuple[int, int] | None:
+    """Extract the publisher's PUF version where a release has revisions."""
+    match = re.search(r"\bv(?:ersion)?\s*(\d+)\.(\d+)\b", name, re.IGNORECASE)
+    return (int(match.group(1)), int(match.group(2))) if match else None
+
+
+def _publisher_byte_size(http: httpx.Client, url: str) -> int | None:
+    """Read an exact publisher byte count without downloading an archive."""
+    try:
+        head = http.head(url)
+        if head.is_success and head.headers.get("content-length"):
+            return int(head.headers["content-length"])
+        # Some Census archive members omit Content-Length on HEAD. A one-byte
+        # range response carries the complete object length in Content-Range;
+        # stream it so a server that ignores Range cannot retain a full ZIP.
+        with http.stream("GET", url, headers={"Range": "bytes=0-0"}) as probe:
+            if not probe.is_success:
+                return None
+            content_range = probe.headers.get("content-range")
+            if content_range and (match := re.fullmatch(r"bytes \d+-\d+/(\d+)", content_range)):
+                return int(match.group(1))
+            if probe.status_code == 200 and probe.headers.get("content-length"):
+                return int(probe.headers["content-length"])
+    except (httpx.HTTPError, ValueError):
+        return None
+    return None
+
+
+def discover_archive_index(index: ArchiveIndex) -> list[dict[str, Any]]:
+    """Read one official Census directory into exact archive-manifest entries.
+
+    This HTTP-only provider boundary deliberately does not guess absent files:
+    an inaccessible index or a member with no published byte count is returned
+    to the capacity gate as unknown and therefore cannot be transferred.
+    """
+    with client() as http:
+        response = http.get(index.url)
+        response.raise_for_status()
+        links = census_directory_links(index.url, response.text)
+        entries: list[dict[str, Any]] = []
+        ahs_current: dict[str, tuple[int, int]] = {}
+        if index.product == "ahs":
+            for url in links:
+                name = unquote(url.rsplit("/", 1)[-1])
+                lowered = name.lower()
+                if "puf" in lowered and "csv.zip" in lowered and "flat" not in lowered:
+                    version = _ahs_version(name)
+                    if version is not None:
+                        component = _ahs_component(lowered)
+                        ahs_current[component] = max(ahs_current.get(component, version), version)
+        for url in links:
+            name = unquote(url.rsplit("/", 1)[-1]).lower()
+            if not name or name.endswith("/"):
+                continue
+            if index.product.startswith("acs_pums"):
+                if name.startswith("csv_") and name.endswith(".zip"):
+                    kind = "data"
+                elif name.endswith((".pdf", ".txt", ".xlsx", ".xls", ".doc", ".docx")):
+                    kind = "documentation"
+                else:
+                    continue
+            elif index.product == "ahs" and "puf" in name and name.endswith("csv.zip"):
+                kind = "data"
+            elif name.endswith((".pdf", ".txt", ".xlsx", ".xls", ".doc", ".docx")):
+                kind = "documentation"
+            else:
+                continue
+            size = _publisher_byte_size(http, url)
+            entry: dict[str, Any] = {
+                "product": index.product,
+                "period": index.period,
+                "component": index.component,
+                "kind": kind,
+                "url": url,
+                "bytes": size,
+                "version": index.version,
+            }
+            if index.product == "ahs":
+                entry["component"] = _ahs_component(name)
+                if kind == "data":
+                    version = _ahs_version(name)
+                    entry["representation"] = "flat" if "flat" in name else "relational"
+                    entry["version"] = "current" if version == ahs_current.get(entry["component"]) else "superseded"
+            entries.append(entry)
+    return entries
 
 
 def _offering_key(item: dict[str, Any]) -> str:

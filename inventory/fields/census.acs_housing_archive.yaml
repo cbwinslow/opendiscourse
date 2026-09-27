@@ -1,0 +1,27 @@
+version: 1
+dataset: census.acs_housing_archive
+audited_on: '2026-09-27'
+origin: https://www2.census.gov/programs-surveys/acs/data/pums/ and https://www.census.gov/programs-surveys/ahs/data.html
+policy: Raw source variables are retained in full; these are the initial reviewed analytic projection.
+capture:
+  whole_record: stage.acs_pums_record.raw and stage.ahs_record.raw
+  notes: Every official source variable remains in source-shaped staged evidence; approved mappings can expand without another download.
+fields:
+  - name: demographics
+    status: typed
+    where: All variables are retained in stage.acs_pums_record.raw. The initial typed projection maps age, sex, and race/ethnicity; disability, citizenship/nativity, and language await dictionary-backed mappings.
+  - name: income and poverty
+    status: typed
+    where: All variables are retained in stage.acs_pums_record.raw. The initial typed projection maps income and poverty; earnings, benefits, and insurance await dictionary-backed mappings.
+  - name: education and family
+    status: typed
+    where: All variables are retained in stage.acs_pums_record.raw. The initial typed projection maps education; enrollment, marital status, relationship, and household composition await dictionary-backed mappings.
+  - name: housing and quality
+    status: typed
+    where: All variables are retained in both source-shaped stage tables. The initial typed projection maps costs, value, tenure, and year built; structure, repairs, neighborhood, finance, and moving await dictionary-backed mappings.
+  - name: work and mobility
+    status: typed
+    where: All variables are retained in stage.acs_pums_record.raw. The initial typed projection maps employment; occupation, industry, commute, vehicles, and migration await dictionary-backed mappings.
+  - name: crime
+    status: not_stored
+    reason: Crime requires a separate official-source contract and is not an ACS or AHS field.

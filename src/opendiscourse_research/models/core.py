@@ -48,6 +48,53 @@ core_geography = Table(
 )
 
 
+housing_archive_release_table = Table(
+    "housing_archive_release",
+    SQLModel.metadata,
+    Column("housing_archive_release_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("dataset_id", Text, ForeignKey("catalog.dataset.dataset_id"), nullable=False),
+    Column("product", Text, nullable=False),
+    Column("period", Text, nullable=False),
+    Column("component", Text, nullable=False),
+    Column("status", Text, nullable=False),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id"), nullable=False),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    UniqueConstraint("dataset_id", "product", "period", "component", "source_artifact_id"),
+    CheckConstraint("status IN ('standard', 'nonstandard', 'gap')", name="housing_archive_release_status_check"),
+    schema="core",
+)
+
+
+housing_microdata_projection_table = Table(
+    "housing_microdata_projection",
+    SQLModel.metadata,
+    Column("artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id"), primary_key=True),
+    Column("source_member", Text, primary_key=True),
+    Column("source_ordinal", BigInteger, primary_key=True),
+    Column("product", Text, nullable=False),
+    Column("period", Text, nullable=False),
+    Column("component", Text, nullable=False),
+    Column("record_type", Text, nullable=False),
+    Column("puma", Text),
+    Column("weight", Float),
+    Column("age", Integer),
+    Column("sex", Text),
+    Column("race", Text),
+    Column("ethnicity", Text),
+    Column("income", Numeric),
+    Column("poverty_ratio", Numeric),
+    Column("education", Text),
+    Column("employment_status", Text),
+    Column("tenure", Text),
+    Column("rent", Numeric),
+    Column("gross_rent", Numeric),
+    Column("property_value", Numeric),
+    Column("year_built", Integer),
+    CheckConstraint("record_type IN ('housing', 'person', 'unit')", name="housing_projection_record_type_check"),
+    schema="core",
+)
+
+
 fact_measurement = Table(
     "measurement",
     SQLModel.metadata,

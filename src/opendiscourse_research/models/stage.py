@@ -5,6 +5,7 @@ from __future__ import annotations
 from geoalchemy2 import Geometry
 from sqlalchemy import (
     BigInteger,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -113,5 +114,37 @@ stage_fec_row = Table(
     Column("raw", JSONB, nullable=False),
     Column("staged_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     Index("fec_row_family_cycle_idx", "family", "cycle"),
+    schema="stage",
+)
+
+
+# Housing microdata stays source-shaped in stage.  The typed publication layer
+# can be expanded from these retained rows without reacquiring Census evidence.
+stage_acs_pums_record = Table(
+    "acs_pums_record",
+    SQLModel.metadata,
+    _artifact_column(),
+    Column("source_member", Text, primary_key=True),
+    Column("source_ordinal", BigInteger, primary_key=True),
+    Column("product", Text, nullable=False),
+    Column("period", Text, nullable=False),
+    Column("record_type", Text, nullable=False),
+    Column("puma", Text),
+    Column("raw", JSONB, nullable=False),
+    CheckConstraint("product IN ('acs_pums_1', 'acs_pums_5')", name="acs_pums_product_check"),
+    CheckConstraint("record_type IN ('housing', 'person')", name="acs_pums_record_type_check"),
+    schema="stage",
+)
+
+stage_ahs_record = Table(
+    "ahs_record",
+    SQLModel.metadata,
+    _artifact_column(),
+    Column("source_member", Text, primary_key=True),
+    Column("source_ordinal", BigInteger, primary_key=True),
+    Column("release_year", Integer, nullable=False),
+    Column("component", Text, nullable=False),
+    Column("table_name", Text, nullable=False),
+    Column("raw", JSONB, nullable=False),
     schema="stage",
 )
