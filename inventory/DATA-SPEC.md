@@ -60,7 +60,7 @@ what would type it), `not_stored` (not kept; a reason is required, and only for 
 | `congress.senate_votes` (senate.gov XML) | `fields/congress.senate_votes.yaml` | audited; live-loaded 2026-09-21 |
 | `congress.committee_membership` | `fields/congress.committee_membership.yaml` | audited; live-loaded 2026-09-23 |
 | `congress.voteview` | `fields/congress.voteview.yaml` | audited; relinked 2026-09-26, 32 recent rows still unlinked |
-| `congress.congress_gov_bills` | `fields/congress.congress_gov_bills.yaml` | audited; live load of Congresses 106-107 not finished |
+| `congress.congress_gov_bills` | `fields/congress.congress_gov_bills.yaml` | audited; Congress 106 matches Congress.gov (10,840) on 2026-09-27; Congress 107 is short H.R. 2842 and H.R. 2843 (detail HTTP 500); three cosponsor pages still HTTP 500 |
 | `congress.legislators` | none yet | **needs audit** (north star: members are not done) |
 | `congress.legislation` (Congress.gov members) | none yet | **needs audit** |
 | `openstates.legislation` | none yet | **needs audit** |

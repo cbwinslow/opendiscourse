@@ -381,9 +381,10 @@ class CongressBillConnector:
     """Download Congress.gov bill JSON and save it beside the GovInfo bills.
 
     Congress 108 and later are refused: those bills already come from GovInfo.
-    A second run skips a bill whose every part is already marked loaded.
-    One part the server cannot serve is recorded and the other bills continue.
-    The missing part is tried again on the next run.
+    A second run skips a bill whose every part is already marked loaded and
+    whose row is already in ``core.bill``. Files without that row are saved
+    from disk. One part the server cannot serve is recorded and the other
+    bills continue. The missing part is tried again on the next run.
     """
 
     source_id = SOURCE_ID
@@ -414,6 +415,7 @@ class CongressBillConnector:
         self._run: IngestionRun | None = None
         self._lock: Any = None
         self._loaded: dict[str, dict[str, Any]] = {}
+        self._stored: set[tuple[str, str, str]] | None = None
         self._loaded_lock = threading.Lock()
         self._failed: dict[str, str] = {}
         self._failure_lock = threading.Lock()
@@ -432,6 +434,7 @@ class CongressBillConnector:
         self._run.__enter__()
         ctx.run_id = str(self._run.run_id)
         self._loaded = current_artifacts(SOURCE_ID)
+        self._stored = self._load_stored_bills()
         self._report("discovered retained bills")
         return ctx
 
@@ -447,6 +450,8 @@ class CongressBillConnector:
     def extract(self, ctx: ConnectorContext) -> ConnectorContext:
         """Download what is not already loaded. The next bill starts while this one is saved."""
         counts = {"bills": 0, "skipped": 0, "not_saved": 0}
+        if self._stored is None:
+            self._stored = self._load_stored_bills()
         try:
             for congress in self._congresses:
                 identities = self._identities(congress)
@@ -571,8 +576,33 @@ class CongressBillConnector:
                         counts["not_saved"] += 1
                         self._report(f"recorded a missing part for {label}")
 
+    def _load_stored_bills(self) -> set[tuple[str, str, str]]:
+        """Bills already in the warehouse for this run's Congresses.
+
+        A retained file is not enough. The previous run could mark every part
+        loaded and die before the row was written, and a later run would skip it.
+        """
+        sessions = [str(item) for item in self._congresses]
+        with connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT legislative_session, bill_type, bill_number
+                FROM core.bill
+                WHERE jurisdiction = 'us'
+                  AND legislative_session = ANY(%(sessions)s)
+                """,
+                {"sessions": sessions},
+            ).fetchall()
+        return {
+            (str(row["legislative_session"]), str(row["bill_type"]).lower(), str(row["bill_number"]))
+            for row in rows
+        }
+
     def _bill_complete(self, identity: dict[str, str]) -> bool:
-        """True when every part already has retained bytes. A failed part does not count."""
+        """True when every part is on disk and the bill row already exists.
+
+        A failed part does not count. Files with no row are saved again from disk.
+        """
         congress = int(identity["congress"])
         bill_type = identity["bill_type"]
         number = identity["number"]
@@ -581,7 +611,9 @@ class CongressBillConnector:
                 current = self._loaded.get(_key(congress, bill_type, number, name))
             if not (current and current.get("status") == "loaded" and current.get("local_path")):
                 return False
-        return True
+        if self._stored is None:
+            return True
+        return (identity["congress"], bill_type.lower(), number) in self._stored
 
     def _plan(self, identity: dict[str, str]) -> tuple[list[str], dict[str, tuple[bytes, str]]]:
         """Split one bill into files still on disk and parts still to download."""
@@ -687,6 +719,8 @@ class CongressBillConnector:
                 source_name=SOURCE_ID,
             )
             conn.commit()
+        if self._stored is not None:
+            self._stored.add((str(congress), bill_type.lower(), number))
         return True, missing
 
     def _keep(self, key: str, url: str, body: bytes) -> str:

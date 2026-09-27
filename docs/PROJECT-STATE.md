@@ -1,7 +1,8 @@
 # Project state and handoff
 
-Last updated: 2026-09-26. The 2000–2002 bill download is running again. Do not
-start a second copy. See "Session handoff (2026-09-26)".
+Last updated: 2026-09-27. Congress 106 bills match Congress.gov (10,840).
+Congress 107 is still short two bills whose detail pages return HTTP 500.
+Member profiles are loaded on port 5434. See "Session handoff (2026-09-27)".
 The done-state for bills, votes, and members remains
 `_bmad-output/specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10).
 Read this first when resuming, then `AGENTS.md`,
@@ -10,7 +11,103 @@ Read this first when resuming, then `AGENTS.md`,
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
 decision or story status changes.
 
-## Session handoff (2026-09-26)
+## Session handoff (2026-09-27)
+
+The download is still stopped. Do not start `sync-congress-bills` again for
+a full 106–107 pass. A list-page comparison against Congress.gov on
+2026-09-27 (88 list pages, no bill-detail calls) found four bills in the
+publisher list and not in `core.bill`. Nothing in the database is extra.
+
+| Congress | Congress.gov list | `core.bill` | Missing |
+|---|---:|---:|---|
+| 106 | 10,840 | 10,838 | `hconres` 321, `hjres` 65 |
+| 107 | 10,791 | 10,789 | `hr` 2842, `hr` 2843 |
+
+The 107 pair is the two detail pages that returned HTTP 500. Their other
+six files are on disk and marked loaded; the detail file is absent, so a
+later run will try those two pages again. The 106 pair was not in
+`failed_parts`: all seven files for each are on disk and marked loaded, and
+there is still no `core.bill` row. A normal rerun will skip them. That is
+the hole already written down (file marked loaded, row not saved, restart
+skips the bill). The cosponsor-only failures are still 106 S 1378, 106
+SRES 218, and 107 HR 5346; those three bills are in `core.bill`, and those
+three cosponsor files are not marked loaded, so a later run will try them
+again. Live totals the same morning: 194,363 bills, 12,770 people, 23,359
+roll calls, 7,384,589 member votes, 135,136 bill-text versions.
+
+**Gap fill (same day).** `research-db sync-congress-bills` was run again
+after a skip fix: a bill is skipped only when every file is loaded and the
+`core.bill` row exists. It saved 5 bills from files already on disk, skipped
+21,624, and did not save 2. Congress 106 is now 10,840, matching the
+Congress.gov list. The two saved from disk are 106 `hconres` 321 and 106
+`hjres` 65. Congress 107 is still 10,789. H.R. 2842 and H.R. 2843 still have
+no detail page (HTTP 500). The three cosponsor pages still return HTTP 500:
+106 S 1378, 106 SRES 218, and 107 HR 5346. Do not start another full pass
+until Congress.gov answers those five pages.
+
+**Member profiles are loaded.** From a second checkout of `main` at
+`e3ca6eb`, `research-db init-db` moved port 5434 from `e8c2a9d14b59` to
+`c9e4a1b27d83`, then `research-db load-legislators` finished exit 0.
+People stayed 12,770. Birthday is stored for 12,228. Gender is stored for
+all 12,770. Leadership rows 156, social accounts 1,731, district offices
+1,306, safety copies 14,594. Unknown BioGuide ids: none. The first attempt
+stopped because Gary Palmer (`P000609`) is listed twice as House Republican
+Policy Committee Chair starting 2021-01-03, with end dates 2023-01-03 and
+2025-01-03. The typed row keeps the later end. Both entries stay in his
+safety copy. That one-line SQL change is in the second checkout and is not
+on `main` yet. Do not switch this folder onto `main`.
+
+## Session handoff (2026-09-26, evening)
+
+Stop here. The download is finished and the service is stopped. This folder
+is still branch `docs/download-congress` at `7b673c4`. Its remote is gone.
+`main` is ahead of this folder: `e3ca6eb`, pull request #94. Do the next
+work from a second folder checked out from `main`.
+
+**The bill download finished.** `od-congress-bills.service` exited at
+20:26 UTC on 2026-09-26 with status 2. The JSON in
+`/tmp/congress-bills-106-107.log` says `bills` 14,290, `skipped` 7,339,
+`partial` true, `not_saved` 2, and 5 `failed_parts`. Status 2 means those
+pages were recorded and the rest was saved. It does not mean the service
+is still running.
+
+The five pages Congress.gov still answered with HTTP 500:
+
+- 106 S 1378 cosponsors
+- 106 SRES 218 cosponsors (BioGuide `C000269`, the page that stopped the earlier run)
+- 107 HR 2842 detail (not saved)
+- 107 HR 2843 detail (not saved)
+- 107 HR 5346 cosponsors
+
+**Saved (port 5434, morning of 2026-09-27):** Congress 106 has 10,838 bills
+in `core.bill`. Congress 107 has 10,789. Together that is 21,627, which is
+the run's 14,290 plus 7,339 skipped, minus the 2 bills whose main page was
+not saved.
+
+**Member load is merged and not applied.** Pull request #94 is on `main` as
+`e3ca6eb`. `research-db load-legislators` on that commit also saves birthday,
+gender, leadership, the Washington office on each term, current social
+accounts, district offices, and a safety copy of each file entry. Middle
+name, suffix, nickname, and earlier last names are name facts and do not
+change the shown name. The live database on port 5434 has not been migrated
+and has not been loaded. Check out `main` in a second folder, run
+`research-db init-db` there, then `research-db load-legislators`. Do not
+switch this folder onto `main` first; leave it as the record of the run.
+
+**Field list.** `inventory/fields/congress.legislators.yaml` is on `main`
+(pull request #93, `aee4efa`). Presidents stay in `executive.yaml`. A social
+account or district office that leaves a later file is removed. An unknown
+BioGuide is kept and reported.
+
+**After this:** compare the 10,838 and 10,789 counts with Congress.gov's
+own list totals, and decide what to do about the 2 unsaved bills and the
+3 saved bills whose cosponsor page was a server error. Then apply the
+member load from a `main` checkout, as above. Do not redo Voteview, the
+budget-office columns, committee seats, or the 108–119 loads. Do not start
+`sync-congress-bills` again until that comparison is written down. A rerun
+would retry only the parts that are not fully loaded.
+
+## Session handoff (2026-09-26, afternoon)
 
 Stop here. The download is running. Do not start a second copy.
 
@@ -38,8 +135,9 @@ with any such part exits 2 and prints `failed_parts`. Exit 0 means every part
 was saved. Bills already saved were kept. No file had been saved for 106 SRES 218
 before this rerun.
 
-**Saved so far (port 5434):** Congress 106 has 7,336 bills in `core.bill`
-and 7,340 detail files on disk. Congress 107 has 1 bill in `core.bill`.
+**Saved so far at the 15:03 restart (port 5434):** Congress 106 had 7,336
+bills in `core.bill` and 7,340 detail files on disk. Congress 107 had 1
+bill in `core.bill`. See the evening handoff for the later counts.
 The folder `congress/congress_gov` has 51,415 files whose names start with
 `106` and 51 whose names start with `107` (mostly the 107 bill list). No
 file was saved for 106 SRES 218.
@@ -91,8 +189,8 @@ are loaded. This download is only the 2000–2002 gap. Qodo skills were removed
 from `~/.claude/skills` and should stay removed. Push this branch after commits.
 
 **After the download:** compare `core.bill` counts for 106 and 107 with
-Congress.gov's list totals, then the member field checklist (biography,
-leadership, office contact, social media).
+Congress.gov's list totals, then apply the member load from `main`
+(`e3ca6eb`). The field list is already written.
 
 ## Session handoff (2026-09-25)
 
