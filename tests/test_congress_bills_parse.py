@@ -12,6 +12,7 @@ from opendiscourse_research.ingestion.congress_bills import (
     PARTS,
     CongressBillConnector,
     assemble_bill,
+    assemble_list_bill,
     parse_list_page,
 )
 from opendiscourse_research.ingestion.connector import ConnectorContext
@@ -63,9 +64,50 @@ def test_detail_becomes_a_bill_with_sponsor_actions_and_subjects() -> None:
     assert parsed["record"]["bill"]["title"] == "A tax bill"
 
 
+def test_list_row_becomes_an_explicitly_partial_bill() -> None:
+    parsed = assemble_list_bill(
+        {
+            "congress": 107,
+            "type": "HR",
+            "number": "2842",
+            "title": "A list-only bill",
+            "introducedDate": "2001-09-05",
+            "latestAction": {"actionDate": "2001-10-31", "text": "Referred."},
+        }
+    )
+    assert (parsed["congress"], parsed["bill_type"], parsed["bill_number"]) == (107, "hr", "2842")
+    assert parsed["sponsorships"] == [] and parsed["subjects"] == []
+    assert parsed["record"]["type"] == "HR"
+
+
+@pytest.mark.parametrize(
+    "row",
+    [{"congress": "107", "type": "HR", "number": "2842"}, {"congress": 107, "type": "BAD", "number": "2842"}],
+)
+def test_list_row_refuses_an_incomplete_identity(row: dict[str, object]) -> None:
+    with pytest.raises(ValueError, match="usable identity"):
+        assemble_list_bill(row)
+
+
 def test_congress_108_is_refused_so_govinfo_bills_stay_put() -> None:
     with pytest.raises(ValueError, match="108"):
         CongressBillConnector((108,), http=object())
+
+
+def test_recovery_refuses_unknown_selectors_before_any_acquisition() -> None:
+    with pytest.raises(ValueError, match="only accepts known failed endpoint keys"):
+        CongressBillConnector(http=object(), recovery_keys=("107/hr/1/detail",))
+
+
+def test_recovery_defaults_to_the_checked_in_five_endpoint_manifest() -> None:
+    connector = CongressBillConnector(http=object(), recovery_keys=())
+    assert connector._recovery_keys == (
+        "107/hr/2842/detail",
+        "107/hr/2843/detail",
+        "106/s/1378/cosponsors",
+        "106/sres/218/cosponsors",
+        "107/hr/5346/cosponsors",
+    )
 
 
 def _identity(number: str) -> dict[str, str]:
@@ -157,6 +199,90 @@ def test_a_broken_part_saves_the_bill_and_the_next_one(monkeypatch: pytest.Monke
     assert counts["bills"] == 2
     assert counts["not_saved"] == 1
     assert set(noted) == {"218/cosponsors", "3/detail"}
+
+
+def test_missing_detail_saves_a_list_partial_with_child_artifact_lineage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Conn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args: object) -> bool:
+            return False
+
+        def commit(self) -> None:
+            return None
+
+    connector = CongressBillConnector((107,), http=object())
+    saved: dict[str, object] = {}
+    monkeypatch.setattr(connector, "_note_failure", lambda *args: None)
+    monkeypatch.setattr(
+        "opendiscourse_research.ingestion.congress_bills.connect", lambda: _Conn()
+    )
+    monkeypatch.setattr(
+        "opendiscourse_research.ingestion.congress_bills.ensure_us_legislative_session",
+        lambda *args, **kwargs: "session",
+    )
+
+    def save(parsed: dict, *args: object, **kwargs: object) -> str:
+        saved["parsed"] = parsed
+        saved["kwargs"] = kwargs
+        return "bill"
+
+    monkeypatch.setattr(
+        "opendiscourse_research.ingestion.congress_bills.save_billstatus_bill", save
+    )
+    ready = {
+        "actions": (
+            json.dumps({"actions": [{"actionDate": "2001-09-05", "text": "Introduced"}]}).encode(),
+            "actions-artifact",
+        ),
+        "committees": (b'{"committees": []}', "committees-artifact"),
+        "subjects": (b'{"subjects": {}}', "subjects-artifact"),
+        "summaries": (b'{"summaries": []}', "summaries-artifact"),
+        "cosponsors": (b'{"cosponsors": []}', "cosponsors-artifact"),
+        "text": (b'{"textVersions": []}', "text-artifact"),
+    }
+    list_row = (
+        json.dumps(
+            {
+                "congress": 107,
+                "type": "HR",
+                "number": "2842",
+                "title": "A list-only bill",
+                "introducedDate": "2001-09-05",
+                "latestAction": {"actionDate": "2001-10-31", "text": "Referred."},
+            }
+        ).encode(),
+        "list-artifact",
+    )
+    saved_ok, missing = connector._commit(
+        {"congress": "107", "bill_type": "HR", "number": "2842"},
+        {},
+        {"detail": "HTTP 500"},
+        ready,
+        list_row=list_row,
+    )
+    assert saved_ok is True and missing == ("detail",)
+    parsed = saved["parsed"]
+    assert isinstance(parsed, dict)
+    assert parsed["sponsorships"] == [] and parsed["record"]["type"] == "HR"
+    assert parsed["actions"][0]["source_member"] == "actions"
+    assert saved["kwargs"] == {
+        "source_artifact_id": "list-artifact",
+        "source_member": "list",
+        "source_artifacts": {
+            "actions": "actions-artifact",
+            "committees": "committees-artifact",
+            "subjects": "subjects-artifact",
+            "summaries": "summaries-artifact",
+            "cosponsors": "cosponsors-artifact",
+            "text": "text-artifact",
+        },
+        "conn": saved["kwargs"]["conn"],
+        "source_name": "congress.congress_gov_bills",
+    }
 
 
 def test_a_clean_run_records_succeeded_and_a_gap_records_partial() -> None:

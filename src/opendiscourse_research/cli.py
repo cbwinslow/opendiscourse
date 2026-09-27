@@ -722,6 +722,40 @@ def sync_congress_bills_command(
         raise typer.Exit(2)
 
 
+@app.command("recover-congress-bills")
+def recover_congress_bills_command(
+    endpoint: list[str] = typer.Option(
+        None,
+        "--endpoint",
+        help="Known failed endpoint key to retry (repeatable). Default retries the checked-in five-key manifest.",
+    ),
+) -> None:
+    """Retry only the five recorded Congress.gov publisher failures.
+
+    This command never enumerates a Congress bill list.  It keeps the two
+    list-backed bills partial until their detail response is available.
+    """
+    from .catalog import sync_inventory
+    from .ingestion.congress_bills import CongressBillConnector
+    from .ingestion.connector import run_connector
+
+    sync_inventory()
+    try:
+        with render_spinner("Recovering Congress.gov bill endpoints") as report:
+            connector = CongressBillConnector(
+                report=report,
+                recovery_keys=tuple(endpoint) if endpoint else (),
+            )
+            run_connector(connector)
+    except (OSError, RuntimeError, ValueError, psycopg.Error, SQLAlchemyError) as exc:
+        typer.secho(f"recover-congress-bills failed: {exc}", err=True, fg=typer.colors.RED)
+        typer.echo("Nothing already retained is lost; rerun the same endpoint after Congress.gov repairs it.", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(connector.result, indent=2, sort_keys=True))
+    if connector.result.get("partial"):
+        raise typer.Exit(2)
+
+
 @app.command("sync-voteview")
 def sync_voteview_command() -> None:
     """Download Voteview ideology and the roll-call index into DATA_ROOT and load them.

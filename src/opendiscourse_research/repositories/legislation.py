@@ -1019,6 +1019,7 @@ def save_billstatus_bill(
     conn: Any | None = None,
     person_cache: dict[tuple[str, str], str | None] | None = None,
     source_name: str = "govinfo_billstatus",
+    source_artifacts: dict[str, str] | None = None,
 ) -> str:
     """Upsert core.bill plus identifiers, actions, sponsorships, committees, subjects, and documents.
 
@@ -1032,6 +1033,8 @@ def save_billstatus_bill(
         )
 
     if conn is None:
+        if source_artifacts:
+            raise ValueError("per-member artifact lineage requires a database connection")
         return _save_billstatus_bill_sqlalchemy(
             bill_data,
             legislative_session_id,
@@ -1041,6 +1044,17 @@ def save_billstatus_bill(
         )
 
     def _execute(c: Any) -> str:
+        def lineage(item: dict[str, Any]) -> tuple[str | None, str | None]:
+            member = (
+                item.get("source_member") if source_artifacts is not None else source_member or item.get("source_member")
+            )
+            artifact = (
+                source_artifacts.get(member, source_artifact_id)
+                if source_artifacts is not None and member is not None
+                else source_artifact_id
+            )
+            return artifact, member
+
         with c.cursor() as cur:
             cur.execute(
                 _query("upsert_bill"),
@@ -1077,6 +1091,7 @@ def save_billstatus_bill(
                 )
 
             for act in bill_data.get("actions", []):
+                artifact_id, member = lineage(act)
                 cur.execute(
                     _query("upsert_bill_action"),
                     {
@@ -1084,15 +1099,16 @@ def save_billstatus_bill(
                         "action_date": act.get("action_date"),
                         "description": act["description"],
                         "classification": act.get("classification"),
-                        "source_artifact_id": source_artifact_id,
+                        "source_artifact_id": artifact_id,
                         "source_payload_id": source_payload_id,
-                        "source_member": source_member or act.get("source_member"),
+                        "source_member": member,
                         "source_ordinal": act.get("source_ordinal"),
                         "metadata": Jsonb(act.get("metadata", {})),
                     },
                 )
 
             for sp in bill_data.get("sponsorships", []):
+                artifact_id, member = lineage(sp)
                 lookup = (sp["member_namespace"], sp["member_external_id"])
                 if person_cache is not None and lookup in person_cache:
                     person_id = person_cache[lookup]
@@ -1114,14 +1130,15 @@ def save_billstatus_bill(
                         "member_namespace": sp["member_namespace"],
                         "member_external_id": sp["member_external_id"],
                         "role": sp["role"],
-                        "source_artifact_id": source_artifact_id,
+                        "source_artifact_id": artifact_id,
                         "source_payload_id": source_payload_id,
-                        "source_member": source_member or sp.get("source_member"),
+                        "source_member": member,
                         "metadata": Jsonb(sp.get("metadata", {})),
                     },
                 )
 
             for comm in bill_data.get("committees", []):
+                artifact_id, member = lineage(comm)
                 cur.execute(
                     _query("upsert_bill_committee"),
                     {
@@ -1130,14 +1147,15 @@ def save_billstatus_bill(
                         "external_id": comm["external_id"],
                         "name": comm.get("name"),
                         "chamber": comm.get("chamber"),
-                        "source_artifact_id": source_artifact_id,
+                        "source_artifact_id": artifact_id,
                         "source_payload_id": source_payload_id,
-                        "source_member": source_member or comm.get("source_member"),
+                        "source_member": member,
                         "metadata": Jsonb(comm.get("metadata", {})),
                     },
                 )
 
             for subj in bill_data.get("subjects", []):
+                artifact_id, member = lineage(subj)
                 cur.execute(
                     _query("upsert_bill_subject"),
                     {
@@ -1145,14 +1163,15 @@ def save_billstatus_bill(
                         "namespace": subj.get("namespace", "congress.gov.subject"),
                         "external_id": subj["external_id"],
                         "label": subj["label"],
-                        "source_artifact_id": source_artifact_id,
+                        "source_artifact_id": artifact_id,
                         "source_payload_id": source_payload_id,
-                        "source_member": source_member or subj.get("source_member"),
+                        "source_member": member,
                         "metadata": Jsonb(subj.get("metadata", {})),
                     },
                 )
 
             for doc in bill_data.get("documents", []):
+                artifact_id, member = lineage(doc)
                 cur.execute(
                     _query("upsert_document"),
                     {
@@ -1161,14 +1180,13 @@ def save_billstatus_bill(
                         "title": doc.get("title"),
                         "published_at": doc.get("published_at"),
                         "canonical_url": doc["source_url"],
-                        "artifact_id": source_artifact_id,
+                        "artifact_id": artifact_id,
                         "source_payload_id": source_payload_id,
                         "metadata": Jsonb(
                             {
                                 **doc.get("metadata", {}),
                                 "version_code": doc.get("version_code"),
-                                "source_member": source_member
-                                or doc.get("source_member"),
+                                "source_member": member,
                             }
                         ),
                     },
@@ -1185,7 +1203,14 @@ def save_billstatus_bill(
                 )
 
             if source_artifact_id is not None:
-                _save_promoted_sections(cur, bill_id, bill_data, source_artifact_id, source_member)
+                _save_promoted_sections(
+                    cur,
+                    bill_id,
+                    bill_data,
+                    source_artifact_id,
+                    source_member,
+                    source_artifacts=source_artifacts,
+                )
             return bill_id
 
     return _execute(conn)
@@ -1207,6 +1232,8 @@ def _save_promoted_sections(
     bill_data: dict[str, Any],
     source_artifact_id: str,
     source_member: str | None,
+    *,
+    source_artifacts: dict[str, str] | None = None,
 ) -> None:
     """Write the promoted sections and then the full record (Story 9.5b).
 
@@ -1216,11 +1243,14 @@ def _save_promoted_sections(
     """
     for key, query, json_columns in _PROMOTED_SECTIONS:
         for row in bill_data.get(key, []):
+            member = row.get("source_member") if source_artifacts is not None else source_member or row.get("source_member")
             params = {
                 **row,
                 "bill_id": bill_id,
-                "source_artifact_id": source_artifact_id,
-                "source_member": source_member or row.get("source_member"),
+                "source_artifact_id": source_artifacts.get(member, source_artifact_id)
+                if source_artifacts is not None and member is not None
+                else source_artifact_id,
+                "source_member": member,
             }
             for column in json_columns:
                 params[column] = Jsonb(params[column])
