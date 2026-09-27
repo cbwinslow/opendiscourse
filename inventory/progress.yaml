@@ -130,7 +130,7 @@ items:
       run another full pass; retry only after Congress.gov serves those five pages.
   - id: conglegislators
     dataset: congress.legislators
-    state: ready
+    state: loaded
     scope: >-
       Federal legislators and external identifiers since 1789 from the
       unitedstates/congress-legislators YAML files, including terms, biography, leadership,
@@ -139,16 +139,15 @@ items:
     provenance: authoritative_community_crosswalk
     sensitivity: public
     validate: >-
-      Connector tests use a fake origin. A 2026-09-27 live load from a temporary checkout
-      has 12,770 people, 45,535 memberships, 12,228 birthdays, gender for all people, 156
-      leadership rows, 1,731 social accounts, and 1,306 district offices; no unknown
-      BioGuide ids. That run used an unmerged duplicate-leadership fix, so it is evidence,
-      not yet a reproducible completion claim.
+      Connector tests use a fake origin. The reproducible 2026-09-27 run
+      `2acfd000-8f44-4eb4-94d3-6baee9566801` succeeded from code containing the
+      duplicate-leadership rule: 12,770 people, 45,535 memberships, 12,228 birthdays,
+      gender for all people, 156 leadership rows, 1,731 social accounts, and 1,306
+      district offices; no unknown BioGuide ids.
     next: >-
-      Merge the duplicate-leadership fix, then run `research-db load-legislators` from main
-      and record the resulting run/artifact evidence before changing this item to loaded.
-      The member field checklist is inventory/fields/congress.legislators.yaml. A reviewed
-      person merge must still be verified to move every related committee assignment.
+      Refresh only from the upstream source through `research-db load-legislators`. The member
+      field checklist is inventory/fields/congress.legislators.yaml. A reviewed person merge
+      must still be verified to move every related committee assignment.
   - id: voteview
     dataset: congress.voteview
     state: loaded

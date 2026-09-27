@@ -60,12 +60,11 @@ on `main` yet. Do not switch this folder onto `main`.
 **Tracker reconciliation (same day).** A read-only check on port 5434 confirms 10,840
 bills in Congress 106, 10,789 in 107, 23,359 official roll calls, 7,384,589 member
 votes, 12,770 people, and 45,535 memberships. `inventory/progress.yaml` now marks the
-official House and Senate vote sources loaded, adds the legislator profile source as
-`ready` (not reproducibly loaded until its duplicate-leadership fix reaches `main`), and
-preserves the five Congress.gov HTTP 500 pages as the reason the 106-107 bill source
-remains ready. The legislative north star now distinguishes the aligned vote tracker from
-the still-pending reproducible profile load; person-merge committee-seat verification
-remains separate work.
+official House and Senate vote sources and the legislator profile source as loaded. The
+reproducible profile run is `2acfd000-8f44-4eb4-94d3-6baee9566801`; it succeeded with the
+Gary Palmer duplicate-leadership rule and retains the later 2025-01-03 end date. The five
+Congress.gov HTTP 500 pages remain the reason the 106-107 bill source is ready rather than
+loaded. Person-merge committee-seat verification remains separate work.
 
 ## Session handoff (2026-09-26, evening)
 
