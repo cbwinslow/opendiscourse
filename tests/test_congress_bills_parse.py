@@ -271,7 +271,7 @@ def test_missing_detail_saves_a_list_partial_with_child_artifact_lineage(
     assert parsed["actions"][0]["source_member"] == "actions"
     assert saved["kwargs"] == {
         "source_artifact_id": "list-artifact",
-        "source_member": "list",
+        "source_member": "list:107/hr/2842",
         "source_artifacts": {
             "actions": "actions-artifact",
             "committees": "committees-artifact",

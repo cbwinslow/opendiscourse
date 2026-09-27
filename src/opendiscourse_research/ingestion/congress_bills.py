@@ -856,7 +856,12 @@ class CongressBillConnector:
                 cosponsors=parts.get("cosponsors"),
                 text=parts.get("text"),
             )
-            base_artifact, base_member = list_row[1], "list"
+            # A list page is one artifact for many bills. Its source-member
+            # key must therefore include the bill identity, or the unique
+            # artifact/member record key would make one partial bill replace
+            # another bill's retained list row.
+            base_artifact = list_row[1]
+            base_member = f"list:{congress}/{bill_type.lower()}/{number}"
             source_artifacts = kept
         else:
             parsed = assemble_bill(
