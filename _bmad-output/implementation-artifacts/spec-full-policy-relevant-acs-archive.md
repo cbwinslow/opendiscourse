@@ -95,9 +95,11 @@ Raw completeness and canonical usability are separate layers: complete publisher
 - `just check-db` -- expected: schema, connector, provenance, and idempotency tests pass without xdist.
 - `uv run research-db census-health` -- expected: existing Census plan health remains valid and new manifest coverage reports exact artifacts/gaps.
 
-Implementation check (2026-09-27): `just check-fast` passed (614 tests) and
-`just check-db` passed (383 tests). Focused archive tests passed (16 tests),
+Implementation check (2026-09-27): `just check-fast` passed (615 tests) and
+`just check-db` passed (384 tests). Focused archive tests passed (16 tests),
 including official-directory discovery, legacy publisher layouts, publisher
 gaps, capacity failure, missing HEAD byte sizes, transfer approval, AHS CSV
 selection, and protocol checkpoint behavior. The live preflight selected 3,762
 artifacts with no unknown byte sizes and stopped before transfer as required.
+The database suite includes a retained tiny PUMS ZIP fixture that proves stage,
+provenance-linked release publication, typed projection, and idempotent reruns.

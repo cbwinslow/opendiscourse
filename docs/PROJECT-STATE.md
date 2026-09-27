@@ -46,7 +46,7 @@ duplicate observations. The completed 2026-09-27 official preflight selected
 required bytes, against 2,134,320,922,624 bytes free. It found no unknown
 sizes and records only the stated publisher gaps. The user must explicitly
 approve transfer before bytes are acquired. Verification: `just check-fast`
-614 passed; `just check-db` 383 passed. The separate 2021–2024 ACS 5-year
+615 passed; `just check-db` 384 passed. The separate 2021–2024 ACS 5-year
 detailed-table load remains independent and must finish its health check before
 any later release is begun.
 The detailed resume instructions are

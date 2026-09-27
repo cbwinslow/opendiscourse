@@ -61,8 +61,8 @@ actually retained, staged, validated, and published.
 
 ## Verified
 
-- `just check-fast`: **614 passed**.
-- `just check-db`: **383 passed, 619 deselected** (7m44s).
+- `just check-fast`: **615 passed**.
+- `just check-db`: **384 passed, 622 deselected** (7m05s).
 - `git diff --check`: passed.
 - Official preflight: **3,762 selected artifacts**, **136,860,756,606**
   download bytes, **586,386,830,521** peak required bytes, and
