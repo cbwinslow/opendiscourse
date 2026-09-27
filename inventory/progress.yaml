@@ -16,7 +16,7 @@ items:
     next: Build the official coverage comparator, then approve bounded member and bill metadata contracts before enabling ingestion.
   - id: congvotes
     dataset: congress.house_votes
-    state: ready
+    state: loaded
     scope: >-
       House roll-call votes, Congresses 108-119 (about 15,600 XML files, roughly 1.3 GB), from the House
       Clerk's official files (clerk.house.gov/evs). Built in Story 11.1 as `research-db sync-votes --chamber
@@ -29,10 +29,13 @@ items:
     validate: >-
       Smoke-tested live against the real Clerk (2026-09-20): five rolls and the whole 108th Congress into a
       disposable database; loaded roll calls compared with the Clerk's own listing by `research-db coverage`.
-    next: Review, then the live run for Congresses 108-119 into the operator's warehouse (see docs/PROJECT-STATE.md).
+    next: >-
+      Live-loaded for Congresses 108-119 (2026-09-20/21). Coverage matches the Clerk's
+      official indexes; the 117th Letlow source exception remains named in docs/PROJECT-STATE.md.
+      Refresh only through the Connector and coverage check.
   - id: congsenvotes
     dataset: congress.senate_votes
-    state: ready
+    state: loaded
     scope: >-
       Senate roll-call votes, Congresses 108-119 (about 8,200 XML files, roughly 0.2 GB), from senate.gov's official
       files (vote menus per Congress and session, one file per vote). Built in Story 11.2 as `research-db sync-votes
@@ -46,7 +49,10 @@ items:
     validate: >-
       Fixtures from every era, a corpus test that compares every stored record with its XML, and the menus checked against
       each file (`disagreements_with_menu`); loaded roll calls compared with the official menus by `research-db coverage`.
-    next: Review, then the live run for Congresses 108-119 into the operator's warehouse (see docs/PROJECT-STATE.md).
+    next: >-
+      Live-loaded for Congresses 108-119 (2026-09-20/21). Coverage matches the Senate's
+      official vote menus; the documented menu/file date and blank-total quirks remain named
+      in docs/PROJECT-STATE.md. Refresh only through the Connector and coverage check.
   - id: cong118
     dataset: congress.legislation
     state: found
@@ -64,7 +70,10 @@ items:
     provenance: legacy_cache_unverified
     sensitivity: public_claimed
     validate: Verify package and granule IDs against GovInfo manifests. The 119th Congress comparison found 2,831 XML files absent from local BILLSTATUS listing metadata; treat local data as a partial cache only.
-    next: BILLSTATUS is done (Story 9.5). BILLS has a Connector (`research-db sync-bill-text`) and is not live-loaded yet.
+    next: >-
+      This legacy cache remains unverified and is not an input. BILLSTATUS is superseded by
+      the origin-downloaded Connector, and the official BILLS Connector is live-loaded; the
+      legacy BILLSUM cache remains unacquired.
   - id: govbills
     dataset: congress.govinfo_bills
     state: loaded
@@ -100,7 +109,8 @@ items:
       two committees. An unknown BioGuide is kept with an empty person link and exit 2.
     next: >-
       Live-loaded 2026-09-23: 559 committees, 3,895 assignments, 0 unknown BioGuide
-      ids. Person-merge does not yet repoint core.committee_assignment. Do not scrape Clerk HTML.
+      ids. Person-merge code includes committee assignments (PR #86); verify that behavior
+      when a reviewed merge runs. Do not scrape Clerk HTML.
   - id: conggovbills
     dataset: congress.congress_gov_bills
     state: ready
@@ -114,8 +124,30 @@ items:
     sensitivity: public
     validate: Parser tests use captured JSON. A live run requires CONGRESS_API_KEY.
     next: >-
-      `research-db sync-congress-bills` (default Congresses 106 and 107). A rerun
-      skips bills already marked loaded.
+      Congress 106 matches Congress.gov at 10,840 bills. Congress 107 has 10,789 and is
+      short H.R. 2842 and H.R. 2843 because their detail pages return HTTP 500. Cosponsor
+      pages for 106 S. 1378, 106 S.Res. 218, and 107 H.R. 5346 also return HTTP 500. Do not
+      run another full pass; retry only after Congress.gov serves those five pages.
+  - id: conglegislators
+    dataset: congress.legislators
+    state: loaded
+    scope: >-
+      Federal legislators and external identifiers since 1789 from the
+      unitedstates/congress-legislators YAML files, including terms, biography, leadership,
+      office contact, social accounts, and district offices. People join on BioGuide, never name.
+    origin: https://github.com/unitedstates/congress-legislators
+    provenance: authoritative_community_crosswalk
+    sensitivity: public
+    validate: >-
+      Connector tests use a fake origin. The reproducible 2026-09-27 run
+      `2acfd000-8f44-4eb4-94d3-6baee9566801` succeeded from code containing the
+      duplicate-leadership rule: 12,770 people, 45,535 memberships, 12,228 birthdays,
+      gender for all people, 156 leadership rows, 1,731 social accounts, and 1,306
+      district offices; no unknown BioGuide ids.
+    next: >-
+      Refresh only from the upstream source through `research-db load-legislators`. The member
+      field checklist is inventory/fields/congress.legislators.yaml. A reviewed person merge
+      must still be verified to move every related committee assignment.
   - id: voteview
     dataset: congress.voteview
     state: loaded

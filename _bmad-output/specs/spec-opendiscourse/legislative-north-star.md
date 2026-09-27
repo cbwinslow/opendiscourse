@@ -111,10 +111,10 @@ above.
 | People, BioGuide, terms 108–119 | Met for identity and terms (12,770 people, 45,535 memberships). |
 | Current committee seats | Met (559 committees, 3,895 assignments, every seat linked on BioGuide). |
 | Merging two people moves committee seats | Met in code on `main` (pull request #86, `2ce035c`, 2026-09-26). |
-| Member field checklist and per-person whole record | Checklist written 2026-09-26 (`inventory/fields/congress.legislators.yaml`). The safety copy, biography, leadership, contact, and social accounts are not loaded yet. |
-| Progress register matches the live database | Not met. House and Senate votes are still marked `ready` in `inventory/progress.yaml` even though they are loaded. |
+| Member field checklist and per-person whole record | Met on the live database (2026-09-27). `inventory/fields/congress.legislators.yaml` is audited; successful run `2acfd000-8f44-4eb4-94d3-6baee9566801` stored a safety copy plus biography, leadership, contact, and social data for 12,770 BioGuide people. |
+| Progress register matches the live database | Met for the legislative datasets recorded in `inventory/progress.yaml` (2026-09-27). House and Senate votes and legislators are marked `loaded`; the Congress.gov 106-107 item remains `ready` with its five publisher failures named. |
 
-Next work, in order: finish the Congress.gov load for Congresses 106–107
-(2000–2002). GovInfo has no bill files before 108. The member field checklist
-is written; load it after that download. Do not start FEC person joins or a
-website to get this goal across the line.
+Next work, in order: retry only the five named Congress.gov failures after the publisher
+serves them, then verify a reviewed person merge moves committee assignments in the live
+warehouse. GovInfo has no bill files before 108. Do not start FEC person joins or a website
+to get this goal across the line.

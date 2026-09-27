@@ -932,3 +932,45 @@ def test_profile_saves_biography_and_drops_a_removed_social_account(
             "SELECT count(*) AS n FROM core.person_social_account WHERE bioguide = %s", (bg,)
         ).fetchone()["n"]
     assert left == 0
+
+
+def test_profile_keeps_the_later_end_for_duplicate_leadership_identity(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A publisher duplicate keeps one typed role without losing either source record."""
+    bg = _bioguide()
+    vendor = _vendor(
+        tmp_path,
+        [{"bioguide": bg, "terms": [HOUSE_WA7]}],
+        [{"bioguide": _bioguide()}],
+    )
+    current = vendor / "legislators-current.yaml"
+    text = current.read_text().replace(
+        "  name:\n    first: Given\n    last: Family\n",
+        "  name:\n    first: Given\n    last: Family\n"
+        "  leadership_roles:\n"
+        "  - title: Example Chair\n    chamber: house\n    start: '2021-01-03'\n    end: '2023-01-03'\n"
+        "  - title: Example Chair\n    chamber: house\n    start: '2021-01-03'\n    end: '2025-01-03'\n",
+    )
+    current.write_text(text)
+    _git(vendor, "add", "-A")
+    _git(vendor, "commit", "-q", "-m", "duplicate leadership")
+
+    result = _load(tmp_path, monkeypatch, vendor)
+
+    with connect() as conn:
+        roles = conn.execute(
+            "SELECT end_date FROM core.person_leadership "
+            "WHERE bioguide = %s AND chamber = 'house' AND title = 'Example Chair' "
+            "AND start_date = '2021-01-03'",
+            (bg,),
+        ).fetchall()
+        source_records = conn.execute(
+            "SELECT count(*) AS n FROM core.legislator_source_record "
+            "WHERE bioguide = %s AND source_file = 'legislators-current.yaml'",
+            (bg,),
+        ).fetchone()["n"]
+
+    assert [str(role["end_date"]) for role in roles] == ["2025-01-03"]
+    assert result.result["leadership_changed"] == 1
+    assert source_records == 1

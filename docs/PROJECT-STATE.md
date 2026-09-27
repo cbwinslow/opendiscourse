@@ -57,6 +57,23 @@ Policy Committee Chair starting 2021-01-03, with end dates 2023-01-03 and
 safety copy. That one-line SQL change is in the second checkout and is not
 on `main` yet. Do not switch this folder onto `main`.
 
+**Tracker reconciliation (same day).** A read-only check on port 5434 confirms 10,840
+bills in Congress 106, 10,789 in 107, 23,359 official roll calls, 7,384,589 member
+votes, 12,770 people, and 45,535 memberships. `inventory/progress.yaml` now marks the
+official House and Senate vote sources and the legislator profile source as loaded. The
+reproducible profile run is `2acfd000-8f44-4eb4-94d3-6baee9566801`; it succeeded with the
+Gary Palmer duplicate-leadership rule and retains the later 2025-01-03 end date. The five
+Congress.gov HTTP 500 pages remain the reason the 106-107 bill source is ready rather than
+loaded. Person-merge committee-seat verification remains separate work.
+
+**Congress.gov recovery path (same day).** `research-db recover-congress-bills` now
+retries only the five named publisher failures; it never scans the 106–107 bill list.
+If H.R. 2842 or H.R. 2843 still lacks detail, it can be saved as a partial bill from
+the retained official list row, with each available child fact linked to its own
+evidence. The three unavailable cosponsor pages remain named retry failures and never
+create inferred people. The command has not been run against port 5434 after this code
+change.
+
 ## Session handoff (2026-09-26, evening)
 
 Stop here. The download is finished and the service is stopped. This folder

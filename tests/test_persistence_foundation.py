@@ -1596,6 +1596,75 @@ def test_billstatus_graph_caller_transaction_path_is_idempotent(
         ).scalar_one() == "Raw transaction BILLSTATUS graph"
 
 
+def test_billstatus_graph_keeps_each_congress_recovery_member_artifact(
+    catalog_database: None,
+) -> None:
+    """A list-derived recovery never relabels child evidence as bill-detail evidence."""
+    keys = {
+        member: f"test-congress-recovery-{member}"
+        for member in ("list", "actions", "committees", "subjects", "summaries", "cosponsors", "text")
+    }
+    artifacts = {
+        member: register_artifact(
+            "congress.congress_gov_bills",
+            f"https://example.test/{member}",
+            f"/tmp/{key}.json",
+            key,
+        )
+        for member, key in keys.items()
+    }
+    artifact_ids = {member: str(item["artifact_id"]) for member, item in artifacts.items()}
+    bill_id: str | None = None
+    try:
+        data = {
+            "congress": 997,
+            "bill_type": "hr",
+            "bill_number": "2842",
+            "title": "List-backed recovery bill",
+            "introduced_date": "2001-09-05",
+            "latest_action_date": "2001-10-31",
+            "latest_action": "Referred.",
+            "actions": [{"description": "Introduced", "source_ordinal": 1, "source_member": "actions"}],
+            "sponsorships": [{"member_namespace": "bioguide", "member_external_id": "A000001", "role": "cosponsor", "source_member": "cosponsors", "metadata": {}}],
+            "committees": [{"external_id": "HSAG", "source_member": "committees"}],
+            "subjects": [{"external_id": "policy-area:test", "label": "Test", "source_member": "subjects"}],
+            "summaries": [{"version_code": "00", "action_date": None, "action_description": None, "update_date": None, "text": "Summary", "source_ordinal": 1, "source_member": "summaries"}],
+            "documents": [{"source_url": "https://example.test/text", "source_member": "text", "metadata": {}}],
+            "record": {"type": "HR", "number": "2842"},
+        }
+        with connect() as conn:
+            session_id = ensure_us_legislative_session(997, source_artifact_id=artifact_ids["list"], conn=conn)
+            bill_id = save_billstatus_bill(data, session_id, source_artifact_id=artifact_ids["list"], source_member="list", source_artifacts=artifact_ids, conn=conn)
+            conn.commit()
+        with connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT source_member, source_artifact_id::text FROM core.bill_action WHERE bill_id = %(bill_id)s
+                UNION ALL SELECT source_member, source_artifact_id::text FROM core.bill_sponsorship WHERE bill_id = %(bill_id)s
+                UNION ALL SELECT source_member, source_artifact_id::text FROM core.bill_committee WHERE bill_id = %(bill_id)s
+                UNION ALL SELECT source_member, source_artifact_id::text FROM core.bill_subject WHERE bill_id = %(bill_id)s
+                UNION ALL SELECT source_member, source_artifact_id::text FROM core.bill_summary WHERE bill_id = %(bill_id)s
+                UNION ALL SELECT source_member, source_artifact_id::text FROM core.bill_source_record WHERE bill_id = %(bill_id)s
+                """,
+                {"bill_id": bill_id},
+            ).fetchall()
+        assert {(row["source_member"], str(row["source_artifact_id"])) for row in rows} == {
+            ("actions", artifact_ids["actions"]), ("cosponsors", artifact_ids["cosponsors"]),
+            ("committees", artifact_ids["committees"]), ("subjects", artifact_ids["subjects"]),
+            ("summaries", artifact_ids["summaries"]), ("list", artifact_ids["list"]),
+        }
+    finally:
+        with connect() as conn:
+            if bill_id is not None:
+                for table in ("bill_document", "bill_source_record", "bill_summary", "bill_action", "bill_sponsorship", "bill_committee", "bill_subject"):
+                    conn.execute(f"DELETE FROM core.{table} WHERE bill_id = %(bill_id)s", {"bill_id": bill_id})
+                conn.execute("DELETE FROM core.bill WHERE bill_id = %(bill_id)s", {"bill_id": bill_id})
+            conn.execute("DELETE FROM core.document WHERE canonical_url = 'https://example.test/text'")
+            conn.execute("DELETE FROM core.legislative_session WHERE identifier = '997'")
+            conn.execute("DELETE FROM ingest.artifact WHERE artifact_key LIKE 'test-congress-recovery-%'")
+            conn.commit()
+
+
 def test_openstates_compatibility_view_publisher_uses_real_postgres(
     catalog_database: None,
 ) -> None:

@@ -83,7 +83,7 @@ def parse_list_page(content: bytes) -> tuple[list[dict[str, str]], int | None]:
     return parsed, offset
 
 
-def _people(items: Any, role: str) -> list[dict[str, Any]]:
+def _people(items: Any, role: str, source_member: str) -> list[dict[str, Any]]:
     if not isinstance(items, list):
         return []
     people: list[dict[str, Any]] = []
@@ -98,6 +98,7 @@ def _people(items: Any, role: str) -> list[dict[str, Any]]:
                 "member_namespace": "bioguide",
                 "member_external_id": bioguide,
                 "role": role,
+                "source_member": source_member,
                 "source_ordinal": ordinal,
                 "metadata": {"name": _text(item.get("fullName"))},
             }
@@ -144,6 +145,7 @@ def assemble_bill(
                 "classification": [kind] if kind else None,
                 "source_ordinal": ordinal,
                 "metadata": {"action_code": _text(item.get("actionCode"))},
+                "source_member": "actions",
             }
         )
     committee_rows = []
@@ -237,7 +239,8 @@ def assemble_bill(
         "introduced_date": _text(bill.get("introducedDate")),
         "latest_action_date": _text(latest.get("actionDate")),
         "latest_action": _text(latest.get("text")),
-        "sponsorships": _people(bill.get("sponsors"), "sponsor") + _people(_list_payload(cosponsors, "cosponsors"), "cosponsor"),
+        "sponsorships": _people(bill.get("sponsors"), "sponsor", "detail")
+        + _people(_list_payload(cosponsors, "cosponsors"), "cosponsor", "cosponsors"),
         "actions": action_rows,
         "committees": committee_rows,
         "subjects": subject_rows,
@@ -246,6 +249,51 @@ def assemble_bill(
         "record": record,
         "policy_area": _text(policy.get("name")),
     }
+
+
+def assemble_list_bill(
+    row: dict[str, Any],
+    *,
+    actions: bytes | None = None,
+    committees: bytes | None = None,
+    subjects: bytes | None = None,
+    summaries: bytes | None = None,
+    cosponsors: bytes | None = None,
+    text: bytes | None = None,
+) -> dict[str, Any]:
+    """Build an explicitly partial bill from one official Congress.gov list row."""
+    raw_type = _text(row.get("type"))
+    number = _text(row.get("number"))
+    congress = row.get("congress")
+    if raw_type not in BILL_TYPES or number is None or not isinstance(congress, int):
+        raise ValueError("bill list row has no usable identity")
+    latest = row.get("latestAction") if isinstance(row.get("latestAction"), dict) else {}
+    # Reuse the child-response parser, but give it only fields actually present
+    # in the list row.  This synthetic wrapper is never retained as evidence:
+    # ``record`` below remains the original list row and sponsorship/policy
+    # fields cannot appear because the list does not supply them.
+    parsed = assemble_bill(
+        detail=json.dumps(
+            {
+                "bill": {
+                    "congress": congress,
+                    "type": raw_type,
+                    "number": number,
+                    "title": _text(row.get("title")),
+                    "introducedDate": _text(row.get("introducedDate")),
+                    "latestAction": latest,
+                }
+            }
+        ).encode(),
+        actions=actions,
+        committees=committees,
+        subjects=subjects,
+        summaries=summaries,
+        cosponsors=cosponsors,
+        text=text,
+    )
+    parsed["record"] = row
+    return parsed
 
 
 SOURCE_ID = "congress.congress_gov_bills"
@@ -257,6 +305,16 @@ BILL_WINDOW = 8
 # Saving a bill is slower than asking for the next one. A few saves run at once
 # so the hourly allowance does not sit idle while the database catches up.
 SAVE_WINDOW = 3
+
+# This is intentionally finite.  It is the only selection accepted by the
+# recovery command, so a convenience retry cannot turn into a 106--107 crawl.
+RECOVERY_MANIFEST: dict[str, dict[str, str | int]] = {
+    "107/hr/2842/detail": {"congress": 107, "bill_type": "HR", "number": "2842", "part": "detail", "list_offset": 4000},
+    "107/hr/2843/detail": {"congress": 107, "bill_type": "HR", "number": "2843", "part": "detail", "list_offset": 4000},
+    "106/s/1378/cosponsors": {"congress": 106, "bill_type": "S", "number": "1378", "part": "cosponsors"},
+    "106/sres/218/cosponsors": {"congress": 106, "bill_type": "SRES", "number": "218", "part": "cosponsors"},
+    "107/hr/5346/cosponsors": {"congress": 107, "bill_type": "HR", "number": "5346", "part": "cosponsors"},
+}
 
 
 class PartSource(Protocol):
@@ -397,6 +455,7 @@ class CongressBillConnector:
         http: Any = None,
         api_key: str | None = None,
         report: Any = None,
+        recovery_keys: tuple[str, ...] | None = None,
     ) -> None:
         chosen = congresses or DEFAULT_CONGRESSES
         refused = [item for item in chosen if item not in ALLOWED]
@@ -406,6 +465,7 @@ class CongressBillConnector:
                 f"before GovInfo bill files; refusing {refused}"
             )
         self._congresses = tuple(dict.fromkeys(chosen))
+        self._recovery_keys = self._validate_recovery_keys(recovery_keys)
         self._limit = limit
         if http is not None:
             self._client = CongressBillClient(http=http, api_key=api_key or "test")
@@ -430,7 +490,11 @@ class CongressBillConnector:
             conn.close()
             raise RuntimeError("another Congress.gov bill sync is in progress; wait, then rerun")
         self._lock = conn
-        self._run = IngestionRun(SOURCE_ID, {"congresses": list(self._congresses)}, mode="backfill")
+        self._run = IngestionRun(
+            SOURCE_ID,
+            {"congresses": list(self._congresses), "recovery_keys": list(self._recovery_keys)},
+            mode="backfill",
+        )
         self._run.__enter__()
         ctx.run_id = str(self._run.run_id)
         self._loaded = current_artifacts(SOURCE_ID)
@@ -439,7 +503,7 @@ class CongressBillConnector:
         return ctx
 
     def select(self, ctx: ConnectorContext) -> ConnectorContext:
-        ctx.selected_ids = tuple(str(item) for item in self._congresses)
+        ctx.selected_ids = self._recovery_keys or tuple(str(item) for item in self._congresses)
         return ctx
 
     def plan(self, ctx: ConnectorContext) -> ConnectorContext:
@@ -453,17 +517,20 @@ class CongressBillConnector:
         if self._stored is None:
             self._stored = self._load_stored_bills()
         try:
-            for congress in self._congresses:
-                identities = self._identities(congress)
-                if self._limit is not None:
-                    identities = identities[: self._limit]
-                todo: list[dict[str, str]] = []
-                for identity in identities:
-                    if self._bill_complete(identity):
-                        counts["skipped"] += 1
-                        continue
-                    todo.append(identity)
-                self._drain(todo, counts)
+            if self._recovery_keys:
+                self._recover(counts)
+            else:
+                for congress in self._congresses:
+                    identities = self._identities(congress)
+                    if self._limit is not None:
+                        identities = identities[: self._limit]
+                    todo: list[dict[str, str]] = []
+                    for identity in identities:
+                        if self._bill_complete(identity):
+                            counts["skipped"] += 1
+                            continue
+                        todo.append(identity)
+                    self._drain(todo, counts)
         finally:
             self._client.close()
         failed_parts = [
@@ -483,13 +550,81 @@ class CongressBillConnector:
                 self._run.mark_partial()
             self._run.record_target(
                 "core.bill",
-                "106-107",
+                "recovery" if self._recovery_keys else "106-107",
                 inserted=counts["bills"],
                 skipped=counts["skipped"],
                 status="partial" if failed_parts else "succeeded",
             )
         self._report("extracted bills")
         return ctx
+
+    @staticmethod
+    def _validate_recovery_keys(keys: tuple[str, ...] | None) -> tuple[str, ...]:
+        if keys is None:
+            return ()
+        chosen = tuple(dict.fromkeys(keys))
+        unknown = [key for key in chosen if key not in RECOVERY_MANIFEST]
+        if unknown:
+            raise ValueError(
+                "Congress.gov recovery only accepts known failed endpoint keys: "
+                f"{', '.join(sorted(RECOVERY_MANIFEST))}; refused {', '.join(unknown)}"
+            )
+        return chosen or tuple(RECOVERY_MANIFEST)
+
+    def _recover(self, counts: dict[str, int]) -> None:
+        """Retry only manifest endpoints, using retained list and child evidence."""
+        for key in self._recovery_keys:
+            item = RECOVERY_MANIFEST[key]
+            identity = {
+                "congress": str(item["congress"]),
+                "bill_type": str(item["bill_type"]),
+                "number": str(item["number"]),
+            }
+            part = str(item["part"])
+            ready, list_row = self._recovery_ready(identity, item)
+            fetched, errors = self._download(identity, [part])
+            saved, missing = self._commit(
+                identity,
+                fetched,
+                errors,
+                ready,
+                list_row=list_row,
+                recovery_part=part,
+            )
+            if saved:
+                counts["bills"] += 1
+            else:
+                counts["not_saved"] += 1
+            if missing:
+                self._report(f"recovery still missing {', '.join(missing)} for {key}")
+            else:
+                self._report(f"recovered {key}")
+
+    def _recovery_ready(
+        self, identity: dict[str, str], manifest: dict[str, str | int]
+    ) -> tuple[dict[str, tuple[bytes, str]], tuple[bytes, str] | None]:
+        """Load existing evidence without fetching a list or unrelated child endpoint."""
+        congress, bill_type, number = int(identity["congress"]), identity["bill_type"], identity["number"]
+        ready: dict[str, tuple[bytes, str]] = {}
+        list_row: tuple[bytes, str] | None = None
+        for name in ("detail", *PARTS):
+            current = self._loaded.get(_key(congress, bill_type, number, name))
+            if current and current.get("status") == "loaded" and current.get("local_path"):
+                ready[name] = (Path(current["local_path"]).read_bytes(), str(current["artifact_id"]))
+        offset = manifest.get("list_offset")
+        if offset is not None:
+            list_key = f"{congress}/list/{offset}"
+            current = self._loaded.get(list_key)
+            if not (current and current.get("status") == "loaded" and current.get("local_path")):
+                raise ValueError(f"recovery needs retained official list evidence at {list_key}")
+            body = Path(current["local_path"]).read_bytes()
+            document = _object(json.loads(body.decode("utf-8")), "bill list")
+            rows = document.get("bills")
+            row = next((value for value in rows if isinstance(value, dict) and value.get("congress") == congress and _text(value.get("type")) == bill_type and _text(value.get("number")) == number), None) if isinstance(rows, list) else None
+            if row is None:
+                raise ValueError(f"recovery list evidence at {list_key} has no {congress} {bill_type} {number}")
+            list_row = (json.dumps(row).encode(), str(current["artifact_id"]))
+        return ready, list_row
 
     def evidence(self, ctx: ConnectorContext) -> ConnectorContext:
         return ctx
@@ -672,6 +807,9 @@ class CongressBillConnector:
         fetched: dict[str, bytes],
         errors: dict[str, str],
         ready: dict[str, tuple[bytes, str]],
+        *,
+        list_row: tuple[bytes, str] | None = None,
+        recovery_part: str | None = None,
     ) -> tuple[bool, tuple[str, ...]]:
         congress = int(identity["congress"])
         bill_type = identity["bill_type"]
@@ -692,29 +830,61 @@ class CongressBillConnector:
             self._note_failure(identity, name, RuntimeError(message))
         detail_artifact = kept.get("detail")
         missing = tuple(name for name in ("detail", *PARTS) if name in errors)
-        if detail_artifact is None:
-            return False, missing
-        parsed = assemble_bill(
-            detail=parts["detail"],
-            actions=parts.get("actions"),
-            committees=parts.get("committees"),
-            subjects=parts.get("subjects"),
-            summaries=parts.get("summaries"),
-            cosponsors=parts.get("cosponsors"),
-            text=parts.get("text"),
-        )
+        if recovery_part == "cosponsors" and detail_artifact is not None:
+            # This bill already exists. A retry must not re-promote its old
+            # actions, committees, subjects, summaries, or text under new
+            # source members. Only the newly served cosponsor response may
+            # change the warehouse.
+            if "cosponsors" not in parts:
+                return False, missing
+            parsed = assemble_bill(detail=parts["detail"], cosponsors=parts["cosponsors"])
+            parsed["sponsorships"] = [
+                item for item in parsed["sponsorships"] if item["role"] == "cosponsor"
+            ]
+            parsed["record"] = None
+            base_artifact, base_member = detail_artifact, "detail"
+            source_artifacts: dict[str, str] | None = {"cosponsors": kept["cosponsors"]}
+        elif detail_artifact is None:
+            if list_row is None:
+                return False, missing
+            parsed = assemble_list_bill(
+                json.loads(list_row[0].decode("utf-8")),
+                actions=parts.get("actions"),
+                committees=parts.get("committees"),
+                subjects=parts.get("subjects"),
+                summaries=parts.get("summaries"),
+                cosponsors=parts.get("cosponsors"),
+                text=parts.get("text"),
+            )
+            base_artifact, base_member = list_row[1], "list"
+            source_artifacts = kept
+        else:
+            parsed = assemble_bill(
+                detail=parts["detail"],
+                actions=parts.get("actions"),
+                committees=parts.get("committees"),
+                subjects=parts.get("subjects"),
+                summaries=parts.get("summaries"),
+                cosponsors=parts.get("cosponsors"),
+                text=parts.get("text"),
+            )
+            base_artifact, base_member = detail_artifact, "detail"
+            # Preserve the established full-sync lineage. Only the exceptional
+            # recovery path needs per-member artifacts.
+            source_artifacts = kept if recovery_part is not None else None
         with connect() as conn:
             session_id = ensure_us_legislative_session(
                 congress,
-                source_artifact_id=detail_artifact,
+                source_artifact_id=base_artifact,
                 metadata={"congress": congress, "source": SOURCE_ID},
                 conn=conn,
             )
             save_billstatus_bill(
                 parsed,
                 session_id,
-                source_artifact_id=detail_artifact,
-                source_member="detail",
+                source_artifact_id=base_artifact,
+                source_member=base_member,
+                source_artifacts=source_artifacts,
                 conn=conn,
                 source_name=SOURCE_ID,
             )
