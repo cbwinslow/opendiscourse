@@ -1,5 +1,9 @@
 # Session handoff — ACS comprehensive delta — 2026-09-27
 
+> **Superseded for housing-microdata work.** Read
+> `docs/SESSION-HANDOFF-2026-09-27-ACS-HOUSING.md` first. This document
+> remains historical context for the separate ACS Detailed Table delta.
+
 ## Start here
 
 Read `AGENTS.md`, `docs/PROJECT-STATE.md`, this file, and

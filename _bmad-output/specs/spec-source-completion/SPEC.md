@@ -4,6 +4,7 @@ companions:
   - completion-matrix.md
   - ../../spec-opendiscourse/SPEC.md
   - ../../spec-opendiscourse/legislative-north-star.md
+  - ../spec-longitudinal-source-coverage/SPEC.md
   - ../../../docs/PROJECT-STATE.md
 sources:
   - ../../../inventory/DATA-SPEC.md
@@ -38,12 +39,17 @@ OpenDiscourse has substantial data already loaded, but its source register, oper
   - **intent:** The operator can defer sources safely without losing their known scope or accidentally opening prohibited work.
   - **success:** FEC joins, disclosures, elections, crime, news, stocks, and the mixed Epstein collection are visibly separated from v1 and cannot be selected as a next ingest task without a new approved spec and their stated prerequisites.
 
+- **CAP-5**
+  - **intent:** The operator can see each source's earliest official release, continuous annual coverage, publisher gaps, and valid comparison windows before authorizing historical backfill.
+  - **success:** The matrix names the official availability boundary and any comparability restriction for every active source; a source beginning after 2000 has a stated publisher reason rather than an assumed omission.
+
 ## Constraints
 
 - The hierarchy of truth is current code and tests, then schema/migrations, then the architecture and active specs, then the operational state; `inventory/progress.yaml` must be reconciled when it disagrees rather than copied forward.
 - Every implementation is a source Connector: download from the original publisher into the user's `DATA_ROOT`, inventory immutable bytes, then ingest through the Connector lifecycle. No machine-specific lake path, untracked cache, central dispatcher branch, or name-based person join is allowed.
 - A source-specific BMAD build spec is required before a new connector, source expansion, schema change, or large acquisition. Its acceptance criteria include failure, idempotency, resume, provenance, capacity, and coverage behavior.
 - A completion claim needs a field checklist; absence of a checklist means the source is incomplete even when rows are present.
+- The longitudinal target is calendar year 2000 where an equivalent official product exists. A later start is allowed only when the publisher did not release that product, and the boundary remains visible to researchers.
 - The legislative source of truth remains `legislative-north-star.md`; this spec coordinates it but does not lower or replace its standard.
 
 ## Non-goals

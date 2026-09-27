@@ -11,6 +11,47 @@ Read this first when resuming, then `AGENTS.md`,
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
 decision or story status changes.
 
+## Longitudinal coverage decision (2026-09-27)
+
+The operator wants the widest practical official annual history for every
+source, targeting calendar year 2000 where the publisher offers an equivalent
+product. The source-completion queue now records that target without treating
+a later publisher start as an accidental omission. Each source still needs its
+own availability audit, capacity check, and build spec before acquisition.
+
+For ACS, standard 1-year releases are available from 2005 through 2024 except
+for 2020, when Census issued no standard 1-year estimates. Standard 5-year
+periods begin with 2005-2009 and run through 2020-2024. Keep the products
+separate: a year-over-year change compares adjacent available 1-year values;
+a five-year change compares two non-overlapping 5-year periods five years
+apart (for example, 2015-2019 versus 2020-2024). Never average five annual
+values into a 5-year ACS estimate or fill a missing ACS year with a different
+Census product. The decision record is
+`_bmad-output/specs/spec-longitudinal-source-coverage/`.
+
+The existing 2021-2024 5-year comprehensive-delta job is deliberately
+separate and unchanged. Its 2022 plan is recorded loaded; confirm its health
+result before beginning the 2023 plan. Do not overlap that job with the new
+PUMS/AHS archive transfer.
+
+**Housing microdata archive implementation (2026-09-27).** The repeatable
+`census.acs_housing_archive` Connector is implemented but no archive transfer
+has been started. It discovers every standard ACS PUMS 1-year release
+(2005–2024 except 2020), every 2005–2009 through 2020–2024 PUMS 5-year
+release, and every published 2001–2023 AHS release directory, retaining the
+full raw CSV source records and source dictionaries/notes. It selects only the
+newest relational AHS PUF for a national or metropolitan sample to prevent
+duplicate observations. The completed 2026-09-27 official preflight selected
+3,762 artifacts: 136,860,756,606 download bytes and 586,386,830,521 peak
+required bytes, against 2,134,320,922,624 bytes free. It found no unknown
+sizes and records only the stated publisher gaps. The user must explicitly
+approve transfer before bytes are acquired. Verification: `just check-fast`
+615 passed; `just check-db` 384 passed. The separate 2021–2024 ACS 5-year
+detailed-table load remains independent and must finish its health check before
+any later release is begun.
+The detailed resume instructions are
+`docs/SESSION-HANDOFF-2026-09-27-ACS-HOUSING.md`.
+
 ## Session handoff (2026-09-27)
 
 The download is still stopped. Do not start `sync-congress-bills` again for

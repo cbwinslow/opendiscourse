@@ -1,0 +1,20 @@
+version: 1
+description: Complete official ACS PUMS and AHS evidence archive. Discovery produces an exact reviewed manifest before transfer.
+contracts:
+  - id: acshousingarchive
+    provider: census
+    dataset: census.acs_housing_archive
+    kind: archive_manifest
+    products: [acs_pums_1, acs_pums_5, ahs]
+    target: [stage.acs_pums_record, stage.ahs_record, core.housing_archive_release]
+    cadence: annual
+    enabled: true
+    approval: required
+    selection:
+      acs_pums_1_years: [2005-2019, 2021-2024]
+      acs_pums_5_years: [2009-2024]
+      ahs: every_published_release_year_current_relational_csv_only
+    storage:
+      stage_multiplier: 1.0
+      database_multiplier: 1.5
+    notes: Raw packages, dictionaries, codebooks and release notes are retained. 2020 ACS 1-year and unavailable AHS years are explicit manifest gaps.

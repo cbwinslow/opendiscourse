@@ -52,7 +52,12 @@ from opendiscourse_research.ingestion import congress as congress_ingestion
 from opendiscourse_research.ingestion import fred as fred_ingestion
 from opendiscourse_research.ingestion import treasury as treasury_ingestion
 from opendiscourse_research.ingestion.acs_load import load_acs_bulk, stage_acs_bulk
+from opendiscourse_research.ingestion.acs_archive import (
+    ACSArchiveConnector,
+    manifest_from_index,
+)
 from opendiscourse_research.ingestion.base import IngestionRun
+from opendiscourse_research.ingestion.connector import ConnectorContext
 from opendiscourse_research.ingestion.cbp_load import load_cbp, stage_cbp
 from opendiscourse_research.ingestion.dhc_load import load_dhc, stage_dhc
 from opendiscourse_research.identityexceptions import unresolved_congressional_identities
@@ -283,7 +288,7 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
             )
         }
 
-    assert revision == "c9e4a1b27d83"
+    assert revision == "f6b2a7c4d913"
     assert {
         "catalog.provider",
         "catalog.dataset",
@@ -316,6 +321,8 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
         "core.organization_identifier",
         "core.division",
         "core.post",
+        "core.housing_archive_release",
+        "core.housing_microdata_projection",
         "core.membership",
         "core.roll_call",
         "core.instrument",
@@ -339,6 +346,8 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
         "stage.fec_row",
         "stage.pep_row",
         "stage.tiger_feature",
+        "stage.acs_pums_record",
+        "stage.ahs_record",
     } <= tables
     assert {"pg_trgm", "unaccent"} <= extensions
     assert {"resource_title_trgm_idx", "resource_fts_idx"} <= indexes
@@ -444,7 +453,7 @@ def test_existing_schema_without_alembic_watermark_is_adopted_safely(
     with engine().connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "c9e4a1b27d83"
+        ).scalar_one() == "f6b2a7c4d913"
         assert connection.execute(
             text("SELECT to_regclass('core.bill')")
         ).scalar_one() == "core.bill"
@@ -484,7 +493,7 @@ def test_alembic_adoptions_can_downgrade_and_reupgrade(
         command.upgrade(config, "head")
 
     with engine().connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "c9e4a1b27d83"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "f6b2a7c4d913"
         assert connection.execute(text("SELECT to_regclass('core.division')")).scalar_one() == "core.division"
         assert connection.execute(text("SELECT to_regclass('core.post')")).scalar_one() == "core.post"
         assert connection.execute(
@@ -2248,6 +2257,91 @@ def test_acs_bulk_stage_and_promotion_are_idempotent_on_postgres(
                 text("DELETE FROM ingest.artifact WHERE artifact_key=:key"),
                 {"key": key},
             )
+
+
+def test_acs_housing_archive_stages_and_publishes_a_retained_pums_artifact(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """An approved retained PUMS artifact keeps lineage and publishes once."""
+    key = "test-acs-housing-archive-pums"
+    source = tmp_path / "pums.zip"
+    with ZipFile(source, "w") as archive:
+        archive.writestr(
+            "psam_pusa.csv",
+            "PUMA,PWGTP,AGEP,SEX,RAC1P,PINCP\n12345,7,42,1,2,55000\n",
+        )
+    with engine().begin() as connection:
+        for table in (
+            "core.housing_microdata_projection",
+            "core.housing_archive_release",
+            "stage.acs_pums_record",
+        ):
+            artifact_column = "source_artifact_id" if table == "core.housing_archive_release" else "artifact_id"
+            connection.execute(
+                text(f"DELETE FROM {table} WHERE {artifact_column} IN (SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"),
+                {"key": key},
+            )
+        connection.execute(text("DELETE FROM ingest.artifact WHERE artifact_key=:key"), {"key": key})
+    register_local(
+        ArtifactSpec(
+            dataset_id="census.acs_housing_archive",
+            artifact_key=key,
+            url="https://example.test/pums.zip",
+            filename=source.name,
+        ),
+        source,
+    )
+    try:
+        with engine().connect() as connection:
+            evidence = dict(
+                connection.execute(
+                    text("SELECT artifact_id, local_path FROM ingest.artifact WHERE artifact_key=:key"),
+                    {"key": key},
+                ).mappings().one()
+            )
+        entry = {
+            "product": "acs_pums_1", "period": "2024", "component": "all",
+            "kind": "data", "url": "https://example.test/pums.zip", "bytes": source.stat().st_size,
+        }
+        connector = ACSArchiveConnector([entry], transfer_approved=True)
+        connector.artifacts = manifest_from_index([entry])
+        artifact = connector.artifacts[0]
+        context = ConnectorContext(
+            source_id=connector.source_id,
+            selected_ids=(artifact.artifact_key,),
+            extras={"evidence": {artifact.artifact_key: evidence}},
+        )
+        context = connector.stage(context)
+        context = connector.validate(context)
+        connector.publish(context)
+        connector.publish(context)
+        with engine().connect() as connection:
+            assert connection.execute(
+                text("SELECT count(*) FROM stage.acs_pums_record WHERE artifact_id=:artifact_id"),
+                {"artifact_id": evidence["artifact_id"]},
+            ).scalar_one() == 1
+            row = connection.execute(
+                text("SELECT puma, weight, age, income FROM core.housing_microdata_projection WHERE artifact_id=:artifact_id"),
+                {"artifact_id": evidence["artifact_id"]},
+            ).mappings().one()
+            assert dict(row) == {"puma": "12345", "weight": 7.0, "age": 42, "income": 55000}
+            assert connection.execute(
+                text("SELECT count(*) FROM core.housing_archive_release WHERE source_artifact_id=:artifact_id"),
+                {"artifact_id": evidence["artifact_id"]},
+            ).scalar_one() == 1
+    finally:
+        with engine().begin() as connection:
+            for table in (
+                "core.housing_microdata_projection",
+                "core.housing_archive_release",
+                "stage.acs_pums_record",
+            ):
+                artifact_column = "source_artifact_id" if table == "core.housing_archive_release" else "artifact_id"
+                connection.execute(
+                    text(f"DELETE FROM {table} WHERE {artifact_column} IN (SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"),
+                    {"key": key},
+                )
+            connection.execute(text("DELETE FROM ingest.artifact WHERE artifact_key=:key"), {"key": key})
 
 
 def test_cbp_bulk_stage_and_promotion_are_idempotent_on_postgres(
