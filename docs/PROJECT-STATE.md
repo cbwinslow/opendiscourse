@@ -11,6 +11,28 @@ Read this first when resuming, then `AGENTS.md`,
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
 decision or story status changes.
 
+## Longitudinal coverage decision (2026-09-27)
+
+The operator wants the widest practical official annual history for every
+source, targeting calendar year 2000 where the publisher offers an equivalent
+product. The source-completion queue now records that target without treating
+a later publisher start as an accidental omission. Each source still needs its
+own availability audit, capacity check, and build spec before acquisition.
+
+For ACS, standard 1-year releases are available from 2005 through 2024 except
+for 2020, when Census issued no standard 1-year estimates. Standard 5-year
+periods begin with 2005-2009 and run through 2020-2024. Keep the products
+separate: a year-over-year change compares adjacent available 1-year values;
+a five-year change compares two non-overlapping 5-year periods five years
+apart (for example, 2015-2019 versus 2020-2024). Never average five annual
+values into a 5-year ACS estimate or fill a missing ACS year with a different
+Census product. The decision record is
+`_bmad-output/specs/spec-longitudinal-source-coverage/`.
+
+The existing 2021-2024 5-year comprehensive-delta job remains in progress and
+is deliberately unchanged. Do not start annual ACS acquisition until its
+separate capacity/format/build plan is approved.
+
 ## Session handoff (2026-09-27)
 
 The download is still stopped. Do not start `sync-congress-bills` again for
