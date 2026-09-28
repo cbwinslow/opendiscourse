@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-27. Congress 106 bills match Congress.gov (10,840).
+Last updated: 2026-09-28. Congress 106 bills match Congress.gov (10,840).
 Congress 107 is still short two bills whose detail pages return HTTP 500.
 Member profiles are loaded on port 5434. See "Session handoff (2026-09-27)".
 The done-state for bills, votes, and members remains
@@ -10,6 +10,28 @@ Read this first when resuming, then `AGENTS.md`,
 `_bmad-output/planning-artifacts/epics.md`. If this file and code disagree, the
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
 decision or story status changes.
+
+## Reliable ACS/AHS source recovery (2026-09-28)
+
+The housing-archive connector now retries a temporary Census ZIP failure before
+considering a verified equivalent Census URL. It refuses an alternate unless it
+is a Census HTTPS URL with the expected published byte count and a non-HTML
+response. The fallback context and retained bytes keep the logical publisher
+object identity while recording the URL actually used and its checksum. No
+archive transfer was started or completed by this change.
+
+`research-db source-status census.acs_housing_archive` is the read-only report
+for the approved selection and gaps, retained usable bytes, failures, staged
+rows, and published rows. After reviewing a freshly generated capacity manifest
+and explicitly approving transfer, the safe resume command is:
+
+```sh
+uv run python -m opendiscourse_research.ingestion.acs_archive \
+  --all-official-indexes --approve-transfer
+```
+
+This command remains subject to the existing capacity gate and does not replace
+the required operator approval of the current manifest.
 
 ## Longitudinal coverage decision (2026-09-27)
 

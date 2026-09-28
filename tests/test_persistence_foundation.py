@@ -129,6 +129,7 @@ from opendiscourse_research.repositories.legislation import (
     save_billstatus_bill,
     upsert_congress_person,
 )
+from opendiscourse_research.repositories.source_status import source_status
 from opendiscourse_research.providers import census
 from opendiscourse_research.providers.census import sync_acs_bulk_packages
 
@@ -2291,11 +2292,22 @@ def test_acs_housing_archive_stages_and_publishes_a_retained_pums_artifact(
         ),
         source,
     )
+    register_artifact(
+        "census.acs_housing_archive",
+        "https://www2.census.gov/rejected.zip",
+        "virtual://failed-attempt",
+        key,
+        status="failed",
+        error_message="HTML rejection page",
+    )
     try:
         with engine().connect() as connection:
             evidence = dict(
                 connection.execute(
-                    text("SELECT artifact_id, local_path FROM ingest.artifact WHERE artifact_key=:key"),
+                    text(
+                        "SELECT artifact_id, local_path FROM ingest.artifact "
+                        "WHERE artifact_key=:key AND status != 'failed'"
+                    ),
                     {"key": key},
                 ).mappings().one()
             )
@@ -2329,6 +2341,13 @@ def test_acs_housing_archive_stages_and_publishes_a_retained_pums_artifact(
                 text("SELECT count(*) FROM core.housing_archive_release WHERE source_artifact_id=:artifact_id"),
                 {"artifact_id": evidence["artifact_id"]},
             ).scalar_one() == 1
+        report = source_status("census.acs_housing_archive")
+        assert report["artifacts"]["usable_artifact_count"] >= 1
+        assert any(row["artifact_count"] >= 1 for row in report["artifacts"]["usable"])
+        assert any(row["error"] == "HTML rejection page" for row in report["artifacts"]["failures"])
+        assert report["stage"]["acs_pums_rows"] >= 1
+        assert report["published"]["releases"] >= 1
+        assert report["published"]["projection_rows"] >= 1
     finally:
         with engine().begin() as connection:
             for table in (

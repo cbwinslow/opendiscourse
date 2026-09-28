@@ -136,6 +136,44 @@ def _publisher_byte_size(http: httpx.Client, url: str) -> int | None:
     return None
 
 
+def verified_acs_archive_fallback(url: str, expected_bytes: int | None) -> str | None:
+    """Return a verified official equivalent ACS archive URL, if one exists.
+
+    The alternate is deliberately a small provider-boundary policy.  The 2013
+    five-year PUMS directory has a separately published legacy Census path;
+    before returning it we prove that it has the exact publisher byte count and
+    does not advertise HTML. A missing size or any failed probe is unsafe and
+    therefore produces no fallback.
+    """
+    if not isinstance(expected_bytes, int) or expected_bytes < 0:
+        return None
+    primary_prefix = (
+        "https://www2.census.gov/programs-surveys/acs/data/pums/2013/5-Year/"
+    )
+    if not url.startswith(primary_prefix) or "?" in url:
+        return None
+    candidate = "https://www2.census.gov/acs2013_5yr/pums/" + url.removeprefix(
+        primary_prefix
+    )
+    try:
+        with client() as http, http.stream(
+            "GET", candidate, headers={"Range": "bytes=0-0"}
+        ) as response:
+            content_type = response.headers.get("content-type", "").casefold()
+            content_range = response.headers.get("content-range", "")
+            match = re.fullmatch(r"bytes \d+-\d+/(\d+)", content_range)
+            if (
+                not response.is_success
+                or content_type.startswith("text/html")
+                or match is None
+                or int(match.group(1)) != expected_bytes
+            ):
+                return None
+    except httpx.HTTPError:
+        return None
+    return candidate
+
+
 def discover_archive_index(index: ArchiveIndex) -> list[dict[str, Any]]:
     """Read one official Census directory into exact archive-manifest entries.
 

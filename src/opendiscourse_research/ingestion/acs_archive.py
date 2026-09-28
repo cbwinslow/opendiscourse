@@ -34,9 +34,15 @@ from ..providers.census import (
     ArchiveIndex,
     discover_archive_index,
     official_housing_archive_indexes,
+    verified_acs_archive_fallback,
 )
 from ..repositories.artifacts import require_current_artifact
-from .bulk import ArtifactSpec, download
+from .bulk import (
+    ArtifactSpec,
+    discard_partial,
+    download_retrying,
+    retryable_download_error,
+)
 from .connector import ConnectorContext
 
 ACS_1_YEAR = tuple(year for year in range(2005, 2025) if year != 2020)
@@ -182,23 +188,51 @@ class ACSArchiveConnector:
             if not artifact.selected:
                 continue
             filename = Path(artifact.url).name
-            paths[artifact.artifact_key] = str(
-                download(
-                    ArtifactSpec(
-                        dataset_id=self.source_id,
-                        artifact_key=artifact.artifact_key,
-                        url=artifact.url,
-                        filename=f"{artifact.period}/{filename}",
-                        metadata={
-                            "product": artifact.product,
-                            "period": artifact.period,
-                            "component": artifact.component,
-                            "kind": artifact.kind,
-                            "version": artifact.version,
-                        },
+            primary = ArtifactSpec(
+                dataset_id=self.source_id,
+                artifact_key=artifact.artifact_key,
+                url=artifact.url,
+                filename=f"{artifact.period}/{filename}",
+                metadata={
+                    "product": artifact.product,
+                    "period": artifact.period,
+                    "component": artifact.component,
+                    "kind": artifact.kind,
+                    "version": artifact.version,
+                    "logical_url": artifact.url,
+                },
+                expected_bytes=artifact.bytes,
+                allowed_hosts=("www2.census.gov",),
+            )
+            try:
+                paths[artifact.artifact_key] = str(download_retrying(primary))
+            except Exception as error:
+                if not retryable_download_error(error):
+                    raise
+                alternate = verified_acs_archive_fallback(artifact.url, artifact.bytes)
+                if alternate is None:
+                    raise RuntimeError(
+                        f"{artifact.url} failed after bounded retries and has no verified Census fallback"
+                    ) from error
+                discard_partial(primary)
+                paths[artifact.artifact_key] = str(
+                    download_retrying(
+                        ArtifactSpec(
+                            dataset_id=self.source_id,
+                            artifact_key=artifact.artifact_key,
+                            url=alternate,
+                            filename=f"{artifact.period}/{filename}",
+                            metadata={
+                                **(primary.metadata or {}),
+                                "fallback_from": artifact.url,
+                                "fallback_error": str(error),
+                                "fallback_verified_bytes": artifact.bytes,
+                            },
+                            expected_bytes=artifact.bytes,
+                            allowed_hosts=("www2.census.gov",),
+                        )
                     )
                 )
-            )
         ctx.extras["paths"] = paths
         return ctx
 

@@ -10,11 +10,24 @@ contracts:
     cadence: annual
     enabled: true
     approval: required
+    lifecycle_state: preflight_approved_transfer_pending
+    endpoint_policy: original_census_url_with_verified_equivalent_census_fallback
     selection:
       acs_pums_1_years: [2005-2019, 2021-2024]
       acs_pums_5_years: [2009-2024]
       ahs: every_published_release_year_current_relational_csv_only
     storage:
+      capacity_rule: fail_closed_when_size_unknown_or_preview_is_not_approved
       stage_multiplier: 1.0
       database_multiplier: 1.5
+    gaps:
+      - product: acs_pums_1
+        period: '2020'
+        reason: no standard ACS 1-year release
+      - product: acs_pums
+        period: 2000-2004
+        reason: ACS PUMS not published
+      - product: ahs
+        period: '2000'
+        reason: no public-use release
     notes: Raw packages, dictionaries, codebooks and release notes are retained. 2020 ACS 1-year and unavailable AHS years are explicit manifest gaps.

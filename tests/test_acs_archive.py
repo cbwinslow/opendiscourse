@@ -4,8 +4,11 @@ import json
 
 import pytest
 import respx
+import httpx
 from httpx import Response
+from typer.testing import CliRunner
 
+from opendiscourse_research.ingestion import bulk
 from opendiscourse_research.ingestion.acs_archive import (
     ACS_1_YEAR,
     ACS_5_YEAR,
@@ -26,6 +29,7 @@ from opendiscourse_research.providers.census import (
     census_directory_links,
     discover_archive_index,
     official_housing_archive_indexes,
+    verified_acs_archive_fallback,
 )
 
 
@@ -121,6 +125,146 @@ def test_capacity_manifest_has_selected_artifacts_and_gaps(monkeypatch):
     assert capacity_manifest(artifacts)["gaps"] == publisher_gaps()
 
 
+def test_retryable_primary_is_retried_before_verified_fallback(monkeypatch, tmp_path):
+    connector = ACSArchiveConnector([_entry()], transfer_approved=True)
+    ctx = connector.select(connector.discover(ConnectorContext(source_id=connector.source_id)))
+    calls = []
+
+    def transfer(spec, **_kwargs):
+        calls.append(spec)
+        if spec.url == "https://www2.census.gov/x.zip":
+            raise ValueError("https://www2.census.gov/x.zip returned HTML content-type for a non-HTML artifact")
+        return tmp_path / "retained.zip"
+
+    monkeypatch.setattr("opendiscourse_research.ingestion.acs_archive.download_retrying", transfer)
+    discarded = []
+    monkeypatch.setattr("opendiscourse_research.ingestion.acs_archive.discard_partial", discarded.append)
+    monkeypatch.setattr(
+        "opendiscourse_research.ingestion.acs_archive.verified_acs_archive_fallback",
+        lambda url, size: "https://www2.census.gov/equivalent.zip?download=1" if (url, size) == ("https://www2.census.gov/x.zip", 12) else None,
+    )
+    connector.extract(ctx)
+    assert [call.url for call in calls] == [
+        "https://www2.census.gov/x.zip",
+        "https://www2.census.gov/equivalent.zip?download=1",
+    ]
+    assert calls[1].artifact_key == calls[0].artifact_key
+    assert calls[1].metadata["fallback_from"] == calls[0].url
+    assert "returned HTML content-type" in calls[1].metadata["fallback_error"]
+    assert calls[1].metadata["fallback_verified_bytes"] == 12
+    assert discarded == [calls[0]]
+    assert calls[0].expected_bytes == calls[1].expected_bytes == 12
+    assert calls[0].allowed_hosts == calls[1].allowed_hosts == ("www2.census.gov",)
+
+
+def test_unsafe_fallback_fails_closed_after_primary_retries(monkeypatch):
+    connector = ACSArchiveConnector([_entry()], transfer_approved=True)
+    ctx = connector.select(connector.discover(ConnectorContext(source_id=connector.source_id)))
+    calls = []
+
+    def failed_transfer(spec, **_kwargs):
+        calls.append(spec.url)
+        raise ValueError("https://www2.census.gov/x.zip returned HTML content-type for a non-HTML artifact")
+
+    monkeypatch.setattr("opendiscourse_research.ingestion.acs_archive.download_retrying", failed_transfer)
+    monkeypatch.setattr("opendiscourse_research.ingestion.acs_archive.verified_acs_archive_fallback", lambda *_args: None)
+    with pytest.raises(RuntimeError, match="no verified Census fallback"):
+        connector.extract(ctx)
+    assert calls == ["https://www2.census.gov/x.zip"]
+
+
+def test_bounded_retry_records_attempt_context_before_success(monkeypatch, tmp_path):
+    spec = bulk.ArtifactSpec("census.acs_housing_archive", "logical", "https://www2.census.gov/x.zip", "x.zip")
+    calls = []
+
+    def transfer(attempt, **_kwargs):
+        calls.append(attempt)
+        if len(calls) < 3:
+            raise ValueError("https://www2.census.gov/x.zip returned HTML content-type for a non-HTML artifact")
+        return tmp_path / "retained.zip"
+
+    monkeypatch.setattr(bulk, "download", transfer)
+    assert bulk.download_retrying(spec, backoff_seconds=0, sleep=lambda _delay: None) == tmp_path / "retained.zip"
+    assert [item.metadata["transfer_attempt"] for item in calls] == [1, 2, 3]
+    assert all(item.metadata["transfer_attempts"] == 3 for item in calls)
+
+
+def test_temporary_transport_and_http_responses_are_retryable():
+    request = httpx.Request("GET", "https://www2.census.gov/x.zip")
+    for status in (408, 429, 503):
+        assert bulk.retryable_download_error(
+            httpx.HTTPStatusError("temporary", request=request, response=httpx.Response(status, request=request))
+        )
+    assert bulk.retryable_download_error(httpx.ConnectError("dropped", request=request))
+    assert not bulk.retryable_download_error(
+        httpx.HTTPStatusError("not found", request=request, response=httpx.Response(404, request=request))
+    )
+
+
+@respx.mock
+def test_census_fallback_uses_only_verified_legacy_2013_census_path():
+    primary = "https://www2.census.gov/programs-surveys/acs/data/pums/2013/5-Year/csv_pdc.zip"
+    fallback = "https://www2.census.gov/acs2013_5yr/pums/csv_pdc.zip"
+    route = respx.get(fallback).mock(
+        return_value=Response(
+            206,
+            headers={
+                "content-type": "application/zip",
+                "content-range": "bytes 0-0/5157739",
+            },
+        )
+    )
+    assert verified_acs_archive_fallback(primary, 5157739) == fallback
+    assert route.called
+
+
+@respx.mock
+def test_census_fallback_refuses_unverified_urls_sizes_and_content():
+    assert verified_acs_archive_fallback("https://mirror.example/data.zip", 12) is None
+    assert verified_acs_archive_fallback("https://www2.census.gov/data.zip", None) is None
+    primary = "https://www2.census.gov/programs-surveys/acs/data/pums/2013/5-Year/csv_pdc.zip"
+    fallback = "https://www2.census.gov/acs2013_5yr/pums/csv_pdc.zip"
+    respx.get(fallback).mock(
+        return_value=Response(
+            206,
+            headers={"content-type": "text/html", "content-range": "bytes 0-0/5157739"},
+        )
+    )
+    assert verified_acs_archive_fallback(primary, 5157739) is None
+
+
+def test_source_status_command_rejects_unknown_contract(monkeypatch):
+    from opendiscourse_research import cli
+
+    monkeypatch.setattr(
+        cli,
+        "source_status",
+        lambda _dataset: (_ for _ in ()).throw(ValueError("Expected one source contract for dataset 'unknown', found 0")),
+    )
+    result = CliRunner().invoke(cli.app, ["source-status", "unknown"])
+    assert result.exit_code != 0
+    assert "Expected one source contract" in result.output
+
+
+def test_source_status_command_emits_required_json_fields(monkeypatch):
+    from opendiscourse_research import cli
+
+    report = {
+        "dataset": "census.acs_housing_archive",
+        "contract": {"selection": {}, "gaps": []},
+        "artifacts": {"usable": [], "failures": [], "retained_bytes": 0},
+        "stage": {"acs_pums_rows": 0, "ahs_rows": 0},
+        "published": {"releases": 0, "projection_rows": 0},
+    }
+    monkeypatch.setattr(cli, "source_status", lambda dataset: report if dataset == report["dataset"] else None)
+    result = CliRunner().invoke(cli.app, ["source-status", "census.acs_housing_archive"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert set(payload) == {"dataset", "contract", "artifacts", "stage", "published"}
+    assert {"selection", "gaps"} <= set(payload["contract"])
+    assert {"usable", "failures", "retained_bytes"} <= set(payload["artifacts"])
+
+
 def test_preflight_command_prints_manifest_without_starting_transfer(monkeypatch, capsys):
     monkeypatch.setattr(
         "opendiscourse_research.ingestion.acs_archive.official_housing_archive_indexes",
@@ -201,7 +345,6 @@ def test_ahs_discovery_selects_only_latest_relational_csv_per_sample():
 def test_ahs_discovery_excludes_sas_package_from_csv_record_selection():
     index_url = "https://www2.census.gov/programs-surveys/ahs/2001/"
     csv_url = f"{index_url}AHS%202001%20National%20PUF%20v2.0%20CSV.zip"
-    sas_url = f"{index_url}AHS%202001%20National%20PUF%20v2.0%20SAS.zip"
     respx.get(index_url).mock(return_value=Response(200, text=(
         '<a href="AHS%202001%20National%20PUF%20v2.0%20CSV.zip">csv</a>'
         '<a href="AHS%202001%20National%20PUF%20v2.0%20SAS.zip">sas</a>'
