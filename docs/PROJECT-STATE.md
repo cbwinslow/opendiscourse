@@ -55,6 +55,15 @@ repair was verified, the operator-approved single managed
 is regenerating the official manifest before it transfers any missing bytes;
 it reuses the 2,277 usable artifacts and must not be run a second time.
 
+**Recovery retry stopped safely (2026-09-28, 20:49 UTC).** Census returned a
+247-byte HTML rejection page for another selected file, 2019 five-year PUMS
+`csv_hut.zip`, so its size was correctly treated as unknown and the capacity
+gate refused the archive before transfer. There is no separately published,
+verified official Census alternate for that file. The retained artifact count,
+bytes, staging, and published-row counts remain unchanged. Wait for the
+original Census URL to serve a binary ZIP; do not substitute another provider
+or start a second copy.
+
 ## Longitudinal coverage decision (2026-09-27)
 
 The operator wants the widest practical official annual history for every
@@ -165,6 +174,12 @@ the retained official list row, with each available child fact linked to its own
 evidence. The command ran on port 5434: it saved both partial bills, with their own
 list evidence records and no sponsorship rows. The three unavailable cosponsor pages
 remain named retry failures and never create inferred people.
+
+**Congress 107 retry (2026-09-28).** A bounded retry of only H.R. 2842 and
+H.R. 2843 detail endpoints again received HTTP 500 from Congress.gov. Both
+list-backed partial bills remain saved; no detail, sponsorship, or person facts
+were invented. Do not run the full bill downloader; retry these named pages only
+after the publisher recovers.
 
 ## Session handoff (2026-09-26, evening)
 
