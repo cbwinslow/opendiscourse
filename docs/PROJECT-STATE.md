@@ -49,6 +49,12 @@ establish a verified expected size. Run no second copy while the repair is
 being verified. Check factual state with the read-only
 `research-db source-status census.acs_housing_archive` report.
 
+**Recovery retry running (2026-09-28, 20:46 UTC).** After the ZIP-response
+repair was verified, the operator-approved single managed
+`od-acs-housing-archive.service` was started again from commit `806e2da`. It
+is regenerating the official manifest before it transfers any missing bytes;
+it reuses the 2,277 usable artifacts and must not be run a second time.
+
 ## Longitudinal coverage decision (2026-09-27)
 
 The operator wants the widest practical official annual history for every
