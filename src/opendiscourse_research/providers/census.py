@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from html.parser import HTMLParser
 from typing import Any
-from urllib.parse import unquote, urljoin
+from urllib.parse import unquote, urljoin, urlparse
 
 import httpx
 from sqlalchemy import func, literal, select
@@ -114,11 +114,46 @@ def _ahs_version(name: str) -> tuple[int, int] | None:
     return (int(match.group(1)), int(match.group(2))) if match else None
 
 
+def _is_html_family(content_type: str | None) -> bool:
+    """Return whether a response declares an HTML or XHTML representation."""
+    media_type = (content_type or "").split(";", 1)[0].strip().casefold()
+    return (
+        media_type in {"text/html", "application/xhtml+xml"}
+        or media_type.endswith("+html")
+    )
+
+
+def _is_zip_family(content_type: str | None) -> bool:
+    """Return whether a response declares a conventional ZIP binary media type."""
+    media_type = (content_type or "").split(";", 1)[0].strip().casefold()
+    return media_type in {
+        "application/zip",
+        "application/x-zip-compressed",
+        "application/x-zip",
+    }
+
+
+def _positive_size(value: str | None) -> int | None:
+    """Parse a positive publisher byte count without treating zero as evidence."""
+    try:
+        size = int(value) if value is not None else 0
+    except ValueError:
+        return None
+    return size if size > 0 else None
+
+
 def _publisher_byte_size(http: httpx.Client, url: str) -> int | None:
     """Read an exact publisher byte count without downloading an archive."""
+    is_zip = urlparse(url).path.casefold().endswith(".zip")
     try:
         head = http.head(url)
+        if head.is_success and _is_html_family(head.headers.get("content-type")):
+            return None
         if head.is_success and head.headers.get("content-length"):
+            if is_zip:
+                if not _is_zip_family(head.headers.get("content-type")):
+                    return None
+                return _positive_size(head.headers["content-length"])
             return int(head.headers["content-length"])
         # Some Census archive members omit Content-Length on HEAD. A one-byte
         # range response carries the complete object length in Content-Range;
@@ -126,52 +161,67 @@ def _publisher_byte_size(http: httpx.Client, url: str) -> int | None:
         with http.stream("GET", url, headers={"Range": "bytes=0-0"}) as probe:
             if not probe.is_success:
                 return None
+            if _is_html_family(probe.headers.get("content-type")):
+                return None
+            if is_zip and not _is_zip_family(probe.headers.get("content-type")):
+                return None
             content_range = probe.headers.get("content-range")
             if content_range and (match := re.fullmatch(r"bytes \d+-\d+/(\d+)", content_range)):
-                return int(match.group(1))
+                return _positive_size(match.group(1)) if is_zip else int(match.group(1))
             if probe.status_code == 200 and probe.headers.get("content-length"):
-                return int(probe.headers["content-length"])
+                return (
+                    _positive_size(probe.headers["content-length"])
+                    if is_zip
+                    else int(probe.headers["content-length"])
+                )
     except (httpx.HTTPError, ValueError):
         return None
     return None
 
 
-def verified_acs_archive_fallback(url: str, expected_bytes: int | None) -> str | None:
-    """Return a verified official equivalent ACS archive URL, if one exists.
+def verified_acs_archive_fallback_size(url: str) -> tuple[str, int] | None:
+    """Return the sole verified Census legacy alternate and its exact size.
 
     The alternate is deliberately a small provider-boundary policy.  The 2013
     five-year PUMS directory has a separately published legacy Census path;
-    before returning it we prove that it has the exact publisher byte count and
-    does not advertise HTML. A missing size or any failed probe is unsafe and
-    therefore produces no fallback.
+    this probe is used only when the primary has no trustworthy binary size.
+    It requires an official host, a binary one-byte range response, and a
+    positive total length. A missing size or any failed probe is unsafe.
     """
-    if not isinstance(expected_bytes, int) or expected_bytes < 0:
-        return None
     primary_prefix = (
         "https://www2.census.gov/programs-surveys/acs/data/pums/2013/5-Year/"
     )
-    if not url.startswith(primary_prefix) or "?" in url:
+    if url != f"{primary_prefix}csv_pdc.zip":
         return None
-    candidate = "https://www2.census.gov/acs2013_5yr/pums/" + url.removeprefix(
-        primary_prefix
-    )
+    candidate = "https://www2.census.gov/acs2013_5yr/pums/csv_pdc.zip"
     try:
         with client() as http, http.stream(
             "GET", candidate, headers={"Range": "bytes=0-0"}
         ) as response:
-            content_type = response.headers.get("content-type", "").casefold()
             content_range = response.headers.get("content-range", "")
-            match = re.fullmatch(r"bytes \d+-\d+/(\d+)", content_range)
+            match = re.fullmatch(r"bytes 0-0/([1-9]\d*)", content_range)
             if (
-                not response.is_success
-                or content_type.startswith("text/html")
+                response.status_code != 206
+                or urlparse(str(response.url)).scheme != "https"
+                or urlparse(str(response.url)).hostname != "www2.census.gov"
+                or not _is_zip_family(response.headers.get("content-type"))
                 or match is None
-                or int(match.group(1)) != expected_bytes
             ):
                 return None
     except httpx.HTTPError:
         return None
-    return candidate
+    return candidate, int(match.group(1))
+
+
+def verified_acs_archive_fallback(url: str, expected_bytes: int | None) -> str | None:
+    """Return the verified alternate only when it has the given positive size."""
+    if not isinstance(expected_bytes, int) or expected_bytes <= 0:
+        return None
+    verified = verified_acs_archive_fallback_size(url)
+    if verified is None:
+        return None
+    candidate, publisher_bytes = verified
+    return candidate if publisher_bytes == expected_bytes else None
 
 
 def discover_archive_index(index: ArchiveIndex) -> list[dict[str, Any]]:
@@ -215,6 +265,11 @@ def discover_archive_index(index: ArchiveIndex) -> list[dict[str, Any]]:
             else:
                 continue
             size = _publisher_byte_size(http, url)
+            # The selected URL remains the logical artifact identity. Only this
+            # documented one-file Census alternate may repair an untrustworthy
+            # primary size, and its bytes are independently range-verified.
+            if size is None and (fallback := verified_acs_archive_fallback_size(url)):
+                _, size = fallback
             entry: dict[str, Any] = {
                 "product": index.product,
                 "period": index.period,

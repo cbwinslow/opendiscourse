@@ -36,6 +36,19 @@ uv run python -m opendiscourse_research.ingestion.acs_archive \
 This command remains subject to the existing capacity gate and does not replace
 the required operator approval of the current manifest.
 
+**Approved retry stopped safely (2026-09-28, 20:16–20:28 UTC).** One managed
+`od-acs-housing-archive.service` regenerated its manifest, reused the 2,277
+usable artifacts, and retried the one failed ZIP. Census again returned a
+247-byte HTML rejection page for the primary URL. The separately published
+official backup returned a 5,157,739-byte ZIP, but the discovery code had
+mistakenly treated the primary HTML page's byte count as the expected ZIP size
+and therefore refused the backup. No bad bytes were retained; staging and
+publishing remain at zero. The repair keeps the original logical URL, rejects
+HTML-family size probes, and uses only that documented Census ZIP backup to
+establish a verified expected size. Run no second copy while the repair is
+being verified. Check factual state with the read-only
+`research-db source-status census.acs_housing_archive` report.
+
 ## Longitudinal coverage decision (2026-09-27)
 
 The operator wants the widest practical official annual history for every

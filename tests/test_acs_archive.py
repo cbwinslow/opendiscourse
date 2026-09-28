@@ -1,6 +1,7 @@
 """Archive-manifest rules for ACS PUMS and AHS (no network or database)."""
 
 import json
+from contextlib import contextmanager
 
 import pytest
 import respx
@@ -30,6 +31,7 @@ from opendiscourse_research.providers.census import (
     discover_archive_index,
     official_housing_archive_indexes,
     verified_acs_archive_fallback,
+    verified_acs_archive_fallback_size,
 )
 
 
@@ -201,6 +203,41 @@ def test_temporary_transport_and_http_responses_are_retryable():
     )
 
 
+def test_zip_download_refuses_equal_sized_non_zip_response(monkeypatch, tmp_path):
+    spec = bulk.ArtifactSpec(
+        "census.acs_housing_archive",
+        "logical",
+        "https://www2.census.gov/fallback.zip",
+        "2013/fallback.zip",
+        expected_bytes=10,
+    )
+    target = tmp_path / "fallback.zip"
+    request = httpx.Request("GET", spec.url)
+    monkeypatch.setattr(bulk, "artifact_path", lambda _spec: target)
+    monkeypatch.setattr(bulk, "get_artifact", lambda *_args: None)
+    monkeypatch.setattr(bulk, "_upsert", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        bulk,
+        "client",
+        lambda: httpx.Client(
+            transport=httpx.MockTransport(
+                lambda _request: httpx.Response(
+                    200,
+                    content=b"same-size!",
+                    headers={"content-type": "text/plain"},
+                    request=request,
+                )
+            )
+        ),
+    )
+
+    with pytest.raises(ValueError, match="non-ZIP content-type"):
+        bulk._download_locked(spec, overwrite=False, chunk_size=3)
+
+    assert not target.exists()
+    assert not target.with_suffix(".zip.part").exists()
+
+
 @respx.mock
 def test_census_fallback_uses_only_verified_legacy_2013_census_path():
     primary = "https://www2.census.gov/programs-surveys/acs/data/pums/2013/5-Year/csv_pdc.zip"
@@ -231,6 +268,113 @@ def test_census_fallback_refuses_unverified_urls_sizes_and_content():
         )
     )
     assert verified_acs_archive_fallback(primary, 5157739) is None
+
+
+@pytest.mark.parametrize(
+    "primary_headers",
+    [
+        {"content-type": "text/html", "content-length": "247"},
+        {"content-type": "text/plain", "content-length": "247"},
+        {"content-type": "application/json", "content-length": "247"},
+        {"content-type": "application/zip", "content-length": "0"},
+    ],
+)
+@respx.mock
+def test_untrusted_primary_zip_size_recovers_from_the_verified_census_alternate(primary_headers):
+    index_url = "https://www2.census.gov/programs-surveys/acs/data/pums/2013/5-Year/"
+    primary = f"{index_url}csv_pdc.zip"
+    alternate = "https://www2.census.gov/acs2013_5yr/pums/csv_pdc.zip"
+    respx.get(index_url).mock(return_value=Response(200, text='<a href="csv_pdc.zip">data</a>'))
+    respx.head(primary).mock(
+        return_value=Response(200, headers=primary_headers)
+    )
+    alternate_probe = respx.get(alternate, headers={"Range": "bytes=0-0"}).mock(
+        return_value=Response(
+            206,
+            headers={"content-type": "application/zip", "content-range": "bytes 0-0/5157739"},
+        )
+    )
+
+    entries = discover_archive_index(ArchiveIndex(index_url, "acs_pums_5", "2009-2013", "all"))
+
+    assert entries == [{
+        "product": "acs_pums_5", "period": "2009-2013", "component": "all",
+        "kind": "data", "url": primary, "bytes": 5157739, "version": "current",
+    }]
+    assert alternate_probe.called
+
+
+@pytest.mark.parametrize(
+    ("headers", "status"),
+    [
+        ({"content-type": "application/xhtml+xml", "content-range": "bytes 0-0/247"}, 206),
+        ({"content-type": "application/octet-stream", "content-range": "bytes 0-0/5157739"}, 206),
+        ({"content-type": "text/plain", "content-range": "bytes 0-0/5157739"}, 206),
+        ({"content-type": "application/zip"}, 206),
+        ({"content-type": "application/zip", "content-range": "bytes 0-0/0"}, 206),
+        ({"content-type": "application/zip", "content-range": "bytes 0-0/5157739"}, 200),
+    ],
+)
+@respx.mock
+def test_census_fallback_size_refuses_unsafe_range_responses(headers, status):
+    primary = "https://www2.census.gov/programs-surveys/acs/data/pums/2013/5-Year/csv_pdc.zip"
+    fallback = "https://www2.census.gov/acs2013_5yr/pums/csv_pdc.zip"
+    respx.get(fallback).mock(return_value=Response(status, headers=headers))
+    assert verified_acs_archive_fallback_size(primary) is None
+
+
+@respx.mock
+def test_html_primary_and_unsafe_alternate_leaves_size_unknown():
+    index_url = "https://www2.census.gov/programs-surveys/acs/data/pums/2013/5-Year/"
+    primary = f"{index_url}csv_pdc.zip"
+    alternate = "https://www2.census.gov/acs2013_5yr/pums/csv_pdc.zip"
+    respx.get(index_url).mock(return_value=Response(200, text='<a href="csv_pdc.zip">data</a>'))
+    respx.head(primary).mock(return_value=Response(200))
+    respx.get(primary, headers={"Range": "bytes=0-0"}).mock(
+        return_value=Response(
+            206,
+            headers={"content-type": "application/xhtml+xml", "content-range": "bytes 0-0/247"},
+        )
+    )
+    respx.get(alternate, headers={"Range": "bytes=0-0"}).mock(
+        return_value=Response(206, headers={"content-type": "text/html", "content-range": "bytes 0-0/247"})
+    )
+
+    entries = discover_archive_index(ArchiveIndex(index_url, "acs_pums_5", "2009-2013", "all"))
+
+    assert entries[0]["url"] == primary
+    assert entries[0]["bytes"] is None
+
+
+@pytest.mark.parametrize(
+    "final_url",
+    [
+        "http://www2.census.gov/acs2013_5yr/pums/csv_pdc.zip",
+        "https://mirror.example/acs2013_5yr/pums/csv_pdc.zip",
+    ],
+)
+def test_census_fallback_size_refuses_non_census_or_non_https_final_response(
+    monkeypatch, final_url
+):
+    primary = "https://www2.census.gov/programs-surveys/acs/data/pums/2013/5-Year/csv_pdc.zip"
+
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        @contextmanager
+        def stream(self, *_args, **_kwargs):
+            yield Response(
+                206,
+                headers={"content-type": "application/zip", "content-range": "bytes 0-0/5157739"},
+                request=httpx.Request("GET", final_url),
+            )
+
+    monkeypatch.setattr("opendiscourse_research.providers.census.client", FakeClient)
+    assert verified_acs_archive_fallback_size(primary) is None
 
 
 def test_source_status_command_rejects_unknown_contract(monkeypatch):
@@ -299,7 +443,7 @@ def test_official_index_discovery_keeps_publisher_bytes_and_documents():
     respx.get(index_url).mock(
         return_value=Response(200, text='<a href="csv_pus.zip">data</a><a href="notes.pdf">notes</a>')
     )
-    respx.head(data_url).mock(return_value=Response(200, headers={"content-length": "12"}))
+    respx.head(data_url).mock(return_value=Response(200, headers={"content-type": "application/zip", "content-length": "12"}))
     respx.head(notes_url).mock(return_value=Response(200, headers={"content-length": "34"}))
     entries = discover_archive_index(ArchiveIndex(index_url, "acs_pums_1", "2024", "us"))
     assert {(entry["kind"], entry["bytes"]) for entry in entries} == {
@@ -315,7 +459,7 @@ def test_official_index_discovery_uses_one_byte_range_when_head_omits_size():
     respx.get(index_url).mock(return_value=Response(200, text='<a href="csv_pus.zip">data</a>'))
     respx.head(data_url).mock(return_value=Response(200))
     respx.get(data_url, headers={"Range": "bytes=0-0"}).mock(
-        return_value=Response(206, headers={"content-range": "bytes 0-0/123"})
+        return_value=Response(206, headers={"content-type": "application/zip", "content-range": "bytes 0-0/123"})
     )
     entries = discover_archive_index(ArchiveIndex(index_url, "acs_pums_1", "2024", "us"))
     assert entries[0]["bytes"] == 123
@@ -333,7 +477,7 @@ def test_ahs_discovery_selects_only_latest_relational_csv_per_sample():
         '<a href="AHS%202023%20National%20PUF%20v1.1%20Flat%20CSV.zip">flat</a>'
     )))
     for url in (v10, v11, flat):
-        respx.head(url).mock(return_value=Response(200, headers={"content-length": "12"}))
+        respx.head(url).mock(return_value=Response(200, headers={"content-type": "application/zip", "content-length": "12"}))
     entries = discover_archive_index(ArchiveIndex(index_url, "ahs", "2023", "all"))
     artifacts = manifest_from_index(entries)
     selected = [artifact for artifact in artifacts if artifact.selected]
@@ -349,6 +493,6 @@ def test_ahs_discovery_excludes_sas_package_from_csv_record_selection():
         '<a href="AHS%202001%20National%20PUF%20v2.0%20CSV.zip">csv</a>'
         '<a href="AHS%202001%20National%20PUF%20v2.0%20SAS.zip">sas</a>'
     )))
-    respx.head(csv_url).mock(return_value=Response(200, headers={"content-length": "12"}))
+    respx.head(csv_url).mock(return_value=Response(200, headers={"content-type": "application/zip", "content-length": "12"}))
     entries = discover_archive_index(ArchiveIndex(index_url, "ahs", "2001", "all"))
     assert [entry["url"] for entry in entries] == [csv_url]

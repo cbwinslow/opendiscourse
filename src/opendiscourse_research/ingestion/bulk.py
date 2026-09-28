@@ -21,6 +21,8 @@ from ..config import settings
 from ..repositories.legislation import get_artifact, register_artifact
 from .base import client
 
+ZIP_MEDIA_TYPES = frozenset({"application/zip", "application/x-zip-compressed", "application/x-zip"})
+
 
 @dataclass(frozen=True)
 class ArtifactSpec:
@@ -190,6 +192,7 @@ def _download_locked(spec: ArtifactSpec, *, overwrite: bool, chunk_size: int) ->
             content_type = response.headers.get("content-type", "")
             media_type = content_type.split(";", 1)[0].casefold()
             is_html = media_type in {"text/html", "application/xhtml+xml"} or media_type.endswith("+html")
+            is_zip = spec.filename.lower().endswith(".zip")
             if is_html and not spec.filename.lower().endswith((".html", ".htm", ".xhtml")):
                 # Confirmed live (2026-08-07): a WAF in front of Census's
                 # www2.census.gov occasionally answers a plain-data request
@@ -205,6 +208,11 @@ def _download_locked(spec: ArtifactSpec, *, overwrite: bool, chunk_size: int) ->
                 raise ValueError(
                     f"{spec.url} returned HTML content-type for a non-HTML artifact "
                     f"({spec.filename}) -- likely a WAF rejection page, not real data"
+                )
+            if is_zip and media_type not in ZIP_MEDIA_TYPES:
+                raise ValueError(
+                    f"{spec.url} returned non-ZIP content-type {content_type!r} "
+                    f"for ZIP artifact ({spec.filename})"
                 )
             response_host = urlparse(str(response.url)).hostname
             if spec.allowed_hosts and response_host not in spec.allowed_hosts:
