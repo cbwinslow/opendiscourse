@@ -60,4 +60,24 @@ def validate_contracts() -> list[str]:
             for key in ("year", "products", "selection", "approval"):
                 if key not in contract:
                     errors.append(f"{label}: ACS bulk contract missing {key}")
+        if contract.get("kind") == "archive_manifest":
+            for key in (
+                "products",
+                "selection",
+                "storage",
+                "approval",
+                "endpoint_policy",
+                "lifecycle_state",
+                "target",
+            ):
+                if key not in contract:
+                    errors.append(f"{label}: archive manifest contract missing {key}")
+            if not isinstance(contract.get("products"), list) or not contract.get("products"):
+                errors.append(f"{label}: archive manifest products must be a non-empty list")
+            if not isinstance(contract.get("target"), list) or not contract.get("target"):
+                errors.append(f"{label}: archive manifest target must be a non-empty list")
+            if not isinstance(contract.get("selection"), dict) or not contract["selection"]:
+                errors.append(f"{label}: archive manifest selection must be a non-empty mapping")
+            if not isinstance(contract.get("storage"), dict) or not contract["storage"]:
+                errors.append(f"{label}: archive manifest storage must be a non-empty mapping")
     return errors

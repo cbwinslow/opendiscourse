@@ -119,6 +119,7 @@ from .registry import sync as registry_sync
 from .repositories.names import ENTITIES, UnrankedSource, resolve_names
 from .repositories.people import merge_reviewed_people
 from .repositories.runs import loaded_coverage
+from .repositories.source_status import source_status
 from .scaffold import ScaffoldError, new_provider
 from .votereconcile import reconcile_openstates_votes
 
@@ -392,6 +393,17 @@ def status_command() -> None:
     apply_migrations()
     sync_inventory()
     typer.echo(json.dumps(registry_status(), indent=2, sort_keys=True, default=str))
+
+
+@app.command("source-status")
+def source_status_command(
+    dataset: str = typer.Argument(..., help="Dataset identifier from a reviewed source contract."),
+) -> None:
+    """Show approved source coverage alongside factual retained and loaded evidence."""
+    try:
+        typer.echo(json.dumps(source_status(dataset), indent=2, sort_keys=True, default=str))
+    except (SQLAlchemyError, ValueError) as exc:
+        raise typer.BadParameter(str(exc)) from None
 
 
 @app.command("audit")

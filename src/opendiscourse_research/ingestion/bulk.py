@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import fcntl
 import json
+import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from hashlib import sha256
 from mimetypes import guess_type
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
+import httpx
 import yaml
 
 from ..artifact_storage import file_checksum, retain_artifact_bytes, validate_retained
@@ -28,6 +31,8 @@ class ArtifactSpec:
     period_start: date | None = None
     period_end: date | None = None
     metadata: dict | None = None
+    expected_bytes: int | None = None
+    allowed_hosts: tuple[str, ...] | None = None
 
 
 def data_root() -> Path:
@@ -91,6 +96,50 @@ def download(
         return _download_locked(spec, overwrite=overwrite, chunk_size=chunk_size)
 
 
+def retryable_download_error(error: Exception) -> bool:
+    """Return whether a failed binary transfer is safe to retry.
+
+    A retry never makes an unverified response acceptable; it merely permits a
+    temporary transport, server, or HTML-rejection response another attempt.
+    """
+    if isinstance(error, httpx.TransportError):
+        return True
+    if isinstance(error, httpx.HTTPStatusError):
+        return error.response.status_code in {408, 429} or error.response.status_code >= 500
+    return isinstance(error, ValueError) and "returned HTML content-type" in str(error)
+
+
+def download_retrying(
+    spec: ArtifactSpec,
+    *,
+    attempts: int = 3,
+    backoff_seconds: float = 0.1,
+    sleep: Callable[[float], None] = time.sleep,
+) -> Path:
+    """Download a binary artifact with bounded retries for transient failures.
+
+    Every failed attempt is retained in the artifact ledger.  The successful
+    attempt's metadata says which attempt supplied the immutable bytes.
+    """
+    if attempts < 1:
+        raise ValueError("attempts must be at least one")
+    for number in range(1, attempts + 1):
+        metadata = {**(spec.metadata or {}), "transfer_attempt": number, "transfer_attempts": attempts}
+        try:
+            return download(replace(spec, metadata=metadata))
+        except Exception as error:
+            if number == attempts or not retryable_download_error(error):
+                raise
+            sleep(backoff_seconds * number)
+    raise AssertionError("unreachable")
+
+
+def discard_partial(spec: ArtifactSpec) -> None:
+    """Remove an incomplete transfer before switching to a different endpoint."""
+    target = artifact_path(spec)
+    target.with_suffix(target.suffix + ".part").unlink(missing_ok=True)
+
+
 def _download_locked(spec: ArtifactSpec, *, overwrite: bool, chunk_size: int) -> Path:
     """Resume a stable staging file while holding its interprocess lock."""
     target = artifact_path(spec)
@@ -139,9 +188,9 @@ def _download_locked(spec: ArtifactSpec, *, overwrite: bool, chunk_size: int) ->
         ):
             response.raise_for_status()
             content_type = response.headers.get("content-type", "")
-            if content_type.startswith(
-                "text/html"
-            ) and not spec.filename.lower().endswith((".html", ".htm")):
+            media_type = content_type.split(";", 1)[0].casefold()
+            is_html = media_type in {"text/html", "application/xhtml+xml"} or media_type.endswith("+html")
+            if is_html and not spec.filename.lower().endswith((".html", ".htm", ".xhtml")):
                 # Confirmed live (2026-08-07): a WAF in front of Census's
                 # www2.census.gov occasionally answers a plain-data request
                 # with HTTP 200 and an HTML "Request Rejected" page instead
@@ -157,11 +206,22 @@ def _download_locked(spec: ArtifactSpec, *, overwrite: bool, chunk_size: int) ->
                     f"{spec.url} returned HTML content-type for a non-HTML artifact "
                     f"({spec.filename}) -- likely a WAF rejection page, not real data"
                 )
+            response_host = urlparse(str(response.url)).hostname
+            if spec.allowed_hosts and response_host not in spec.allowed_hosts:
+                raise ValueError(
+                    f"{spec.url} redirected to unapproved host {response_host!r}; "
+                    f"expected one of {spec.allowed_hosts!r}"
+                )
             if existing and response.status_code != 206:
                 existing, mode = 0, "wb"
             with partial.open(mode) as output:
                 for chunk in response.iter_bytes(chunk_size):
                     output.write(chunk)
+            if spec.expected_bytes is not None and partial.stat().st_size != spec.expected_bytes:
+                raise ValueError(
+                    f"{spec.url} downloaded {partial.stat().st_size} bytes; "
+                    f"expected {spec.expected_bytes}"
+                )
             digest = file_checksum(partial)
             target = _retain(spec, partial, digest, move=True)
             _upsert(
