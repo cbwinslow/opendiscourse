@@ -11,6 +11,9 @@ Read this first when resuming, then `AGENTS.md`,
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
 decision or story status changes.
 
+For the current ACS archive recovery, read
+`docs/SESSION-HANDOFF-2026-09-28-ACS-RECOVERY.md`.
+
 ## Reliable ACS/AHS source recovery (2026-09-28)
 
 The housing-archive connector now retries a temporary Census ZIP failure before
