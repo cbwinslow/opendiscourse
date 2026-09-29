@@ -1,0 +1,5 @@
+[
+  {"claim":"GovInfo BILLSTATUS structured data begins with Congress 108, not 107.","class":"coverage","pub_date":"2026-09-29"},
+  {"claim":"GovInfo BILLS bulk XML begins with Congress 113, while published bill versions extend to Congress 103.","class":"coverage","pub_date":"2026-09-29"},
+  {"claim":"A 500 response is not evidence that an official resource is absent.","class":"architecture","pub_date":"2022-06-01"}
+]
