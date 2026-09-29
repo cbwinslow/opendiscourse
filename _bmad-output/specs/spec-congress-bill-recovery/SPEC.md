@@ -2,7 +2,9 @@
 id: SPEC-congress-bill-recovery
 companions:
   - recovery-evidence.md
+  - representation-fallback-boundary.md
   - ../../../docs/PROJECT-STATE.md
+  - ../../planning-artifacts/research/technical-official-fallback-sources-for-congress-g-2026-09-29/research.md
 sources:
   - ../../../docs/SESSION-HANDOFF-2026-09-27.md
   - ../../../docs/NEXT-SESSION-PROMPT.md
@@ -30,19 +32,28 @@ Congress.gov still fails on five known endpoints, leaving two otherwise availabl
   - **intent:** The operator can tell partial recovery from source completion.
   - **success:** Run results, the source tracker, and the project handoff name H.R. 2842, H.R. 2843, S. 1378, S.Res. 218, and H.R. 5346 as publisher-side gaps until their respective endpoint succeeds.
 
+- **CAP-4**
+  - **intent:** The operator can distinguish a failed canonical API component from separately retained official corroboration.
+  - **success:** No corroborating representation can populate a canonical detail or cosponsor field without an approved field-equivalence contract; a later API response reconciles the gap without deleting historic evidence.
+
 ## Constraints
 
 - Use only original, authenticated Congress.gov API responses; the public website's bot challenge and legacy caches are not fallback evidence.
 - Retain original bytes immutably, with URL, checksum, and artifact lineage for every promoted fact. A failed endpoint is an artifact failure, never a fabricated JSON response.
 - Do not rerun the full 106–107 sync, name-match people, or infer cosponsors from other records.
 - The two list-derived rows are partial, not complete: missing fields remain null and source-member labels identify their actual evidence.
+- A future alternate representation must retain its own URL, retrieval metadata,
+  content type, checksum, source member, and field-equivalence contract. It is
+  never relabelled as failed Congress.gov API bytes.
 
 ## Non-goals
 
 - This does not solve Congress.gov's underlying MemberTerm publisher errors.
 - This does not fill the three cosponsor lists from unofficial mirrors, historic local files, or a person-name match.
+- This does not automatically substitute Congress.gov public HTML, GovInfo BILLS,
+  or GovInfo History of Bills for a canonical detail or cosponsor component.
 - This does not start new legislative sources, rework committee-assignment verification, or change the completion bar in `legislative-north-star.md`.
 
 ## Success signal
 
-The two missing bills are auditable partial rows built only from available official responses, while the three unavailable cosponsor lists and both missing detail pages remain plainly reported and can be retried in isolation. A later successful endpoint replaces only the corresponding gap with new evidence.
+The two missing bills are auditable partial rows built only from available official responses, while the three unavailable cosponsor lists and both missing detail pages remain plainly reported and can be retried in isolation. A later successful endpoint replaces only the corresponding gap with new evidence; any future corroborating representation remains separate until its field-level contract is approved.

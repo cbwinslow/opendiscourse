@@ -7,7 +7,7 @@ source: 'Native official-source web research'
 status: complete
 preset: standard
 validation: normal
-verified_claims: 3
+verified_claims: 4
 unverified_claims: 0
 created: '2026-09-29'
 updated: '2026-09-29'
@@ -37,6 +37,29 @@ or cosponsor data is absent. [4]
 The biggest caveat is practical: the historical GovInfo material may help a
 human verify a bill or a particular printed cosponsor reference, but it is
 not a safe source for filling the three failed canonical cosponsor records.
+
+## Controlled live check — 2026-09-29
+
+A one-time, read-only check used the warehouse's configured Congress.gov API
+credential and the normal API request headers, plus `Cache-Control: no-cache`.
+It made one GET request per path and retained no response body. All five paths
+returned `500` with JSON responses. [8]
+
+| Canonical component | HTTP result | Body bytes | Cache-path observation |
+|---|---:|---:|---|
+| 107th Congress H.R. 2842 detail | 500 | 1,299 | `Age: 0`; API umbrella intermediary |
+| 107th Congress H.R. 2843 detail | 500 | 1,299 | `Age: 1`; API umbrella intermediary |
+| 106th Congress S. 1378 cosponsors | 500 | 1,474 | `Age: 0`; API umbrella intermediary |
+| 106th Congress S.Res. 218 cosponsors | 500 | 1,478 | `Age: 1`; API umbrella intermediary |
+| 107th Congress H.R. 5346 cosponsors | 500 | 1,373 | `Age: 1`; API umbrella intermediary |
+
+The responses had no `Cache-Control` header. This does not prove whether the
+failure is in Congress.gov's origin service or its API intermediary, but it
+does show the same failure through a direct non-browser client after cache
+revalidation. Clearing a local browser cache cannot repair that service path.
+The response bodies were intentionally not retained because they are failure
+diagnostics rather than source evidence; their SHA-256 prefixes were recorded
+in the run ledger for comparison only.
 
 ## Recommendations
 
@@ -134,6 +157,7 @@ parsing. It avoids a source-specific `if/elif` in a CLI command or a generic
 | [5] | Congress.gov documented bill and cosponsor endpoints | [Library of Congress Congress.gov API OpenAPI document](https://github.com/LibraryOfCongress/api.congress.gov/blob/main/Documentation/openapi.json) | Current main branch | 2026-09-29 | High |
 | [6] | THOMAS retirement and transition to Congress.gov | [Library of Congress announcement](https://www.loc.gov/item/prn-16-004/thomas-gov-to-retire-july-5/2016-04-28/) | 2016-04-28 | 2026-09-29 | High |
 | [7] | Preservation metadata expectations for datasets | [Library of Congress Recommended Formats Statement: Datasets](https://www.loc.gov/preservation/resources/rfs/data.html) | Not shown | 2026-09-29 | Medium |
+| [8] | Reproducible direct status check for the five named endpoints | Controlled run ledger (`.memlog.md`) | 2026-09-29 | 2026-09-29 | High |
 
 ## Staleness map
 

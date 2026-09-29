@@ -10,6 +10,16 @@
 
 `https://www.congress.gov/` displayed its Cloudflare human-verification page to the automated browser for a missing-detail and a missing-cosponsor bill. It is not usable as evidence in this environment.
 
+## Controlled recheck — 2026-09-29
+
+One direct, authenticated, read-only GET per named canonical API component used
+the normal warehouse client headers and `Cache-Control: no-cache`. All five
+again returned HTTP 500 JSON responses. The API intermediary reported `Age: 0`
+or `Age: 1`; no response supplied `Cache-Control`. This is a publisher-path
+failure, not a browser-cache result. Only status, selected headers, byte count,
+and a short SHA-256 fingerprint of each error response were recorded in the
+research run ledger; failure bodies were not retained as source artifacts.
+
 The official 107th Congress bill-list page at offset 4000 contains both missing bills:
 
 | Bill | Introduced | Latest action | List-supplied fields that may be promoted |
