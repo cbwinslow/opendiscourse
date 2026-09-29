@@ -71,6 +71,16 @@ single `od-acs-housing-archive.service` was restarted from `main`; it first
 rebuilds the official manifest and capacity-gates it, then reuses retained
 artifacts and acquires only missing bytes. Do not start another copy.
 
+**Raw archive complete; staging repair and restart (2026-09-29).** The managed
+recovery acquired all **3,762** selected official artifacts (**136,873,504,564
+bytes**) with zero transfer failures. It then stopped before committing any
+stage rows because official 2005 PUMS ZIPs use the older `ss05p...` and
+`ss05h...` CSV member names, which the loader did not recognize. Commit
+`23e56c7` recognizes the bounded legacy `ss` + two-digit-year + person/housing
+marker family, retains fail-closed behavior for malformed names, and passed
+`just check-fast` (638 tests). The single service restarted at 10:52 UTC from
+that commit. It reuses every retained artifact; do not run a second copy.
+
 ## Longitudinal coverage decision (2026-09-27)
 
 The operator wants the widest practical official annual history for every
