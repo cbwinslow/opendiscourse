@@ -50,8 +50,14 @@ def test_standard_acs_ranges_and_publisher_gaps_are_explicit():
 def test_pums_member_type_handles_current_and_legacy_csv_names():
     assert _pums_record_type("psam_pusa.csv") == "person"
     assert _pums_record_type("csv_pus.csv") == "person"
+    assert _pums_record_type("ss05pnj.csv") == "person"
+    assert _pums_record_type("ss06pnj.csv") == "person"
     assert _pums_record_type("psam_husa.csv") == "housing"
     assert _pums_record_type("csv_hus.csv") == "housing"
+    assert _pums_record_type("ss05hnj.csv") == "housing"
+    assert _pums_record_type("ss06hnj.csv") == "housing"
+    with pytest.raises(ValueError, match="unrecognised PUMS CSV member type"):
+        _pums_record_type("ssxypnj.csv")
 
 
 def test_official_index_factory_covers_every_available_pums_and_ahs_release():

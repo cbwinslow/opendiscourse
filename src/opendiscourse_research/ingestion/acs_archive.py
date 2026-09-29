@@ -325,6 +325,11 @@ def _pums_record_type(member: str) -> str:
         return "person"
     if name.startswith(("csv_h", "psam_h", "pums_h")):
         return "housing"
+    if name.startswith("ss") and len(name) > 4 and name[2:4].isdigit():
+        if name[4] == "p":
+            return "person"
+        if name[4] == "h":
+            return "housing"
     raise ValueError(f"unrecognised PUMS CSV member type: {member}")
 
 
