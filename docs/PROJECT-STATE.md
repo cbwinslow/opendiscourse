@@ -11,8 +11,10 @@ Read this first when resuming, then `AGENTS.md`,
 code and tests win (hierarchy of truth in `AGENTS.md`). Update this file when a
 decision or story status changes.
 
-For the current ACS archive recovery, read
-`docs/SESSION-HANDOFF-2026-09-28-ACS-RECOVERY.md`.
+For the current ACS archive staging run and the approved dataset-inventory
+work, read `docs/SESSION-HANDOFF-2026-09-29-ACS-STAGING-AND-INVENTORY.md`.
+The prior `docs/SESSION-HANDOFF-2026-09-28-ACS-RECOVERY.md` retains the
+Census rejection and fallback investigation.
 
 ## Reliable ACS/AHS source recovery (2026-09-28)
 
