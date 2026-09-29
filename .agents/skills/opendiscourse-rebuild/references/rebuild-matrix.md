@@ -5,6 +5,8 @@
 | Fresh local database | `docs/getting-started.md` | Configure `.env`, choose Docker or bare metal, then run `uv run research-db init-db`. |
 | Overall rebuild scope | `_bmad-output/specs/spec-rebuild-kit/SPEC.md` | Read the capability and constraint before choosing a source. |
 | Per-source coverage and known gaps | `_bmad-output/specs/spec-rebuild-kit/source-matrix.md` | Use the stated command only if its gap is closed or the operator explicitly scopes a bounded proof. |
+| ACS housing archive | `inventory/contracts/acs-housing-archive.yaml` and `docs/PROJECT-STATE.md` | Use `uv run research-db source-status census.acs_housing_archive` first; never start a second active archive worker. |
+| FEC campaign finance | `inventory/contracts/fecbulk.yaml` and `inventory/progress.yaml` | Stop: portable acquisition is not implemented and person promotion remains identifier-gated. |
 | Current operational state | `docs/PROJECT-STATE.md`, `inventory/progress.yaml` | Prefer current code/tests when they disagree with a handoff. |
 | New or changed source workflow | `opendiscourse-connector` and `opendiscourse-provenance` | Build through the Connector lifecycle; do not add central dispatcher branches. |
 | Source-specific traps | A narrow project skill | Add one only after a repeated format, identity, capacity, or resume risk is proven. |
