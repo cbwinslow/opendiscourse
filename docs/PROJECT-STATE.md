@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-28. Congress 106 bills match Congress.gov (10,840).
+Last updated: 2026-09-29. Congress 106 bills match Congress.gov (10,840).
 Congress 107 is still short two bills whose detail pages return HTTP 500.
 Member profiles are loaded on port 5434. See "Session handoff (2026-09-27)".
 The done-state for bills, votes, and members remains
@@ -63,6 +63,13 @@ verified official Census alternate for that file. The retained artifact count,
 bytes, staging, and published-row counts remain unchanged. Wait for the
 original Census URL to serve a binary ZIP; do not substitute another provider
 or start a second copy.
+
+**Recovery resumed (2026-09-29, 08:58 UTC).** The previously blocked 2019
+five-year PUMS ZIP again reports an official binary response and a size of
+7,590,713 bytes after its rejection cache expired. The operator-approved
+single `od-acs-housing-archive.service` was restarted from `main`; it first
+rebuilds the official manifest and capacity-gates it, then reuses retained
+artifacts and acquires only missing bytes. Do not start another copy.
 
 ## Longitudinal coverage decision (2026-09-27)
 
