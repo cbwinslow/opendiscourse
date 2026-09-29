@@ -94,6 +94,10 @@ geography/type guards, and a batch/COPY performance path. Do not modify or
 restart the active service to make these changes. Full findings and the
 sequenced repair plan are in
 `docs/research/2026-09-29-acs-schema-and-ingestion-audit.md`.
+The approved but uncommitted run-ledger/reconciliation implementation and its
+remaining verification are handed off in
+`docs/SESSION-HANDOFF-2026-09-29-ACS-LEDGER.md`; do not change the active
+managed service while that work is verified.
 
 ## Longitudinal coverage decision (2026-09-27)
 
