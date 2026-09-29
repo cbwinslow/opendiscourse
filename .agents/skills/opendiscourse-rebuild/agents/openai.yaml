@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenDiscourse Rebuild"
+  short_description: "Bootstrap and verify a reproducible OpenDiscourse setup"
+  default_prompt: "Use $opendiscourse-rebuild to prepare a fresh OpenDiscourse checkout safely."
