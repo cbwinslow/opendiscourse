@@ -83,6 +83,18 @@ marker family, retains fail-closed behavior for malformed names, and passed
 `just check-fast` (638 tests). The single service restarted at 10:52 UTC from
 that commit. It reuses every retained artifact; do not run a second copy.
 
+**ACS/AHS schema and ingestion audit (2026-09-29).** The active managed run
+has no current service error signal; raw source records are retained and the
+live warehouse check found no invalid indexes, unvalidated constraints,
+duplicate ACS stage keys, or missing current-artifact checksums. The audit
+also found work that must be completed before the archive is called
+production-ready: a full run ledger, per-member reconciliation, official
+dictionary/field-definition import, AHS end-to-end coverage, projection
+geography/type guards, and a batch/COPY performance path. Do not modify or
+restart the active service to make these changes. Full findings and the
+sequenced repair plan are in
+`docs/research/2026-09-29-acs-schema-and-ingestion-audit.md`.
+
 ## Longitudinal coverage decision (2026-09-27)
 
 The operator wants the widest practical official annual history for every
