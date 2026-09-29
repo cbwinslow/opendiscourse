@@ -129,10 +129,18 @@ ingest_run_target = Table(
     Column("rows_inserted", BigInteger, nullable=False, server_default=text("0")),
     Column("rows_updated", BigInteger, nullable=False, server_default=text("0")),
     Column("rows_skipped", BigInteger, nullable=False, server_default=text("0")),
+    # The original three counters describe writes.  Archive loads also need to
+    # prove what was observed in the publisher member, including rows which
+    # were already present on a resumable retry.
+    Column("rows_parsed", BigInteger, nullable=False, server_default=text("0")),
+    Column("rows_existing", BigInteger, nullable=False, server_default=text("0")),
+    Column("rows_rejected", BigInteger, nullable=False, server_default=text("0")),
     Column("recorded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     CheckConstraint("status IN ('succeeded', 'partial', 'failed')", name="run_target_status_check"),
     CheckConstraint(
-        "rows_inserted >= 0 AND rows_updated >= 0 AND rows_skipped >= 0", name="run_target_rows_check"
+        "rows_inserted >= 0 AND rows_updated >= 0 AND rows_skipped >= 0 "
+        "AND rows_parsed >= 0 AND rows_existing >= 0 AND rows_rejected >= 0",
+        name="run_target_rows_check",
     ),
     UniqueConstraint("run_id", "target", "coverage_key", name="run_target_run_key_unique"),
     Index("run_target_lookup_idx", "target", "coverage_key"),

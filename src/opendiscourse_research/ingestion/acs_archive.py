@@ -11,7 +11,7 @@ import csv
 import io
 import json
 import zipfile
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import asdict, dataclass
 from datetime import date
 from hashlib import sha256
@@ -37,6 +37,7 @@ from ..providers.census import (
     verified_acs_archive_fallback,
 )
 from ..repositories.artifacts import require_current_artifact
+from .base import IngestionRun
 from .bulk import (
     ArtifactSpec,
     discard_partial,
@@ -62,6 +63,28 @@ class ArchiveArtifact:
     kind: str
     version: str = "current"
     selected: bool = True
+
+
+@dataclass(frozen=True)
+class MemberReconciliation:
+    """Counts for one immutable artifact CSV member in one connector attempt."""
+
+    member: str
+    parsed: int
+    inserted: int
+    existing: int
+    rejected: int = 0
+
+    def reconciled(self) -> bool:
+        return self.parsed == self.inserted + self.existing + self.rejected
+
+
+class MemberStagingError(ValueError):
+    """A malformed source member whose stable name can be recorded in the ledger."""
+
+    def __init__(self, member: str, message: str) -> None:
+        super().__init__(message)
+        self.member = member
 
 
 def publisher_gaps() -> list[dict[str, str]]:
@@ -174,6 +197,9 @@ class ACSArchiveConnector:
             raise RuntimeError(f"capacity gate: {self.manifest['reason']}")
         ctx.plan_id = self.source_id
         ctx.artifact_urls = tuple(a.url for a in self.artifacts if a.selected)
+        run = ctx.extras.get("ingestion_run")
+        if isinstance(run, IngestionRun):
+            run.update_parameters(manifest=self.manifest, selected=list(ctx.selected_ids))
         return ctx
 
     def extract(self, ctx: ConnectorContext) -> ConnectorContext:
@@ -254,15 +280,80 @@ class ACSArchiveConnector:
     def stage(self, ctx: ConnectorContext) -> ConnectorContext:
         """Stage source-shaped CSV rows with artifact/member/ordinal lineage."""
         counts: dict[str, int] = {}
+        member_counts: dict[str, list[dict[str, Any]]] = {}
+        ctx.extras["stage_counts"] = counts
+        ctx.extras["member_counts"] = member_counts
         for artifact in self.artifacts:
             if not artifact.selected or artifact.kind != "data":
                 continue
             evidence = ctx.extras["evidence"][artifact.artifact_key]
-            counts[artifact.artifact_key] = stage_artifact(
-                artifact, Path(evidence["local_path"]), evidence["artifact_id"]
-            )
-        ctx.extras["stage_counts"] = counts
+            completed: list[MemberReconciliation] = []
+
+            def record(
+                item: MemberReconciliation,
+                artifact: ArchiveArtifact = artifact,
+                evidence: dict[str, Any] = evidence,
+                completed: list[MemberReconciliation] = completed,
+            ) -> None:
+                completed.append(item)
+                member_counts[artifact.artifact_key] = [asdict(member) for member in completed]
+                counts[artifact.artifact_key] = sum(member.parsed for member in completed)
+                self._record_member(ctx, artifact, evidence["artifact_id"], item)
+                self._persist_member_checkpoint(ctx)
+
+            try:
+                reconciliations = stage_artifact_members(
+                    artifact, Path(evidence["local_path"]), evidence["artifact_id"], on_member=record
+                )
+            except Exception as exc:
+                self._record_member_failure(
+                    ctx, artifact, evidence, getattr(exc, "member", "<unreadable>")
+                )
+                self._persist_member_checkpoint(ctx)
+                raise
+            if not reconciliations:
+                self._record_member_failure(ctx, artifact, evidence, "<unreadable>")
+                self._persist_member_checkpoint(ctx)
+                raise ValueError(f"selected archive data has no CSV members: {artifact.artifact_key}")
         return ctx
+
+    @staticmethod
+    def _coverage_key(artifact_id: Any, member: str) -> str:
+        return f"artifact={artifact_id};member={member}"
+
+    def _record_member(
+        self, ctx: ConnectorContext, artifact: ArchiveArtifact, artifact_id: Any,
+        item: MemberReconciliation,
+    ) -> None:
+        run = ctx.extras.get("ingestion_run")
+        if not isinstance(run, IngestionRun):
+            return
+        target = "stage.acs_pums_record" if artifact.product.startswith("acs_pums") else "stage.ahs_record"
+        run.record_target(
+            target, self._coverage_key(artifact_id, item.member),
+            inserted=item.inserted, parsed=item.parsed, existing=item.existing,
+            rejected=item.rejected,
+            status="succeeded" if item.parsed and item.reconciled() and not item.rejected else "failed",
+        )
+
+    def _record_member_failure(
+        self, ctx: ConnectorContext, artifact: ArchiveArtifact, evidence: dict[str, Any], member: str
+    ) -> None:
+        """Leave a failed artifact slice, retaining its known source-member name."""
+        run = ctx.extras.get("ingestion_run")
+        if isinstance(run, IngestionRun):
+            target = "stage.acs_pums_record" if artifact.product.startswith("acs_pums") else "stage.ahs_record"
+            run.record_target(target, self._coverage_key(evidence["artifact_id"], member), status="failed")
+
+    @staticmethod
+    def _persist_member_checkpoint(ctx: ConnectorContext) -> None:
+        """Persist each committed member before another source member can begin."""
+        ctx.cursor["selected"] = list(ctx.selected_ids)
+        ctx.cursor["staged"] = ctx.extras.get("stage_counts", {})
+        ctx.cursor["members"] = ctx.extras.get("member_counts", {})
+        run = ctx.extras.get("ingestion_run")
+        if isinstance(run, IngestionRun):
+            run.checkpoint(ctx.cursor)
 
     def normalize(self, ctx: ConnectorContext) -> ConnectorContext:
         """Keep the raw stage faithful; reviewed field mappings are a later projection."""
@@ -273,6 +364,15 @@ class ACSArchiveConnector:
         empty = [key for key, count in ctx.extras.get("stage_counts", {}).items() if count == 0]
         if empty:
             raise ValueError(f"selected archive data produced no staged rows: {', '.join(empty)}")
+        unreconciled = [
+            f"{artifact_key}/{item['member']}"
+            for artifact_key, members in ctx.extras.get("member_counts", {}).items()
+            for item in members
+            if item["parsed"] != item["inserted"] + item["existing"] + item["rejected"]
+            or item["rejected"]
+        ]
+        if unreconciled:
+            raise ValueError("archive members did not reconcile: " + ", ".join(unreconciled))
         return ctx
 
     def publish(self, ctx: ConnectorContext) -> ConnectorContext:
@@ -302,6 +402,7 @@ class ACSArchiveConnector:
         """Leave an actionable in-memory resume cursor for a caller to persist."""
         ctx.cursor["selected"] = list(ctx.selected_ids)
         ctx.cursor["staged"] = ctx.extras.get("stage_counts", {})
+        ctx.cursor["members"] = ctx.extras.get("member_counts", {})
         return ctx
 
 
@@ -311,11 +412,27 @@ def _csv_members(path: Path) -> Iterator[tuple[str, Iterator[dict[str, str]]]]:
         with zipfile.ZipFile(path) as archive:
             for name in archive.namelist():
                 if name.lower().endswith(".csv"):
+                    member_path = Path(name)
+                    if member_path.is_absolute() or ".." in member_path.parts:
+                        raise MemberStagingError(name, f"unsafe ZIP CSV member: {name}")
                     with archive.open(name) as raw:
-                        yield name, csv.DictReader(io.TextIOWrapper(raw, encoding="latin-1"))
+                        yield name, _checked_reader(name, raw)
     elif path.suffix.lower() == ".csv":
         with path.open(encoding="latin-1", newline="") as raw:
-            yield path.name, csv.DictReader(raw)
+            yield path.name, _checked_reader(path.name, raw)
+    else:
+        raise ValueError(f"selected archive data is not CSV or ZIP: {path.name}")
+
+
+def _checked_reader(member: str, raw: Any) -> csv.DictReader:
+    """Reject ambiguous headers before a row can lose its original field identity."""
+    reader = csv.DictReader(raw if isinstance(raw, io.TextIOBase) else io.TextIOWrapper(raw, encoding="latin-1"))
+    header = reader.fieldnames
+    if not header or any(not field or not field.strip() for field in header):
+        raise MemberStagingError(member, f"CSV member has an empty header: {member}")
+    if len(set(header)) != len(header):
+        raise MemberStagingError(member, f"CSV member has duplicate headers: {member}")
+    return reader
 
 
 def _pums_record_type(member: str) -> str:
@@ -335,33 +452,65 @@ def _pums_record_type(member: str) -> str:
 
 def stage_artifact(artifact: ArchiveArtifact, path: Path, artifact_id: Any) -> int:
     """Idempotently stage a retained PUMS or AHS CSV artifact."""
+    return sum(item.parsed for item in stage_artifact_members(artifact, path, artifact_id))
+
+
+def stage_artifact_members(
+    artifact: ArchiveArtifact, path: Path, artifact_id: Any,
+    *, on_member: Callable[[MemberReconciliation], None] | None = None,
+) -> list[MemberReconciliation]:
+    """Stage every CSV member and return deterministic parsed/inserted/existing counts."""
     table = stage_acs_pums_record if artifact.product.startswith("acs_pums") else stage_ahs_record
-    count = 0
-    with session() as active_session:
-        for member, rows in _csv_members(path):
-            for ordinal, row in enumerate(rows, start=1):
-                values: dict[str, Any] = {
-                    "artifact_id": artifact_id,
-                    "source_member": member,
-                    "source_ordinal": ordinal,
-                    "raw": row,
-                }
-                if table is stage_acs_pums_record:
-                    values.update(
-                        product=artifact.product,
-                        period=artifact.period,
-                        record_type=_pums_record_type(member),
-                        puma=row.get("PUMA") or row.get("PUMA20"),
+    reconciliations: list[MemberReconciliation] = []
+    for member, rows in _csv_members(path):
+        # Commit each member independently so an interruption has a durable,
+        # resumable slice rather than an all-or-nothing artifact transaction.
+        try:
+            with session() as active_session:
+                parsed = inserted_count = existing = 0
+                for ordinal, row in enumerate(rows, start=1):
+                    if None in row or any(value is None for value in row.values()):
+                        raise MemberStagingError(member, f"malformed CSV row in {member} at ordinal {ordinal}")
+                    values: dict[str, Any] = {
+                        "artifact_id": artifact_id,
+                        "source_member": member,
+                        "source_ordinal": ordinal,
+                        "raw": row,
+                    }
+                    if table is stage_acs_pums_record:
+                        try:
+                            record_type = _pums_record_type(member)
+                        except ValueError as exc:
+                            raise MemberStagingError(member, str(exc)) from exc
+                        values.update(
+                            product=artifact.product,
+                            period=artifact.period,
+                            record_type=record_type,
+                            puma=row.get("PUMA") or row.get("PUMA20"),
+                        )
+                    else:
+                        values.update(
+                            release_year=int(artifact.period), component=artifact.component,
+                            table_name=Path(member).stem,
+                        )
+                    statement = insert(table).values(**values)
+                    result = active_session.execute(
+                        statement.on_conflict_do_nothing().returning(table.c.artifact_id)
                     )
-                else:
-                    values.update(
-                        release_year=int(artifact.period), component=artifact.component,
-                        table_name=Path(member).stem,
-                    )
-                statement = insert(table).values(**values)
-                active_session.execute(statement.on_conflict_do_nothing())
-                count += 1
-    return count
+                    parsed += 1
+                    if result.scalar_one_or_none() is not None:
+                        inserted_count += 1
+                    else:
+                        existing += 1
+                reconciliation = MemberReconciliation(member, parsed, inserted_count, existing)
+        except MemberStagingError:
+            raise
+        except Exception as exc:
+            raise MemberStagingError(member, str(exc)) from exc
+        reconciliations.append(reconciliation)
+        if on_member is not None:
+            on_member(reconciliation)
+    return reconciliations
 
 
 def _number(value: str | None, kind: type[int | float]) -> int | float | None:
@@ -508,7 +657,8 @@ def main(argv: list[str] | None = None) -> int:
 
     from .connector import run_connector
 
-    context = run_connector(connector)
+    run = IngestionRun(connector.source_id, {})
+    context = run_connector(connector, run=run)
     print({"selected": len(context.selected_ids), "staged": context.extras.get("stage_counts", {})})
     return 0
 

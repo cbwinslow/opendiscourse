@@ -94,10 +94,15 @@ geography/type guards, and a batch/COPY performance path. Do not modify or
 restart the active service to make these changes. Full findings and the
 sequenced repair plan are in
 `docs/research/2026-09-29-acs-schema-and-ingestion-audit.md`.
-The approved but uncommitted run-ledger/reconciliation implementation and its
-remaining verification are handed off in
-`docs/SESSION-HANDOFF-2026-09-29-ACS-LEDGER.md`; do not change the active
-managed service while that work is verified.
+**ACS run ledger and reconciliation complete (2026-09-29).** The archive
+Connector now records a durable run, per-artifact/member reconciliation,
+completed-member checkpoint, and terminal result. It refuses publication when
+a selected member is unreconciled, and the read-only status report separates
+the latest run from historical artifact failures. Verification passed: 641
+fast tests and 387 database tests. The active managed archive service remains
+untouched. Deferred follow-ups are a user-facing resume command, explicit
+duplicate/non-CSV ZIP member policy, and row-level rejection accounting; see
+`_bmad-output/implementation-artifacts/deferred-work.md`.
 
 ## Longitudinal coverage decision (2026-09-27)
 

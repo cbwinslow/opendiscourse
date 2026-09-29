@@ -106,6 +106,9 @@ def test_ledger_rejects_bad_status_and_negative_counts(catalog_database: None) -
             run.record_target("core.bill", "x", status="done")
         with pytest.raises(IntegrityError, match="run_target_rows_check"):
             run.record_target("core.bill", "y", inserted=-1)
+        for field in ("parsed", "existing", "rejected"):
+            with pytest.raises(IntegrityError, match="run_target_rows_check"):
+                run.record_target("core.bill", f"negative-{field}", **{field: -1})
 
 
 def test_loaded_coverage_answers_what_is_loaded_by_period(catalog_database: None) -> None:

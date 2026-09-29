@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
+from .base import IngestionRun
+
 STAGES: tuple[str, ...] = (
     "discover",
     "select",
@@ -71,7 +73,7 @@ def _call_stage(
 
 
 def run_connector(
-    connector: Connector, ctx: ConnectorContext | None = None
+    connector: Connector, ctx: ConnectorContext | None = None, *, run: IngestionRun | None = None
 ) -> ConnectorContext:
     """Run ``STAGES`` in order, always ending in ``checkpoint``.
 
@@ -87,14 +89,36 @@ def run_connector(
             f"Context source_id {ctx.source_id!r} does not match "
             f"connector {connector.source_id!r}"
         )
-    try:
-        for name in STAGES:
-            if name == "checkpoint":
-                continue
-            ctx = _call_stage(connector, name, ctx)
-    except Exception as exc:
-        ctx.error = str(exc)
-        raise
-    finally:
-        ctx = _call_stage(connector, "checkpoint", ctx)
-    return ctx
+    def execute() -> ConnectorContext:
+        nonlocal ctx
+        try:
+            for name in STAGES:
+                if name == "checkpoint":
+                    continue
+                ctx = _call_stage(connector, name, ctx)
+        except Exception as exc:
+            ctx.error = str(exc)
+            raise
+        finally:
+            ctx = _call_stage(connector, "checkpoint", ctx)
+            if run is not None:
+                run.checkpoint(ctx.cursor)
+        return ctx
+
+    if run is None:
+        return execute()
+    with run:
+        ctx.run_id = str(run.run_id)
+        ctx.extras["ingestion_run"] = run
+        try:
+            return execute()
+        finally:
+            # A member is committed and checkpointed before the next one starts.
+            # Count those completed slices even when a later member interrupts
+            # the run, so the terminal ledger remains truthful and resumable.
+            if "member_counts" in ctx.extras:
+                run.record_count = sum(
+                    int(count.get("parsed", 0))
+                    for counts in ctx.extras["member_counts"].values()
+                    for count in counts
+                )

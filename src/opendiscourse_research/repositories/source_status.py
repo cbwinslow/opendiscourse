@@ -13,6 +13,7 @@ from ..models.core import (
     housing_archive_release_table,
     housing_microdata_projection_table,
 )
+from ..models.ingest import run_table, run_target_table
 from ..models.stage import stage_acs_pums_record, stage_ahs_record
 from .artifacts import current_artifacts
 
@@ -30,6 +31,8 @@ def source_status(dataset_id: str) -> dict[str, Any]:
     artifacts = artifact_table()
     current = current_artifacts(dataset_id)
     with session() as active_session:
+        runs = run_table()
+        targets = run_target_table()
         attempts = [
             dict(row)
             for row in active_session.execute(
@@ -73,6 +76,23 @@ def source_status(dataset_id: str) -> dict[str, Any]:
                 )
             ).scalar_one(),
         }
+        current_run = active_session.execute(
+            select(runs).where(runs.c.dataset_id == dataset_id).order_by(runs.c.started_at.desc()).limit(1)
+        ).mappings().first()
+        reconciliation: list[dict[str, Any]] = []
+        if current_run is not None:
+            reconciliation = [
+                dict(row)
+                for row in active_session.execute(
+                    select(
+                        targets.c.target, targets.c.coverage_key, targets.c.status,
+                        targets.c.rows_parsed, targets.c.rows_inserted,
+                        targets.c.rows_existing, targets.c.rows_rejected,
+                    )
+                    .where(targets.c.run_id == current_run["run_id"])
+                    .order_by(targets.c.target, targets.c.coverage_key)
+                ).mappings()
+            ]
     usable_groups: dict[tuple[str, str, str, str], dict[str, Any]] = {}
     for row in current.values():
         metadata = row["metadata"] or {}
@@ -128,4 +148,16 @@ def source_status(dataset_id: str) -> dict[str, Any]:
         },
         "stage": stage,
         "published": published,
+        "current_run": (
+            {
+                "run_id": str(current_run["run_id"]),
+                "status": current_run["status"],
+                "code_version": current_run["code_version"],
+                "checkpoint": (current_run["parameters"] or {}).get("checkpoint", {}),
+                "reconciliation": reconciliation,
+                "unresolved_failure": current_run["status"] in {"failed", "partial"},
+            }
+            if current_run is not None
+            else None
+        ),
     }

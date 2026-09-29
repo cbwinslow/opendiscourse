@@ -94,6 +94,25 @@ class _FailingExtract(_RecordingConnector):
         raise RuntimeError("provider down")
 
 
+class _RunWithExistingCount:
+    """Minimal ledger double proving generic connectors retain their own count."""
+
+    run_id = "test-run"
+
+    def __init__(self) -> None:
+        self.record_count = 17
+        self.checkpoints: list[dict] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def checkpoint(self, cursor):
+        self.checkpoints.append(cursor)
+
+
 class TestConnectorProtocol(unittest.TestCase):
     def test_stages_match_architecture_lifecycle(self) -> None:
         self.assertEqual(
@@ -138,6 +157,11 @@ class TestConnectorProtocol(unittest.TestCase):
         self.assertEqual(ctx.source_id, "test.source")
         self.assertEqual(ctx.extras["trace"], list(STAGES))
         self.assertIsNot(ctx, ConnectorContext(source_id="test.source"))
+
+    def test_run_connector_preserves_non_member_ledger_count(self) -> None:
+        run = _RunWithExistingCount()
+        run_connector(_RecordingConnector(), run=run)  # type: ignore[arg-type]
+        self.assertEqual(run.record_count, 17)
 
     def test_run_connector_rejects_mismatched_source_id(self) -> None:
         adapter = _RecordingConnector()

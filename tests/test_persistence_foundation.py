@@ -57,7 +57,7 @@ from opendiscourse_research.ingestion.acs_archive import (
     manifest_from_index,
 )
 from opendiscourse_research.ingestion.base import IngestionRun
-from opendiscourse_research.ingestion.connector import ConnectorContext
+from opendiscourse_research.ingestion.connector import ConnectorContext, run_connector
 from opendiscourse_research.ingestion.cbp_load import load_cbp, stage_cbp
 from opendiscourse_research.ingestion.dhc_load import load_dhc, stage_dhc
 from opendiscourse_research.identityexceptions import unresolved_congressional_identities
@@ -289,7 +289,7 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
             )
         }
 
-    assert revision == "f6b2a7c4d913"
+    assert revision == "f8a3c1d7e245"
     assert {
         "catalog.provider",
         "catalog.dataset",
@@ -454,7 +454,7 @@ def test_existing_schema_without_alembic_watermark_is_adopted_safely(
     with engine().connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "f6b2a7c4d913"
+        ).scalar_one() == "f8a3c1d7e245"
         assert connection.execute(
             text("SELECT to_regclass('core.bill')")
         ).scalar_one() == "core.bill"
@@ -494,7 +494,7 @@ def test_alembic_adoptions_can_downgrade_and_reupgrade(
         command.upgrade(config, "head")
 
     with engine().connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "f6b2a7c4d913"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "f8a3c1d7e245"
         assert connection.execute(text("SELECT to_regclass('core.division')")).scalar_one() == "core.division"
         assert connection.execute(text("SELECT to_regclass('core.post')")).scalar_one() == "core.post"
         assert connection.execute(
@@ -2361,6 +2361,228 @@ def test_acs_housing_archive_stages_and_publishes_a_retained_pums_artifact(
                     {"key": key},
                 )
             connection.execute(text("DELETE FROM ingest.artifact WHERE artifact_key=:key"), {"key": key})
+
+
+def test_acs_archive_run_ledger_reconciles_pums_and_ahs_and_reruns_idempotently(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """PUMS and AHS members have durable counts and a retry observes existing rows."""
+    token = str(uuid.uuid4())
+    pums = tmp_path / "pums.zip"
+    ahs = tmp_path / "ahs.zip"
+    with ZipFile(pums, "w") as archive:
+        archive.writestr("psam_pusa.csv", "PUMA,PWGTP\n12345,7\n")
+    with ZipFile(ahs, "w") as archive:
+        archive.writestr("units.csv", "CONTROL,WEIGHT\n1,3\n")
+    entries = [
+        {
+            "product": "acs_pums_1", "period": "2024", "component": "all", "kind": "data",
+            "url": f"https://example.test/{token}-pums.zip", "bytes": pums.stat().st_size,
+        },
+        {
+            "product": "ahs", "period": "2023", "component": "national", "kind": "data",
+            "url": f"https://example.test/{token}-ahs.zip", "bytes": ahs.stat().st_size,
+        },
+    ]
+    selected = manifest_from_index(entries)
+    keys = {
+        "pums": next(item.artifact_key for item in selected if item.product.startswith("acs_pums")),
+        "ahs": next(item.artifact_key for item in selected if item.product == "ahs"),
+    }
+    evidence: dict[str, dict[str, object]] = {}
+    run_ids: list[object] = []
+    try:
+        for name, source in (("pums", pums), ("ahs", ahs)):
+            register_local(
+                ArtifactSpec(
+                    dataset_id="census.acs_housing_archive",
+                    artifact_key=keys[name],
+                    url=next(entry["url"] for entry in entries if entry["url"].endswith(f"-{name}.zip")),
+                    filename=source.name,
+                ),
+                source,
+            )
+        with engine().connect() as connection:
+            rows = connection.execute(
+                text(
+                    "SELECT artifact_id, artifact_key, local_path FROM ingest.artifact "
+                    "WHERE artifact_key IN (:pums, :ahs)"
+                ),
+                keys,
+            ).mappings()
+            evidence = {row["artifact_key"]: dict(row) for row in rows}
+
+        def run_once() -> IngestionRun:
+            connector = ACSArchiveConnector(entries, transfer_approved=True)
+            connector.extract = lambda ctx: ctx  # type: ignore[method-assign]
+            connector.evidence = lambda ctx: (  # type: ignore[method-assign]
+                ctx.extras.update(evidence=evidence) or ctx
+            )
+            run = IngestionRun(
+                "census.acs_housing_archive", {"acs_ledger_test": str(uuid.uuid4())}
+            )
+            with patch(
+                "opendiscourse_research.ingestion.acs_archive.storage_preview",
+                return_value={"approved": True, "reason": "test capacity"},
+            ):
+                run_connector(connector, run=run)
+            run_ids.append(run.run_id)
+            return run
+
+        first = run_once()
+        second = run_once()
+        report = source_status("census.acs_housing_archive")
+        with engine().connect() as connection:
+            first_row = connection.execute(
+                text(
+                    "SELECT status, record_count, parameters FROM ingest.run WHERE run_id=:run_id"
+                ),
+                {"run_id": first.run_id},
+            ).mappings().one()
+            targets = connection.execute(
+                text(
+                    "SELECT rows_parsed, rows_inserted, rows_existing, rows_rejected "
+                    "FROM ingest.run_target WHERE run_id=:run_id ORDER BY coverage_key"
+                ),
+                {"run_id": first.run_id},
+            ).mappings().all()
+            retry_targets = connection.execute(
+                text(
+                    "SELECT rows_parsed, rows_inserted, rows_existing, rows_rejected "
+                    "FROM ingest.run_target WHERE run_id=:run_id ORDER BY coverage_key"
+                ),
+                {"run_id": second.run_id},
+            ).mappings().all()
+            stage_count = connection.execute(
+                text(
+                    "SELECT (SELECT count(*) FROM stage.acs_pums_record WHERE artifact_id=:pums) + "
+                    "(SELECT count(*) FROM stage.ahs_record WHERE artifact_id=:ahs)"
+                ),
+                {"pums": evidence[keys["pums"]]["artifact_id"], "ahs": evidence[keys["ahs"]]["artifact_id"]},
+            ).scalar_one()
+        assert first_row["status"] == "succeeded" and first_row["record_count"] == 2
+        assert first_row["parameters"]["selected"] and first_row["parameters"]["checkpoint"]["members"]
+        assert [tuple(row.values()) for row in targets] == [(1, 1, 0, 0), (1, 1, 0, 0)]
+        assert [tuple(row.values()) for row in retry_targets] == [(1, 0, 1, 0), (1, 0, 1, 0)]
+        assert stage_count == 2
+        assert report["current_run"] is not None
+        assert report["current_run"]["run_id"] == str(second.run_id)
+        assert report["current_run"]["unresolved_failure"] is False
+        assert [
+            (row["rows_parsed"], row["rows_inserted"], row["rows_existing"], row["rows_rejected"])
+            for row in report["current_run"]["reconciliation"]
+        ] == [(1, 0, 1, 0), (1, 0, 1, 0)]
+    finally:
+        with engine().begin() as connection:
+            for run_id in run_ids:
+                connection.execute(text("DELETE FROM ingest.run_target WHERE run_id=:run_id"), {"run_id": run_id})
+                connection.execute(text("DELETE FROM ingest.run WHERE run_id=:run_id"), {"run_id": run_id})
+            connection.execute(
+                text(
+                    "DELETE FROM core.housing_microdata_projection WHERE artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key IN (:pums, :ahs))"
+                ), keys,
+            )
+            connection.execute(
+                text(
+                    "DELETE FROM core.housing_archive_release WHERE source_artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key IN (:pums, :ahs))"
+                ), keys,
+            )
+            for table in ("stage.acs_pums_record", "stage.ahs_record"):
+                connection.execute(
+                    text(
+                        f"DELETE FROM {table} WHERE artifact_id IN "
+                        "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key IN (:pums, :ahs))"
+                    ), keys,
+                )
+            connection.execute(
+                text("DELETE FROM ingest.artifact WHERE artifact_key IN (:pums, :ahs)"), keys
+            )
+
+
+def test_acs_archive_interruption_keeps_completed_member_checkpoint_and_fails_run(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """A later malformed member cannot erase the first member's durable evidence."""
+    token = str(uuid.uuid4())
+    source = tmp_path / "interrupted.zip"
+    with ZipFile(source, "w") as archive:
+        archive.writestr("psam_pusa.csv", "PUMA,PWGTP\n12345,7\n")
+        archive.writestr("psam_husa.csv", "A,A\n1,2\n")
+    entry = {
+        "product": "acs_pums_1", "period": "2024", "component": "all", "kind": "data",
+        "url": f"https://example.test/{token}-interrupted.zip", "bytes": source.stat().st_size,
+    }
+    key = manifest_from_index([entry])[0].artifact_key
+    run: IngestionRun | None = None
+    try:
+        register_local(
+            ArtifactSpec(
+                dataset_id="census.acs_housing_archive", artifact_key=key,
+                url=entry["url"], filename=source.name,
+            ), source,
+        )
+        with engine().connect() as connection:
+            evidence = dict(connection.execute(
+                text("SELECT artifact_id, artifact_key, local_path FROM ingest.artifact WHERE artifact_key=:key"),
+                {"key": key},
+            ).mappings().one())
+        connector = ACSArchiveConnector([entry], transfer_approved=True)
+        connector.extract = lambda ctx: ctx  # type: ignore[method-assign]
+        connector.evidence = lambda ctx: (ctx.extras.update(evidence={key: evidence}) or ctx)  # type: ignore[method-assign]
+        run = IngestionRun("census.acs_housing_archive", {"acs_ledger_test": key})
+        with pytest.raises(ValueError, match="duplicate headers"):
+            with patch(
+                "opendiscourse_research.ingestion.acs_archive.storage_preview",
+                return_value={"approved": True, "reason": "test capacity"},
+            ):
+                run_connector(connector, run=run)
+        with engine().connect() as connection:
+            row = connection.execute(
+                text("SELECT status, record_count, parameters FROM ingest.run WHERE run_id=:run_id"),
+                {"run_id": run.run_id},
+            ).mappings().one()
+            targets = connection.execute(
+                text("SELECT coverage_key, status, rows_parsed FROM ingest.run_target WHERE run_id=:run_id ORDER BY coverage_key"),
+                {"run_id": run.run_id},
+            ).mappings().all()
+            releases = connection.execute(
+                text("SELECT count(*) FROM core.housing_archive_release WHERE source_artifact_id=:artifact_id"),
+                {"artifact_id": evidence["artifact_id"]},
+            ).scalar_one()
+        assert row["status"] == "failed" and row["record_count"] == 1
+        assert row["parameters"]["checkpoint"]["members"]
+        assert sorted((target["status"], target["rows_parsed"]) for target in targets) == [
+            ("failed", 0), ("succeeded", 1)
+        ]
+        assert any(target["coverage_key"].endswith("member=psam_husa.csv") for target in targets)
+        assert releases == 0
+    finally:
+        with engine().begin() as connection:
+            if run is not None:
+                connection.execute(text("DELETE FROM ingest.run_target WHERE run_id=:run_id"), {"run_id": run.run_id})
+                connection.execute(text("DELETE FROM ingest.run WHERE run_id=:run_id"), {"run_id": run.run_id})
+            connection.execute(text("DELETE FROM stage.acs_pums_record WHERE artifact_id IN (SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"), {"key": key})
+            connection.execute(text("DELETE FROM ingest.artifact WHERE artifact_key=:key"), {"key": key})
+
+
+def test_acs_member_reconciliation_migration_refuses_to_discard_recorded_counts(
+    catalog_database: None,
+) -> None:
+    """The reversible migration protects actual reconciliation evidence on downgrade."""
+    run = IngestionRun("census.acs_housing_archive", {"acs_ledger_test": "downgrade-guard"})
+    try:
+        with run:
+            run.record_target("stage.acs_pums_record", "artifact=test;member=records.csv", parsed=1)
+        with pytest.raises(RuntimeError, match="refusing to discard ACS member reconciliation evidence"):
+            command.downgrade(_alembic_config(), "f6b2a7c4d913")
+        with engine().connect() as connection:
+            assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "f8a3c1d7e245"
+    finally:
+        with engine().begin() as connection:
+            connection.execute(text("DELETE FROM ingest.run_target WHERE run_id=:run_id"), {"run_id": run.run_id})
+            connection.execute(text("DELETE FROM ingest.run WHERE run_id=:run_id"), {"run_id": run.run_id})
 
 
 def test_cbp_bulk_stage_and_promotion_are_idempotent_on_postgres(

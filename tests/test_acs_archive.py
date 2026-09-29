@@ -3,9 +3,9 @@
 import json
 from contextlib import contextmanager
 
+import httpx
 import pytest
 import respx
-import httpx
 from httpx import Response
 from typer.testing import CliRunner
 
@@ -14,6 +14,7 @@ from opendiscourse_research.ingestion.acs_archive import (
     ACS_1_YEAR,
     ACS_5_YEAR,
     ACSArchiveConnector,
+    _csv_members,
     _pums_record_type,
     capacity_manifest,
     main,
@@ -58,6 +59,30 @@ def test_pums_member_type_handles_current_and_legacy_csv_names():
     assert _pums_record_type("ss06hnj.csv") == "housing"
     with pytest.raises(ValueError, match="unrecognised PUMS CSV member type"):
         _pums_record_type("ssxypnj.csv")
+
+
+def test_csv_member_reader_refuses_ambiguous_or_unsafe_source_members(tmp_path):
+    duplicate_header = tmp_path / "duplicate.csv"
+    duplicate_header.write_text("A,A\n1,2\n", encoding="latin-1")
+    with pytest.raises(ValueError, match="duplicate headers"):
+        list(_csv_members(duplicate_header))
+
+    for name, contents in {
+        "empty-header.csv": "A,\n1,2\n",
+        "whitespace-header.csv": "A,  \n1,2\n",
+    }.items():
+        malformed_header = tmp_path / name
+        malformed_header.write_text(contents, encoding="latin-1")
+        with pytest.raises(ValueError, match="empty header"):
+            list(_csv_members(malformed_header))
+
+    archive = tmp_path / "unsafe.zip"
+    from zipfile import ZipFile
+
+    with ZipFile(archive, "w") as zipped:
+        zipped.writestr("../outside.csv", "A\n1\n")
+    with pytest.raises(ValueError, match="unsafe ZIP CSV member"):
+        list(_csv_members(archive))
 
 
 def test_official_index_factory_covers_every_available_pums_and_ahs_release():
@@ -431,6 +456,30 @@ def test_preflight_command_prints_manifest_without_starting_transfer(monkeypatch
         "gaps": [],
         "reason": "enough capacity",
     }
+
+
+def test_approved_command_starts_a_ledger_backed_connector_run(monkeypatch, capsys):
+    """The operational approval path must not bypass the archive run ledger."""
+    connector = type("ApprovedConnector", (), {"source_id": "census.acs_housing_archive"})()
+    calls = {}
+    monkeypatch.setattr(
+        "opendiscourse_research.ingestion.acs_archive.official_housing_archive_indexes", lambda: []
+    )
+    monkeypatch.setattr(
+        ACSArchiveConnector, "from_official_indexes",
+        lambda _indexes, transfer_approved: connector,
+    )
+
+    def run_with_ledger(received_connector, *, run):
+        calls["connector"] = received_connector
+        calls["run"] = run
+        return ConnectorContext(source_id=received_connector.source_id)
+
+    monkeypatch.setattr("opendiscourse_research.ingestion.connector.run_connector", run_with_ledger)
+    assert main(["--all-official-indexes", "--approve-transfer"]) == 0
+    capsys.readouterr()
+    assert calls["connector"] is connector
+    assert calls["run"].dataset_id == "census.acs_housing_archive"
 
 
 def test_census_directory_parser_keeps_only_official_child_links():

@@ -77,6 +77,9 @@ class IngestionRun(AbstractContextManager):
         inserted: int = 0,
         updated: int = 0,
         skipped: int = 0,
+        parsed: int = 0,
+        existing: int = 0,
+        rejected: int = 0,
         status: str = "succeeded",
     ) -> None:
         """Record what this run wrote to ``target`` for one coverage slice.
@@ -94,6 +97,9 @@ class IngestionRun(AbstractContextManager):
             rows_inserted=inserted,
             rows_updated=updated,
             rows_skipped=skipped,
+            rows_parsed=parsed,
+            rows_existing=existing,
+            rows_rejected=rejected,
         )
         with session() as active_session:
             active_session.execute(
@@ -104,9 +110,32 @@ class IngestionRun(AbstractContextManager):
                         "rows_inserted": statement.excluded.rows_inserted,
                         "rows_updated": statement.excluded.rows_updated,
                         "rows_skipped": statement.excluded.rows_skipped,
+                        "rows_parsed": statement.excluded.rows_parsed,
+                        "rows_existing": statement.excluded.rows_existing,
+                        "rows_rejected": statement.excluded.rows_rejected,
                         "recorded_at": func.now(),
                     },
                 )
+            )
+
+    def checkpoint(self, cursor: dict[str, Any]) -> None:
+        """Persist an actionable connector cursor on this run without losing its intent."""
+        table = run_table()
+        self.parameters = {**self.parameters, "checkpoint": cursor}
+        with session() as active_session:
+            active_session.execute(
+                table.update()
+                .where(table.c.run_id == self.run_id)
+                .values(parameters=self.parameters)
+            )
+
+    def update_parameters(self, **values: Any) -> None:
+        """Add resolved run intent once a Connector has completed discovery and planning."""
+        self.parameters = {**self.parameters, **values}
+        table = run_table()
+        with session() as active_session:
+            active_session.execute(
+                table.update().where(table.c.run_id == self.run_id).values(parameters=self.parameters)
             )
 
     def store_payload(self, response: httpx.Response, payload: Any) -> str:
