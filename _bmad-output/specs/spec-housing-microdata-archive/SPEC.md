@@ -3,7 +3,8 @@ id: SPEC-housing-microdata-archive
 companions:
   - product-and-field-policy.md
   - ../spec-longitudinal-source-coverage/SPEC.md
-  - ../../spec-opendiscourse/SPEC.md
+  - ../spec-opendiscourse/SPEC.md
+  - ../../../docs/research/2026-09-29-acs-schema-and-ingestion-audit.md
 sources:
   - ../../../inventory/contracts/acscomprehensive.yaml
   - ../../../docs/PROJECT-STATE.md
@@ -29,19 +30,26 @@ OpenDiscourse needs nationwide, long-running evidence to evaluate how policy dec
 
 - **CAP-3**
   - **intent:** A researcher can use a broad, policy-relevant analytic layer over retained housing microdata and later add a documented field without re-downloading evidence.
-  - **success:** Each source variable has an official definition, product/release applicability, value domain, and field-policy status; the initial analytic layer covers demographics, income, education, family/household structure, housing costs/value/quality, and employment while raw source records remain available for future promotion.
+  - **success:** Every retained source variable has a versioned official definition linked to its dictionary/codebook artifact, product/release applicability, value domain, and field-policy status; raw source records remain available for later promotion without reacquisition.
 
 - **CAP-4**
   - **intent:** The operator can repeat a full source refresh or resume a stopped one without duplicate canonical records or loss of evidence.
-  - **success:** The Connector discovers files and versions from official indexes, capacity-gates the exact selected manifest, stores immutable bytes/checksums, stages source-shaped rows, validates product/geography/vintage rules, publishes idempotently, and checkpoints each artifact.
+  - **success:** One Connector-owned run ledger records the selected manifest, code version, artifact/member parsed/inserted/duplicate/rejected counts, checkpoints, outcome, and target rows; a resumed run produces no duplicate source identities and cannot publish an unreconciled member or partial release.
+
+- **CAP-5**
+  - **intent:** The operator can stage and re-project a national archive at a practical speed without weakening source identity, evidence, or repeatability.
+  - **success:** A benchmarked bounded-batch or COPY path reproduces the source-shaped row count and composite identities of a representative PUMS and AHS artifact, records the same provenance/reconciliation evidence, and has a tested interruption/resume path.
 
 ## Constraints
 
 - PUMS, ACS tabulated estimates, and AHS are separate products. Preserve their product, collection period, survey component, geography vintage, and variable definition; never describe a PUMS sample as identified households or county-level microdata.
 - Retain complete raw current-version public files and dictionaries. The canonical analytic layer is a documented projection, not a destructive filter; adding a field later must reuse retained evidence.
+- A Connector run is not complete because it has nonzero rows. It must reconcile every expected source member and use an explicit succeeded, partial, or failed ledger outcome before publication is visible to researcher-facing readers.
 - ACS 1-year supports annual change only for eligible larger geographies. ACS 5-year supplies nationwide small-area coverage. Both are required; neither can be recreated as the other by averaging or summing.
 - Use original Census endpoints, `DATA_ROOT`, immutable artifact records, run lineage, capacity estimates, resume checkpoints, and a Connector. No source-specific CLI dispatcher branch or machine-local cache is permitted.
 - Select exactly one current representation for each AHS component and release. Do not load both relational and flat copies as independent observations; retain superseded files only when needed as publisher evidence.
+- Do not change or restart the active managed archive service for a remediation. New loader paths must be separately tested after post-load validation and must never overwrite retained artifacts or source-shaped evidence.
+- Projection geography, numeric types, null/coded-missing semantics, and indexes follow official definitions and reviewed researcher query contracts. Do not add speculative indexes or silently coerce malformed source values to null.
 - Crime is a separate official data domain. Do not invent a crime field in ACS or AHS; its future source needs its own contract and identity rules.
 
 ## Non-goals
@@ -49,10 +57,11 @@ OpenDiscourse needs nationwide, long-running evidence to evaluate how policy dec
 - This does not ingest private or restricted microdata, infer household identity, join people to politicians, or create a false ACS release for 2000-2004 or 2020 1-year.
 - This does not discard broad source evidence because a field is not in the initial analytic projection.
 - This does not interrupt the in-flight ACS 2021-2024 5-year detailed-table load.
+- This does not treat raw JSON retention alone as field documentation, or permit an unreconciled/partially published archive to be called complete.
 
 ## Success signal
 
-The warehouse has a repeatable official-source archive and field catalog for ACS PUMS and AHS, with nationwide historical records and explicit geography/product limits. Researchers can analyze policy-relevant housing and household conditions while every result resolves to the original publisher artifact, and later field coverage can expand without reacquisition.
+The warehouse has a repeatable official-source archive and field catalog for ACS PUMS and AHS, with nationwide historical records, explicit geography/product limits, and a run ledger that proves every published release reconciles to its official source members. Researchers can analyze policy-relevant housing and household conditions while every result resolves to the original publisher artifact, and later field coverage can expand without reacquisition.
 
 ## Assumptions
 
@@ -60,5 +69,5 @@ The warehouse has a repeatable official-source archive and field catalog for ACS
 
 ## Open Questions
 
-- Should the first canonical microdata query surface be source-shaped, a typed shared household/person model, or both through a source-shaped stage plus reviewed marts?
+- Which researcher-facing microdata queries and API filters justify the first projection indexes after realistic query plans are measured?
 - Do current-version AHS relational CSV packages plus codebooks satisfy “whole AHS,” or should the retained archive also include superseded publisher versions and flat copies as non-canonical evidence?
