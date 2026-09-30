@@ -134,3 +134,72 @@ output. Do not use xdist for DB tests.
 5. Commit the feature only after verification. Do not include the active
   archive's derived data or modify the active service.
 
+## Resume update (2026-09-29): verification complete, final triage pending
+
+Do not start, restart, alter, or run a second copy of
+`od-acs-housing-archive.service`. Its rules above remain active.
+
+The run-ledger/reconciliation feature has passed both project gates after the
+latest review fixes:
+
+```sh
+just check-fast  # 639 passed
+just check-db    # 387 passed, 646 deselected (7m36s; no xdist)
+git diff --check # passed
+```
+
+The feature is intentionally **uncommitted**. Its initial implementation files
+are staged, but the final review fixes are unstaged in:
+
+- `src/opendiscourse_research/ingestion/acs_archive.py`
+- `tests/test_acs_archive.py`
+- `tests/test_persistence_foundation.py`
+
+Before committing, review and stage those final changes with the rest of the
+feature; do not discard either staged or unstaged work. The final fixes make
+per-member ledger/checkpoint persistence immediate after a member commits,
+retain a known malformed member name in the failed coverage key, and add tests
+for empty headers, source-status reconciliation output, and the migration's
+downgrade protection.
+
+The required final decision is triage, not more blanket test running. A review
+also proposed broader work: a user-facing resume command that consumes saved
+checkpoints, rejecting unexpected non-CSV or duplicate ZIP members, and
+stronger database-level reconciliation invariants. These are not failures in
+the verified acceptance tests. Treat them as potential follow-up scope unless
+a final code review identifies a small safety fix required by the approved
+spec. Do not mark the implementation spec `done` or commit until that triage
+is recorded.
+
+## Completion update (2026-09-29)
+
+The final review and triage are complete. The feature is committed on `main`:
+
+- `261d8538e05716d5d44887e208bda6bf6c59520f feat: reconcile ACS archive ingestion runs`
+
+The implementation spec
+`_bmad-output/implementation-artifacts/spec-acs-archive-run-ledger-reconciliation.md`
+is marked `done`. The final review added small safety fixes: empty selected CSV
+members receive failed ledger status, database staging failures retain their
+known member name, and the generic Connector runner preserves non-archive run
+counts. It also added coverage for the approved operational command and each
+new non-negative reconciliation counter.
+
+Final verification succeeded:
+
+```sh
+just check-fast  # 641 passed
+just check-db    # 387 passed, 648 deselected (7m15s; no xdist)
+git diff --check # passed
+```
+
+Deferred follow-ups are recorded in
+`_bmad-output/implementation-artifacts/deferred-work.md`: a user-facing
+checkpoint-resume command, duplicate/non-CSV ZIP member validation policy,
+and row-level rejected-row accounting. They are not blockers for the committed
+feature.
+
+The archive-service safety rule remains active: do not start, restart, alter,
+or run a second `od-acs-housing-archive.service`. The working tree still has
+this handoff edit plus unrelated staged test edits; leave them intact unless
+their owning work is resumed.

@@ -648,5 +648,5 @@ def test_the_migration_refuses_to_downgrade_while_records_exist(origin: FakeOrig
     rows = _records()
     with pytest.raises(RuntimeError, match=rf"core\.bill_text_source_record holds {rows} rows"):
         command.downgrade(_alembic_config(), "c8e2a5f1b937")
-    assert _one("SELECT version_num AS v FROM alembic_version") == "f6b2a7c4d913"
+    assert _one("SELECT version_num AS v FROM alembic_version") == "f8a3c1d7e245"
     assert _records() == rows
