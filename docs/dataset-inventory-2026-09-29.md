@@ -1,6 +1,6 @@
 # Dataset inventory and priority review
 
-Last reviewed: 2026-09-29. This is the plain-language view of the approved
+Last reviewed: 2026-10-01. This is the plain-language view of the approved
 source catalog. `inventory/sources.yaml` defines what the project may build;
 `inventory/progress.yaml`, `docs/PROJECT-STATE.md`, and the current session
 handoff define the operational state. A source listed here is not necessarily
@@ -11,10 +11,13 @@ loaded or approved for a new transfer.
 1. **Finish the separate ACS Detailed Tables delta.** Its already-approved
    2021–2024 files still need staging and publication, one year at a time with
    a health check between years.
-2. **Let the active ACS PUMS/AHS archive service finish, then validate it.**
+2. **Let the restarted ACS PUMS/AHS archive service finish, then validate it.**
+   The prior run was interrupted by a PostgreSQL restart and lacked the saved
+   progress record needed for a safe continuation. Its rebuildable staging
+   rows were cleared; the 3,762 retained official artifacts were not changed.
    Do not start another worker or bulk load. Confirm final staging and
    published counts, release coverage, and source-row counts only after the
-   service exits successfully.
+   fresh, ledger-backed service exits successfully.
 3. **Close congressional completeness only when Congress.gov recovers.**
    Retry the two named 107th-Congress detail pages and three named cosponsor
    pages, not a full bill download.
@@ -32,7 +35,7 @@ loaded or approved for a new transfer.
 | `census.acs_1` — Census | Annual population, social, economic, and housing estimates | Standard 1-year releases 2005–2024 except 2020; never substitute another product | Catalogued; no direct load tracked | Define an approved annual scope and Connector before acquisition. |
 | `census.acs_5` — Census | Small-area estimates and margins of error through the API | Five-year estimates are distinct from 1-year estimates; do not compare overlapping windows as independent observations | Catalogued; no direct API load tracked | Define an approved API scope and Connector before acquisition. |
 | `census.acs_5_bulk` — Census | Complete Detailed Tables, estimates, margins of error, and published geographies | Five-year release bundles stay distinct from ACS 1-year releases | Loaded in the prior 2021–2024 scope; the broader Detailed Tables delta is downloaded but not fully staged/published | Finish the approved 2021–2024 delta, one plan at a time with `census-health`. |
-| `census.acs_housing_archive` — Census | ACS PUMS person/housing microdata and AHS housing microdata | PUMS 1-year: 2005–2019, 2021–2024; PUMS 5-year: 2005–2009 through 2020–2024; AHS relational public-use CSVs: 2001–2023 | Raw archive retained; staging is running in one managed service | Leave the service alone. After success, validate stage/published counts and release coverage; documentation files are evidence, not data rows. |
+| `census.acs_housing_archive` — Census | ACS PUMS person/housing microdata and AHS housing microdata | PUMS 1-year: 2005–2019, 2021–2024; PUMS 5-year: 2005–2009 through 2020–2024; AHS relational public-use CSVs: 2001–2023 | All raw artifacts retained; a fresh, managed ledger-backed staging run is rebuilding its approved manifest | Leave the service alone. After success, validate stage/published counts and release coverage; documentation files are evidence, not data rows. |
 | `census.decennial` — Census | Decennial baseline counts | 2020 DHC, H1/P1, state and county only | Loaded | Additional tables or geographies need explicit approval. |
 | `census.population_estimates` — Census | Annual population estimates | 2010–2020 and 2020–2025 vintages; vintages stay separate | Loaded | Add a new official vintage series when Census publishes it. |
 | `census.tiger` — Census | Boundary shapes for place-based analysis | State, county, CBSA, and ZCTA layers, 2016–2025; 2022 has no CBSA release | Loaded | Maintain new vintages; tract, block-group, and block layers are separate work. |

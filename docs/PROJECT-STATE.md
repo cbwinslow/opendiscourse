@@ -1,6 +1,6 @@
 # Project state and handoff
 
-Last updated: 2026-09-29. Congress 106 bills match Congress.gov (10,840).
+Last updated: 2026-10-01. Congress 106 bills match Congress.gov (10,840).
 Congress 107 is still short two bills whose detail pages return HTTP 500.
 Member profiles are loaded on port 5434. See "Session handoff (2026-09-27)".
 The done-state for bills, votes, and members remains
@@ -15,6 +15,20 @@ For the current ACS archive staging run and the approved dataset-inventory
 work, read `docs/SESSION-HANDOFF-2026-09-29-ACS-STAGING-AND-INVENTORY.md`.
 The prior `docs/SESSION-HANDOFF-2026-09-28-ACS-RECOVERY.md` retains the
 Census rejection and fallback investigation.
+
+**Staging restart approved (2026-10-01).** The managed ACS/AHS staging load
+stopped on 2026-09-30 when PostgreSQL was restarted by an administrator. The
+source archive remains intact: all 3,762 usable official artifacts are still
+retained (136,873,504,564 bytes), and no rows had been published. The database
+restart also left no usable `ingest.run` checkpoint for the interrupted load,
+so its 29,819,604 derived `stage.acs_pums_record` rows could not safely be
+continued. After the operator explicitly approved recovery, only
+`stage.acs_pums_record` and the empty `stage.ahs_record` were truncated;
+`core.housing_archive_release` remained empty and raw artifacts were not
+changed. `just check-fast` passed (644 tests) before the fresh managed,
+ledger-backed staging pass was started. Do not start another copy; inspect its
+unit status, journal, and `research-db source-status census.acs_housing_archive`
+instead.
 
 ## Reliable ACS/AHS source recovery (2026-09-28)
 
