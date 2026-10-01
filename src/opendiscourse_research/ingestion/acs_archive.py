@@ -38,7 +38,7 @@ from ..providers.census import (
     official_housing_archive_indexes,
     verified_acs_archive_fallback,
 )
-from ..repositories.artifacts import require_current_artifact
+from ..repositories.artifacts import current_artifacts, require_current_artifact
 from .base import IngestionRun
 from .bulk import (
     ArtifactSpec,
@@ -116,6 +116,64 @@ def _text(item: dict[str, Any], key: str) -> str:
     return value.strip()
 
 
+def _archive_artifact_key(item: dict[str, Any]) -> str:
+    """Return the stable logical key for one publisher-listed archive object."""
+    product = _text(item, "product")
+    period = _text(item, "period")
+    component = _text(item, "component")
+    kind = _text(item, "kind")
+    url = _text(item, "url")
+    version = str(item.get("version") or "current")
+    return (
+        f"{product}:{period}:{component}:{kind}:{version}:"
+        f"{sha256(url.encode()).hexdigest()[:12]}"
+    )
+
+
+def _retained_size_if_usable(
+    entry: dict[str, Any], retained: dict[str, Any] | None
+) -> int | None:
+    """Return a retained size only when immutable evidence proves this exact object."""
+    if retained is None:
+        return None
+    artifact_key = _archive_artifact_key(entry)
+    url = _text(entry, "url")
+    if (
+        retained.get("artifact_key") != artifact_key
+        or retained.get("remote_url") != url
+        or not isinstance(retained.get("checksum_sha256"), str)
+        or not retained["checksum_sha256"].strip()
+        or not isinstance(retained.get("bytes_downloaded"), int)
+        or retained["bytes_downloaded"] <= 0
+        or not isinstance(retained.get("local_path"), str)
+        or not retained["local_path"]
+    ):
+        return None
+    try:
+        path = Path(retained["local_path"])
+        if not path.is_file() or path.stat().st_size != retained["bytes_downloaded"]:
+            return None
+    except (OSError, ValueError):
+        return None
+    return retained["bytes_downloaded"]
+
+
+def _repair_missing_publisher_sizes(
+    entries: Iterable[dict[str, Any]], current: dict[str, dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Use exact retained evidence only to repair publisher entries with no size."""
+    repaired: list[dict[str, Any]] = []
+    for entry in entries:
+        copy = dict(entry)
+        if copy.get("bytes") is None:
+            artifact_key = _archive_artifact_key(copy)
+            retained_size = _retained_size_if_usable(copy, current.get(artifact_key))
+            if retained_size is not None:
+                copy["bytes"] = retained_size
+        repaired.append(copy)
+    return repaired
+
+
 def manifest_from_index(entries: Iterable[dict[str, Any]]) -> list[ArchiveArtifact]:
     """Validate publisher-index entries and choose one current AHS representation.
 
@@ -152,10 +210,7 @@ def manifest_from_index(entries: Iterable[dict[str, Any]]) -> list[ArchiveArtifa
         # A release can legitimately publish several documentation files.  The
         # URL-derived suffix makes each immutable publisher object distinct while
         # retaining a stable logical key across resumable attempts.
-        artifact_key = (
-            f"{product}:{period}:{component}:{kind}:{version}:"
-            f"{sha256(url.encode()).hexdigest()[:12]}"
-        )
+        artifact_key = _archive_artifact_key(item)
         if artifact_key in seen:
             raise ValueError(f"duplicate official archive artifact {artifact_key}")
         seen.add(artifact_key)
@@ -362,7 +417,10 @@ class ACSArchiveConnector:
     ) -> ACSArchiveConnector:
         """Discover only publisher-listed files from explicitly scoped indexes."""
         entries = [entry for index in indexes for entry in discover_archive_index(index)]
-        return cls(entries, transfer_approved=transfer_approved)
+        return cls(
+            _repair_missing_publisher_sizes(entries, current_artifacts(cls.source_id)),
+            transfer_approved=transfer_approved,
+        )
 
     @classmethod
     def from_saved_resume(cls, resume: ArchiveResume) -> ACSArchiveConnector:

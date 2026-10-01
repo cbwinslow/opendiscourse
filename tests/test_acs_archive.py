@@ -17,6 +17,7 @@ from opendiscourse_research.ingestion.acs_archive import (
     ACSArchiveConnector,
     ArchiveArtifact,
     MemberReconciliation,
+    _archive_artifact_key,
     _csv_members,
     _pums_record_type,
     capacity_manifest,
@@ -148,6 +149,127 @@ def test_multiple_release_documents_are_distinct_retained_artifacts():
 def test_unknown_size_is_rejected_before_capacity_approval():
     with pytest.raises(ValueError, match="unknown byte size"):
         manifest_from_index([_entry(bytes=None)])
+
+
+def test_official_manifest_repairs_missing_size_from_exact_retained_evidence(monkeypatch, tmp_path):
+    entry = _entry(bytes=None)
+    retained = tmp_path / "csv_hsd.zip"
+    retained.write_bytes(b"x" * 824_920)
+    artifact_key = _archive_artifact_key(entry)
+    monkeypatch.setattr(
+        "opendiscourse_research.ingestion.acs_archive.discover_archive_index",
+        lambda _index: [entry],
+    )
+    monkeypatch.setattr(
+        "opendiscourse_research.ingestion.acs_archive.current_artifacts",
+        lambda _dataset: {
+            artifact_key: {
+                "artifact_key": artifact_key,
+                "remote_url": entry["url"],
+                "checksum_sha256": "a" * 64,
+                "bytes_downloaded": 824_920,
+                "local_path": str(retained),
+            }
+        },
+    )
+
+    connector = ACSArchiveConnector.from_official_indexes(
+        [ArchiveIndex("https://www2.census.gov/archive/", "acs_pums_1", "2013", "us")]
+    )
+    connector.discover(ConnectorContext(source_id=connector.source_id))
+    artifacts = connector.artifacts
+
+    assert [(artifact.url, artifact.bytes) for artifact in artifacts] == [(entry["url"], 824_920)]
+
+
+@pytest.mark.parametrize(
+    "unsafe",
+    [
+        "no_artifact",
+        "key_mismatch",
+        "url_mismatch",
+        "no_checksum",
+        "non_positive_bytes",
+        "missing_path",
+        "directory_path",
+        "size_mismatch",
+    ],
+)
+def test_official_manifest_refuses_unsafe_retained_size_evidence(monkeypatch, tmp_path, unsafe):
+    entry = _entry(bytes=None)
+    retained = tmp_path / "retained.zip"
+    retained.write_bytes(b"x" * 12)
+    artifact_key = _archive_artifact_key(entry)
+    row = {
+        "artifact_key": artifact_key,
+        "remote_url": entry["url"],
+        "checksum_sha256": "a" * 64,
+        "bytes_downloaded": 12,
+        "local_path": str(retained),
+    }
+    current = {artifact_key: row}
+    if unsafe == "no_artifact":
+        current = {}
+    elif unsafe == "key_mismatch":
+        row["artifact_key"] = "different-key"
+    elif unsafe == "url_mismatch":
+        row["remote_url"] = "https://www2.census.gov/different.zip"
+    elif unsafe == "no_checksum":
+        row["checksum_sha256"] = ""
+    elif unsafe == "non_positive_bytes":
+        row["bytes_downloaded"] = 0
+    elif unsafe == "missing_path":
+        row["local_path"] = str(tmp_path / "missing.zip")
+    elif unsafe == "directory_path":
+        row["local_path"] = str(tmp_path)
+    elif unsafe == "size_mismatch":
+        row["bytes_downloaded"] = 13
+    monkeypatch.setattr(
+        "opendiscourse_research.ingestion.acs_archive.discover_archive_index",
+        lambda _index: [entry],
+    )
+    monkeypatch.setattr(
+        "opendiscourse_research.ingestion.acs_archive.current_artifacts",
+        lambda _dataset: current,
+    )
+
+    connector = ACSArchiveConnector.from_official_indexes(
+        [ArchiveIndex("https://www2.census.gov/archive/", "acs_pums_1", "2013", "us")]
+    )
+
+    with pytest.raises(ValueError, match="unknown byte size"):
+        connector.discover(ConnectorContext(source_id=connector.source_id))
+
+
+def test_official_manifest_keeps_publisher_size_despite_retained_difference(monkeypatch, tmp_path):
+    entry = _entry(bytes=12)
+    retained = tmp_path / "retained.zip"
+    retained.write_bytes(b"x" * 13)
+    artifact_key = _archive_artifact_key(entry)
+    monkeypatch.setattr(
+        "opendiscourse_research.ingestion.acs_archive.discover_archive_index",
+        lambda _index: [entry],
+    )
+    monkeypatch.setattr(
+        "opendiscourse_research.ingestion.acs_archive.current_artifacts",
+        lambda _dataset: {
+            artifact_key: {
+                "artifact_key": artifact_key,
+                "remote_url": entry["url"],
+                "checksum_sha256": "a" * 64,
+                "bytes_downloaded": 13,
+                "local_path": str(retained),
+            }
+        },
+    )
+
+    connector = ACSArchiveConnector.from_official_indexes(
+        [ArchiveIndex("https://www2.census.gov/archive/", "acs_pums_1", "2013", "us")]
+    )
+    connector.discover(ConnectorContext(source_id=connector.source_id))
+    artifacts = connector.artifacts
+
+    assert artifacts[0].bytes == 12
 
 
 def test_connector_obeys_protocol_and_capacity_failure_checkpoints(monkeypatch):

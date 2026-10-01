@@ -16,6 +16,39 @@ work, read `docs/SESSION-HANDOFF-2026-09-29-ACS-STAGING-AND-INVENTORY.md`.
 The prior `docs/SESSION-HANDOFF-2026-09-28-ACS-RECOVERY.md` retains the
 Census rejection and fallback investigation.
 
+**FEC workflow selected (2026-10-01).** The next data-source effort is a
+reproducible FEC campaign-finance workflow, before congressional investment
+disclosures. It begins with a small official 2023–2024 candidate/committee,
+candidate-to-committee-linkage, and `pas2` transaction pilot, then expands to
+individual donations only after a capacity-gated, evidence-backed reload and
+identifier-bridge check. Existing FEC files on an operator-specific path are
+not a project input or rebuild proof. FEC people links remain blocked until a
+reviewed candidate/committee identifier bridge opens the BioGuide-based gate;
+never join names. The FEC plan and upstream-project review are in
+`docs/SESSION-HANDOFF-2026-10-01-FEC-WORKFLOW.md` and
+`_bmad-output/specs/spec-fec-reproducible-ingest/`.
+
+**Congress 120 readiness (2026-10-01).** Congress 120 is now an explicitly
+selectable future target, while ordinary coverage, bill-text, and vote commands
+remain limited by default to Congresses 108–119. The browser catalogue shows a
+disabled `congress120wip` record that cannot acquire anything: it first needs
+an official GovInfo manifest, a capacity preview, and separate operator
+approval of the exact bounded run. This is code readiness only; it did not
+download, stage, publish, or schedule Congress 120 data. Census's 2026
+congressional-boundary data remains a separate WIP decision: the existing
+TIGER loader supports 2016–2025 shapefile packages and does not model
+congressional districts.
+
+**ACS retained-size preflight repair (2026-10-01).** A fresh preflight stopped
+with zero rows before transfer because Census omitted the size for the official
+2013 one-year `csv_hsd.zip`, even though the exact Census object had already
+been retained with a checksum. The bounded repair allows only a current usable
+artifact with the same deterministic key and original URL, a checksum, a
+positive recorded size, and a matching regular local file to supply that
+missing size. It does not change publisher-size discovery, fallback behavior,
+the capacity gate, or the final download-size check. The repair is approved for
+the next managed preflight; no restart has been observed or claimed here.
+
 **Staging restart approved (2026-10-01).** The managed ACS/AHS staging load
 stopped on 2026-09-30 when PostgreSQL was restarted by an administrator. The
 source archive remains intact: all 3,762 usable official artifacts are still
