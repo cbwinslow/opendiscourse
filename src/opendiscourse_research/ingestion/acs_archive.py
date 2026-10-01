@@ -17,18 +17,20 @@ from datetime import date
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import yaml
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from ..capacity import RemoteObject, storage_preview
 from ..db import session
-from ..models.catalog import DatasetField
+from ..models.catalog import DatasetField, artifact_table
 from ..models.core import (
     housing_archive_release_table,
     housing_microdata_projection_table,
 )
+from ..models.ingest import run_table, run_target_table
 from ..models.stage import stage_acs_pums_record, stage_ahs_record
 from ..providers.census import (
     ArchiveIndex,
@@ -85,6 +87,17 @@ class MemberStagingError(ValueError):
     def __init__(self, member: str, message: str) -> None:
         super().__init__(message)
         self.member = member
+
+
+@dataclass(frozen=True)
+class ArchiveResume:
+    """Validated, immutable evidence needed to replace an interrupted archive run."""
+
+    predecessor_run_id: UUID
+    manifest: dict[str, Any]
+    artifacts: tuple[ArchiveArtifact, ...]
+    completed_members: dict[str, tuple[MemberReconciliation, ...]]
+    evidence: dict[str, tuple[Any, str]]
 
 
 def publisher_gaps() -> list[dict[str, str]]:
@@ -161,18 +174,187 @@ def capacity_manifest(artifacts: Iterable[ArchiveArtifact]) -> dict[str, Any]:
     return {**preview, "artifacts": [asdict(artifact) for artifact in selected], "gaps": publisher_gaps()}
 
 
+def _saved_manifest_artifacts(manifest: Any) -> tuple[ArchiveArtifact, ...]:
+    """Rebuild only the operator-approved artifact selection saved on a run."""
+    if not isinstance(manifest, dict) or manifest.get("approved") is not True:
+        raise ValueError("resume target lacks an approved saved manifest")
+    saved_artifacts = manifest.get("artifacts")
+    if not isinstance(saved_artifacts, list) or not saved_artifacts:
+        raise ValueError("resume target lacks a usable saved manifest artifact list")
+    try:
+        artifacts = tuple(ArchiveArtifact(**item) for item in saved_artifacts)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("resume target has a malformed saved manifest") from exc
+    keys = [artifact.artifact_key for artifact in artifacts]
+    if len(keys) != len(set(keys)) or not all(artifact.selected for artifact in artifacts):
+        raise ValueError("resume target has an invalid saved manifest selection")
+    rebuilt = tuple(manifest_from_index(saved_artifacts))
+    if artifacts != rebuilt:
+        raise ValueError("resume target saved manifest does not match archive selection rules")
+    return rebuilt
+
+
+def _checkpoint_members(
+    checkpoint: Any, artifacts: tuple[ArchiveArtifact, ...], selected: Any
+) -> dict[str, tuple[MemberReconciliation, ...]]:
+    """Validate completed source members without inferring progress from totals."""
+    expected_selected = [artifact.artifact_key for artifact in artifacts]
+    if not isinstance(selected, list) or selected != expected_selected:
+        raise ValueError("resume target saved selection does not match its manifest")
+    if not isinstance(checkpoint, dict) or checkpoint.get("selected") != expected_selected:
+        raise ValueError("resume target lacks a checkpoint for its saved selection")
+    raw_members = checkpoint.get("members")
+    if not isinstance(raw_members, dict):
+        raise ValueError("resume target checkpoint has malformed members")
+    data_artifacts = {artifact.artifact_key for artifact in artifacts if artifact.kind == "data"}
+    completed: dict[str, tuple[MemberReconciliation, ...]] = {}
+    for artifact_key, rows in raw_members.items():
+        if artifact_key not in data_artifacts:
+            raise ValueError("resume target checkpoint names a member outside its saved manifest")
+        if not isinstance(rows, list):
+            raise ValueError("resume target checkpoint has malformed member counts")
+        parsed_rows: list[MemberReconciliation] = []
+        names: set[str] = set()
+        for row in rows:
+            if not isinstance(row, dict):
+                raise ValueError("resume target checkpoint has malformed member counts")
+            try:
+                item = MemberReconciliation(**row)
+            except TypeError as exc:
+                raise ValueError("resume target checkpoint has malformed member counts") from exc
+            member_path = Path(item.member)
+            if (
+                not item.member
+                or member_path.is_absolute()
+                or ".." in member_path.parts
+                or item.member in names
+                or any(not isinstance(count, int) or count < 0 for count in (
+                    item.parsed, item.inserted, item.existing, item.rejected
+                ))
+                or item.parsed == 0
+                or item.rejected
+                or not item.reconciled()
+            ):
+                raise ValueError("resume target checkpoint has an unreconciled completed member")
+            names.add(item.member)
+            parsed_rows.append(item)
+        completed[artifact_key] = tuple(parsed_rows)
+    return completed
+
+
+def load_archive_resume(run_id: UUID) -> ArchiveResume:
+    """Load a failed archive run only when its ledger proves safe member reuse."""
+    runs, targets, artifacts = run_table(), run_target_table(), artifact_table()
+    with session() as active_session:
+        prior = active_session.execute(select(runs).where(runs.c.run_id == run_id)).mappings().first()
+        if prior is None:
+            raise ValueError(f"resume target {run_id} does not exist")
+        if prior["dataset_id"] != ACSArchiveConnector.source_id:
+            raise ValueError("resume target belongs to a different dataset")
+        if prior["status"] not in {"failed", "partial"}:
+            raise ValueError("resume target must be a failed or partial archive run")
+        parameters = prior["parameters"]
+        if not isinstance(parameters, dict):
+            raise ValueError("resume target has malformed parameters")
+        manifest = parameters.get("manifest")
+        selected_artifacts = _saved_manifest_artifacts(manifest)
+        completed = _checkpoint_members(
+            parameters.get("checkpoint"), selected_artifacts, parameters.get("selected")
+        )
+        current_evidence: dict[str, tuple[Any, str]] = {}
+        for artifact in selected_artifacts:
+            current = require_current_artifact(
+                artifact.artifact_key,
+                label="ACS housing archive",
+                dataset_id=ACSArchiveConnector.source_id,
+            )
+            checksum = current["checksum_sha256"]
+            if not isinstance(checksum, str) or not checksum:
+                raise ValueError("resume target current artifact lacks immutable checksum evidence")
+            current_evidence[artifact.artifact_key] = (current["artifact_id"], checksum)
+        target_rows = list(
+            active_session.execute(
+                select(targets).where(targets.c.run_id == run_id)
+            ).mappings()
+        )
+        replacement_completed: dict[str, tuple[MemberReconciliation, ...]] = {}
+        for artifact in selected_artifacts:
+            expected_target = (
+                "stage.acs_pums_record" if artifact.product.startswith("acs_pums")
+                else "stage.ahs_record"
+            )
+            stage_table = (
+                stage_acs_pums_record if artifact.product.startswith("acs_pums") else stage_ahs_record
+            )
+            replacement_rows: list[MemberReconciliation] = []
+            for item in completed.get(artifact.artifact_key, ()):
+                suffix = f";member={item.member}"
+                matches: list[tuple[dict[str, Any], dict[str, Any]]] = []
+                for row in target_rows:
+                    coverage_key = row["coverage_key"]
+                    if (
+                        row["target"] != expected_target
+                        or not coverage_key.startswith("artifact=")
+                        or not coverage_key.endswith(suffix)
+                    ):
+                        continue
+                    old_id = coverage_key.removeprefix("artifact=").removesuffix(suffix)
+                    old_evidence = active_session.execute(
+                        select(
+                            artifacts.c.artifact_id,
+                            artifacts.c.artifact_key,
+                            artifacts.c.checksum_sha256,
+                        ).where(artifacts.c.artifact_id == old_id)
+                    ).mappings().first()
+                    if old_evidence is not None and old_evidence["artifact_key"] == artifact.artifact_key:
+                        matches.append((dict(row), dict(old_evidence)))
+                if len(matches) != 1 or matches[0][0]["status"] != "succeeded":
+                    raise ValueError("resume target checkpoint is not backed by a completed member ledger row")
+                recorded, old_evidence = matches[0]
+                if tuple(recorded[key] for key in (
+                    "rows_parsed", "rows_inserted", "rows_existing", "rows_rejected"
+                )) != (item.parsed, item.inserted, item.existing, item.rejected):
+                    raise ValueError("resume target checkpoint does not match its member ledger row")
+                if (
+                    not old_evidence["checksum_sha256"]
+                ):
+                    raise ValueError("resume target completed member lacks immutable artifact evidence")
+                current_id, current_checksum = current_evidence[artifact.artifact_key]
+                if (
+                    current_id != old_evidence["artifact_id"]
+                    or current_checksum != old_evidence["checksum_sha256"]
+                ):
+                    raise ValueError("resume target completed member does not match the current immutable artifact")
+                staged_count = active_session.execute(
+                    select(func.count()).select_from(stage_table).where(
+                        stage_table.c.artifact_id == current_id,
+                        stage_table.c.source_member == item.member,
+                    )
+                ).scalar_one()
+                if staged_count != item.parsed:
+                    raise ValueError("resume target completed member no longer matches retained stage rows")
+                replacement_rows.append(MemberReconciliation(item.member, item.parsed, 0, item.parsed))
+            if replacement_rows:
+                replacement_completed[artifact.artifact_key] = tuple(replacement_rows)
+    return ArchiveResume(run_id, manifest, selected_artifacts, replacement_completed, current_evidence)
+
+
 class ACSArchiveConnector:
     """Ten-stage manifest connector; transfer waits for explicit capacity approval."""
 
     source_id = "census.acs_housing_archive"
 
     def __init__(
-        self, entries: Iterable[dict[str, Any]], *, transfer_approved: bool = False
+        self, entries: Iterable[dict[str, Any]], *, transfer_approved: bool = False,
+        completed_members: dict[str, tuple[MemberReconciliation, ...]] | None = None,
     ) -> None:
         self.entries = list(entries)
         self.transfer_approved = transfer_approved
         self.artifacts: list[ArchiveArtifact] = []
         self.manifest: dict[str, Any] = {}
+        self.completed_members = completed_members or {}
+        self.resume_evidence: dict[str, tuple[Any, str]] = {}
+        self.resume_mode = False
 
     @classmethod
     def from_official_indexes(
@@ -182,9 +364,20 @@ class ACSArchiveConnector:
         entries = [entry for index in indexes for entry in discover_archive_index(index)]
         return cls(entries, transfer_approved=transfer_approved)
 
+    @classmethod
+    def from_saved_resume(cls, resume: ArchiveResume) -> ACSArchiveConnector:
+        """Construct a replacement run from saved approval, never fresh discovery."""
+        connector = cls((), transfer_approved=True, completed_members=resume.completed_members)
+        connector.artifacts = list(resume.artifacts)
+        connector.manifest = resume.manifest
+        connector.resume_evidence = resume.evidence
+        connector.resume_mode = True
+        return connector
+
     def discover(self, ctx: ConnectorContext) -> ConnectorContext:
-        self.artifacts = manifest_from_index(self.entries)
-        ctx.extras["gaps"] = publisher_gaps()
+        if not self.resume_mode:
+            self.artifacts = manifest_from_index(self.entries)
+        ctx.extras["gaps"] = self.manifest.get("gaps", publisher_gaps())
         return ctx
 
     def select(self, ctx: ConnectorContext) -> ConnectorContext:
@@ -192,7 +385,8 @@ class ACSArchiveConnector:
         return ctx
 
     def plan(self, ctx: ConnectorContext) -> ConnectorContext:
-        self.manifest = capacity_manifest(self.artifacts)
+        if not self.resume_mode:
+            self.manifest = capacity_manifest(self.artifacts)
         if not self.manifest["approved"]:
             raise RuntimeError(f"capacity gate: {self.manifest['reason']}")
         ctx.plan_id = self.source_id
@@ -209,6 +403,10 @@ class ACSArchiveConnector:
                 "archive manifest is capacity-approved but not transfer-approved; "
                 "review it and construct the connector with transfer_approved=True"
             )
+        if self.resume_mode:
+            # Evidence resolves the current usable artifact below.  A resume must
+            # never turn a checkpoint into a fresh transfer.
+            return ctx
         paths: dict[str, str] = {}
         for artifact in self.artifacts:
             if not artifact.selected:
@@ -271,6 +469,11 @@ class ACSArchiveConnector:
             for artifact in self.artifacts
             if artifact.selected
         }
+        if self.resume_mode:
+            for artifact_key, row in evidence.items():
+                expected = self.resume_evidence.get(artifact_key)
+                if expected is None or (row["artifact_id"], row["checksum_sha256"]) != expected:
+                    raise ValueError("current immutable artifact changed after resume validation")
         ctx.extras["evidence"] = evidence
         ctx.checksums = tuple(
             str(row["checksum_sha256"]) for row in evidence.values() if row["checksum_sha256"]
@@ -301,9 +504,16 @@ class ACSArchiveConnector:
                 self._record_member(ctx, artifact, evidence["artifact_id"], item)
                 self._persist_member_checkpoint(ctx)
 
+            for item in self.completed_members.get(artifact.artifact_key, ()):
+                record(item)
+
             try:
                 reconciliations = stage_artifact_members(
-                    artifact, Path(evidence["local_path"]), evidence["artifact_id"], on_member=record
+                    artifact,
+                    Path(evidence["local_path"]),
+                    evidence["artifact_id"],
+                    on_member=record,
+                    completed_members=self.completed_members.get(artifact.artifact_key, ()),
                 )
             except Exception as exc:
                 self._record_member_failure(
@@ -458,11 +668,20 @@ def stage_artifact(artifact: ArchiveArtifact, path: Path, artifact_id: Any) -> i
 def stage_artifact_members(
     artifact: ArchiveArtifact, path: Path, artifact_id: Any,
     *, on_member: Callable[[MemberReconciliation], None] | None = None,
+    completed_members: Iterable[MemberReconciliation] = (),
 ) -> list[MemberReconciliation]:
-    """Stage every CSV member and return deterministic parsed/inserted/existing counts."""
+    """Stage unfinished CSV members while retaining validated completed counts."""
     table = stage_acs_pums_record if artifact.product.startswith("acs_pums") else stage_ahs_record
-    reconciliations: list[MemberReconciliation] = []
+    completed = list(completed_members)
+    completed_by_name = {item.member: item for item in completed}
+    if len(completed_by_name) != len(completed):
+        raise ValueError("completed archive member checkpoint has duplicate names")
+    reconciliations: list[MemberReconciliation] = list(completed)
+    seen: set[str] = set()
     for member, rows in _csv_members(path):
+        seen.add(member)
+        if member in completed_by_name:
+            continue
         # Commit each member independently so an interruption has a durable,
         # resumable slice rather than an all-or-nothing artifact transaction.
         try:
@@ -510,6 +729,10 @@ def stage_artifact_members(
         reconciliations.append(reconciliation)
         if on_member is not None:
             on_member(reconciliation)
+    missing = set(completed_by_name) - seen
+    if missing:
+        member = min(missing)
+        raise MemberStagingError(member, f"completed archive member is absent from current artifact: {member}")
     return reconciliations
 
 
@@ -626,6 +849,19 @@ def catalog_field_definitions(
     return count
 
 
+def resume_archive_run(run_id: UUID) -> ConnectorContext:
+    """Replace one interrupted archive run using only its saved approved evidence."""
+    resume = load_archive_resume(run_id)
+    connector = ACSArchiveConnector.from_saved_resume(resume)
+    run = IngestionRun(
+        connector.source_id,
+        {"resumed_from_run_id": str(resume.predecessor_run_id)},
+    )
+    from .connector import run_connector
+
+    return run_connector(connector, run=run)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the standalone, approval-gated archive refresh command."""
     import argparse
@@ -634,8 +870,15 @@ def main(argv: list[str] | None = None) -> int:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--indexes", type=Path, help="Reviewed YAML list of official index identities")
     source.add_argument("--all-official-indexes", action="store_true", help="Discover every approved PUMS/AHS release directory")
+    source.add_argument("--resume-run", type=UUID, help="Replace one failed or partial archive run")
     parser.add_argument("--approve-transfer", action="store_true", help="Confirm review of the exact capacity manifest")
     args = parser.parse_args(argv)
+    if args.resume_run is not None:
+        if not args.approve_transfer:
+            raise ValueError("resuming an archive run requires a fresh --approve-transfer")
+        context = resume_archive_run(args.resume_run)
+        print({"resumed_from_run_id": str(args.resume_run), "staged": context.extras.get("stage_counts", {})})
+        return 0
     if args.all_official_indexes:
         indexes = official_housing_archive_indexes()
     else:

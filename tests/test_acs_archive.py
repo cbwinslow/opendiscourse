@@ -2,6 +2,7 @@
 
 import json
 from contextlib import contextmanager
+from uuid import uuid4
 
 import httpx
 import pytest
@@ -14,12 +15,15 @@ from opendiscourse_research.ingestion.acs_archive import (
     ACS_1_YEAR,
     ACS_5_YEAR,
     ACSArchiveConnector,
+    ArchiveArtifact,
+    MemberReconciliation,
     _csv_members,
     _pums_record_type,
     capacity_manifest,
     main,
     manifest_from_index,
     publisher_gaps,
+    stage_artifact_members,
 )
 from opendiscourse_research.ingestion.connector import (
     Connector,
@@ -83,6 +87,18 @@ def test_csv_member_reader_refuses_ambiguous_or_unsafe_source_members(tmp_path):
         zipped.writestr("../outside.csv", "A\n1\n")
     with pytest.raises(ValueError, match="unsafe ZIP CSV member"):
         list(_csv_members(archive))
+
+
+def test_member_staging_skips_a_completed_member_without_reinserting_rows(tmp_path):
+    """A resume retains proven reconciliation counts without opening a stage transaction."""
+    source = tmp_path / "completed.zip"
+    from zipfile import ZipFile
+
+    with ZipFile(source, "w") as archive:
+        archive.writestr("psam_pusa.csv", "PUMA,PWGTP\n12345,7\n")
+    artifact = ArchiveArtifact("test", "https://www2.census.gov/test.zip", 1, "acs_pums_1", "2024", "all", "data")
+    completed = MemberReconciliation("psam_pusa.csv", parsed=1, inserted=1, existing=0)
+    assert stage_artifact_members(artifact, source, "unused", completed_members=(completed,)) == [completed]
 
 
 def test_official_index_factory_covers_every_available_pums_and_ahs_release():
@@ -480,6 +496,36 @@ def test_approved_command_starts_a_ledger_backed_connector_run(monkeypatch, caps
     capsys.readouterr()
     assert calls["connector"] is connector
     assert calls["run"].dataset_id == "census.acs_housing_archive"
+
+
+def test_resume_command_requires_fresh_approval_before_loading_a_prior_run(monkeypatch):
+    """A resume identifier alone cannot create a replacement run or transfer work."""
+    called = False
+
+    def should_not_resume(_run_id):
+        nonlocal called
+        called = True
+        raise AssertionError("resume target should not be loaded without approval")
+
+    monkeypatch.setattr("opendiscourse_research.ingestion.acs_archive.resume_archive_run", should_not_resume)
+    with pytest.raises(ValueError, match="fresh --approve-transfer"):
+        main(["--resume-run", str(uuid4())])
+    assert called is False
+
+
+def test_resume_command_routes_only_the_explicit_prior_run(monkeypatch, capsys):
+    """The standalone archive module owns the explicit resume command path."""
+    run_id = uuid4()
+    received = {}
+
+    def resume(prior_run_id):
+        received["run_id"] = prior_run_id
+        return ConnectorContext(source_id="census.acs_housing_archive")
+
+    monkeypatch.setattr("opendiscourse_research.ingestion.acs_archive.resume_archive_run", resume)
+    assert main(["--resume-run", str(run_id), "--approve-transfer"]) == 0
+    assert received["run_id"] == run_id
+    assert "resumed_from_run_id" in capsys.readouterr().out
 
 
 def test_census_directory_parser_keeps_only_official_child_links():

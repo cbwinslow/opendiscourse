@@ -54,7 +54,9 @@ from opendiscourse_research.ingestion import treasury as treasury_ingestion
 from opendiscourse_research.ingestion.acs_load import load_acs_bulk, stage_acs_bulk
 from opendiscourse_research.ingestion.acs_archive import (
     ACSArchiveConnector,
+    load_archive_resume,
     manifest_from_index,
+    resume_archive_run,
 )
 from opendiscourse_research.ingestion.base import IngestionRun
 from opendiscourse_research.ingestion.connector import ConnectorContext, run_connector
@@ -2565,6 +2567,298 @@ def test_acs_archive_interruption_keeps_completed_member_checkpoint_and_fails_ru
                 connection.execute(text("DELETE FROM ingest.run WHERE run_id=:run_id"), {"run_id": run.run_id})
             connection.execute(text("DELETE FROM stage.acs_pums_record WHERE artifact_id IN (SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"), {"key": key})
             connection.execute(text("DELETE FROM ingest.artifact WHERE artifact_key=:key"), {"key": key})
+
+
+def test_acs_archive_resume_reuses_completed_member_and_records_predecessor(
+    catalog_database: None, tmp_path: Path
+) -> None:
+    """A replacement run skips proven PUMS work, then reconciles and publishes both files."""
+    token = str(uuid.uuid4())
+    pums, ahs = tmp_path / "resume-pums.zip", tmp_path / "resume-ahs.zip"
+    with ZipFile(pums, "w") as archive:
+        archive.writestr("psam_pusa.csv", "PUMA,PWGTP\n12345,7\n")
+    with ZipFile(ahs, "w") as archive:
+        archive.writestr("units.csv", "CONTROL,WEIGHT\n1,3\n")
+    entries = [
+        {
+            "product": "acs_pums_1", "period": "2024", "component": "all", "kind": "data",
+            "url": f"https://example.test/{token}-resume-pums.zip", "bytes": pums.stat().st_size,
+        },
+        {
+            "product": "ahs", "period": "2023", "component": "national", "kind": "data",
+            "url": f"https://example.test/{token}-resume-ahs.zip", "bytes": ahs.stat().st_size,
+        },
+    ]
+    artifacts = manifest_from_index(entries)
+    keys = {item.product: item.artifact_key for item in artifacts}
+    run: IngestionRun | None = None
+    resumed_run_id = None
+    try:
+        register_local(
+            ArtifactSpec(
+                dataset_id="census.acs_housing_archive", artifact_key=keys["acs_pums_1"],
+                url=entries[0]["url"], filename=pums.name,
+            ), pums,
+        )
+        with engine().connect() as connection:
+            pums_evidence = dict(connection.execute(
+                text("SELECT artifact_id, artifact_key, local_path FROM ingest.artifact WHERE artifact_key=:key"),
+                {"key": keys["acs_pums_1"]},
+            ).mappings().one())
+        connector = ACSArchiveConnector(entries, transfer_approved=True)
+        connector.extract = lambda ctx: ctx  # type: ignore[method-assign]
+        connector.evidence = lambda ctx: (  # type: ignore[method-assign]
+            ctx.extras.update(evidence={keys["acs_pums_1"]: pums_evidence}) or ctx
+        )
+        run = IngestionRun("census.acs_housing_archive", {"acs_ledger_test": token})
+        with pytest.raises(KeyError):
+            with patch(
+                "opendiscourse_research.ingestion.acs_archive.storage_preview",
+                return_value={"approved": True, "reason": "test capacity"},
+            ):
+                run_connector(connector, run=run)
+        register_local(
+            ArtifactSpec(
+                dataset_id="census.acs_housing_archive", artifact_key=keys["ahs"],
+                url=entries[1]["url"], filename=ahs.name,
+            ), ahs,
+        )
+        context = resume_archive_run(run.run_id)
+        with engine().connect() as connection:
+            replacement = connection.execute(
+                text(
+                    "SELECT run_id, status, parameters FROM ingest.run "
+                    "WHERE parameters->>'resumed_from_run_id'=:prior"
+                ), {"prior": str(run.run_id)},
+            ).mappings().one()
+            resumed_run_id = replacement["run_id"]
+            targets = connection.execute(
+                text(
+                    "SELECT target, rows_parsed, rows_inserted, rows_existing, status "
+                    "FROM ingest.run_target WHERE run_id=:run_id ORDER BY target"
+                ), {"run_id": resumed_run_id},
+            ).mappings().all()
+            pums_rows = connection.execute(
+                text("SELECT count(*) FROM stage.acs_pums_record WHERE artifact_id=:artifact_id"),
+                {"artifact_id": pums_evidence["artifact_id"]},
+            ).scalar_one()
+            releases = connection.execute(text("SELECT count(*) FROM core.housing_archive_release WHERE dataset_id='census.acs_housing_archive' AND source_artifact_id IN (SELECT artifact_id FROM ingest.artifact WHERE artifact_key IN (:pums, :ahs))"), {"pums": keys["acs_pums_1"], "ahs": keys["ahs"]}).scalar_one()
+        assert context.extras["stage_counts"][keys["acs_pums_1"]] == 1
+        assert replacement["status"] == "succeeded"
+        assert replacement["parameters"]["resumed_from_run_id"] == str(run.run_id)
+        assert [(row["target"], row["rows_parsed"], row["rows_inserted"], row["rows_existing"], row["status"]) for row in targets] == [
+            ("stage.acs_pums_record", 1, 0, 1, "succeeded"),
+            ("stage.ahs_record", 1, 1, 0, "succeeded"),
+        ]
+        assert pums_rows == 1 and releases == 2
+    finally:
+        with engine().begin() as connection:
+            if resumed_run_id is not None:
+                connection.execute(text("DELETE FROM ingest.run_target WHERE run_id=:run_id"), {"run_id": resumed_run_id})
+                connection.execute(text("DELETE FROM ingest.run WHERE run_id=:run_id"), {"run_id": resumed_run_id})
+            if run is not None:
+                connection.execute(text("DELETE FROM ingest.run_target WHERE run_id=:run_id"), {"run_id": run.run_id})
+                connection.execute(text("DELETE FROM ingest.run WHERE run_id=:run_id"), {"run_id": run.run_id})
+            for table, column in (
+                ("core.housing_microdata_projection", "artifact_id"),
+                ("core.housing_archive_release", "source_artifact_id"),
+                ("stage.acs_pums_record", "artifact_id"),
+                ("stage.ahs_record", "artifact_id"),
+            ):
+                connection.execute(
+                    text(f"DELETE FROM {table} WHERE {column} IN (SELECT artifact_id FROM ingest.artifact WHERE artifact_key IN (:pums, :ahs))"),
+                    {"pums": keys["acs_pums_1"], "ahs": keys["ahs"]},
+                )
+            connection.execute(
+                text("DELETE FROM ingest.artifact WHERE artifact_key IN (:pums, :ahs)"),
+                {"pums": keys["acs_pums_1"], "ahs": keys["ahs"]},
+            )
+
+
+def test_acs_archive_resume_refuses_missing_manifest_without_creating_a_run(
+    catalog_database: None,
+) -> None:
+    """Bad saved state is rejected before a replacement run, transfer, or staging begins."""
+    prior = IngestionRun("census.acs_housing_archive", {"acs_ledger_test": "bad-resume"})
+    try:
+        with pytest.raises(RuntimeError, match="interrupted for resume refusal"):
+            with prior:
+                raise RuntimeError("interrupted for resume refusal")
+        with engine().connect() as connection:
+            before = connection.execute(
+                text("SELECT count(*) FROM ingest.run WHERE dataset_id='census.acs_housing_archive'")
+            ).scalar_one()
+        with pytest.raises(ValueError, match="approved saved manifest"):
+            load_archive_resume(prior.run_id)
+        with engine().connect() as connection:
+            after = connection.execute(
+                text("SELECT count(*) FROM ingest.run WHERE dataset_id='census.acs_housing_archive'")
+            ).scalar_one()
+        assert after == before
+    finally:
+        with engine().begin() as connection:
+            connection.execute(text("DELETE FROM ingest.run_target WHERE run_id=:run_id"), {"run_id": prior.run_id})
+            connection.execute(text("DELETE FROM ingest.run WHERE run_id=:run_id"), {"run_id": prior.run_id})
+
+
+@pytest.mark.parametrize("corruption", ["artifact-drift", "missing-stage"])
+def test_acs_archive_resume_refuses_changed_evidence_before_creating_a_replacement(
+    catalog_database: None, tmp_path: Path, corruption: str
+) -> None:
+    """A checkpoint cannot reuse a changed artifact or stage slice as completed work."""
+    token = str(uuid.uuid4())
+    source = tmp_path / "resume-evidence.zip"
+    with ZipFile(source, "w") as archive:
+        archive.writestr("psam_pusa.csv", "PUMA,PWGTP\n12345,7\n")
+    entry = {
+        "product": "acs_pums_1", "period": "2024", "component": "all", "kind": "data",
+        "url": f"https://example.test/{token}-resume-evidence.zip", "bytes": source.stat().st_size,
+    }
+    key = manifest_from_index([entry])[0].artifact_key
+    run: IngestionRun | None = None
+    try:
+        register_local(
+            ArtifactSpec(
+                dataset_id="census.acs_housing_archive", artifact_key=key,
+                url=entry["url"], filename=source.name,
+            ), source,
+        )
+        with engine().connect() as connection:
+            evidence = dict(connection.execute(
+                text("SELECT artifact_id, artifact_key, local_path FROM ingest.artifact WHERE artifact_key=:key"),
+                {"key": key},
+            ).mappings().one())
+        connector = ACSArchiveConnector([entry], transfer_approved=True)
+        connector.extract = lambda ctx: ctx  # type: ignore[method-assign]
+        connector.evidence = lambda ctx: (ctx.extras.update(evidence={key: evidence}) or ctx)  # type: ignore[method-assign]
+        run = IngestionRun("census.acs_housing_archive", {"acs_ledger_test": token})
+        with patch(
+            "opendiscourse_research.ingestion.acs_archive.storage_preview",
+            return_value={"approved": True, "reason": "test capacity"},
+        ):
+            run_connector(connector, run=run)
+        with engine().begin() as connection:
+            connection.execute(text("UPDATE ingest.run SET status='failed' WHERE run_id=:run_id"), {"run_id": run.run_id})
+            if corruption == "missing-stage":
+                connection.execute(
+                    text("DELETE FROM stage.acs_pums_record WHERE artifact_id=:artifact_id"),
+                    {"artifact_id": evidence["artifact_id"]},
+                )
+        if corruption == "artifact-drift":
+            with ZipFile(source, "w") as archive:
+                archive.writestr("psam_pusa.csv", "PUMA,PWGTP\n54321,8\n")
+            register_local(
+                ArtifactSpec(
+                    dataset_id="census.acs_housing_archive", artifact_key=key,
+                    url=entry["url"], filename=source.name,
+                ), source,
+            )
+        with engine().connect() as connection:
+            before = connection.execute(text("SELECT count(*) FROM ingest.run")).scalar_one()
+        with pytest.raises(ValueError, match="current immutable artifact|retained stage rows"):
+            load_archive_resume(run.run_id)
+        with engine().connect() as connection:
+            after = connection.execute(text("SELECT count(*) FROM ingest.run")).scalar_one()
+        assert after == before
+    finally:
+        with engine().begin() as connection:
+            if run is not None:
+                connection.execute(text("DELETE FROM ingest.run_target WHERE run_id=:run_id"), {"run_id": run.run_id})
+                connection.execute(text("DELETE FROM ingest.run WHERE run_id=:run_id"), {"run_id": run.run_id})
+            for table, column in (
+                ("core.housing_microdata_projection", "artifact_id"),
+                ("core.housing_archive_release", "source_artifact_id"),
+                ("stage.acs_pums_record", "artifact_id"),
+            ):
+                connection.execute(
+                    text(f"DELETE FROM {table} WHERE {column} IN (SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"),
+                    {"key": key},
+                )
+            connection.execute(text("DELETE FROM ingest.artifact WHERE artifact_key=:key"), {"key": key})
+
+
+@pytest.mark.parametrize(
+    ("dataset_id", "outcome", "message"),
+    [
+        ("census.acs_housing_archive", "succeeded", "failed or partial archive run"),
+        ("census.acs_1", "failed", "different dataset"),
+    ],
+)
+def test_acs_archive_resume_refuses_ineligible_prior_runs_before_creating_replacement(
+    catalog_database: None, dataset_id: str, outcome: str, message: str
+) -> None:
+    """Only failed or partial ACS archive attempts can become a replacement run."""
+    prior = IngestionRun(dataset_id, {"acs_ledger_test": f"ineligible-{dataset_id}-{outcome}"})
+    try:
+        if outcome == "failed":
+            with pytest.raises(RuntimeError, match="ineligible resume"):
+                with prior:
+                    raise RuntimeError("ineligible resume")
+        else:
+            with prior:
+                pass
+        with engine().connect() as connection:
+            before = connection.execute(text("SELECT count(*) FROM ingest.run")).scalar_one()
+        with pytest.raises(ValueError, match=message):
+            load_archive_resume(prior.run_id)
+        with engine().connect() as connection:
+            after = connection.execute(text("SELECT count(*) FROM ingest.run")).scalar_one()
+        assert after == before
+    finally:
+        with engine().begin() as connection:
+            connection.execute(text("DELETE FROM ingest.run_target WHERE run_id=:run_id"), {"run_id": prior.run_id})
+            connection.execute(text("DELETE FROM ingest.run WHERE run_id=:run_id"), {"run_id": prior.run_id})
+
+
+def test_acs_archive_resume_refuses_checkpoint_member_outside_saved_selection(
+    catalog_database: None,
+) -> None:
+    """A corrupt checkpoint cannot be turned into a replacement run or transfer."""
+    entry = {
+        "url": "https://www2.census.gov/programs-surveys/acs/pums/2024/test.zip",
+        "bytes": 1,
+        "product": "acs_pums_1",
+        "period": "2024",
+        "component": "all",
+        "kind": "data",
+        "version": "current",
+        "selected": True,
+    }
+    artifact_key = manifest_from_index([entry])[0].artifact_key
+    manifest = {
+        "approved": True,
+        "reason": "test capacity",
+        "artifacts": [{
+            "artifact_key": artifact_key,
+            **entry,
+        }],
+        "gaps": [],
+    }
+    prior = IngestionRun("census.acs_housing_archive", {"manifest": manifest, "selected": [artifact_key]})
+    try:
+        with pytest.raises(RuntimeError, match="corrupt checkpoint"):
+            with prior:
+                prior.checkpoint({
+                    "selected": [artifact_key],
+                    "members": {
+                        "not-in-the-manifest": [{
+                            "member": "psam_pusa.csv", "parsed": 1, "inserted": 1,
+                            "existing": 0, "rejected": 0,
+                        }],
+                    },
+                })
+                raise RuntimeError("corrupt checkpoint")
+        with engine().connect() as connection:
+            before = connection.execute(text("SELECT count(*) FROM ingest.run")).scalar_one()
+        with pytest.raises(ValueError, match="outside its saved manifest"):
+            load_archive_resume(prior.run_id)
+        with engine().connect() as connection:
+            after = connection.execute(text("SELECT count(*) FROM ingest.run")).scalar_one()
+        assert after == before
+    finally:
+        with engine().begin() as connection:
+            connection.execute(text("DELETE FROM ingest.run_target WHERE run_id=:run_id"), {"run_id": prior.run_id})
+            connection.execute(text("DELETE FROM ingest.run WHERE run_id=:run_id"), {"run_id": prior.run_id})
 
 
 def test_acs_member_reconciliation_migration_refuses_to_discard_recorded_counts(
