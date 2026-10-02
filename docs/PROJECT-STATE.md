@@ -1,5 +1,15 @@
 # Project state and handoff
 
+**OpenStates Story 1 stopping point (2026-10-02).** At the operator's request,
+audit work is paused and saved on `feat/openstates-audit-story-1` at `7363339`,
+not merged into main. Resume in `/home/cbwinslow/workspace/opendiscourse-story-1`
+and read that branch's `docs/SESSION-HANDOFF-2026-10-02-OPENSTATES-STORY-1.md`.
+The snapshot inventory and scoped reference evidence are saved; post-review
+focused checks passed 19 unit and eight database tests. Story #100 is still open
+pending parent-derived coverage, fresh consistent/tagged evidence, actual restore
+lineage and mapping approval. No source, schema, FDW or identity-link writes were
+performed. Preserve the unrelated Congress/FEC working-tree changes here.
+
 Last updated: 2026-10-01. Congress 106 bills match Congress.gov (10,840).
 Congress 107 is still short two bills whose detail pages return HTTP 500.
 Member profiles are loaded on port 5434. See "Session handoff (2026-09-27)".
