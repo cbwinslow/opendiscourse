@@ -113,6 +113,28 @@ Story 1 is complete only when all of the following evidence exists:
 6. The design documents exact reconciliation metrics, restart/idempotency behavior, provenance requirements, and a bounded pilot before any broad promotion.
 7. `just check-fast` passes after the contract artifacts and any supporting code/tests are added. A database check is required once a migration or database query is introduced.
 
+## Required Story 1 audit outputs
+
+Story 1 is a read-only audit. It produces no migration, FDW alteration,
+source-database write, canonical promotion, FEC transfer, or person join. Its
+versioned outputs are:
+
+| Output | Required contents |
+| --- | --- |
+| Snapshot inventory | Every restored relation; columns; nested JSON/array paths; row counts; null rates; candidate keys; date ranges; jurisdictions; and representative samples safe for review. |
+| FDW coverage diff | Snapshot relation manifest versus `openstates_source` allow-list, including every present-but-unreadable relation. The audit proposes no reader change. |
+| Entity-disposition matrix | One disposition for every source relation: `promote_typed`, `retain_source_only`, `reference_only`, `implementation_only`, `excluded`, or `unavailable_in_snapshot`, with an evidence-backed reason. |
+| Field-disposition matrix | For every public field in a promoted/retained relation: typed target or retained treatment, transform, source key, loss risk, null rate, and mapping version. |
+| Coverage report | Jurisdiction × entity × session/time range, distinguishing `available`, `present_in_snapshot`, `readable_via_fdw`, `mapped`, `unresolved`, and `not_supplied`. |
+| Snapshot fingerprint | Artifact/checksum plus schema/relation/table/column fingerprint, row counts, and FDW exposure so a changed dump fails closed. |
+| Identity audit | OpenStates identifier namespaces, BioGuide availability/uniqueness, and unresolved identifiers; it measures but does not create cross-provider links. |
+| Reconciliation baseline | Source counts, keys, and unresolved-reference counts that Story 3 must reproduce or explain for each promoted grain. |
+
+The audit's final answer is: what is in the snapshot, what can currently be
+read, how each source relation/field is treated, and which narrowly scoped
+reader or schema changes would be required before promotion. Those later changes
+are separate checkpointed stories.
+
 ## Implementation order
 
 1. Generate the snapshot relation/field/coverage report and compare it with the current read-only FDW allow-list.

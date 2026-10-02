@@ -8,9 +8,12 @@
   done_checkpoint: true
   invoke_dev_with: >-
     Read ../spec-openstates-political-core/SPEC.md and source-mapping.md first.
-    Completion requires its seven-item Story 1 definition of done: reviewed
-    mapping/dispositions, source fingerprint and drift gate, identity failure
-    tests, reconciliation/recovery design, and no source-database writes.
+    Produce every item in source-mapping.md "Required Story 1 audit outputs":
+    snapshot inventory, FDW diff, entity/field disposition matrices, coverage
+    report, fingerprint, identity audit, and reconciliation baseline. This is
+    strictly read-only: no migration, FDW change, source write, promotion,
+    transfer, or person join. Completion also requires its seven-item definition
+    of done, including drift and identity failure tests.
 - id: "2"
   title: Add compact typed FEC and political-core schema
   description: >-

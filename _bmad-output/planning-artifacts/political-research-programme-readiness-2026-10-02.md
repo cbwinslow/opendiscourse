@@ -8,7 +8,7 @@ The FEC/OpenStates political-research programme is **ready to enter the implemen
 
 | Area | Governing contract | Planning status | First implementation gate |
 | --- | --- | --- | --- |
-| Political core / OpenStates | `spec-openstates-political-core/SPEC.md` and `source-mapping.md` | Ready | Generate complete source field/coverage inventory and drift fingerprint. |
+| Political core / OpenStates | `spec-openstates-political-core/SPEC.md` and `source-mapping.md` | Ready | Run the strictly read-only snapshot/FDW audit: inventory, coverage diff, entity/field dispositions, identity audit, fingerprint, and reconciliation baseline. |
 | FEC campaign finance | `spec-fec-reproducible-ingest/SPEC.md` and `coverage-and-grains.md` | Ready | Independently review the four-file 2024 pilot; no transfer before a fresh manifest/capacity approval. |
 | Research marts | `spec-political-research-marts/SPEC.md` and `mart-catalog.md` | Ready | Publish only when each mart's source/identity/geography dependencies pass. |
 | Programme queue | `spec-fec-reproducible-ingest/stories.yaml` | Ready | Story 1; each story has pre-build and post-completion human checkpoints. |
