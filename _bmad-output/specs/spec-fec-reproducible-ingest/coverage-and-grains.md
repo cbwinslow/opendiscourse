@@ -19,6 +19,25 @@ The programme targets the FEC bulk products below whenever the FEC publishes an 
 
 If the FEC exposes another public bulk family that materially changes campaign-finance interpretation, the field inventory must classify it as in scope, deferred, or excluded with a reason before researchers are told coverage is complete.
 
+## Coverage-resolution matrix
+
+The unit of historical completion is every target `family × cycle` cell from
+2000–2024, not merely the batches selected for a particular run. The programme
+maintains a versioned matrix with the FEC URL/catalogue evidence, availability
+check date, and one resolution per cell:
+
+| Resolution | Meaning | Effect on full-history completion |
+| --- | --- | --- |
+| `loaded` | Official equivalent product was retained, reconciled, and promoted through its approved contract. | Satisfies the cell. |
+| `publisher_unavailable` | The FEC did not publish an equivalent product for that family/cycle, proven by the documented availability check. | Satisfies the cell as a coverage finding; never becomes a zero. |
+| `out_of_scope_by_approved_change` | The operator formally changed the target scope with a documented reason. | Satisfies only the amended scope; the original scope is not described as complete. |
+| `deferred` | Product is available but awaits a bounded approval, capacity decision, or prerequisite. | Does not satisfy the cell and blocks the full-history completion claim. |
+| `failed` | Product is available but acquisition, parsing, reconciliation, or promotion failed. | Does not satisfy the cell and blocks the full-history completion claim until recovered or an approved scope change occurs. |
+
+The matrix must be exhaustive before Story 4 can be marked complete. “All
+approved batches” is only an execution sequence; it is never a substitute for
+resolving all target cells.
+
 ## Required field treatment
 
 Every source column and public nested field receives a versioned inventory row with: `family`, `cycle`, `source_member`, `source_path`, `source_type`, `disposition`, `typed_target`, `transformation`, `null_rate`, `source_key`, `amendment_role`, `reason`, and `mapping_version`.
@@ -53,6 +72,10 @@ A FEC family/cycle batch is complete only when:
 6. The coverage report labels source family, cycles, itemized versus summary/unitemized scope, known gaps, and amendment/version rule.
 7. Every person-keyed output either uses an approved identifier bridge or is reported as unresolved; tests prove a same-name record remains unlinked.
 8. Required automated checks pass: fast checks for parser/manifest/idempotency rules, database checks for schema/promotion/reconciliation, and a bounded real-source proof only after transfer approval.
+
+A programme-level 2000–2024 completion claim additionally requires every
+target cell in the coverage-resolution matrix to be `loaded`,
+`publisher_unavailable`, or covered by an explicit approved scope change.
 
 ## Programme gates
 

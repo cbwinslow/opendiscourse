@@ -7,8 +7,9 @@
 | `politician_profile` | one resolved `core.person` | person identifiers/names; office-term history | No finance or FEC fields unless the FEC identity bridge is enabled; unresolved source identities are counted separately. |
 | `office_term` | one person holding one post/role for one dated term | jurisdiction, organization, post, membership, source evidence | Role, party, organization, division, and dates retain source provenance; overlapping terms are shown rather than arbitrarily merged. |
 | `member_vote` | one person’s recorded position on one vote event | roll call, member vote, person identifier, session/organization | Vote option/raw text, timing, source, and any unresolved voter state remain visible. |
-| `bill_analysis` | one bill version/identity | bill, action, sponsorship, subject, document, session | Status/action dates and classifications retain source vocabulary; no claim of enactment without official supporting action. |
-| `candidate_cycle_finance` | one FEC candidate or committee for one cycle and declared measure | approved FEC masters/linkage/facts; reviewed person bridge if person-keyed | Itemized, summary/unitemized, transfer, and expenditure measures remain separate; family/cycle coverage is explicit. |
+| `bill_analysis` | one canonical bill identity | bill, action, sponsorship, subject, document, session | Status/action dates and classifications retain source vocabulary; document/version analysis is a distinct relation or future mart, never an alternate row grain. |
+| `candidate_cycle_finance` | one FEC candidate ID × cycle | approved FEC candidate master/linkage/facts; reviewed person bridge if person-keyed | Measures are columns with family/cycle coverage; candidate-to-committee linkage is explicit and itemized, summary/unitemized, transfer, and expenditure measures remain separate. |
+| `committee_cycle_finance` | one FEC committee ID × cycle | approved FEC committee master/linkage/facts | Measures are columns with family/cycle coverage; a committee is not treated as a person and no person bridge is implied. |
 | `district_year` | one political/geographic division for one defined period and boundary vintage | approved geography, boundary/crosswalk, measurements, office-term linkage when needed | It is not published across redistricting until comparable-vintage rules are documented. |
 
 ## Required shared fields

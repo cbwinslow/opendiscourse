@@ -33,7 +33,11 @@ The six stories are complete only when their contract-specific completion checks
 5. Reviewed identifier bridge with failure cases for name matching.
 6. dbt-owned, coverage-aware political research marts.
 
-An individual story remains incomplete if a source is not available, a field is unclassified, a row cannot be reconciled, a transfer has not been approved, or an identity remains unresolved. Those conditions are reported—not worked around.
+An individual story remains incomplete if a required available source is
+unresolved, a field/relation is unclassified, a row cannot be reconciled, a
+transfer has not been approved, or an identity remains unresolved. A genuinely
+publisher-unavailable FEC product is a documented coverage finding, not a
+failure; it satisfies its matrix cell without being treated as a zero.
 
 ## Remaining decisions that are intentionally deferred
 

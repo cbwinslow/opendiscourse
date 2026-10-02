@@ -58,6 +58,14 @@ planned views, not evidence that their dependent source coverage is complete.
 The planning-readiness record and exact queue/implementation boundary are in
 `_bmad-output/planning-artifacts/political-research-programme-readiness-2026-10-02.md`.
 
+**Independent planning review incorporated (2026-10-02).** The programme
+contracts now require a complete restored-snapshot versus FDW relation inventory,
+not just FDW-visible fields; every FEC family × cycle must receive a documented
+resolution; a publisher-unavailable product is a coverage finding rather than a
+zero or failure; FEC committees never bridge directly to people; and political
+mart grains are unambiguous. The review resulted in contract tightening only;
+it did not authorize source writes, transfer, promotion, migration, or joins.
+
 **FEC pilot implementation (2026-10-01).** The disabled four-file Connector
 now builds a fail-closed official manifest for `cn24.zip`, `cm24.zip`,
 `ccl24.zip`, and `pas224.zip`, then requires explicit transfer approval before

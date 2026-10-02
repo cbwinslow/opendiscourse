@@ -39,14 +39,17 @@
 - id: "4"
   title: Complete the reusable FEC 2000–2024 ingestion programme
   description: >-
-    Extend the official FEC Connector from the pilot through all approved historical
-    masters, linkage, summaries, and transaction families in capacity-gated batches.
+    Extend the official FEC Connector from the pilot through every target historical
+    family/cycle resolution, then load available masters, linkage, summaries, and
+    transaction families in capacity-gated batches.
   spec_checkpoint: true
   done_checkpoint: true
   invoke_dev_with: >-
-    Read SPEC.md and coverage-and-grains.md first. Completion requires an approved
-    manifest per batch, field inventory, official count reconciliation, immutable
-    cycle evidence, restart drill, and no unapproved bulk transfer.
+    Read SPEC.md and coverage-and-grains.md first. Completion requires an exhaustive
+    2000-2024 family-by-cycle resolution matrix, an approved manifest per available
+    batch, field inventory, official count reconciliation, immutable cycle evidence,
+    restart drill, and no unapproved bulk transfer. Deferred/failed available cells
+    block the full-history claim; publisher-unavailable cells require evidence.
 - id: "5"
   title: Open the verified politician identifier bridge
   description: >-

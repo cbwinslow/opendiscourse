@@ -4,9 +4,19 @@ This companion defines the mapping review required by `SPEC-openstates-political
 
 ## Source boundary
 
-The initial source is the full read-only `openstates_source` FDW snapshot. Its current political tables include `opencivicdata_person`, `personidentifier`, `organization`, `jurisdiction`, `legislativesession`, `bill`, `billaction`, `billsponsorship`, `voteevent`, and `personvote`. The snapshot's physical tables are evidence interfaces only: an upstream upgrade can change them.
+The source of record is the full restored OpenStates snapshot; `openstates_source`
+is its least-privilege, read-only FDW reader. The current FDW may expose only a
+reviewed subset of the snapshot's relations. Story 1 must inventory the restored
+snapshot relation manifest **and** the FDW allow-list, then account for every
+relation missing from the FDW before calling the inventory complete. The
+snapshot's physical tables are evidence interfaces only: an upstream upgrade can
+change them.
 
-Every run must save a source fingerprint containing the snapshot artifact identity/checksum, source database version when available, table-and-column manifest, row counts, and the mapping version. The promotion must stop when that fingerprint differs from the reviewed baseline, unless a migration explicitly approves the change.
+Every run must save a source fingerprint containing the snapshot artifact
+identity/checksum, source database version when available, **relation** and
+table-and-column manifest, row counts, FDW exposure status, and mapping version.
+The promotion must stop when that fingerprint differs from the reviewed baseline,
+unless a migration explicitly approves the change.
 
 ## External-model crosswalk
 
@@ -37,9 +47,18 @@ This crosswalk supports a stable *conceptual* model. It does not promise that an
 | Bill, action, sponsorship, committee, subject, citation, document | `core.bill` and normalized bill child tables | Preserve OCD ID, official identifier, session/organization, class, dates, classification, subjects/citations, ordering, sponsor type/primary flag, source documents, and source detail. A source reference must remain source-keyed even when the target is not yet promoted. |
 | Vote event and individual vote | `core.roll_call`, `fact.member_vote`, supporting vote totals/source rows | Preserve source key, motion/question, classifications, result, timing/order, organization/session/bill/action references, vote option/note/voter text, and source detail. Unresolved voters remain recorded as source-native unresolved rows, never name-linked. |
 
-## Field-disposition inventory
+## Relation and field-disposition inventory
 
-Before promoting more than a bounded pilot, the Connector must generate and version a machine-readable inventory for every discovered scalar column and every public nested JSON/array key. Each row must include:
+Before promoting more than a bounded pilot, the Connector must generate and
+version a machine-readable **relation inventory** for every source relation in
+the restored snapshot. Each relation must be marked `promote_typed`,
+`retain_source_only`, `excluded`, or `unavailable_in_snapshot`, with a reason,
+FDW exposure status, and any required FDW expansion proposal. A relation that is
+not in the current FDW is not an implicit exclusion.
+
+The field inventory then covers every discovered scalar column and every public
+nested JSON/array key of each relation marked `promote_typed` or
+`retain_source_only`. Each field row must include:
 
 `source_table`, `source_path`, `source_type`, `null_rate`, `sample_count`, `source_key`, `disposition`, `owned_target`, `transform`, `loss_risk`, `reason`, `mapping_version`, and `reviewed_at`.
 
@@ -51,7 +70,12 @@ Allowed dispositions are:
 | `retained_source_detail` | The field remains in a source-record payload because it is useful but not a stable shared attribute. | Preserve verbatim structure and source key; document why it is not promoted. |
 | `excluded` | The field is intentionally not retained in the research contract. | Require a specific reason: duplicate evidence, non-public/unsafe content, transient operational value, or confirmed upstream implementation-only field. |
 
-`excluded` is exceptional. Upstream timestamps, source keys, `extras`, links, source citations, other names, classifications, arrays, and nested objects are not allowed to disappear merely because they do not fit a first-pass typed table.
+`excluded` is exceptional. Upstream timestamps, source keys, `extras`, links,
+source citations, other names, classifications, arrays, and nested objects are
+not allowed to disappear merely because they do not fit a first-pass typed table.
+The same rule applies to whole entities: bill versions, abstracts, related-bill
+relations, vote counts, events, agendas, participants, media, documents, office
+records, and any other discovered source relation need an explicit disposition.
 
 ## Identity and federal/FEC connections
 
@@ -61,7 +85,8 @@ The source's person ID is valid only within its provider namespace. It may ancho
 | --- | --- | --- |
 | OpenStates to OpenDiscourse person | OpenStates/OCD person identifier | Provenance-backed source assertion. |
 | Federal member to OpenDiscourse person | BioGuide identifier | Existing federal identity rules. |
-| FEC candidate/committee to person | Reviewed identifier bridge plus configured `person_join` | Must call `identitygate.require_person_join`; FEC remains native/unresolved until enabled. |
+| FEC candidate to person | Reviewed candidate identifier bridge plus configured `person_join` | Must call `identitygate.require_person_join`; FEC remains native/unresolved until enabled. |
+| FEC committee to person | Never permitted | A committee is FEC-native/organization data, not a person identifier. Candidate-to-committee linkage remains a separate evidence-backed relation. |
 | Geographical connection | Versioned geographic identifier and valid dates | Never substitute a present-day boundary for a historical one. |
 
 ## Coverage and reconciliation
@@ -80,18 +105,18 @@ Each promotion run must reconcile:
 
 Story 1 is complete only when all of the following evidence exists:
 
-1. The generated source table/column/nested-field inventory covers the actual snapshot and records a disposition for every field.
+1. The generated source-relation/table/column/nested-field inventory covers the actual snapshot and records a disposition for every relation and field. It compares the snapshot manifest with the FDW allow-list and accounts for every difference.
 2. The mapping is reviewed against current OpenDiscourse tables and identifies minimal schema changes, including why each is needed; no source-table copy is proposed.
-3. The mapping explicitly covers people, organizations, jurisdictions, sessions, offices/posts, memberships, bills, actions, sponsors, documents, vote events, and individual votes; absent source coverage is reported as a gap.
-4. A source fingerprint and drift test fail closed for an unreviewed new table, column, or nested public field.
+3. The mapping explicitly covers people, organizations, jurisdictions, sessions, offices/posts, memberships, bills, actions, sponsors, documents, vote events, individual votes, and every additional discovered relation; absent source coverage is reported as a gap.
+4. A source fingerprint and drift test fail closed for an unreviewed new relation, table, column, or nested public field.
 5. Identity tests prove that a display-name collision does not create a cross-provider link, while a permitted identifier does.
 6. The design documents exact reconciliation metrics, restart/idempotency behavior, provenance requirements, and a bounded pilot before any broad promotion.
 7. `just check-fast` passes after the contract artifacts and any supporting code/tests are added. A database check is required once a migration or database query is introduced.
 
 ## Implementation order
 
-1. Generate the inventory and coverage report from the current read-only source snapshot.
-2. Review the inventory and write the minimal owned-schema migration proposal.
+1. Generate the snapshot relation/field/coverage report and compare it with the current read-only FDW allow-list.
+2. Review every missing FDW relation: propose a least-privilege reader expansion or record an explicit non-promotion disposition, then write the minimal owned-schema migration proposal.
 3. Implement a bounded, provenance-backed promotion pilot and its reconciliation tests.
 4. Review pilot evidence, then approve jurisdiction/session batches separately.
 5. Only after political identities are proven, evaluate downstream FEC/federal research marts.

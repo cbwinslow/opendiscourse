@@ -34,7 +34,7 @@ The normalized warehouse is necessary for trustworthy ingestion, but researchers
 ## Constraints
 
 - dbt owns `mart`; canonical identity, provenance, and factual tables remain in `core`/`fact`.
-- One mart has one declared grain. A convenience column may not conceal a one-to-many expansion, mismatched reporting period, or duplicate source record.
+- One mart has one declared grain. A convenience column may not conceal a one-to-many expansion, mismatched reporting period, duplicate source record, alternative entity class, or alternative version grain.
 - Do not create person joins from display names or expose a FEC-to-politician metric before the identifier bridge is enabled.
 - Preserve historical time and geographic vintage. Do not compare or aggregate district values across redistricting without a reviewed relationship/crosswalk rule.
 - Derived measures must state their formula and source coverage. Opaque political effectiveness, bias, integrity, or corruption scores are out of scope.

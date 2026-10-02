@@ -91,7 +91,11 @@ for the OpenDiscourse application role. Keep the password in the database's
 protected user mapping, not in `.env`, source control, output, or a migration.
 Import only the approved tables into an `openstates_source` schema. After
 verification, create project-owned compatibility views in a dedicated schema;
-do not expose raw foreign tables as the stable application interface.
+do not expose raw foreign tables as the stable application interface. The
+allow-list in this document is a minimum compatibility reader, not proof that
+it exposes every relation in a restored snapshot. Before a source-wide inventory
+or promotion, compare the snapshot's relation manifest with this allow-list and
+obtain a separate least-privilege FDW expansion approval for any needed table.
 
 ### Local peer-authenticated deployment
 

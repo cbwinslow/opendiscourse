@@ -24,7 +24,7 @@ OpenDiscourse needs usable, reproducible campaign-finance evidence from 2000 onw
   - **success:** The pilot retains official URLs, checksums, immutable artifact versions, and run evidence; a repeat reuses verified bytes and produces the same source-shaped stage result.
 - **CAP-3**
   - **intent:** A researcher can query practical official FEC campaign-finance coverage for every available cycle from 2000 through 2024 through compact typed facts rather than a generic JSON staging table.
-  - **success:** Each approved family/cycle has retained official evidence, a field checklist, documented coverage, publisher-count reconciliation, idempotent reload evidence, and an actionable resume path; unavailable or deferred coverage is visible rather than treated as zero.
+  - **success:** Every target family × cycle has a recorded resolution in the coverage matrix. Loaded cells have retained official evidence, a field checklist, reconciliation, idempotent reload evidence, and a resume path; a publisher-unavailable cell has official availability evidence; deferred or failed available cells remain visible and block a full-history completion claim.
 - **CAP-4**
   - **intent:** A researcher can connect FEC candidate and committee facts to politicians only when a reviewed stable identifier path proves the connection.
   - **success:** A candidate-keyed fact links through an FEC candidate identifier and BioGuide-backed person only after the configured gate is enabled; name collisions, unresolved candidates, and committee-only records remain FEC-native and are reported.
