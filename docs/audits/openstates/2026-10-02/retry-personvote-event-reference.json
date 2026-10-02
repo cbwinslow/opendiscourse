@@ -1,0 +1,5 @@
+{
+  "scope": "opencivicdata_person_vote_event_id_7d507bb5_fk_opencivic",
+  "sqlstate": "57014", "status": "unresolved", "timeout_ms": 180000,
+  "original_run": "run-02/audit.json retains the earlier timeout; this bounded retry also timed out and does not establish a zero"
+}

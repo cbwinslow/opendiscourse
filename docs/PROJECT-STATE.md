@@ -1,5 +1,43 @@
 # Project state and handoff
 
+**Story 1 paused at the operator's request (2026-10-02).** Work and immutable
+audit evidence are preserved on `feat/openstates-audit-story-1` in the separate
+`opendiscourse-story-1` worktree. Resume from
+`docs/SESSION-HANDOFF-2026-10-02-OPENSTATES-STORY-1.md`. Post-review focused
+checks passed 19 unit and eight database tests; earlier full gates passed
+671 fast and 398 database tests. Full gates need rerunning after the latest
+corrections. All original timed-out query scopes have successful supplementary
+measurements, including the vote-event check with transaction-local memory.
+Story #100 remains incomplete: parent-derived coverage, fresh consistent/tagged
+evidence, restored-artifact lineage and mapping approval are still outstanding.
+
+**Story 1 audit implementation in progress (2026-10-02, issue #100).** A standalone
+read-only OpenStates audit now uses explicit operator connections, bounded SQL,
+catalog-only handling for account/application relations and append-only incomplete
+checkpoints. It inventories the snapshot separately from the existing FDW reader,
+measures public nested paths exhaustively or records query gaps, and proposes
+field treatment against current owned columns. Evidence is under
+`docs/audits/openstates/2026-10-02/`; command and interpretation are documented in
+`docs/audits/openstates/README.md`. Neither the artifact registry nor the observed
+zero restore-run ledger rows establish which bytes were restored. Restore lineage
+and independent mapping review remain blocking: #100 must remain open. No source,
+schema, FDW, canonical, FEC or identity-link writes were performed.
+Remaining acceptance work is also explicit: coverage currently groups only direct
+jurisdiction/session columns, not the child-to-bill/event relationships needed for
+jurisdiction × entity × session reporting. Date bounds currently cover native
+date/timestamp fields; text-form session/membership and bill action dates still
+need validated date treatment. The initial completed measurement collection also
+has bounded nested/reference query timeouts, retained in its errors alongside
+separate retry evidence. These gaps prevent a complete coverage/baseline claim.
+Earlier nested entries without `null_rate_scope` also need corrected path-rate
+measurement: their source-column null rates cannot establish per-path missingness.
+The separately versioned `nested-field-disposition.json` now derives those rates
+from exhaustive occurrence counts, preserving SQL-column rates separately; its
+mixed-array test passes. Classification and two reference retry gaps are resolved
+by supplementary evidence, but personvote-to-voteevent remains unmeasured after
+a 180-second timeout. Verified checks: 671 fast tests, 398 full database tests,
+and the final focused unit suite (18 tests). Story #100 remains in progress.
+
 Last updated: 2026-10-01. Congress 106 bills match Congress.gov (10,840).
 Congress 107 is still short two bills whose detail pages return HTTP 500.
 Member profiles are loaded on port 5434. See "Session handoff (2026-09-27)".

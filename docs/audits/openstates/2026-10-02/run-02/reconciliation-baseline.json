@@ -1,0 +1,4722 @@
+{
+  "keys": [
+    {
+      "columns": [
+        "email"
+      ],
+      "constraint_name": "account_emailaddress_email_key",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "account_emailaddress",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "account_emailaddress_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "account_emailaddress",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "user_id"
+      ],
+      "constraint_name": "account_emailaddress_user_id_2c513194_fk_auth_user_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "account_emailaddress",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "auth_user",
+      "validated": true
+    },
+    {
+      "columns": [
+        "email_address_id"
+      ],
+      "constraint_name": "account_emailconfirm_email_address_id_5b7f8c58_fk_account_e",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "account_emailconfirmation",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "account_emailaddress",
+      "validated": true
+    },
+    {
+      "columns": [
+        "key"
+      ],
+      "constraint_name": "account_emailconfirmation_key_key",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "account_emailconfirmation",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "account_emailconfirmation_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "account_emailconfirmation",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "name"
+      ],
+      "constraint_name": "auth_group_name_key",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "auth_group",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "auth_group_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "auth_group",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "group_id",
+        "permission_id"
+      ],
+      "constraint_name": "auth_group_permissions_group_id_0cd325b0_uniq",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "auth_group_permissions",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "group_id"
+      ],
+      "constraint_name": "auth_group_permissions_group_id_b120cbf9_fk_auth_group_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "auth_group_permissions",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "auth_group",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "auth_group_permissions_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "auth_group_permissions",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "content_type_id"
+      ],
+      "constraint_name": "auth_permiss_content_type_id_2f476e4b_fk_django_content_type_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "auth_permission",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "django_content_type",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "auth_user_id_pk",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "auth_user",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "group_id"
+      ],
+      "constraint_name": "auth_user_groups_group_id_97559544_fk_auth_group_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "auth_user_groups",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "auth_group",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "auth_user_groups_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "auth_user_groups",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "user_id",
+        "group_id"
+      ],
+      "constraint_name": "auth_user_groups_user_id_94350c0c_uniq",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "auth_user_groups",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "auth_user_user_permissions_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "auth_user_user_permissions",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "user_id",
+        "permission_id"
+      ],
+      "constraint_name": "auth_user_user_permissions_user_id_14a6b632_uniq",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "auth_user_user_permissions",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "boundaries_boundary_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "set_id"
+      ],
+      "constraint_name": "boundaries_boundary_set_id_6bf0398e_fk_boundarie",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "target_columns": [
+        "slug"
+      ],
+      "target_schema": "public",
+      "target_table": "boundaries_boundaryset",
+      "validated": true
+    },
+    {
+      "columns": [
+        "slug",
+        "set_id"
+      ],
+      "constraint_name": "boundaries_boundary_slug_set_id_45a13659_uniq",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "name"
+      ],
+      "constraint_name": "boundaries_boundaryset_name_key",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "slug"
+      ],
+      "constraint_name": "boundaries_boundaryset_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "bulk_dataexport_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "bulk_dataexport",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "session_id"
+      ],
+      "constraint_name": "bulk_dataexport_session_id_665e67ff_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "bulk_dataexport",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_legislativesession",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "bundles_bundle_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "bundles_bundle",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "slug"
+      ],
+      "constraint_name": "bundles_bundle_slug_key",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "bundles_bundle",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "bundles_bundlebill_bill_id_259b1dad_fk_opencivicdata_bill_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "bundles_bundlebill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bundle_id"
+      ],
+      "constraint_name": "bundles_bundlebill_bundle_id_ca83c8e5_fk_bundles_bundle_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "bundles_bundlebill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "bundles_bundle",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bundle_id",
+        "bill_id"
+      ],
+      "constraint_name": "bundles_bundlebill_bundle_id_id_bill_id_id_47d878da_uniq",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "bundles_bundlebill",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "bundles_bundlebill_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "bundles_bundlebill",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "session_id"
+      ],
+      "constraint_name": "dashboards_dataquali_session_id_6a2d4af8_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "dashboards_dataqualityreport",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_legislativesession",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "dashboards_dataqualityreport_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "dashboards_dataqualityreport",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "content_type_id"
+      ],
+      "constraint_name": "dataquality_dataqual_content_type_id_8a79c0fa_fk_django_co",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "dataquality_dataqualityissue",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "django_content_type",
+      "validated": true
+    },
+    {
+      "columns": [
+        "jurisdiction_id"
+      ],
+      "constraint_name": "dataquality_dataqual_jurisdiction_id_8302ee63_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "dataquality_dataqualityissue",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_jurisdiction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "dataquality_dataqualityissue_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "dataquality_dataqualityissue",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "content_type_id"
+      ],
+      "constraint_name": "dataquality_issueres_content_type_id_ac2eef28_fk_django_co",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "dataquality_issueresolverpatch",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "django_content_type",
+      "validated": true
+    },
+    {
+      "columns": [
+        "jurisdiction_id"
+      ],
+      "constraint_name": "dataquality_issueres_jurisdiction_id_aad462bc_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "dataquality_issueresolverpatch",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_jurisdiction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "dataquality_issueresolverpatch_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "dataquality_issueresolverpatch",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "content_type_id"
+      ],
+      "constraint_name": "django_admin_content_type_id_c4bce8eb_fk_django_content_type_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "django_admin_log",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "django_content_type",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "django_admin_log_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "django_admin_log",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "app_label",
+        "model"
+      ],
+      "constraint_name": "django_content_type_app_label_76bd3d3b_uniq",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "django_content_type",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "django_content_type_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "django_content_type",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "django_migrations_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "django_migrations",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "session_key"
+      ],
+      "constraint_name": "django_session_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "django_session",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "domain"
+      ],
+      "constraint_name": "django_site_domain_a2e37b91_uniq",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "django_site",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "django_site_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "django_site",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "from_organization_id"
+      ],
+      "constraint_name": "opencivicdata_bill_from_organization_id_e96ed21d_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_bill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "legislative_session_id"
+      ],
+      "constraint_name": "opencivicdata_bill_legislative_session__ef50ac55_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_bill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_legislativesession",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_bill_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_bill",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billab_bill_id_ae9ce636_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billabstract",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_billabstract_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billabstract",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billac_bill_id_32c574af_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billaction",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_billac_organization_id_16619b7f_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billaction",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_billaction_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billaction",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "action_id"
+      ],
+      "constraint_name": "opencivicdata_billac_action_id_4f9a39ec_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billactionrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_billaction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_billac_organization_id_0f2653d0_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billactionrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_billac_person_id_b1c818ff_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billactionrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_billactionrelatedentity_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billactionrelatedentity",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billdo_bill_id_6620b91a_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billdocument",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_billdocument_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billdocument",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "document_id"
+      ],
+      "constraint_name": "opencivicdata_billdo_document_id_6a555184_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billdocumentlink",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_billdocument",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_billdocumentlink_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billdocumentlink",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billid_bill_id_7eb921fc_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billidentifier",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_billidentifier_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billidentifier",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billso_bill_id_832557ca_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsource",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_billsource_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsource",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billsp_bill_id_c0161ea6_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsponsorship",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_billsp_organization_id_e2f034bd_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsponsorship",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_billsp_person_id_c2295c47_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsponsorship",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_billsponsorship_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsponsorship",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billti_bill_id_1534b245_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billtitle",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_billtitle_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billtitle",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billve_bill_id_33ab8294_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billversion",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_billversion_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billversion",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "version_id"
+      ],
+      "constraint_name": "opencivicdata_billve_version_id_51725693_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billversionlink",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_billversion",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_billversionlink_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_billversionlink",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "redirect_id"
+      ],
+      "constraint_name": "opencivicdata_divisi_redirect_id_6ef2b608_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_division",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_division",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_division_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_division",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "jurisdiction_id"
+      ],
+      "constraint_name": "opencivicdata_event_jurisdiction_id_c4e8bc4e_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_event",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_jurisdiction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "location_id"
+      ],
+      "constraint_name": "opencivicdata_event_location_id_d9c073f4_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_event",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_eventlocation",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_event_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_event",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "event_id"
+      ],
+      "constraint_name": "opencivicdata_eventa_event_id_560759f9_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventagendaitem",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_event",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_eventagendaitem_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventagendaitem",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "agenda_item_id"
+      ],
+      "constraint_name": "opencivicdata_eventa_agenda_item_id_0af7ca3e_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventagendamedia",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_eventagendaitem",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_eventagendamedia_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventagendamedia",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "event_id"
+      ],
+      "constraint_name": "opencivicdata_eventd_event_id_c3f037c7_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventdocument",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_event",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_eventdocument_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventdocument",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "jurisdiction_id"
+      ],
+      "constraint_name": "opencivicdata_eventl_jurisdiction_id_ba71aaa3_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventlocation",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_jurisdiction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_eventlocation_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventlocation",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "event_id"
+      ],
+      "constraint_name": "opencivicdata_eventm_event_id_39421e7b_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventmedia",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_event",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_eventmedia_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventmedia",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "event_id"
+      ],
+      "constraint_name": "opencivicdata_eventp_event_id_76328a2f_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventparticipant",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_event",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_eventp_organization_id_0a03b9a7_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventparticipant",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_eventp_person_id_28dc5e7c_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventparticipant",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_eventparticipant_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventparticipant",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "agenda_item_id"
+      ],
+      "constraint_name": "opencivicdata_eventr_agenda_item_id_7c739fc2_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_eventagendaitem",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_eventr_bill_id_5d6380d7_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_eventr_organization_id_0eaf6158_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_eventr_person_id_c82ecc59_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "vote_event_id"
+      ],
+      "constraint_name": "opencivicdata_eventr_vote_event_id_83e2a0e9_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_voteevent",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_eventrelatedentity_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventrelatedentity",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "division_id"
+      ],
+      "constraint_name": "opencivicdata_jurisd_division_id_70d82947_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_jurisdiction",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_division",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_jurisdiction_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_jurisdiction",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "jurisdiction_id"
+      ],
+      "constraint_name": "opencivicdata_legisl_jurisdiction_id_54141e1e_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_legislativesession",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_jurisdiction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_legislativesession_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_legislativesession",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_member_organization_id_bf51a2be_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_membership",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_member_person_id_b8541e5b_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_membership",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "post_id"
+      ],
+      "constraint_name": "opencivicdata_member_post_id_c7e554f4_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_membership",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_post",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_membership_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_membership",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "jurisdiction_id"
+      ],
+      "constraint_name": "opencivicdata_organi_jurisdiction_id_3d545d77_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_organization",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_jurisdiction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "parent_id"
+      ],
+      "constraint_name": "opencivicdata_organi_parent_id_8da063e7_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_organization",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_organization_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_organization",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "current_jurisdiction_id"
+      ],
+      "constraint_name": "opencivicdata_person_current_jurisdiction_67631021_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_person",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_jurisdiction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_person_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_person",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_person_person_id_4a59ae8e_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_personidentifier",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_personidentifier_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_personidentifier",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_person_person_id_b3a41b21_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_personlink",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_personlink_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_personlink",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_person_person_id_89e987d1_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_personname",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_personname_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_personname",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_person_person_id_d33c1559_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_personsource",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_personsource_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_personsource",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "vote_event_id"
+      ],
+      "constraint_name": "opencivicdata_person_vote_event_id_7d507bb5_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_personvote",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_voteevent",
+      "validated": true
+    },
+    {
+      "columns": [
+        "voter_id"
+      ],
+      "constraint_name": "opencivicdata_person_voter_id_6740775f_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_personvote",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_personvote_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_personvote",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "division_id"
+      ],
+      "constraint_name": "opencivicdata_post_division_id_82fef8df_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_post",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_division",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_post_organization_id_7dab6fa7_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_post",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_post_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_post",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_relate_bill_id_1a0b62e4_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_relatedbill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "related_bill_id"
+      ],
+      "constraint_name": "opencivicdata_relate_related_bill_id_22d5e5eb_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_relatedbill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_relatedbill_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_relatedbill",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_search_bill_id_1eb6303c_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_searchablebill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "version_link_id"
+      ],
+      "constraint_name": "opencivicdata_search_version_link_id_151ca538_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_searchablebill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_billversionlink",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_searchablebill_bill_id_key",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "opencivicdata_searchablebill",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_searchablebill_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_searchablebill",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "version_link_id"
+      ],
+      "constraint_name": "opencivicdata_searchablebill_version_link_id_key",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "opencivicdata_searchablebill",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "vote_event_id"
+      ],
+      "constraint_name": "opencivicdata_voteco_vote_event_id_f1f263f8_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_votecount",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_voteevent",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_votecount_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_votecount",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_action_id"
+      ],
+      "constraint_name": "opencivicdata_voteev_bill_action_id_a4847ddd_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_voteevent",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_billaction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_voteev_bill_id_ae459db1_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_voteevent",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "legislative_session_id"
+      ],
+      "constraint_name": "opencivicdata_voteev_legislative_session__63ea1068_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_voteevent",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_legislativesession",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_voteev_organization_id_d7bd0f84_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_voteevent",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_action_id"
+      ],
+      "constraint_name": "opencivicdata_voteevent_bill_action_id_key",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "opencivicdata_voteevent",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_voteevent_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_voteevent",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "vote_event_id"
+      ],
+      "constraint_name": "opencivicdata_voteso_vote_event_id_a670ce14_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "opencivicdata_votesource",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_voteevent",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "opencivicdata_votesource_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "opencivicdata_votesource",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "openstates_personoff_person_id_d454835f_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "openstates_personoffice",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "openstates_personoffice_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "openstates_personoffice",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "created_by_id"
+      ],
+      "constraint_name": "people_admin_deltaset_created_by_id_d124ab74_fk_auth_user_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "people_admin_deltaset",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "auth_user",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "people_admin_deltaset_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "people_admin_deltaset",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "delta_set_id"
+      ],
+      "constraint_name": "people_admin_newpers_delta_set_id_2adb6209_fk_people_ad",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "people_admin_newperson",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "people_admin_deltaset",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "people_admin_newperson_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "people_admin_newperson",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "delta_set_id"
+      ],
+      "constraint_name": "people_admin_persond_delta_set_id_bf2deb27_fk_people_ad",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "people_admin_persondelta",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "people_admin_deltaset",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "people_admin_persond_person_id_f161d33c_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "people_admin_persondelta",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "people_admin_persondelta_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "people_admin_persondelta",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "delta_set_id"
+      ],
+      "constraint_name": "people_admin_personr_delta_set_id_11c752ea_fk_people_ad",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "people_admin_personretirement",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "people_admin_deltaset",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "people_admin_personr_person_id_accd57bf_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "people_admin_personretirement",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "people_admin_personretirement_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "people_admin_personretirement",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "matched_person_id"
+      ],
+      "constraint_name": "people_admin_unmatch_matched_person_id_c2c06fdb_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "people_admin_unmatchedname",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "session_id"
+      ],
+      "constraint_name": "people_admin_unmatch_session_id_f667b762_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "people_admin_unmatchedname",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_legislativesession",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "people_admin_unmatchedname_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "people_admin_unmatchedname",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "profiles_notification_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "profiles_notification",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "profiles_profile_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "profiles_profile",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "user_id"
+      ],
+      "constraint_name": "profiles_profile_user_id_a3e81f91_fk_auth_user_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "profiles_profile",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "auth_user",
+      "validated": true
+    },
+    {
+      "columns": [
+        "user_id"
+      ],
+      "constraint_name": "profiles_profile_user_id_key",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "profiles_profile",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "sponsor_id"
+      ],
+      "constraint_name": "profiles_subscriptio_sponsor_id_f854b683_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "profiles_subscription",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "profiles_subscription_bill_id_7cb1ab02_fk_opencivicdata_bill_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "profiles_subscription",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "profiles_subscription_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "profiles_subscription",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "user_id"
+      ],
+      "constraint_name": "profiles_subscription_user_id_8f275df1_fk_auth_user_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "profiles_subscription",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "auth_user",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "profiles_usagereport_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "profiles_usagereport",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "profile_id"
+      ],
+      "constraint_name": "profiles_usagereport_profile_id_8ebb488b_fk_profiles_profile_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "profiles_usagereport",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "profiles_profile",
+      "validated": true
+    },
+    {
+      "columns": [
+        "profile_id",
+        "date",
+        "endpoint"
+      ],
+      "constraint_name": "profiles_usagereport_profile_id_date_endpoint_dc1904e1_uniq",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "profiles_usagereport",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "pupa_importobjects_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "pupa_importobjects",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "report_id"
+      ],
+      "constraint_name": "pupa_importobjects_report_id_e195af64_fk_pupa_runplan_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "pupa_importobjects",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "pupa_runplan",
+      "validated": true
+    },
+    {
+      "columns": [
+        "jurisdiction_id"
+      ],
+      "constraint_name": "pupa_runplan_jurisdiction_id_32e3687d_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "pupa_runplan",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_jurisdiction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "pupa_runplan_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "pupa_runplan",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "pupa_scrapeobjects_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "pupa_scrapeobjects",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "report_id"
+      ],
+      "constraint_name": "pupa_scrapeobjects_report_id_a8a5b750_fk_pupa_scrapereport_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "pupa_scrapeobjects",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "pupa_scrapereport",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "pupa_scrapereport_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "pupa_scrapereport",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "plan_id"
+      ],
+      "constraint_name": "pupa_scrapereport_plan_id_09512275_fk_pupa_runplan_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "pupa_scrapereport",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "pupa_runplan",
+      "validated": true
+    },
+    {
+      "columns": [
+        "legislative_session_id"
+      ],
+      "constraint_name": "pupa_sessiondataqual_legislative_session__4b353c64_fk_opencivic",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "pupa_sessiondataqualityreport",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_legislativesession",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "pupa_sessiondataqualityreport_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "pupa_sessiondataqualityreport",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "email"
+      ],
+      "constraint_name": "simplekeys_key_email_key",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "simplekeys_key",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "key"
+      ],
+      "constraint_name": "simplekeys_key_key_key",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "simplekeys_key",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "simplekeys_key_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "simplekeys_key",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "tier_id"
+      ],
+      "constraint_name": "simplekeys_key_tier_id_a014010a_fk_simplekeys_tier_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "simplekeys_key",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "simplekeys_tier",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "simplekeys_limit_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "simplekeys_limit",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "tier_id"
+      ],
+      "constraint_name": "simplekeys_limit_tier_id_845709e1_fk_simplekeys_tier_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "simplekeys_limit",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "simplekeys_tier",
+      "validated": true
+    },
+    {
+      "columns": [
+        "tier_id",
+        "zone_id"
+      ],
+      "constraint_name": "simplekeys_limit_tier_id_cfd0fc99_uniq",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "simplekeys_limit",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "zone_id"
+      ],
+      "constraint_name": "simplekeys_limit_zone_id_f1ea7622_fk_simplekeys_zone_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "simplekeys_limit",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "simplekeys_zone",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "simplekeys_tier_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "simplekeys_tier",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "slug"
+      ],
+      "constraint_name": "simplekeys_tier_slug_key",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "simplekeys_tier",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "simplekeys_zone_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "simplekeys_zone",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "slug"
+      ],
+      "constraint_name": "simplekeys_zone_slug_key",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "simplekeys_zone",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "socialaccount_socialaccount_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "socialaccount_socialaccount",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "provider",
+        "uid"
+      ],
+      "constraint_name": "socialaccount_socialaccount_provider_uid_fc810c6e_uniq",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "socialaccount_socialaccount",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "user_id"
+      ],
+      "constraint_name": "socialaccount_socialaccount_user_id_8146e70c_fk_auth_user_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "socialaccount_socialaccount",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "auth_user",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "socialaccount_socialapp_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "socialaccount_socialapp",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "site_id"
+      ],
+      "constraint_name": "socialaccount_social_site_id_2579dee5_fk_django_si",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "socialaccount_socialapp_sites",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "django_site",
+      "validated": true
+    },
+    {
+      "columns": [
+        "socialapp_id"
+      ],
+      "constraint_name": "socialaccount_social_socialapp_id_97fb6e7d_fk_socialacc",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "socialaccount_socialapp_sites",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "socialaccount_socialapp",
+      "validated": true
+    },
+    {
+      "columns": [
+        "socialapp_id",
+        "site_id"
+      ],
+      "constraint_name": "socialaccount_socialapp__socialapp_id_site_id_71a9a768_uniq",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "socialaccount_socialapp_sites",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "socialaccount_socialapp_sites_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "socialaccount_socialapp_sites",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "account_id"
+      ],
+      "constraint_name": "socialaccount_social_account_id_951f210e_fk_socialacc",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "socialaccount_socialtoken",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "socialaccount_socialaccount",
+      "validated": true
+    },
+    {
+      "columns": [
+        "app_id"
+      ],
+      "constraint_name": "socialaccount_social_app_id_636a42d7_fk_socialacc",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "socialaccount_socialtoken",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "socialaccount_socialapp",
+      "validated": true
+    },
+    {
+      "columns": [
+        "app_id",
+        "account_id"
+      ],
+      "constraint_name": "socialaccount_socialtoken_app_id_account_id_fca4e0ac_uniq",
+      "kind": "u",
+      "source_schema": "public",
+      "source_table": "socialaccount_socialtoken",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "socialaccount_socialtoken_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "socialaccount_socialtoken",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "srid"
+      ],
+      "constraint_name": "spatial_ref_sys_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "spatial_ref_sys",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "v1_legacybillmapping_bill_id_ebf84a51_fk_opencivicdata_bill_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "v1_legacybillmapping",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "legacy_id"
+      ],
+      "constraint_name": "v1_legacybillmapping_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "v1_legacybillmapping",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    },
+    {
+      "columns": [
+        "owner_id"
+      ],
+      "constraint_name": "widgets_widgetconfig_owner_id_7a6eb242_fk_auth_user_id",
+      "kind": "f",
+      "source_schema": "public",
+      "source_table": "widgets_widgetconfig",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "auth_user",
+      "validated": true
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "constraint_name": "widgets_widgetconfig_pkey",
+      "kind": "p",
+      "source_schema": "public",
+      "source_table": "widgets_widgetconfig",
+      "target_columns": [],
+      "target_schema": null,
+      "target_table": null,
+      "validated": true
+    }
+  ],
+  "references": [
+    {
+      "columns": [
+        "from_organization_id"
+      ],
+      "constraint_name": "opencivicdata_bill_from_organization_id_e96ed21d_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_bill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "legislative_session_id"
+      ],
+      "constraint_name": "opencivicdata_bill_legislative_session__ef50ac55_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_bill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_legislativesession",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billab_bill_id_ae9ce636_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billabstract",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billac_bill_id_32c574af_fk_opencivic",
+      "kind": "f",
+      "measurement": null,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billaction",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_billac_organization_id_16619b7f_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billaction",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "action_id"
+      ],
+      "constraint_name": "opencivicdata_billac_action_id_4f9a39ec_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billactionrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_billaction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_billac_organization_id_0f2653d0_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billactionrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_billac_person_id_b1c818ff_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billactionrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billdo_bill_id_6620b91a_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billdocument",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "document_id"
+      ],
+      "constraint_name": "opencivicdata_billdo_document_id_6a555184_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billdocumentlink",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_billdocument",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billid_bill_id_7eb921fc_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billidentifier",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billso_bill_id_832557ca_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsource",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billsp_bill_id_c0161ea6_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsponsorship",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_billsp_organization_id_e2f034bd_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsponsorship",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_billsp_person_id_c2295c47_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsponsorship",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billti_bill_id_1534b245_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billtitle",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_billve_bill_id_33ab8294_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billversion",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "version_id"
+      ],
+      "constraint_name": "opencivicdata_billve_version_id_51725693_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_billversionlink",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_billversion",
+      "validated": true
+    },
+    {
+      "columns": [
+        "redirect_id"
+      ],
+      "constraint_name": "opencivicdata_divisi_redirect_id_6ef2b608_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_division",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_division",
+      "validated": true
+    },
+    {
+      "columns": [
+        "jurisdiction_id"
+      ],
+      "constraint_name": "opencivicdata_event_jurisdiction_id_c4e8bc4e_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_event",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_jurisdiction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "location_id"
+      ],
+      "constraint_name": "opencivicdata_event_location_id_d9c073f4_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_event",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_eventlocation",
+      "validated": true
+    },
+    {
+      "columns": [
+        "event_id"
+      ],
+      "constraint_name": "opencivicdata_eventa_event_id_560759f9_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventagendaitem",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_event",
+      "validated": true
+    },
+    {
+      "columns": [
+        "agenda_item_id"
+      ],
+      "constraint_name": "opencivicdata_eventa_agenda_item_id_0af7ca3e_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventagendamedia",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_eventagendaitem",
+      "validated": true
+    },
+    {
+      "columns": [
+        "event_id"
+      ],
+      "constraint_name": "opencivicdata_eventd_event_id_c3f037c7_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventdocument",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_event",
+      "validated": true
+    },
+    {
+      "columns": [
+        "jurisdiction_id"
+      ],
+      "constraint_name": "opencivicdata_eventl_jurisdiction_id_ba71aaa3_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventlocation",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_jurisdiction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "event_id"
+      ],
+      "constraint_name": "opencivicdata_eventm_event_id_39421e7b_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventmedia",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_event",
+      "validated": true
+    },
+    {
+      "columns": [
+        "event_id"
+      ],
+      "constraint_name": "opencivicdata_eventp_event_id_76328a2f_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventparticipant",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_event",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_eventp_organization_id_0a03b9a7_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventparticipant",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_eventp_person_id_28dc5e7c_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventparticipant",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "agenda_item_id"
+      ],
+      "constraint_name": "opencivicdata_eventr_agenda_item_id_7c739fc2_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_eventagendaitem",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_eventr_bill_id_5d6380d7_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_eventr_organization_id_0eaf6158_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_eventr_person_id_c82ecc59_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "vote_event_id"
+      ],
+      "constraint_name": "opencivicdata_eventr_vote_event_id_83e2a0e9_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventrelatedentity",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_voteevent",
+      "validated": true
+    },
+    {
+      "columns": [
+        "division_id"
+      ],
+      "constraint_name": "opencivicdata_jurisd_division_id_70d82947_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_jurisdiction",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_division",
+      "validated": true
+    },
+    {
+      "columns": [
+        "jurisdiction_id"
+      ],
+      "constraint_name": "opencivicdata_legisl_jurisdiction_id_54141e1e_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_legislativesession",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_jurisdiction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_member_organization_id_bf51a2be_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_membership",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_member_person_id_b8541e5b_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_membership",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "post_id"
+      ],
+      "constraint_name": "opencivicdata_member_post_id_c7e554f4_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_membership",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_post",
+      "validated": true
+    },
+    {
+      "columns": [
+        "jurisdiction_id"
+      ],
+      "constraint_name": "opencivicdata_organi_jurisdiction_id_3d545d77_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_organization",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_jurisdiction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "parent_id"
+      ],
+      "constraint_name": "opencivicdata_organi_parent_id_8da063e7_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_organization",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "current_jurisdiction_id"
+      ],
+      "constraint_name": "opencivicdata_person_current_jurisdiction_67631021_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_person",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_jurisdiction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_person_person_id_4a59ae8e_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_personidentifier",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_person_person_id_b3a41b21_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_personlink",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_person_person_id_89e987d1_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_personname",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "opencivicdata_person_person_id_d33c1559_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_personsource",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "vote_event_id"
+      ],
+      "constraint_name": "opencivicdata_person_vote_event_id_7d507bb5_fk_opencivic",
+      "kind": "f",
+      "measurement": null,
+      "source_schema": "public",
+      "source_table": "opencivicdata_personvote",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_voteevent",
+      "validated": true
+    },
+    {
+      "columns": [
+        "voter_id"
+      ],
+      "constraint_name": "opencivicdata_person_voter_id_6740775f_fk_opencivic",
+      "kind": "f",
+      "measurement": null,
+      "source_schema": "public",
+      "source_table": "opencivicdata_personvote",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    },
+    {
+      "columns": [
+        "division_id"
+      ],
+      "constraint_name": "opencivicdata_post_division_id_82fef8df_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_post",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_division",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_post_organization_id_7dab6fa7_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_post",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_relate_bill_id_1a0b62e4_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_relatedbill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "related_bill_id"
+      ],
+      "constraint_name": "opencivicdata_relate_related_bill_id_22d5e5eb_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_relatedbill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_search_bill_id_1eb6303c_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_searchablebill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "version_link_id"
+      ],
+      "constraint_name": "opencivicdata_search_version_link_id_151ca538_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_searchablebill",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_billversionlink",
+      "validated": true
+    },
+    {
+      "columns": [
+        "vote_event_id"
+      ],
+      "constraint_name": "opencivicdata_voteco_vote_event_id_f1f263f8_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_votecount",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_voteevent",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_action_id"
+      ],
+      "constraint_name": "opencivicdata_voteev_bill_action_id_a4847ddd_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_voteevent",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_billaction",
+      "validated": true
+    },
+    {
+      "columns": [
+        "bill_id"
+      ],
+      "constraint_name": "opencivicdata_voteev_bill_id_ae459db1_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_voteevent",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_bill",
+      "validated": true
+    },
+    {
+      "columns": [
+        "legislative_session_id"
+      ],
+      "constraint_name": "opencivicdata_voteev_legislative_session__63ea1068_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_voteevent",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_legislativesession",
+      "validated": true
+    },
+    {
+      "columns": [
+        "organization_id"
+      ],
+      "constraint_name": "opencivicdata_voteev_organization_id_d7bd0f84_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_voteevent",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_organization",
+      "validated": true
+    },
+    {
+      "columns": [
+        "vote_event_id"
+      ],
+      "constraint_name": "opencivicdata_voteso_vote_event_id_a670ce14_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "opencivicdata_votesource",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_voteevent",
+      "validated": true
+    },
+    {
+      "columns": [
+        "person_id"
+      ],
+      "constraint_name": "openstates_personoff_person_id_d454835f_fk_opencivic",
+      "kind": "f",
+      "measurement": {
+        "unresolved_count": 0
+      },
+      "source_schema": "public",
+      "source_table": "openstates_personoffice",
+      "target_columns": [
+        "id"
+      ],
+      "target_schema": "public",
+      "target_table": "opencivicdata_person",
+      "validated": true
+    }
+  ],
+  "requirements": "Each future pilot reconciles source key/count, accepted/rejected/deferred/promoted, all foreign references and every retained field to immutable artifact/payload/run evidence.",
+  "source_counts": [
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "account_emailaddress"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "account_emailaddress_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "account_emailconfirmation"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "account_emailconfirmation_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "auth_group"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "auth_group_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "auth_group_permissions"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "auth_group_permissions_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "auth_permission"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "auth_permission_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "auth_user"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "auth_user_groups"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "auth_user_groups_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "auth_user_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "auth_user_user_permissions"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "auth_user_user_permissions_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "boundaries_boundary"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "boundaries_boundary_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "bulk_dataexport"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "bulk_dataexport_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "bundles_bundle"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "bundles_bundle_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "bundles_bundlebill"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "bundles_bundlebill_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "dashboards_dataqualityreport"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "dashboards_dataqualityreport_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "dataquality_dataqualityissue"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "dataquality_dataqualityissue_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "dataquality_issueresolverpatch"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "dataquality_issueresolverpatch_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "django_admin_log"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "django_admin_log_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "django_content_type"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "django_content_type_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "django_migrations"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "django_migrations_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "django_session"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "django_site"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "django_site_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "geography_columns"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "geometry_columns"
+    },
+    {
+      "row_count": 1563934,
+      "source_schema": "public",
+      "source_table": "opencivicdata_bill"
+    },
+    {
+      "row_count": 581637,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billabstract"
+    },
+    {
+      "row_count": 13308472,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billaction"
+    },
+    {
+      "row_count": 753295,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billactionrelatedentity"
+    },
+    {
+      "row_count": 938835,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billdocument"
+    },
+    {
+      "row_count": 1011207,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billdocumentlink"
+    },
+    {
+      "row_count": 232256,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billidentifier"
+    },
+    {
+      "row_count": 2416915,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsource"
+    },
+    {
+      "row_count": 7370723,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsponsorship"
+    },
+    {
+      "row_count": 155952,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billtitle"
+    },
+    {
+      "row_count": 2786624,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billversion"
+    },
+    {
+      "row_count": 3619837,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billversionlink"
+    },
+    {
+      "row_count": 193807,
+      "source_schema": "public",
+      "source_table": "opencivicdata_division"
+    },
+    {
+      "row_count": 191730,
+      "source_schema": "public",
+      "source_table": "opencivicdata_event"
+    },
+    {
+      "row_count": 555360,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventagendaitem"
+    },
+    {
+      "row_count": 31,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventagendamedia"
+    },
+    {
+      "row_count": 459663,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventdocument"
+    },
+    {
+      "row_count": 7520,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventlocation"
+    },
+    {
+      "row_count": 48968,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventmedia"
+    },
+    {
+      "row_count": 858894,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventparticipant"
+    },
+    {
+      "row_count": 764523,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventrelatedentity"
+    },
+    {
+      "row_count": 1857,
+      "source_schema": "public",
+      "source_table": "opencivicdata_jurisdiction"
+    },
+    {
+      "row_count": 1082,
+      "source_schema": "public",
+      "source_table": "opencivicdata_legislativesession"
+    },
+    {
+      "row_count": 91751,
+      "source_schema": "public",
+      "source_table": "opencivicdata_membership"
+    },
+    {
+      "row_count": 5005,
+      "source_schema": "public",
+      "source_table": "opencivicdata_organization"
+    },
+    {
+      "row_count": 22702,
+      "source_schema": "public",
+      "source_table": "opencivicdata_person"
+    },
+    {
+      "row_count": 35017,
+      "source_schema": "public",
+      "source_table": "opencivicdata_personidentifier"
+    },
+    {
+      "row_count": 42493,
+      "source_schema": "public",
+      "source_table": "opencivicdata_personlink"
+    },
+    {
+      "row_count": 35750,
+      "source_schema": "public",
+      "source_table": "opencivicdata_personname"
+    },
+    {
+      "row_count": 91585,
+      "source_schema": "public",
+      "source_table": "opencivicdata_personsource"
+    },
+    {
+      "row_count": 52372547,
+      "source_schema": "public",
+      "source_table": "opencivicdata_personvote"
+    },
+    {
+      "row_count": 7657,
+      "source_schema": "public",
+      "source_table": "opencivicdata_post"
+    },
+    {
+      "row_count": 380023,
+      "source_schema": "public",
+      "source_table": "opencivicdata_relatedbill"
+    },
+    {
+      "row_count": 1547158,
+      "source_schema": "public",
+      "source_table": "opencivicdata_searchablebill"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "opencivicdata_searchablebill_id_seq"
+    },
+    {
+      "row_count": 3895160,
+      "source_schema": "public",
+      "source_table": "opencivicdata_votecount"
+    },
+    {
+      "row_count": 1194492,
+      "source_schema": "public",
+      "source_table": "opencivicdata_voteevent"
+    },
+    {
+      "row_count": 1243492,
+      "source_schema": "public",
+      "source_table": "opencivicdata_votesource"
+    },
+    {
+      "row_count": 15505,
+      "source_schema": "public",
+      "source_table": "openstates_personoffice"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "people_admin_deltaset"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "people_admin_deltaset_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "people_admin_newperson"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "people_admin_newperson_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "people_admin_persondelta"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "people_admin_persondelta_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "people_admin_personretirement"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "people_admin_personretirement_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "people_admin_unmatchedname"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "people_admin_unmatchedname_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "profiles_notification"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "profiles_profile"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "profiles_profile_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "profiles_subscription"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "profiles_subscription_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "profiles_usagereport"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "profiles_usagereport_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "pupa_importobjects"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "pupa_importobjects_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "pupa_runplan"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "pupa_runplan_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "pupa_scrapeobjects"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "pupa_scrapeobjects_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "pupa_scrapereport"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "pupa_scrapereport_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "pupa_sessiondataqualityreport"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "pupa_sessiondataqualityreport_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "raster_columns"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "raster_overviews"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "simplekeys_key"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "simplekeys_key_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "simplekeys_limit"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "simplekeys_limit_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "simplekeys_tier"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "simplekeys_tier_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "simplekeys_zone"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "simplekeys_zone_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "socialaccount_socialaccount"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "socialaccount_socialaccount_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "socialaccount_socialapp"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "socialaccount_socialapp_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "socialaccount_socialapp_sites"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "socialaccount_socialapp_sites_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "socialaccount_socialtoken"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "socialaccount_socialtoken_id_seq"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "spatial_ref_sys"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "v1_legacybillmapping"
+    },
+    {
+      "row_count": null,
+      "source_schema": "public",
+      "source_table": "widgets_widgetconfig"
+    }
+  ]
+}

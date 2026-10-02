@@ -1,0 +1,192 @@
+[
+  {
+    "proposed_target": "core.bill",
+    "source_table": "opencivicdata_bill",
+    "status": "exists: field compatibility review required"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_billabstract",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": "core.bill_action",
+    "source_table": "opencivicdata_billaction",
+    "status": "exists: field compatibility review required"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_billactionrelatedentity",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": "core.bill_document",
+    "source_table": "opencivicdata_billdocument",
+    "status": "exists: field compatibility review required"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_billdocumentlink",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_billidentifier",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_billsource",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": "core.bill_sponsorship",
+    "source_table": "opencivicdata_billsponsorship",
+    "status": "exists: field compatibility review required"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_billtitle",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_billversion",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_billversionlink",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_division",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_event",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_eventagendaitem",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_eventagendamedia",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_eventdocument",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_eventlocation",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_eventmedia",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_eventparticipant",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_eventrelatedentity",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": "core.jurisdiction",
+    "source_table": "opencivicdata_jurisdiction",
+    "status": "exists: field compatibility review required"
+  },
+  {
+    "proposed_target": "core.legislative_session",
+    "source_table": "opencivicdata_legislativesession",
+    "status": "exists: field compatibility review required"
+  },
+  {
+    "proposed_target": "core.membership",
+    "source_table": "opencivicdata_membership",
+    "status": "exists: field compatibility review required"
+  },
+  {
+    "proposed_target": "core.organization",
+    "source_table": "opencivicdata_organization",
+    "status": "exists: field compatibility review required"
+  },
+  {
+    "proposed_target": "core.person",
+    "source_table": "opencivicdata_person",
+    "status": "exists: field compatibility review required"
+  },
+  {
+    "proposed_target": "core.person_identifier",
+    "source_table": "opencivicdata_personidentifier",
+    "status": "exists: field compatibility review required"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_personlink",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_personname",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_personsource",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": "fact.member_vote",
+    "source_table": "opencivicdata_personvote",
+    "status": "exists: field compatibility review required"
+  },
+  {
+    "proposed_target": "core.post",
+    "source_table": "opencivicdata_post",
+    "status": "exists: field compatibility review required"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_relatedbill",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_searchablebill",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_votecount",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": "core.roll_call",
+    "source_table": "opencivicdata_voteevent",
+    "status": "exists: field compatibility review required"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "opencivicdata_votesource",
+    "status": "target absent or undecided: separate schema story"
+  },
+  {
+    "proposed_target": null,
+    "source_table": "openstates_personoffice",
+    "status": "target absent or undecided: separate schema story"
+  }
+]

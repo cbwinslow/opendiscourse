@@ -1,0 +1,8 @@
+{
+  "scope": "opencivicdata_person_voter_id_6740775f_fk_opencivic",
+  "source_schema": "public", "source_table": "opencivicdata_personvote", "source_columns": ["voter_id"],
+  "target_schema": "public", "target_table": "opencivicdata_person", "target_columns": ["id"],
+  "status": "measured", "timeout_ms": 180000,
+  "measurement": {"unresolved_count": 0},
+  "original_run": "run-02/audit.json retains the earlier timeout; this supplementary measurement resolves this query scope only"
+}

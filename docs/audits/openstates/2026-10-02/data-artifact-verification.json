@@ -1,0 +1,13 @@
+{
+  "artifact_key": "data-2026-07",
+  "dataset_id": "openstates.dump",
+  "checked_on": "2026-10-02",
+  "verification_method": "Existing openstatessnapshot.checksum streaming SHA-256 over the registered retained file; filesystem byte count checked separately",
+  "expected_checksum_sha256": "e4b8eb6d40d2da768074dab29bbf0d6949b8f24a50d75c5807669edcee5af78c",
+  "observed_checksum_sha256": "e4b8eb6d40d2da768074dab29bbf0d6949b8f24a50d75c5807669edcee5af78c",
+  "expected_bytes": 10711908617,
+  "observed_bytes": 10711908617,
+  "checksum_status": "verified",
+  "restore_lineage_verified": false,
+  "limitation": "Verifies retained artifact bytes against ingest.current_artifact. Does not establish that those bytes produced the current restored database."
+}

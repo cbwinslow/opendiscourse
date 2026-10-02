@@ -1,0 +1,24 @@
+{
+  "artifact_checksum": null,
+  "lineage_status": "unresolved: registered bytes alone do not prove restore lineage",
+  "manifest_sha256": "101866bf64527dd39f8da7844b5d958a15d87166880cd1656e08529391581d0d",
+  "mapping_version": "openstates-audit-1",
+  "registered_candidate_artifacts": [
+    {
+      "artifact_id": "b802c36b-0fe7-4ce0-a47b-1b821c099b61",
+      "artifact_key": "data-2026-07",
+      "bytes_downloaded": 10711908617,
+      "checksum_sha256": "e4b8eb6d40d2da768074dab29bbf0d6949b8f24a50d75c5807669edcee5af78c",
+      "status": "downloaded"
+    },
+    {
+      "artifact_id": "57ccc305-f543-4117-83b0-54c6a5143f73",
+      "artifact_key": "schema-2026-07",
+      "bytes_downloaded": 712604,
+      "checksum_sha256": "dd5e6a25eb580907cabfc60b5d5b7e57396a76943fa41f1d8d79fda014ee5089",
+      "status": "downloaded"
+    }
+  ],
+  "restore_lineage_verified": false,
+  "source_version": "17.11 (Ubuntu 17.11-1.pgdg24.04+2)"
+}

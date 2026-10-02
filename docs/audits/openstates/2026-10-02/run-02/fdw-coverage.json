@@ -1,0 +1,79 @@
+[
+  {
+    "reader_schema": "openstates_source",
+    "reader_table": "opencivicdata_bill",
+    "selectable": true,
+    "source_schema": "public",
+    "source_table": "opencivicdata_bill"
+  },
+  {
+    "reader_schema": "openstates_source",
+    "reader_table": "opencivicdata_billaction",
+    "selectable": true,
+    "source_schema": "public",
+    "source_table": "opencivicdata_billaction"
+  },
+  {
+    "reader_schema": "openstates_source",
+    "reader_table": "opencivicdata_billdocument",
+    "selectable": true,
+    "source_schema": "public",
+    "source_table": "opencivicdata_billdocument"
+  },
+  {
+    "reader_schema": "openstates_source",
+    "reader_table": "opencivicdata_billsponsorship",
+    "selectable": true,
+    "source_schema": "public",
+    "source_table": "opencivicdata_billsponsorship"
+  },
+  {
+    "reader_schema": "openstates_source",
+    "reader_table": "opencivicdata_jurisdiction",
+    "selectable": true,
+    "source_schema": "public",
+    "source_table": "opencivicdata_jurisdiction"
+  },
+  {
+    "reader_schema": "openstates_source",
+    "reader_table": "opencivicdata_legislativesession",
+    "selectable": true,
+    "source_schema": "public",
+    "source_table": "opencivicdata_legislativesession"
+  },
+  {
+    "reader_schema": "openstates_source",
+    "reader_table": "opencivicdata_organization",
+    "selectable": true,
+    "source_schema": "public",
+    "source_table": "opencivicdata_organization"
+  },
+  {
+    "reader_schema": "openstates_source",
+    "reader_table": "opencivicdata_person",
+    "selectable": true,
+    "source_schema": "public",
+    "source_table": "opencivicdata_person"
+  },
+  {
+    "reader_schema": "openstates_source",
+    "reader_table": "opencivicdata_personidentifier",
+    "selectable": true,
+    "source_schema": "public",
+    "source_table": "opencivicdata_personidentifier"
+  },
+  {
+    "reader_schema": "openstates_source",
+    "reader_table": "opencivicdata_personvote",
+    "selectable": true,
+    "source_schema": "public",
+    "source_table": "opencivicdata_personvote"
+  },
+  {
+    "reader_schema": "openstates_source",
+    "reader_table": "opencivicdata_voteevent",
+    "selectable": true,
+    "source_schema": "public",
+    "source_table": "opencivicdata_voteevent"
+  }
+]

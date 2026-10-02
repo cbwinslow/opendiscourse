@@ -1,0 +1,16 @@
+{
+  "scope": "opencivicdata_person_vote_event_id_7d507bb5_fk_opencivic",
+  "status": "measured",
+  "measurement": {
+    "unresolved_count": 0
+  },
+  "method": "Same maintained references.sql anti-join shape, independently executed in BEGIN READ ONLY with statement_timeout=180s, lock_timeout=5s and work_mem=256MB; ROLLBACK completed",
+  "memory_budget_evidence": {
+    "available_host_memory_before_query": "69 GiB",
+    "default_work_mem": "32 MB",
+    "transaction_local_work_mem": "256 MB",
+    "hash_mem_multiplier": 2,
+    "planned_parallel_workers": 4
+  },
+  "limitations": "Separate supplementary measurement; does not verify restored-artifact lineage or establish a shared snapshot with the original run. No persistent server setting was changed."
+}

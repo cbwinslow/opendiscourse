@@ -1,0 +1,606 @@
+{
+  "errors": [],
+  "samples": [
+    {
+      "columns": [
+        "created_at",
+        "updated_at",
+        "id",
+        "identifier",
+        "classification",
+        "legislative_session_id"
+      ],
+      "examples": [
+        {
+          "classification": [
+            "bill"
+          ],
+          "created_at": "2023-02-09T23:50:14.994295+00:00",
+          "id": "ocd-bill/00001671-dd8d-4867-9572-c8a250541072",
+          "identifier": "SB 1740",
+          "legislative_session_id": "6f217854-f6b6-4df5-8c6a-a03d26f66b0e",
+          "updated_at": "2024-12-15T00:00:16.222875+00:00"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_bill"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "00000c34-e558-4d6a-9d7d-224ee445a9f0"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billabstract"
+    },
+    {
+      "columns": [
+        "id",
+        "classification"
+      ],
+      "examples": [
+        {
+          "classification": [],
+          "id": "00000057-4130-4d87-809f-cf7c84475190"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billaction"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "00000571-e2a2-47f2-9020-61bdcb7242a8"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billactionrelatedentity"
+    },
+    {
+      "columns": [
+        "id",
+        "classification"
+      ],
+      "examples": [
+        {
+          "classification": "",
+          "id": "000012a9-6d69-4005-942d-eb38f8f67e6d"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billdocument"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "00000ae4-3690-4710-b786-c706f3836b8b"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billdocumentlink"
+    },
+    {
+      "columns": [
+        "id",
+        "identifier"
+      ],
+      "examples": [
+        {
+          "id": "00001ea3-9174-40e6-8fbe-9a931a026bd8",
+          "identifier": "ocd-bill-ia-2025_2026-hsb543"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billidentifier"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "0000013f-8500-4ec1-94e4-dbc0de74e4f1"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsource"
+    },
+    {
+      "columns": [
+        "id",
+        "classification"
+      ],
+      "examples": [
+        {
+          "classification": "cosponsor",
+          "id": "00000457-e581-4c59-970b-f4e0cae70e20"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billsponsorship"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "00011de6-e96a-4a87-81c4-6e333e0b574b"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billtitle"
+    },
+    {
+      "columns": [
+        "id",
+        "classification"
+      ],
+      "examples": [
+        {
+          "classification": "",
+          "id": "0000064a-8441-4608-86e4-88af7a78d6e2"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billversion"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "0000099d-f2ee-4c68-ae3a-2442e6381c84"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_billversionlink"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "ocd-division/country:ng"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_division"
+    },
+    {
+      "columns": [
+        "created_at",
+        "updated_at",
+        "id",
+        "classification",
+        "start_date",
+        "end_date",
+        "jurisdiction_id"
+      ],
+      "examples": [
+        {
+          "classification": "event",
+          "created_at": "2025-02-04T16:19:20.673134+00:00",
+          "end_date": "",
+          "id": "ocd-event/00000f9a-f6c7-4669-a3fc-91a7285ee0e6",
+          "jurisdiction_id": "ocd-jurisdiction/country:us/state:ia/government",
+          "start_date": "2025-02-05T16:30:00+00:00",
+          "updated_at": "2025-02-15T00:18:29.853204+00:00"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_event"
+    },
+    {
+      "columns": [
+        "id",
+        "classification"
+      ],
+      "examples": [
+        {
+          "classification": [],
+          "id": "0000199c-05c3-4756-8284-ed5192a6cdc5"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventagendaitem"
+    },
+    {
+      "columns": [
+        "id",
+        "classification"
+      ],
+      "examples": [
+        {
+          "classification": "",
+          "id": "0df9c47e-e426-4a85-8668-e274cd9d3b69"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventagendamedia"
+    },
+    {
+      "columns": [
+        "id",
+        "classification"
+      ],
+      "examples": [
+        {
+          "classification": "",
+          "id": "000008ca-0f73-418e-9d1d-cdb99bea2f9c"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventdocument"
+    },
+    {
+      "columns": [
+        "id",
+        "jurisdiction_id"
+      ],
+      "examples": [
+        {
+          "id": "001455d3-9dde-4cb2-a60c-fe46204604e0",
+          "jurisdiction_id": "ocd-jurisdiction/country:us/state:pa/government"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventlocation"
+    },
+    {
+      "columns": [
+        "id",
+        "classification"
+      ],
+      "examples": [
+        {
+          "classification": "",
+          "id": "00015c5c-6685-4242-91d2-d6bfdb8893a4"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventmedia"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "00001191-37b4-4cd7-aaff-25849a50ada2"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventparticipant"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "000010e9-192b-484c-a9d9-e08ae69bce80"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_eventrelatedentity"
+    },
+    {
+      "columns": [
+        "created_at",
+        "updated_at",
+        "id",
+        "classification"
+      ],
+      "examples": [
+        {
+          "classification": "country",
+          "created_at": "2023-04-05T19:26:26.756825+00:00",
+          "id": "ocd-jurisdiction/country:ng/government",
+          "updated_at": "2023-04-05T19:26:26.756825+00:00"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_jurisdiction"
+    },
+    {
+      "columns": [
+        "id",
+        "identifier",
+        "classification",
+        "start_date",
+        "end_date",
+        "jurisdiction_id"
+      ],
+      "examples": [
+        {
+          "classification": "primary",
+          "end_date": "2017-03-29",
+          "id": "0016a33b-0b78-43ba-8493-4712dc2c3bc2",
+          "identifier": "2017",
+          "jurisdiction_id": "ocd-jurisdiction/country:us/state:id/government",
+          "start_date": "2017-01-09"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_legislativesession"
+    },
+    {
+      "columns": [
+        "created_at",
+        "updated_at",
+        "id",
+        "start_date",
+        "end_date"
+      ],
+      "examples": [
+        {
+          "created_at": "2026-03-11T08:41:09.086687+00:00",
+          "end_date": "",
+          "id": "ocd-membership/00001bb4-f637-4467-a2a0-bd2aa56a3d75",
+          "start_date": "",
+          "updated_at": "2026-03-11T08:41:09.086692+00:00"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_membership"
+    },
+    {
+      "columns": [
+        "created_at",
+        "updated_at",
+        "id",
+        "classification",
+        "jurisdiction_id"
+      ],
+      "examples": [
+        {
+          "classification": "committee",
+          "created_at": "2024-05-30T21:57:17.469139+00:00",
+          "id": "ocd-organization/00150f8b-ddf3-481b-8d85-69539141f45a",
+          "jurisdiction_id": "ocd-jurisdiction/country:us/state:ms/government",
+          "updated_at": "2026-02-13T02:43:32.807351+00:00"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_organization"
+    },
+    {
+      "columns": [
+        "created_at",
+        "updated_at",
+        "id"
+      ],
+      "examples": [
+        {
+          "created_at": "2019-11-16T02:08:13.544792+00:00",
+          "id": "ocd-person/0000cadb-1d5e-4ac3-bb2d-25997392d474",
+          "updated_at": "2020-08-06T20:47:53.965677+00:00"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_person"
+    },
+    {
+      "columns": [
+        "id",
+        "identifier"
+      ],
+      "examples": [
+        {
+          "id": "0001798b-e752-4856-b354-786cbd821210",
+          "identifier": "NHL000561"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_personidentifier"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "00001722-68cb-462f-ba29-3a276e6af5e2"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_personlink"
+    },
+    {
+      "columns": [
+        "id",
+        "start_date",
+        "end_date"
+      ],
+      "examples": [
+        {
+          "end_date": "",
+          "id": "0000219f-738a-43d7-8a42-bbdb1b6f34bd",
+          "start_date": ""
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_personname"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "000093c4-1688-4266-b55c-5a67afaf05d5"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_personsource"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "0000004b-55ee-4b9d-b1f0-759d1d60494b"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_personvote"
+    },
+    {
+      "columns": [
+        "created_at",
+        "updated_at",
+        "id"
+      ],
+      "examples": [
+        {
+          "created_at": "2017-07-27T07:05:07.962230+00:00",
+          "id": "ocd-post/000908cb-9103-4e7b-839f-a5544635e6d8",
+          "updated_at": "2017-07-27T07:05:07.962244+00:00"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_post"
+    },
+    {
+      "columns": [
+        "id",
+        "identifier"
+      ],
+      "examples": [
+        {
+          "id": "00000544-f51b-4f5b-a8a3-f5221570ed86",
+          "identifier": "SB1275"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_relatedbill"
+    },
+    {
+      "columns": [
+        "id",
+        "created_at"
+      ],
+      "examples": [
+        {
+          "created_at": "2019-07-15T09:03:05.850765+00:00",
+          "id": 6
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_searchablebill"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "00000582-7925-4942-b90a-43f44629043f"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_votecount"
+    },
+    {
+      "columns": [
+        "created_at",
+        "updated_at",
+        "id",
+        "identifier",
+        "start_date",
+        "legislative_session_id"
+      ],
+      "examples": [
+        {
+          "created_at": "2026-01-07T06:34:27.704039+00:00",
+          "id": "ocd-vote/00000049-393d-4190-9a83-79e3ef055c9f",
+          "identifier": "B26-0563-Final Reading, CC -Approved",
+          "legislative_session_id": "989936c8-ec1e-46c6-91fc-a48d3366885e",
+          "start_date": "2026-01-06T05:00:00+00:00",
+          "updated_at": "2026-01-07T06:34:27.704062+00:00"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_voteevent"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "examples": [
+        {
+          "id": "00000692-bdbf-4461-a5fe-fe4dc52955e1"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "opencivicdata_votesource"
+    },
+    {
+      "columns": [
+        "id",
+        "classification"
+      ],
+      "examples": [
+        {
+          "classification": "capitol",
+          "id": "00032b66-1a08-498f-8162-f09321b51e42"
+        }
+      ],
+      "sample_count": 1,
+      "source_schema": "public",
+      "source_table": "openstates_personoffice"
+    }
+  ],
+  "scope": "one deterministic safe source-ID/date/classification sample per public civic relation; no contact/account samples"
+}

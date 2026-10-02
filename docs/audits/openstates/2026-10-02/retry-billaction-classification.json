@@ -1,0 +1,11 @@
+{
+  "nested_fields": [
+    {"null_rate": 0.0, "null_rate_scope": "present_path_occurrences; absent paths are not nulls", "occurrence_count": 13308472, "path": [], "source_type": "array"},
+    {"null_rate": 0.0, "null_rate_scope": "present_path_occurrences; absent paths are not nulls", "occurrence_count": 9092323, "path": ["[]"], "source_type": "string"}
+  ],
+  "scope": "public.opencivicdata_billaction.classification: exhaustive nested paths",
+  "status": "measured",
+  "timeout_ms": 120000,
+  "method": "exhaustive weighted distinct-JSON traversal; no sampling",
+  "original_run": "run-02/audit.json retains the earlier 60-second timeout; this supplementary measurement resolves this query scope only"
+}

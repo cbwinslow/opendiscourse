@@ -1,0 +1,351 @@
+{
+  "membership_roles": [
+    {
+      "role": "",
+      "row_count": 51909
+    },
+    {
+      "role": "1st vice chair",
+      "row_count": 1
+    },
+    {
+      "role": "2nd vice chair",
+      "row_count": 1
+    },
+    {
+      "role": "ad hoc",
+      "row_count": 3
+    },
+    {
+      "role": "advisory",
+      "row_count": 174
+    },
+    {
+      "role": "alternate",
+      "row_count": 56
+    },
+    {
+      "role": "alternate chair",
+      "row_count": 2
+    },
+    {
+      "role": "assistant ranking member",
+      "row_count": 14
+    },
+    {
+      "role": "assistant ranking republican member",
+      "row_count": 13
+    },
+    {
+      "role": "assistant secretary",
+      "row_count": 1
+    },
+    {
+      "role": "assistant vice chair",
+      "row_count": 4
+    },
+    {
+      "role": "Attorney General",
+      "row_count": 53
+    },
+    {
+      "role": "Auditor",
+      "row_count": 3
+    },
+    {
+      "role": "carter",
+      "row_count": 1
+    },
+    {
+      "role": "chair",
+      "row_count": 2846
+    },
+    {
+      "role": "chair emeritus",
+      "row_count": 1
+    },
+    {
+      "role": "chair/ex officio",
+      "row_count": 1
+    },
+    {
+      "role": "Chief Election Officer",
+      "row_count": 19
+    },
+    {
+      "role": "chris",
+      "row_count": 1
+    },
+    {
+      "role": "clerk",
+      "row_count": 48
+    },
+    {
+      "role": "co-chair",
+      "row_count": 432
+    },
+    {
+      "role": "co-vice chair",
+      "row_count": 50
+    },
+    {
+      "role": "delegation chair",
+      "row_count": 1
+    },
+    {
+      "role": "democratic alternate",
+      "row_count": 1
+    },
+    {
+      "role": "democratic chair",
+      "row_count": 29
+    },
+    {
+      "role": "democratic–farmer–labor party lead",
+      "row_count": 1
+    },
+    {
+      "role": "democratic secretary",
+      "row_count": 1
+    },
+    {
+      "role": "democratic vice chair",
+      "row_count": 50
+    },
+    {
+      "role": "designee",
+      "row_count": 23
+    },
+    {
+      "role": "esoficio",
+      "row_count": 1
+    },
+    {
+      "role": "ex officio",
+      "row_count": 425
+    },
+    {
+      "role": "ex-officio",
+      "row_count": 132
+    },
+    {
+      "role": "exofficio",
+      "row_count": 2
+    },
+    {
+      "role": "exoficio",
+      "row_count": 10
+    },
+    {
+      "role": "first vice chair",
+      "row_count": 36
+    },
+    {
+      "role": "Governor",
+      "row_count": 70
+    },
+    {
+      "role": "interim member",
+      "row_count": 9
+    },
+    {
+      "role": "lead co-chair",
+      "row_count": 1
+    },
+    {
+      "role": "Lt_Governor",
+      "row_count": 45
+    },
+    {
+      "role": "Mayor",
+      "row_count": 1631
+    },
+    {
+      "role": "member",
+      "row_count": 30159
+    },
+    {
+      "role": "portavoz",
+      "row_count": 21
+    },
+    {
+      "role": "presidenta",
+      "row_count": 7
+    },
+    {
+      "role": "presidente",
+      "row_count": 16
+    },
+    {
+      "role": "ranking democratic member",
+      "row_count": 139
+    },
+    {
+      "role": "ranking member",
+      "row_count": 531
+    },
+    {
+      "role": "ranking minority member",
+      "row_count": 1
+    },
+    {
+      "role": "ranking republican member",
+      "row_count": 138
+    },
+    {
+      "role": "republican alternate",
+      "row_count": 1
+    },
+    {
+      "role": "republican chair",
+      "row_count": 32
+    },
+    {
+      "role": "republican committee whip",
+      "row_count": 5
+    },
+    {
+      "role": "republican secretary",
+      "row_count": 27
+    },
+    {
+      "role": "republican spokesperson",
+      "row_count": 74
+    },
+    {
+      "role": "republican vice chair",
+      "row_count": 52
+    },
+    {
+      "role": "second vice chair",
+      "row_count": 36
+    },
+    {
+      "role": "secretaria",
+      "row_count": 8
+    },
+    {
+      "role": "secretario",
+      "row_count": 15
+    },
+    {
+      "role": "secretary",
+      "row_count": 140
+    },
+    {
+      "role": "Secretary Of State",
+      "row_count": 60
+    },
+    {
+      "role": "secretary/treasurer",
+      "row_count": 1
+    },
+    {
+      "role": "senior chair",
+      "row_count": 10
+    },
+    {
+      "role": "special advisory",
+      "row_count": 7
+    },
+    {
+      "role": "standing advisory",
+      "row_count": 23
+    },
+    {
+      "role": "treasurer",
+      "row_count": 2
+    },
+    {
+      "role": "Treasurer",
+      "row_count": 3
+    },
+    {
+      "role": "vice",
+      "row_count": 1
+    },
+    {
+      "role": "vice chair",
+      "row_count": 2086
+    },
+    {
+      "role": "vice-chair",
+      "row_count": 5
+    },
+    {
+      "role": "vice chair for communications",
+      "row_count": 1
+    },
+    {
+      "role": "vicepresident",
+      "row_count": 1
+    },
+    {
+      "role": "vice-presidenta",
+      "row_count": 3
+    },
+    {
+      "role": "vicepresidenta",
+      "row_count": 5
+    },
+    {
+      "role": "vice-presidente",
+      "row_count": 8
+    },
+    {
+      "role": "vice=presidente",
+      "row_count": 1
+    },
+    {
+      "role": "vicepresidente",
+      "row_count": 5
+    },
+    {
+      "role": "vice ranking member",
+      "row_count": 25
+    },
+    {
+      "role": "whip",
+      "row_count": 1
+    }
+  ],
+  "organization_classes": [
+    {
+      "classification": "committee",
+      "row_count": 2769
+    },
+    {
+      "classification": "executive",
+      "row_count": 58
+    },
+    {
+      "classification": "government",
+      "row_count": 1798
+    },
+    {
+      "classification": "legislature",
+      "row_count": 59
+    },
+    {
+      "classification": "lower",
+      "row_count": 55
+    },
+    {
+      "classification": "party",
+      "row_count": 25
+    },
+    {
+      "classification": "subcommittee",
+      "row_count": 186
+    },
+    {
+      "classification": "upper",
+      "row_count": 55
+    }
+  ],
+  "person_links_created": 0,
+  "publisher_availability": "unknown",
+  "query_template": "sql/query/openstates_audit/coverage.sql",
+  "status": "observed source rows only; not distinct people or complete nationwide coverage",
+  "timeout_ms": 30000
+}

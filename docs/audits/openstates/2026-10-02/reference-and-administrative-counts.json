@@ -1,0 +1,580 @@
+{
+  "counts": [
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "account_emailaddress"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "account_emailconfirmation"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "auth_group"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "auth_group_permissions"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "auth_permission"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "auth_user"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "auth_user_groups"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "auth_user_user_permissions"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "boundaries_boundary"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "bulk_dataexport"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "bundles_bundle"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "bundles_bundlebill"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "dashboards_dataqualityreport"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "dataquality_dataqualityissue"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "dataquality_issueresolverpatch"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "django_admin_log"
+    },
+    {
+      "row_count": 127,
+      "source_schema": "public",
+      "source_table": "django_content_type"
+    },
+    {
+      "row_count": 103,
+      "source_schema": "public",
+      "source_table": "django_migrations"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "django_session"
+    },
+    {
+      "row_count": 1,
+      "source_schema": "public",
+      "source_table": "django_site"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "geography_columns"
+    },
+    {
+      "row_count": 5,
+      "source_schema": "public",
+      "source_table": "geometry_columns"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "people_admin_deltaset"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "people_admin_newperson"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "people_admin_persondelta"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "people_admin_personretirement"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "people_admin_unmatchedname"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "profiles_notification"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "profiles_profile"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "profiles_subscription"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "profiles_usagereport"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "pupa_importobjects"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "pupa_runplan"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "pupa_scrapeobjects"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "pupa_scrapereport"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "pupa_sessiondataqualityreport"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "raster_columns"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "raster_overviews"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "simplekeys_key"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "simplekeys_limit"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "simplekeys_tier"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "simplekeys_zone"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "socialaccount_socialaccount"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "socialaccount_socialapp"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "socialaccount_socialapp_sites"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "socialaccount_socialtoken"
+    },
+    {
+      "row_count": 8500,
+      "source_schema": "public",
+      "source_table": "spatial_ref_sys"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "v1_legacybillmapping"
+    },
+    {
+      "row_count": 0,
+      "source_schema": "public",
+      "source_table": "widgets_widgetconfig"
+    }
+  ],
+  "reference_fields": [
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 1,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "id",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "integer"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 2,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "set_name",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "character varying(100)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 3,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "slug",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "character varying(200)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 4,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "external_id",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "character varying(255)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 5,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "name",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "character varying(192)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "nested_fields": [],
+      "not_null": true,
+      "null_rate": null,
+      "position": 6,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "metadata",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "jsonb"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 7,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "shape",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "geometry(MultiPolygon,4326)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 8,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "simple_shape",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "geometry(MultiPolygon,4326)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": false,
+      "null_rate": null,
+      "position": 9,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "centroid",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "geometry(Point,4326)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "nested_fields": [],
+      "not_null": false,
+      "null_rate": null,
+      "position": 10,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "extent",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "jsonb"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": false,
+      "null_rate": null,
+      "position": 11,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "label_point",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "geometry(Point,4326)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 12,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "set_id",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "character varying(200)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": false,
+      "null_rate": null,
+      "position": 13,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "end_date",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "date"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": false,
+      "null_rate": null,
+      "position": 14,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "start_date",
+      "source_schema": "public",
+      "source_table": "boundaries_boundary",
+      "source_type": "date"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 1,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "slug",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "source_type": "character varying(200)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 2,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "name",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "source_type": "character varying(100)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 3,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "singular",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "source_type": "character varying(100)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 4,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "authority",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "source_type": "character varying(256)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 5,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "domain",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "source_type": "character varying(256)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 6,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "last_updated",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "source_type": "date"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 7,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "source_url",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "source_type": "character varying(200)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 8,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "notes",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "source_type": "text"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 9,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "licence_url",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "source_type": "character varying(200)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "nested_fields": [],
+      "not_null": false,
+      "null_rate": null,
+      "position": 10,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "extent",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "source_type": "jsonb"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": false,
+      "null_rate": null,
+      "position": 11,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "start_date",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "source_type": "date"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": false,
+      "null_rate": null,
+      "position": 12,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "end_date",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "source_type": "date"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "nested_fields": [],
+      "not_null": true,
+      "null_rate": null,
+      "position": 13,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "extra",
+      "source_schema": "public",
+      "source_table": "boundaries_boundaryset",
+      "source_type": "jsonb"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 1,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "legacy_id",
+      "source_schema": "public",
+      "source_table": "v1_legacybillmapping",
+      "source_type": "character varying(20)"
+    },
+    {
+      "disposition": "retained_source_detail",
+      "not_null": true,
+      "null_rate": null,
+      "position": 2,
+      "reason": "Public geographic or legacy-identifier reference; preserve structure",
+      "source_path": "bill_id",
+      "source_schema": "public",
+      "source_table": "v1_legacybillmapping",
+      "source_type": "character varying(45)"
+    }
+  ],
+  "status": "supplementary observations; restore lineage unresolved; not a reviewed baseline"
+}

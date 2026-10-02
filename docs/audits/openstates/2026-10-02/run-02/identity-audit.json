@@ -1,0 +1,175 @@
+{
+  "bioguide": [
+    {
+      "duplicate_bioguide_count": 0,
+      "missing_bioguide_count": 21980,
+      "name_collision_groups": 659,
+      "person_count": 22702
+    }
+  ],
+  "cross_provider_links_created": 0,
+  "name_join_permitted": false,
+  "namespaces": [
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 711,
+      "missing_count": 0,
+      "namespace": "ballotpedia",
+      "person_count": 711
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 722,
+      "missing_count": 0,
+      "namespace": "bioguide",
+      "person_count": 722
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 384,
+      "missing_count": 0,
+      "namespace": "cspan",
+      "person_count": 384
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 1203,
+      "missing_count": 0,
+      "namespace": "facebook",
+      "person_count": 1203
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 654,
+      "missing_count": 0,
+      "namespace": "fec",
+      "person_count": 639
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 135,
+      "missing_count": 0,
+      "namespace": "followthemoney",
+      "person_count": 135
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 597,
+      "missing_count": 0,
+      "namespace": "google_entity_id",
+      "person_count": 597
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 641,
+      "missing_count": 0,
+      "namespace": "govtrack",
+      "person_count": 641
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 237,
+      "missing_count": 0,
+      "namespace": "house_history",
+      "person_count": 237
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 461,
+      "missing_count": 0,
+      "namespace": "icpsr",
+      "person_count": 461
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 158,
+      "missing_count": 0,
+      "namespace": "instagram",
+      "person_count": 158
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 22516,
+      "missing_count": 0,
+      "namespace": "legacy_openstates",
+      "person_count": 13495
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 112,
+      "missing_count": 0,
+      "namespace": "lis",
+      "person_count": 112
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 382,
+      "missing_count": 0,
+      "namespace": "maplight",
+      "person_count": 382
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 631,
+      "missing_count": 0,
+      "namespace": "opensecrets",
+      "person_count": 631
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 892,
+      "missing_count": 0,
+      "namespace": "openstates",
+      "person_count": 869
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 522,
+      "missing_count": 0,
+      "namespace": "pictorial",
+      "person_count": 522
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 330,
+      "missing_count": 0,
+      "namespace": "thomas",
+      "person_count": 330
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 1516,
+      "missing_count": 0,
+      "namespace": "twitter",
+      "person_count": 1516
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 734,
+      "missing_count": 0,
+      "namespace": "votesmart",
+      "person_count": 734
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 641,
+      "missing_count": 0,
+      "namespace": "wikidata",
+      "person_count": 641
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 334,
+      "missing_count": 0,
+      "namespace": "wikipedia",
+      "person_count": 334
+    },
+    {
+      "duplicate_assertions": 0,
+      "identifier_count": 504,
+      "missing_count": 0,
+      "namespace": "youtube",
+      "person_count": 504
+    }
+  ]
+}

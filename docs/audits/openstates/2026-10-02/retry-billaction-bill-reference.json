@@ -1,0 +1,8 @@
+{
+  "scope": "opencivicdata_billac_bill_id_32c574af_fk_opencivic",
+  "source_schema": "public", "source_table": "opencivicdata_billaction", "source_columns": ["bill_id"],
+  "target_schema": "public", "target_table": "opencivicdata_bill", "target_columns": ["id"],
+  "status": "measured", "timeout_ms": 180000,
+  "measurement": {"unresolved_count": 0},
+  "original_run": "run-02/audit.json retains the earlier timeout; this supplementary measurement resolves this query scope only"
+}
