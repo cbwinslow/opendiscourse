@@ -68,6 +68,18 @@ it did not authorize source writes, transfer, promotion, migration, or joins.
 The planning-session handoff is
 `docs/SESSION-HANDOFF-2026-10-02-POLITICAL-RESEARCH-PLANNING.md`.
 
+**Political-research GitHub workflow (2026-10-02).** The programme is tracked
+by parent issue [#99](https://github.com/cbwinslow/opendiscourse/issues/99)
+and six real GitHub sub-issues: [#100](https://github.com/cbwinslow/opendiscourse/issues/100)
+(strictly read-only OpenStates audit), [#101](https://github.com/cbwinslow/opendiscourse/issues/101)
+(schema), [#102](https://github.com/cbwinslow/opendiscourse/issues/102)
+(OpenStates promotion), [#103](https://github.com/cbwinslow/opendiscourse/issues/103)
+(FEC 2000–2024), [#104](https://github.com/cbwinslow/opendiscourse/issues/104)
+(verified identity bridge), and [#105](https://github.com/cbwinslow/opendiscourse/issues/105)
+(research marts). Only #100 is active; the remaining stories are explicitly
+blocked by their stated prerequisites. Keep the issue checklist synchronized
+with the committed specs; use a focused pull request to close each story.
+
 **FEC pilot implementation (2026-10-01).** The disabled four-file Connector
 now builds a fail-closed official manifest for `cn24.zip`, `cm24.zip`,
 `ccl24.zip`, and `pas224.zip`, then requires explicit transfer approval before
