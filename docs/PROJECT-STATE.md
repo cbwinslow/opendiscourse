@@ -65,6 +65,8 @@ resolution; a publisher-unavailable product is a coverage finding rather than a
 zero or failure; FEC committees never bridge directly to people; and political
 mart grains are unambiguous. The review resulted in contract tightening only;
 it did not authorize source writes, transfer, promotion, migration, or joins.
+The planning-session handoff is
+`docs/SESSION-HANDOFF-2026-10-02-POLITICAL-RESEARCH-PLANNING.md`.
 
 **FEC pilot implementation (2026-10-01).** The disabled four-file Connector
 now builds a fail-closed official manifest for `cn24.zip`, `cm24.zip`,
