@@ -119,10 +119,13 @@ not authorize a redesign.
 - Do not expand v1.1 sources until a Connector→evidence→stage→core/fact→mart
   slice is proven (FRED e2e and/or legislator-vote). Keep-and-refine; do not
   redesign from ChatGPT schema reviews.
-- FEC (Epic 7, after CAP-4): candidate/committee masters by `(id, cycle)`;
-  itemized facts by FEC `sub_id`+cycle; lake keeps all cycle zips; hot
-  `fact` default is current cycle + previous two. Details:
-  `resolved-questions.md`.
+- FEC (after its approved pilot/model gates): candidate/committee masters by
+  `(id, cycle)` and typed transaction facts by FEC `sub_id`+cycle. The lake
+  keeps immutable official cycle ZIPs and PostgreSQL keeps every approved,
+  capacity-gated available cycle from 2000–2024 queryable in partitions.
+  DuckDB/Parquet are derived access formats, not the only older-history store.
+  Details: `resolved-questions.md` and
+  `../spec-fec-reproducible-ingest/coverage-and-grains.md`.
 - `core.division` is its own entity (OCDEP 2); never a `geography_id` FK
   on division.
 - Keep empty `core.instrument`; never ingest `fact.market_bar`; do not

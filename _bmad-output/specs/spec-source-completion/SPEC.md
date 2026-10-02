@@ -37,7 +37,7 @@ OpenDiscourse has substantial data already loaded, but its source register, oper
 
 - **CAP-4**
   - **intent:** The operator can defer sources safely without losing their known scope or accidentally opening prohibited work.
-  - **success:** FEC joins, disclosures, elections, crime, news, stocks, and the mixed Epstein collection are visibly separated from v1 and cannot be selected as a next ingest task without a new approved spec and their stated prerequisites.
+  - **success:** The approved FEC/OpenStates programme, disclosures, elections, crime, news, stocks, and the mixed Epstein collection each show their authorization and prerequisites; FEC transfer, canonical promotion, and joins cannot proceed until their individual gates pass.
 
 - **CAP-5**
   - **intent:** The operator can see each source's earliest official release, continuous annual coverage, publisher gaps, and valid comparison windows before authorizing historical backfill.
@@ -55,7 +55,7 @@ OpenDiscourse has substantial data already loaded, but its source register, oper
 ## Non-goals
 
 - This is not authorization to download every catalogued source or to revise existing loaded data without evidence.
-- This does not start Epic 7, promote legacy FEC staging, link politicians by name, or create scorecards.
+- This does not authorize FEC transfer, promote legacy FEC staging, link politicians by name, or create scorecards.
 - This does not replace the detailed legislative north star, rebuild-kit specification, Connector protocol, source contracts, or field checklists.
 - This does not add Pandera or any other validation library solely to create a technology checklist.
 
@@ -65,4 +65,6 @@ At any handoff, a new operator can open this spec and its matrix, select the hig
 
 ## Assumptions
 
-- The work is an express source-completion plan derived from the existing project contract and state, not a request to expand scope beyond v1.
+- The work is an express source-completion plan derived from the existing
+  project contract and state, including the separately approved strict-gated
+  FEC/OpenStates programme; it does not authorize every catalogued source.

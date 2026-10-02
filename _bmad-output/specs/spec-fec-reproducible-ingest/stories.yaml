@@ -1,0 +1,73 @@
+- id: "1"
+  title: Adopt the Open Civic Data political-core mapping
+  description: >-
+    Produce the field inventory and source-to-core mapping for the full OpenStates
+    snapshot, preserving identifiers, source detail, and provenance without adopting
+    OpenStates' internal Django tables as the warehouse contract.
+  spec_checkpoint: true
+  done_checkpoint: true
+  invoke_dev_with: >-
+    Read ../spec-openstates-political-core/SPEC.md and source-mapping.md first.
+    Completion requires its seven-item Story 1 definition of done: reviewed
+    mapping/dispositions, source fingerprint and drift gate, identity failure
+    tests, reconciliation/recovery design, and no source-database writes.
+- id: "2"
+  title: Add compact typed FEC and political-core schema
+  description: >-
+    Add reviewed, cycle-partitioned FEC candidates, committees, linkage, filing, and
+    transaction facts plus the required identifier and provenance relationships.
+  spec_checkpoint: true
+  done_checkpoint: true
+  invoke_dev_with: >-
+    Read ../spec-openstates-political-core/source-mapping.md and
+    coverage-and-grains.md first. Completion requires Alembic migration tests,
+    idempotency, retained-artifact lineage, partition/reload benchmarks, and no
+    person link based on a display name.
+- id: "3"
+  title: Promote OpenStates political records into the shared core
+  description: >-
+    Reproducibly promote useful OpenStates people, jurisdictions, organizations, posts,
+    memberships, sessions, bills, actions, sponsorships, documents, and votes into the
+    mapped OpenDiscourse core.
+  spec_checkpoint: true
+  done_checkpoint: true
+  invoke_dev_with: >-
+    Read ../spec-openstates-political-core/SPEC.md and source-mapping.md first.
+    Completion requires a bounded snapshot proof, field dispositions,
+    source-versus-core count reconciliation, per-grain resume/recovery, evidence
+    links, and unresolved identity reporting.
+- id: "4"
+  title: Complete the reusable FEC 2000–2024 ingestion programme
+  description: >-
+    Extend the official FEC Connector from the pilot through all approved historical
+    masters, linkage, summaries, and transaction families in capacity-gated batches.
+  spec_checkpoint: true
+  done_checkpoint: true
+  invoke_dev_with: >-
+    Read SPEC.md and coverage-and-grains.md first. Completion requires an approved
+    manifest per batch, field inventory, official count reconciliation, immutable
+    cycle evidence, restart drill, and no unapproved bulk transfer.
+- id: "5"
+  title: Open the verified politician identifier bridge
+  description: >-
+    Connect OpenStates, BioGuide, and FEC candidate records only where a reviewed stable
+    identifier path proves the same person; leave every ambiguity unresolved and visible.
+  spec_checkpoint: true
+  done_checkpoint: true
+  invoke_dev_with: >-
+    Read ../spec-openstates-political-core/source-mapping.md and
+    coverage-and-grains.md first. Completion requires name-match failure tests,
+    bridge coverage/exception reports, provenance for each bridge, and an
+    explicit reviewed join contract enabling identitygate.require_person_join.
+- id: "6"
+  title: Publish provenance-backed political research marts
+  description: >-
+    Provide researcher-friendly politician profile, member-year, member-vote, bill,
+    district-year, and campaign-finance views without exposing raw staging tables.
+  spec_checkpoint: true
+  done_checkpoint: true
+  invoke_dev_with: >-
+    Read ../spec-political-research-marts/SPEC.md and mart-catalog.md first.
+    Completion requires documented grain/coverage, evidence drill-through,
+    semantic tests, bounded export behavior, and clear warnings where a source
+    is incomplete.

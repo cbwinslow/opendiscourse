@@ -64,7 +64,9 @@ other refresh rule. It must not silently expand a source's scope.
 
 ## Initial delivery order
 
-BMAD `v1-scope.md` wins. FBI/crime and FEC are **v1.1**, not this list.
+BMAD `v1-scope.md` wins. FBI/crime remain v1.1. FEC is a separately approved,
+strict-gated programme; planning is authorized, but transfer, promotion, and
+politician joins still require their own completion evidence.
 
 1. Make the current schema and plans runnable in a local Postgres container.
 2. Identity crosswalk (BioGuide) and legislative primitives (Epic 8), then
@@ -74,8 +76,10 @@ BMAD `v1-scope.md` wins. FBI/crime and FEC are **v1.1**, not this list.
    facts. Macro: FRED/Treasury as the Connector reference slice.
 4. dbt marts (`district_year`, `legislator_vote`) and access (`api` views,
    DuckDB/Parquet).
-5. **v1.1 only after the v1 spine:** FEC, disclosures, elections, crime/FBI.
-   `stage.fec_row` existing is not authorization.
+5. **Post-v1:** disclosures, elections, crime/FBI. The FEC/OpenStates
+   programme follows its own gates: field/coverage mapping, pilot, typed model,
+   approved 2000–2024 batches, identifier bridge, then marts. Existing
+   `stage.fec_row` is not authorization.
 
 Document chunking / pgvector column promotion remains a later ADR. For
 production embeddings, use a Postgres image with both PostGIS and pgvector

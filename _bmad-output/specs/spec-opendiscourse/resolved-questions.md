@@ -8,7 +8,8 @@ or change 8.1.
 ## 1. FEC grain and retention (after CAP-4)
 
 **Decision:** Typed FEC bulk grains, not `fact.measurement`, not name
-joins, not “promote `stage.fec_row`.” Still v1.1 / Epic 7.
+joins, not “promote `stage.fec_row`.” The full-history programme begins only
+after its approved pilot and model gates.
 
 Official bulk files are the wrap target
 (`https://www.fec.gov/data/browse-data/?tab=bulk-data`), 2-year cycles
@@ -24,11 +25,13 @@ shape; we wrap, we do not invent a generic money table.
 | Fact (itemized) | Individual contrib, committee-to-candidate, committee-to-committee, operating exp | FEC `sub_id` + `cycle` (file family as classification). Typed tables, not `fact.measurement`. |
 | Stage today | `stage.fec_row` `(family, cycle, raw jsonb)` | Leftover dump (~102M). Replaceable. Do not COPY jsonb into `core`/`fact`. |
 
-**Retention:** Immutable cycle zips stay in the lake. Postgres `fact`
-default is **current cycle + previous two cycles** (six years), capacity
-gated. Older cycles: DuckDB/Parquet export (CAP-6), not unbounded hot
-tables. Expanding retained cycles is a reviewed plan, not a silent
-backfill.
+**Retention:** Immutable cycle ZIPs stay in the lake. PostgreSQL retains
+compact typed, cycle-partitioned facts for every approved available cycle from
+**2000–2024**, with a capacity gate, reconciliation, and explicit batch approval
+before each transfer. DuckDB/Parquet are derived exports, not the only store for
+older history. See
+`../spec-fec-reproducible-ingest/coverage-and-grains.md` for the source-family
+scope and completion contract.
 
 **Not in grain:** donor-as-`core.person`; stock prices; corruption
 scores. A later disclosure may reference `core.instrument` without FEC

@@ -20,13 +20,50 @@ Census rejection and fallback investigation.
 reproducible FEC campaign-finance workflow, before congressional investment
 disclosures. It begins with a small official 2023–2024 candidate/committee,
 candidate-to-committee-linkage, and `pas2` transaction pilot, then expands to
-individual donations only after a capacity-gated, evidence-backed reload and
-identifier-bridge check. Existing FEC files on an operator-specific path are
-not a project input or rebuild proof. FEC people links remain blocked until a
-reviewed candidate/committee identifier bridge opens the BioGuide-based gate;
-never join names. The FEC plan and upstream-project review are in
+all approved available 2000–2024 FEC source families only after the pilot,
+typed-model, per-batch capacity, reconciliation, and identity gates pass.
+Existing FEC files on an operator-specific path are not a project input or
+rebuild proof. FEC people links remain blocked until a reviewed
+candidate/committee identifier bridge opens the BioGuide-based gate; never join
+names. The FEC plan and upstream-project review are in
 `docs/SESSION-HANDOFF-2026-10-01-FEC-WORKFLOW.md` and
 `_bmad-output/specs/spec-fec-reproducible-ingest/`.
+
+**FEC/OpenStates programme approved (2026-10-02).** The operator approved the
+phased 2000–2024 FEC and OpenStates promotion programme in
+`_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-02.md`.
+OpenStates remains the full read-only source snapshot, to be promoted into
+owned, provenance-linked research tables rather than copied as its Django
+schema. FEC requires compact typed, cycle-partitioned facts, retained official
+ZIP evidence, and an identifier-only bridge to politicians. The existing
+four-file FEC pilot is a reproducibility gate, not the final coverage target.
+No bulk transfer, schema migration, or person-join enablement is approved by
+this planning decision alone.
+
+**OpenStates political-core specification queued (2026-10-02).** The first
+strict-gated programme story now has its own contract at
+`_bmad-output/specs/spec-openstates-political-core/`. It requires a complete
+field-disposition inventory, source fingerprint/drift gate, explicit coverage
+reporting, identifier-only person links, reconciliation, and a bounded pilot
+before any broad OpenStates promotion. The current read-only snapshot is
+evidence, not proof of complete historical coverage; no source database writes,
+schema migration, or bulk promotion have started.
+
+**Political research-mart specification queued (2026-10-02).** The researcher
+interface contract is at `_bmad-output/specs/spec-political-research-marts/`.
+It defines the initial political profile, office-term, member-vote, bill,
+candidate-cycle-finance, and district-year marts, including grain, coverage
+states, evidence drill-through, and historical-geography safeguards. These are
+planned views, not evidence that their dependent source coverage is complete.
+The planning-readiness record and exact queue/implementation boundary are in
+`_bmad-output/planning-artifacts/political-research-programme-readiness-2026-10-02.md`.
+
+**FEC pilot implementation (2026-10-01).** The disabled four-file Connector
+now builds a fail-closed official manifest for `cn24.zip`, `cm24.zip`,
+`ccl24.zip`, and `pas224.zip`, then requires explicit transfer approval before
+it retains or stages anything. Its stage rows remain source-shaped and linked
+to immutable evidence; bridge reporting counts unresolved FEC candidate IDs
+but creates no person link. No FEC transfer has been approved or started.
 
 **Congress 120 readiness (2026-10-01).** Congress 120 is now an explicitly
 selectable future target, while ordinary coverage, bill-text, and vote commands
@@ -649,8 +686,10 @@ ledger, load strategies, coverage checks) that later models can sit on.
 
 1. **Scope:** federal legislation for **Congresses 108-119** (2003 to now). GovInfo
    BILLSTATUS bulk starts at the 108th (to be confirmed against manifests in
-   Story 9.3). FEC cycles 2004+ later (v1.1). Census, ACS housing, crime, FRED are
-   useful but later; crime is Epic 7 (not v1).
+   Story 9.3). The approved FEC programme targets each available equivalent
+   official cycle from 2000–2024, but its pilot, model, transfer, and identity
+   gates remain separate. Census, ACS housing, crime, FRED are useful but
+   later; crime is not part of the FEC/OpenStates programme.
 2. **Wipe and re-ingest is allowed** for untrustworthy derived data (unverified
    legacy caches, partial/failed-run output, rows written by reverted AGY code).
    No need to ask first; record what was wiped. Do not redo the loaded
@@ -699,7 +738,7 @@ ledger, load strategies, coverage checks) that later models can sit on.
 | Roll calls / member votes | 108th-119th both chambers, official Clerk and Senate XML (see "Votes loaded live") | 117th House Letlow `L000555` exception; committee votes are a later source |
 | People | 12,771 (12,770 with BioGuide; loaded 2026-09-19, Story 3.1) | 1 baseline person has no BioGuide; politician joins still gated (Story 3.2) |
 | Member terms | 45,535 memberships (41,545 House, 3,990 Senate, 1789-present), 740 posts, 690 divisions, Story 3.3; `coverage` memberships 100% for 108-119 | 1,340 terms have no post (unknown district in the source); committee membership not loaded |
-| FEC | 102M rows in `stage.fec_row` (pas2, oppexp, oth complete; indiv 2000-2016 only; unattributed, see above) | staging only; not promoted; person join gated (3.2): needs reviewed contract + cn/cm/ccl files; v1.1 |
+| FEC | 102M legacy `stage.fec_row` rows (unattributed; not reproducible project evidence) | Do not promote/use legacy rows. The approved programme starts with official pilot evidence, then targets available 2000–2024 families through capacity/reconciliation/identity gates. |
 | GovInfo BILLSTATUS zips | 96 zips, 574,316,859 bytes (574 MB, 548 MiB; measured 2026-09-19 from the current registry rows) downloaded from govinfo.gov into `DATA_ROOT` and registered (Story 9.5); every zip matches GovInfo's directory manifest | none; the legacy lake copy is no longer an input |
 | OpenStates | 10 ok, 5 partial, 3 failed runs | coverage unmeasured; promotion reverted |
 | FRED | 135 ok, 6 failed (HTTP 400/500) | some series missing |
@@ -1148,7 +1187,7 @@ building Connectors, verifying against official manifests, and Story 9.3's cover
 |---|---|---|---|
 | Bills, actions, sponsors, Congresses 108-119 | **Done (Story 9.5):** downloaded from GovInfo, verified against its manifests, loaded | member terms (`core.membership` is still empty) | n/a |
 | Roll calls and member votes, 108-117 | only the 118th on disk and loaded (1,827 roll calls, 473K votes) | fetch both chambers via `unitedstates/congress` (about 20K small files, polite rate: hours), Connector, 9.1 harness | hours to download, about 5M member-vote rows |
-| FEC | all 50 archives downloaded (20 GB); staging holds pas2/oppexp/oth complete, indiv 2000-2016 | indiv 2018-2024 (largest cycles; not before compact layout and partitioning), `cn`/`cm`/`ccl` linkage files (small, not on disk), a reviewed join contract | about 40K rows/s measured, so 200M rows is roughly 1.5 hours once staged compactly; v1.1 |
+| FEC | Legacy archives/staging exist but are not reproducible project evidence | Official 2024 pilot, typed-model benchmark, then approved available 2000–2024 family/cycle batches and reviewed identifier bridge | No capacity/throughput estimate is authoritative until the compact typed-model benchmark runs. |
 | Epstein files | 794K files, 658 GB in `/mnt/storage/data-lake/government/epstein` (legacy, HOLD, inventory only) | its own spec first: sensitivity and access rules, no entity claims, phased (checksum registry, then text extraction, then search); HDD makes hashing 658 GB a multi-hour job | after the Congress core; needs operator decisions |
 
 Downloads and loads can run in the background (`run_in_background`), one Connector at a time,

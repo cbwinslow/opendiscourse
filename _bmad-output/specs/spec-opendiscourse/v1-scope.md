@@ -5,18 +5,25 @@ Delivery order (BMAD wins over stale `docs/blueprint.md`):
 ```text
 identity → legislation (incl. Epic 8 primitives) → TIGER/geography
 → Census/housing/economic → marts/access
-then v1.1: FEC → disclosures → elections → crime
+then v1.1: disclosures → elections → crime
 ```
 
 Do not start v1.1 because a staging table already exists. Do not expand
 horizontally until a Connector→mart slice is proven (FRED e2e and/or
 legislator-vote). Pre-Connector ACS/TIGER/bill loads do not count.
 
+The FEC/OpenStates political-research programme is a separately approved,
+strict-gated sequence: OpenStates field/coverage mapping → four-file FEC pilot
+→ typed model/benchmark → approved 2000–2024 batches → identifier bridge →
+research marts. It does not authorize a raw transfer, canonical promotion, or
+person join merely because planning is complete.
+
 ## Coverage target (operator, 2026-09-19)
 
 Federal legislation **Congresses 108-119** (2003 to now): GovInfo BILLSTATUS
-bulk starts at the 108th. FEC cycles 2004+ when v1.1 opens. Completeness is
-measured (Story 9.3), not assumed. Untrustworthy derived data (unverified legacy
+bulk starts at the 108th. The approved FEC target is every available equivalent
+official cycle from **2000–2024**, subject to its source-specific gates.
+Completeness is measured (Story 9.3), not assumed. Untrustworthy derived data (unverified legacy
 caches, partial/failed-run output, rows from reverted AGY code) may be wiped and
 re-ingested; loaded Census/CBP/TIGER/PEP/DHC data is not redone without cause.
 
@@ -26,14 +33,18 @@ Identities, TIGER geography, legislation (Congress.gov, GovInfo, OpenStates
 FDW), census/housing (existing contracts), sparse macro (FRED, Treasury,
 bounded BLS).
 
-## v1.1 (do not start in v1)
+## Post-v1 work and approved FEC programme
 
 - **Politician joins** (FEC/disclosure/elections-as-member): blocked on CAP-4
   BioGuide identity. Never name-match.
-- **FEC-native and crime-native staging:** not identity-blocked; still v1.1.
-  Open only with Epic 7 after the v1 spine and Epic 8. Canonical FEC grain
-  (when opened): candidate/committee `(id, cycle)`; itemized `sub_id`+cycle;
-  hot fact = current + two prior cycles (`resolved-questions.md`).
+- **FEC-native facts:** their planned Connector and pilot are approved, but
+  historical transfer and canonical promotion remain gated by the FEC
+  specification. Candidate/committee use `(id, cycle)` and transactions use
+  FEC `sub_id`+cycle in compact typed, cycle-partitioned facts. All approved
+  available 2000–2024 cycles remain queryable; derived Parquet is not the sole
+  older-history store.
+- **Crime-native staging:** remains v1.1 and opens only with its own approved
+  specification after the v1 spine and Epic 8.
 - **`stage.fec_row` already holds ~102M rows on the operator cluster.**
   That is leftover staging, not authorization to promote, join, or open
   Epic 7. Schema support ≠ ingest scope (AD-10).

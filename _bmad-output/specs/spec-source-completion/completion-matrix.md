@@ -43,7 +43,8 @@ A source is complete only when all applicable checks pass:
 | Class | Sources | Trigger before work begins |
 |---|---|---|
 | V1 conditional | Census district boundaries/relationship files, BEA, USAspending, FBI, additional BLS products, Treasury fiscal data | A specific research pack or source spec defines grain, years, capacity, field checklist, and coverage basis. |
-| V1.1 deferred | FEC canonical facts, campaign/disclosure joins, elections, crime | v1 spine and Epic 8 are complete; `person_join` contract opens where needed; source-specific Connector/spec approved. |
+| Approved strict-gated programme | FEC canonical facts, OpenStates promotion, campaign joins | Follow the FEC/OpenStates specifications: pilot and model gates first; each transfer batch needs capacity approval/reconciliation; joins wait for their reviewed identifier contract. |
+| V1.1 deferred | Disclosures, elections, crime | v1 spine and applicable identity/source prerequisites are complete; source-specific Connector/spec approved. |
 | Catalogued only | Congress.gov amendments/reports/meetings/nominations, GovInfo PLAW/CREC/CHRG/CRPT, CourtListener, regulations | A bounded user research question and source-specific completion spec. |
 | Prohibited now | News, stock prices, opaque corruption scores, mixed Epstein collection | Remain out of product scope or on legal/sensitivity hold; no ingestion from legacy storage. |
 
