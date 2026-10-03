@@ -104,6 +104,7 @@ class Reader:
             "count",
             "nested",
             "coverage",
+            "derived_coverage",
             "samples",
             "text_dates",
         ):
@@ -197,6 +198,74 @@ class Reader:
         groups = sql.SQL(", ").join(map(sql.Identifier, columns))
         return self.query(
             "coverage", relation=sql.Identifier(schema, table), groups=groups
+        )
+
+    def derived_coverage(self, schema, table, hops, dimensions):
+        """Count child rows through declared parent links, keeping broken links visible.
+
+        `hops` is an ordered list of single-column foreign keys. `dimensions`
+        names the parent column selected at each hop, with alias 0 on the child.
+        A null parent key is an unresolved link, not evidence that a jurisdiction
+        or session has zero rows.
+        """
+        self.ensure_unfiltered(sql.Identifier(schema, table))
+        joins = []
+        link_checks = []
+        for index, hop in enumerate(hops, start=1):
+            self.ensure_unfiltered(
+                sql.Identifier(hop["target_schema"], hop["target_table"])
+            )
+            previous = sql.Identifier("r0" if index == 1 else f"p{index - 1}")
+            alias = sql.Identifier(f"p{index}")
+            joins.append(
+                sql.SQL(
+                    "LEFT JOIN {target} {alias} ON {previous}.{column} = {alias}.{target_column}"
+                ).format(
+                    target=sql.Identifier(hop["target_schema"], hop["target_table"]),
+                    alias=alias,
+                    previous=previous,
+                    column=sql.Identifier(hop["column"]),
+                    target_column=sql.Identifier(hop["target_column"]),
+                )
+            )
+            link_checks.extend(
+                (
+                    sql.SQL("{}.{} IS NULL").format(
+                        previous, sql.Identifier(hop["column"])
+                    ),
+                    sql.SQL("{}.{} IS NULL").format(
+                        alias, sql.Identifier(hop["target_column"])
+                    ),
+                )
+            )
+        selected, grouped, unresolved_dimensions = [], [], []
+        for dimension in dimensions:
+            alias = sql.Identifier(
+                "r0" if dimension["alias_index"] == 0 else f"p{dimension['alias_index']}"
+            )
+            expression = sql.SQL("{}.{}").format(
+                alias, sql.Identifier(dimension["column"])
+            )
+            selected.append(
+                sql.SQL("{} AS {}").format(
+                    expression, sql.Identifier(dimension["name"])
+                )
+            )
+            grouped.append(expression)
+            unresolved_dimensions.append(
+                sql.SQL("count(*) FILTER (WHERE {} IS NULL)::bigint AS {}").format(
+                    expression,
+                    sql.Identifier(f"unresolved_{dimension['name']}_count"),
+                )
+            )
+        return self.query(
+            "derived_coverage",
+            relation=sql.Identifier(schema, table),
+            dimensions=sql.SQL(", ").join(selected),
+            groups=sql.SQL(", ").join(grouped),
+            joins=sql.SQL(" ").join(joins),
+            unresolved_link=sql.SQL(" OR ").join(link_checks) or sql.SQL("FALSE"),
+            unresolved_dimensions=sql.SQL(", ").join(unresolved_dimensions),
         )
 
     def samples(self, schema, table, columns):

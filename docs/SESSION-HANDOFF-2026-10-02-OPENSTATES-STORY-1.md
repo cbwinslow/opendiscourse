@@ -66,14 +66,19 @@ stopping-point verification below before relying on current code.
 ## Completion gates still open
 
 - Establish verifiable restored-artifact lineage; file integrity alone is insufficient.
-- Finish and independently verify the review corrections and their tests.
-- Complete semantic field mappings and minimal schema-delta decisions; matching
-  source/target column names is not sufficient.
-- Finish precision-aware text-date coverage and jurisdiction/session coverage
-  through parent bill/event relationships.
+- A person must accept the schema decisions in
+  `_bmad-output/specs/spec-openstates-political-core/source-mapping.md`.
+  `mapping-review.json` is a proposal: `approved` is false and no field has a
+  review time. Matching source and target names is not acceptance.
+- Parent-derived coverage was measured into `parent-derived-coverage.json`
+  (no query failures). It is not an approval, and a missing link is not a
+  publisher zero. Jurisdiction and session groups in that file come from a
+  second read-only query.
 - Qualify legacy untagged nested paths; literal object keys named `[]` and array
   steps must not collapse in any approved new baseline.
-- Verify baseline/resume behavior and the exact source/reader coverage contract.
+- Verify baseline/resume behavior and the exact source/reader coverage contract
+  on a fresh consistent tagged run. The full fast and database gates have not
+  been rerun on the latest corrections.
 
 Do not close #100, begin the schema/promotion stories, broaden reader access,
 transfer FEC bytes or enable person joins based on this progress checkpoint.
@@ -93,7 +98,8 @@ recomputed/separate fingerprints, tagged paths, reader-column/type/alias compari
 explicit review/restore evidence inputs, concrete mapping transformations and
 precision-aware text-date profiling. These improvements have not been followed
 by a new consistent/tagged live audit. No actual restore attestation or mapping
-approval was supplied. Parent-derived coverage remains unfinished.
+approval was supplied. Parent-derived coverage has a measured file and is not
+an approval.
 
 Resume the approved Story 1 implementation, finish its corrections and coverage,
 run focused checks followed by the required gates, then review the final change.

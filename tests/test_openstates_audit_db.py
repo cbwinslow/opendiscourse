@@ -7,8 +7,11 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from opendiscourse_research.repositories.openstates_audit import Reader,RowFilteringError
-from opendiscourse_research.openstatesaudit import audit,canonical
+from opendiscourse_research.openstatesaudit import audit, canonical
+from opendiscourse_research.repositories.openstates_audit import (
+    Reader,
+    RowFilteringError,
+)
 
 pytestmark = pytest.mark.db
 
@@ -34,7 +37,7 @@ def audit_database():
         conn.execute(sql.SQL('INSERT INTO {} VALUES (1)').format(sql.Identifier(schema, 'parent')))
         conn.execute(sql.SQL("INSERT INTO {} VALUES (1,1,'{{\"a\":[{{\"b\":1}}]}}','2020-01-01'),(2,NULL,NULL,NULL)").format(sql.Identifier(schema, 'child')))
     try:
-        yield Reader(dsn, 5000), schema
+        yield Reader(dsn, 30000), schema
     finally:
         with psycopg.connect(dsn) as conn:
             conn.execute(sql.SQL('DROP SCHEMA {} CASCADE').format(sql.Identifier(schema)))
@@ -142,6 +145,43 @@ def test_tagged_literal_array_key_and_precision_aware_dates(audit_database):
     finally:
         with psycopg.connect(reader.dsn) as conn:
             conn.execute(sql.SQL('DROP TABLE {}').format(sql.Identifier(schema,'tagged_dates')))
+
+
+def test_parent_derived_coverage_keeps_unresolved_links(audit_database):
+    reader, schema = audit_database
+    with psycopg.connect(reader.dsn) as conn:
+        conn.execute(sql.SQL('CREATE TABLE {} (id text PRIMARY KEY, jurisdiction_id text)').format(sql.Identifier(schema, 'session')))
+        conn.execute(sql.SQL('CREATE TABLE {} (id text PRIMARY KEY, legislative_session_id text REFERENCES {} (id))').format(sql.Identifier(schema, 'bill'), sql.Identifier(schema, 'session')))
+        conn.execute(sql.SQL('CREATE TABLE {} (id integer PRIMARY KEY, bill_id text REFERENCES {} (id))').format(sql.Identifier(schema, 'action'), sql.Identifier(schema, 'bill')))
+        conn.execute(sql.SQL("INSERT INTO {} VALUES ('s1','j1')").format(sql.Identifier(schema, 'session')))
+        conn.execute(sql.SQL("INSERT INTO {} VALUES ('b1','s1')").format(sql.Identifier(schema, 'bill')))
+        conn.execute(sql.SQL("INSERT INTO {} VALUES (1,'b1'),(2,NULL)").format(sql.Identifier(schema, 'action')))
+    try:
+        rows = reader.derived_coverage(
+            schema,
+            'action',
+            [
+                {'column': 'bill_id', 'target_schema': schema, 'target_table': 'bill', 'target_column': 'id'},
+                {'column': 'legislative_session_id', 'target_schema': schema, 'target_table': 'session', 'target_column': 'id'},
+            ],
+            [
+                {'alias_index': 1, 'column': 'legislative_session_id', 'name': 'legislative_session_id'},
+                {'alias_index': 2, 'column': 'jurisdiction_id', 'name': 'jurisdiction_id'},
+            ],
+        )
+        assert sum(row['row_count'] for row in rows) == 2
+        missing = next(row for row in rows if row['legislative_session_id'] is None)
+        assert missing['row_count'] == 1
+        assert missing['unresolved_link_count'] == 1
+        assert missing['unresolved_jurisdiction_id_count'] == 1
+        linked = next(row for row in rows if row['legislative_session_id'] == 's1')
+        assert linked['jurisdiction_id'] == 'j1'
+        assert linked['unresolved_link_count'] == 0
+    finally:
+        with psycopg.connect(reader.dsn) as conn:
+            conn.execute(sql.SQL('DROP TABLE {}').format(sql.Identifier(schema, 'action')))
+            conn.execute(sql.SQL('DROP TABLE {}').format(sql.Identifier(schema, 'bill')))
+            conn.execute(sql.SQL('DROP TABLE {}').format(sql.Identifier(schema, 'session')))
 
 
 def test_effective_rls_refuses_filtered_counts(audit_database):

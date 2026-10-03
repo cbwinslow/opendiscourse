@@ -66,22 +66,23 @@ canonical promotion, FEC transfers, or actual cross-provider person links.
 
 **Execution:**
 
-- [ ] `sql/query/openstates_audit/`: add catalog, FDW, column/profile, coverage,
+- [x] `sql/query/openstates_audit/`: add catalog, FDW, column/profile, coverage,
   identifier and reference-integrity queries with bounded read-only execution.
-- [ ] `src/opendiscourse_research/repositories/openstates_audit.py`: implement
+- [x] `src/opendiscourse_research/repositories/openstates_audit.py`: implement
   isolated read-only query access and safely quoted catalog-derived identifiers.
-- [ ] `src/opendiscourse_research/openstatesaudit.py`: add deterministic inventory
+- [x] `src/opendiscourse_research/openstatesaudit.py`: add deterministic inventory
   generation and baseline validation; expose a module command without expanding
   provider dispatchers. Connections and output destination are explicit arguments.
-- [ ] `docs/audits/openstates/2026-10-02/`: save relation/column/nested-field
+- [x] `docs/audits/openstates/2026-10-02/`: save relation/column/nested-field
   inventory, FDW diff, entity/field dispositions, jurisdiction/session coverage,
   fingerprint, identity audit and reconciliation baseline, plus readable report.
-- [ ] `tests/test_openstates_audit.py`: verify drift detection, incomplete-evidence
+- [x] `tests/test_openstates_audit.py`: verify drift detection, incomplete-evidence
   failures, deterministic serialization, name collisions and identifier policy.
-- [ ] `tests/test_openstates_audit_db.py`: verify read-only enforcement, catalog
+- [x] `tests/test_openstates_audit_db.py`: verify read-only enforcement, catalog
   and profiling queries, permission failures and reference reconciliation.
-- [ ] `docs/PROJECT-STATE.md`: record evidence, remaining gaps and the issue status;
+- [x] `docs/PROJECT-STATE.md`: record evidence, remaining gaps and the issue status;
   close #100 only after every governing definition-of-done condition is satisfied.
+  Not closed: restore lineage and mapping approval are still absent.
 
 **Acceptance Criteria:**
 
@@ -112,6 +113,11 @@ Implementation checkout: `/home/cbwinslow/workspace/opendiscourse-story-1`, bran
 `feat/openstates-audit-story-1`, based on the committed programme.
 
 ## Spec Change Log
+
+2026-10-03: the unapproved schema decisions that block promotion are listed in
+`../spec-openstates-political-core/source-mapping.md`. `mapping-review.json`
+remains a proposal (`approved: false`). Parent-derived coverage was measured
+and is not an approval. Restore lineage is still absent, so #100 stays open.
 
 2026-10-02 independent review: the first implementation exposes useful evidence
 but does not satisfy all completion gates. Refine the non-frozen implementation

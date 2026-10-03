@@ -142,3 +142,28 @@ are separate checkpointed stories.
 3. Implement a bounded, provenance-backed promotion pilot and its reconciliation tests.
 4. Review pilot evidence, then approve jurisdiction/session batches separately.
 5. Only after political identities are proven, evaluate downstream FEC/federal research marts.
+
+## Schema decisions still waiting for a person to accept them
+
+The 2026-10-02 read-only audit compared the restored snapshot with the tables OpenDiscourse already owns. The proposal is `docs/audits/openstates/2026-10-02/mapping-review.json`. It is not an approval: `approved` is false, all 761 fields have no review time, and no one attested which archive file was restored into the database. Story 2 (new tables) stays blocked until a person accepts this list. No source table is copied.
+
+These are the changes that block a faithful copy of state and local politics into the current federal-shaped tables:
+
+| Source | Owned table | What has to be decided before any rows are copied |
+| --- | --- | --- |
+| Bill | `core.bill` | `bill_type` and `bill_number` are required and mean a federal bill. Do not parse a state label into them. A later change must allow a non-federal bill, or those columns must allow empty values. Do not invent a fake federal number. |
+| Legislative session | `core.legislative_session` | Decide whether the source session id is reused after a collision check, or stored beside a new id. The owned table has no separate source-key column. |
+| Organization | `core.organization` | Do not store the Open Civic Data jurisdiction id in `jurisdiction_geoid`. There is no parent column, so a parent organization cannot be hidden in notes without an explicit hierarchy decision. |
+| Sponsorship | `core.bill_sponsorship` | The member id column assumes a BioGuide id and is required. State sponsorships need their own id space and must allow a missing person. The role check allows only sponsor or cosponsor; other source words stay in source detail or the check must widen. |
+| Document | `core.bill_document` | This table only links a bill to `core.document`. The document's date, note, and links need a document row plus retained evidence. The source-key grain for that document row is not approved. |
+| Vote event | `core.roll_call` | `external_id` has no id space. Do not write an OpenStates id there until a prefix is approved, because federal roll-call ids share that column. Fill jurisdiction and session only from resolved owned rows. |
+| Person vote | `fact.member_vote` | There is no voter-name column, and the person id is required. A vote whose voter is not resolved stays in the source until a person accepts a design for that gap. |
+
+These do not block the audit, and they do not approve a copy yet:
+
+- A jurisdiction row has no owned column that says which saved file supplied it.
+- A membership row waits until the person, organization, and optional post bridges exist.
+- A person's current jurisdiction is a current attribute, not a history of memberships.
+- A post's division id is not approved as a dated link to the owned division id.
+- An action date that is only a year or a month cannot become a full timestamp.
+- Child coverage through parent bills and sessions was measured in `parent-derived-coverage.json` (no query failures). A missing link is "not supplied," not a publisher zero. That file is not an approval, and it does not prove which archive was restored.

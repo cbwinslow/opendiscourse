@@ -14,17 +14,22 @@ uv run python -m opendiscourse_research.openstatesaudit \
 
 `checkpoint-*.json` files retain completed catalog, relation and reference phases
 even if the process stops. They are incomplete evidence, never an approved
-baseline. A restart uses a new directory and repeats measurements; it cannot
-reuse incomplete evidence until both restored-artifact lineage and the full
-snapshot fingerprint have been independently established. This conservative
-restart currently favors correctness over avoiding repeated scans.
+baseline. `--resume-from` may reuse a relation or reference measurement only
+when that checkpoint says reuse is allowed, its nested paths are tagged, its
+coverage rows name a method, and its catalog baseline matches the new catalog
+exactly. A different baseline is rejected and measured again. Failed scopes stay
+visible and are not reused. An exported database snapshot expires when the
+connection that created it closes, so resume never reattaches one. Pass a new
+`--output` directory; resume reads the old directory and does not rewrite it.
 Raw checkpoints remain on the operator's disk and are ignored by Git; versioned
 assembled inventories, matrices, reports and supplementary evidence carry the
 reviewable result. No checkpoint or retained source artifact is deleted.
 
 `audit.json` contains every discovered relation and scalar field, exhaustive
 public JSON/array paths, catalog-declared keys, counts/null rates/date bounds,
-FDW exposure and actual reader probes, observed jurisdiction/session groups,
+FDW exposure and actual reader probes, observed jurisdiction/session groups
+(including groups reached through declared parent links, with broken links kept
+visible),
 identifier and BioGuide measurements, reference reconciliation, current owned
 columns and proposed mapping targets. Restricted application/account relations
 are catalog-only. No private row values or connection secrets are emitted.

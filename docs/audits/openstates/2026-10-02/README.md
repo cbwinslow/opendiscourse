@@ -1,5 +1,14 @@
 # 2026-10-02 audit evidence
 
+Update after the review corrections: `mapping-review.json` is a proposal, not an
+approval. It applies the current field and constraint decisions to the live
+catalog and does not remeasure null rates. `parent-derived-coverage.json` counts
+child rows through declared parent links. It had no query failures. Jurisdiction
+and legislative-session groups in that file come from a second read-only query
+so each source key is its own group; the other tables share one earlier exported
+snapshot. A null group or a relation with no path is not a publisher zero.
+Neither file proves which archive bytes were restored. `run-02/` was not rewritten.
+
 The current attempt is **run-02/**. It repeats bounded read-only measurements;
 the earlier attempt was interrupted by an unsupported UUID serialization error
 when saving public jurisdiction/session coverage. That defect has been fixed.
