@@ -20,6 +20,7 @@ from opendiscourse_research.ingestion.acs_archive import (
     _archive_artifact_key,
     _csv_members,
     _pums_record_type,
+    _repair_missing_publisher_sizes,
     capacity_manifest,
     main,
     manifest_from_index,
@@ -241,18 +242,38 @@ def test_official_manifest_refuses_unsafe_retained_size_evidence(monkeypatch, tm
         connector.discover(ConnectorContext(source_id=connector.source_id))
 
 
-def test_official_manifest_keeps_publisher_size_despite_retained_difference(monkeypatch, tmp_path):
+def test_known_publisher_sizes_do_not_open_the_warehouse(monkeypatch):
+    """A complete publisher index is enough for the plan. Do not query retained files."""
     entry = _entry(bytes=12)
-    retained = tmp_path / "retained.zip"
-    retained.write_bytes(b"x" * 13)
-    artifact_key = _archive_artifact_key(entry)
+
+    def warehouse_must_stay_closed(_dataset: str) -> dict:
+        raise AssertionError("known publisher sizes must not open the warehouse")
+
     monkeypatch.setattr(
         "opendiscourse_research.ingestion.acs_archive.discover_archive_index",
         lambda _index: [entry],
     )
     monkeypatch.setattr(
         "opendiscourse_research.ingestion.acs_archive.current_artifacts",
-        lambda _dataset: {
+        warehouse_must_stay_closed,
+    )
+
+    connector = ACSArchiveConnector.from_official_indexes(
+        [ArchiveIndex("https://www2.census.gov/archive/", "acs_pums_1", "2013", "us")]
+    )
+    connector.discover(ConnectorContext(source_id=connector.source_id))
+
+    assert connector.artifacts[0].bytes == 12
+
+
+def test_official_manifest_keeps_publisher_size_despite_retained_difference(tmp_path):
+    entry = _entry(bytes=12)
+    retained = tmp_path / "retained.zip"
+    retained.write_bytes(b"x" * 13)
+    artifact_key = _archive_artifact_key(entry)
+    repaired = _repair_missing_publisher_sizes(
+        [entry],
+        {
             artifact_key: {
                 "artifact_key": artifact_key,
                 "remote_url": entry["url"],
@@ -263,13 +284,7 @@ def test_official_manifest_keeps_publisher_size_despite_retained_difference(monk
         },
     )
 
-    connector = ACSArchiveConnector.from_official_indexes(
-        [ArchiveIndex("https://www2.census.gov/archive/", "acs_pums_1", "2013", "us")]
-    )
-    connector.discover(ConnectorContext(source_id=connector.source_id))
-    artifacts = connector.artifacts
-
-    assert artifacts[0].bytes == 12
+    assert repaired[0]["bytes"] == 12
 
 
 def test_connector_obeys_protocol_and_capacity_failure_checkpoints(monkeypatch):
@@ -579,6 +594,13 @@ def test_source_status_command_emits_required_json_fields(monkeypatch):
 
 
 def test_preflight_command_prints_manifest_without_starting_transfer(monkeypatch, capsys):
+    def warehouse_must_stay_closed(_dataset: str) -> dict:
+        raise AssertionError("a plan with no missing sizes must not open the warehouse")
+
+    monkeypatch.setattr(
+        "opendiscourse_research.ingestion.acs_archive.current_artifacts",
+        warehouse_must_stay_closed,
+    )
     monkeypatch.setattr(
         "opendiscourse_research.ingestion.acs_archive.official_housing_archive_indexes",
         lambda: (),
@@ -601,7 +623,7 @@ def test_approved_command_starts_a_ledger_backed_connector_run(monkeypatch, caps
     connector = type("ApprovedConnector", (), {"source_id": "census.acs_housing_archive"})()
     calls = {}
     monkeypatch.setattr(
-        "opendiscourse_research.ingestion.acs_archive.official_housing_archive_indexes", lambda: []
+        "opendiscourse_research.ingestion.acs_archive.official_housing_archive_indexes", list
     )
     monkeypatch.setattr(
         ACSArchiveConnector, "from_official_indexes",
