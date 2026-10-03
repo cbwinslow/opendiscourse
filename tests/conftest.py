@@ -35,6 +35,14 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
             item.add_marker(integration_marker)
 
 
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Drop the shared test template after the run, including after a failure."""
+    del session, exitstatus
+    from db_cluster import stop_cluster
+
+    stop_cluster()
+
+
 @pytest.fixture(autouse=True)
 def _isolated_data_root(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
     """Point DATA_ROOT at a scratch folder so no test writes into the operator's real lake.

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import os
 import unittest
 from collections.abc import Iterator
 from pathlib import Path
@@ -12,10 +11,10 @@ from unittest.mock import patch
 from zipfile import ZipFile
 
 import pytest
+from db_cluster import cloned_database
 
 from opendiscourse_research.catalog import sync_inventory
-from opendiscourse_research.config import settings
-from opendiscourse_research.db import _engine, apply_migrations, connect
+from opendiscourse_research.db import connect
 from opendiscourse_research.ingestion.acs_load import load_acs_bulk, stage_acs_bulk
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion.cbp_load import load_cbp, stage_cbp
@@ -24,51 +23,20 @@ from opendiscourse_research.ingestion.fec_bulk import stage_family
 from opendiscourse_research.ingestion.pep_load import load_pep, stage_pep
 from opendiscourse_research.ingestion.tiger_load import load_tiger, stage_tiger
 
-
 _BULK_DATABASE_READY = False
-
-
-def _psycopg_url(url: str) -> str:
-    """Normalize Testcontainers' SQLAlchemy URL for the psycopg connection factory."""
-    return url.replace("postgresql+psycopg2://", "postgresql://", 1)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def bulk_database() -> Iterator[None]:
-    """Provide CI's service or a disposable PostGIS database for bulk tests."""
+    """Use a private copy of the migrated PostGIS template."""
     global _BULK_DATABASE_READY
-    original_url = settings.database_url
-    external_url = os.environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
-    if external_url:
+    with cloned_database():
         try:
-            settings.database_url = external_url
-            apply_migrations()
             sync_inventory()
             _BULK_DATABASE_READY = True
             yield
         finally:
             _BULK_DATABASE_READY = False
-            _engine.cache_clear()
-            settings.database_url = original_url
-        return
-
-    postgres = pytest.importorskip("testcontainers.postgres")
-    with postgres.PostgresContainer(
-        "postgis/postgis:17-3.5",
-        username="test",
-        password="test",
-        dbname="test",
-    ) as container:
-        try:
-            settings.database_url = _psycopg_url(container.get_connection_url())
-            apply_migrations()
-            sync_inventory()
-            _BULK_DATABASE_READY = True
-            yield
-        finally:
-            _BULK_DATABASE_READY = False
-            settings.database_url = original_url
-            _engine.cache_clear()
 
 
 class TestBulkDatabaseIntegration(unittest.TestCase):

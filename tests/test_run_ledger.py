@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from db_cluster import cloned_database
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from opendiscourse_research.catalog import sync_inventory
-from opendiscourse_research.config import settings
-from opendiscourse_research.db import _engine, apply_migrations, connect, session
+from opendiscourse_research.db import connect, session
 from opendiscourse_research.ingestion.base import IngestionRun, code_version
 from opendiscourse_research.repositories.runs import loaded_coverage
 
@@ -22,39 +21,21 @@ DATASET = "bls.cpi"  # any catalog dataset; runs are tagged so cleanup finds onl
 
 @pytest.fixture(scope="module")
 def catalog_database() -> Iterator[None]:
-    """CI's shared PostGIS service, or a disposable local one."""
-    original = settings.database_url
-    external = os.environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
-    container = None
-    if external:
-        settings.database_url = external
-    else:
-        postgres = pytest.importorskip("testcontainers.postgres")
-        container = postgres.PostgresContainer(
-            "postgis/postgis:17-3.5", username="test", password="test", dbname="test"
-        )
-        container.start()
-        settings.database_url = container.get_connection_url().replace(
-            "postgresql+psycopg2://", "postgresql://", 1
-        )
-    try:
-        apply_migrations()
+    """Use a private copy of the migrated PostGIS template."""
+    with cloned_database():
         sync_inventory()
-        yield
-    finally:
-        # The shared database is downgraded by later tests; the ledger's downgrade
-        # guard refuses while rows exist, so remove what these tests wrote.
-        with connect() as conn:
-            conn.execute(
-                "DELETE FROM ingest.run_target WHERE run_id IN "
-                "(SELECT run_id FROM ingest.run WHERE parameters->>'ledger_test' = 'true')"
-            )
-            conn.execute("DELETE FROM ingest.run WHERE parameters->>'ledger_test' = 'true'")
-            conn.commit()
-        settings.database_url = original
-        _engine.cache_clear()
-        if container is not None:
-            container.stop()
+        try:
+            yield
+        finally:
+            # Tests in this module share the copy. Remove their rows before the
+            # next test, and before a downgrade guard in this module runs.
+            with connect() as conn:
+                conn.execute(
+                    "DELETE FROM ingest.run_target WHERE run_id IN "
+                    "(SELECT run_id FROM ingest.run WHERE parameters->>'ledger_test' = 'true')"
+                )
+                conn.execute("DELETE FROM ingest.run WHERE parameters->>'ledger_test' = 'true'")
+                conn.commit()
 
 
 def _run(fail: bool = False) -> IngestionRun:

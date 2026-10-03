@@ -1,23 +1,23 @@
 """Committee membership: download the three YAML files from a fake origin and load them.
 
-Nothing here contacts GitHub. Every test removes the rows it wrote: CI runs database
-tests against one shared database.
+Nothing here contacts GitHub. Every test removes the rows it wrote. Tests in
+this module share one database copy.
 """
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterator
 from pathlib import Path
 
 import httpx
 import pytest
+from db_cluster import cloned_database
 from typer.testing import CliRunner
 
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.cli import app
 from opendiscourse_research.config import settings
-from opendiscourse_research.db import _engine, apply_migrations, connect
+from opendiscourse_research.db import connect
 from opendiscourse_research.ingestion import committee_membership as membership
 from opendiscourse_research.ingestion.committee_membership import (
     COMMIT_DATE,
@@ -176,30 +176,13 @@ class _Origin:
 
 @pytest.fixture(scope="module")
 def catalog_database() -> Iterator[None]:
-    original = settings.database_url
-    external = os.environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
-    if external:
-        settings.database_url = external
-        container = None
-    else:
-        postgres = pytest.importorskip("testcontainers.postgres")
-        container = postgres.PostgresContainer(
-            "postgis/postgis:17-3.5", username="test", password="test", dbname="test"
-        )
-        container.start()
-        settings.database_url = container.get_connection_url().replace(
-            "postgresql+psycopg2://", "postgresql://", 1
-        )
-    try:
-        apply_migrations()
+    """Use a private copy of the migrated PostGIS template."""
+    with cloned_database():
         sync_inventory()
-        yield
-    finally:
-        _remove_rows()
-        settings.database_url = original
-        _engine.cache_clear()
-        if container is not None:
-            container.stop()
+        try:
+            yield
+        finally:
+            _remove_rows()
 
 
 def _remove_rows() -> None:

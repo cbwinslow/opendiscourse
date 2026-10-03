@@ -417,8 +417,15 @@ class ACSArchiveConnector:
     ) -> ACSArchiveConnector:
         """Discover only publisher-listed files from explicitly scoped indexes."""
         entries = [entry for index in indexes for entry in discover_archive_index(index)]
+        # A plan only needs the warehouse when a publisher row has no size.
+        # Known sizes, and an empty index list, must not open a database.
+        retained = (
+            current_artifacts(cls.source_id)
+            if any(entry.get("bytes") is None for entry in entries)
+            else {}
+        )
         return cls(
-            _repair_missing_publisher_sizes(entries, current_artifacts(cls.source_id)),
+            _repair_missing_publisher_sizes(entries, retained),
             transfer_approved=transfer_approved,
         )
 

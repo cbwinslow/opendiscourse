@@ -2,14 +2,13 @@
 
 A fake Clerk serves small synthetic roll calls for Congress 998 (calendar years 3783 and 3784), a
 Congress that does not exist, so nothing here can touch real rows. Every test starts and ends with
-those rows removed: CI runs every DB module against one shared database. The tests below cover the
+those rows removed. Tests in this module share one database copy. The tests below cover the
 spec's I/O matrix row by row.
 """
 
 from __future__ import annotations
 
 import hashlib
-import os
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,20 +18,32 @@ from unittest.mock import patch
 import httpx
 import pytest
 from alembic import command
+from db_cluster import cloned_database
 from psycopg.types.json import Jsonb
 
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
-from opendiscourse_research.db import _alembic_config, _engine, apply_migrations, connect
+from opendiscourse_research.db import _alembic_config, connect
 from opendiscourse_research.ingestion import bulk, house_votes, roll_call_votes
 from opendiscourse_research.ingestion.billstatus_record import xml_to_record
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
 from opendiscourse_research.ingestion.connector import Connector, run_connector
 from opendiscourse_research.ingestion.house_vote_parse import HOUSE_LIST_TAGS
-from opendiscourse_research.ingestion.house_votes import HouseVotesConnector, artifact_key
-from opendiscourse_research.providers.clerk import ClerkError, ClerkNotFound, RemoteRoll, roll_url
+from opendiscourse_research.ingestion.house_votes import (
+    HouseVotesConnector,
+    artifact_key,
+)
+from opendiscourse_research.providers.clerk import (
+    ClerkError,
+    ClerkNotFound,
+    RemoteRoll,
+    roll_url,
+)
 from opendiscourse_research.repositories.legislation import register_artifact
-from opendiscourse_research.repositories.votes import HOUSE_OCD_ORGANIZATION, house_external_id
+from opendiscourse_research.repositories.votes import (
+    HOUSE_OCD_ORGANIZATION,
+    house_external_id,
+)
 
 CONGRESS = 998
 YEAR = 3783  # 1789 + 2 * (998 - 1)
@@ -46,31 +57,13 @@ OPENSTATES_KEY = "test-openstates-998"
 # -- database ---------------------------------------------------------------
 @pytest.fixture(scope="module")
 def catalog_database() -> Iterator[None]:
-    """Use CI's PostGIS service or a disposable local one, as the other DB contracts do."""
-    original = settings.database_url
-    external = os.environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
-    if external:
-        settings.database_url = external
-        container = None
-    else:
-        postgres = pytest.importorskip("testcontainers.postgres")
-        container = postgres.PostgresContainer(
-            "postgis/postgis:17-3.5", username="test", password="test", dbname="test"
-        )
-        container.start()
-        settings.database_url = container.get_connection_url().replace(
-            "postgresql+psycopg2://", "postgresql://", 1
-        )
-    try:
-        apply_migrations()
+    """Use a private copy of the migrated PostGIS template."""
+    with cloned_database():
         sync_inventory()
-        yield
-    finally:
-        _remove_rows()
-        settings.database_url = original
-        _engine.cache_clear()
-        if container is not None:
-            container.stop()
+        try:
+            yield
+        finally:
+            _remove_rows()
 
 
 _ROLLS = "(SELECT roll_call_id FROM core.roll_call WHERE jurisdiction = 'us' AND legislative_session = '998')"

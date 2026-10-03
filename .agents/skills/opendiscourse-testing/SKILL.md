@@ -18,8 +18,11 @@ Use `uv run` / `just`. Bare `pytest` or `ruff` may miss the project environment.
 - Fast lane (CI `fast` job): `just check-fast` — `ruff check src` plus
   `pytest -m "not db and not slow and not live and not e2e" -n auto --dist worksteal`.
 - DB tests: `just check-db` (`uv run --extra ingest --extra spatial pytest -m
-  "db or integration"`). Needs `OPENDISCOURSE_TEST_DATABASE_URL` or
-  testcontainers. Do not pass `-n`.
+  "db or integration"`). One PostGIS server is started for the run, or the
+  server in `OPENDISCOURSE_TEST_DATABASE_URL` is used. Migrations run once
+  into a template database; each test module gets its own copy. Do not start
+  a container per module. Do not pass `-n`: a template cannot be copied while
+  another session is connected to it.
 - Full suite: `just check-full`. Never run `-m live` in ordinary CI.
 - App DSN default: `postgresql:///opendiscourse?port=5434`. Compose fallback
   port `5433`, database still `opendiscourse`.
