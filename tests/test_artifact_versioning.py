@@ -2,33 +2,32 @@
 
 from __future__ import annotations
 
-import os
 import json
 import socket
 import threading
 import time
 import uuid
-from contextlib import contextmanager
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from hashlib import sha256
-from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 import httpx
-import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config
+from db_cluster import cloned_database
 from sqlalchemy import insert, select
-from sqlalchemy.engine import make_url
 
+from opendiscourse_research.artifact_storage import retain_artifact_bytes
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
-from opendiscourse_research.db import _engine, apply_migrations, connect, session
-from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
+from opendiscourse_research.db import connect, session
 from opendiscourse_research.ingestion import bulk
-from opendiscourse_research.artifact_storage import retain_artifact_bytes
-from opendiscourse_research.models.catalog import artifact_table, CatalogSnapshot
+from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
+from opendiscourse_research.models.catalog import CatalogSnapshot, artifact_table
 from opendiscourse_research.models.core import document_table
 from opendiscourse_research.repositories.legislation import (
     get_artifact,
@@ -44,51 +43,16 @@ def _key(name: str) -> str:
     return f"story-1-7-{_NAMESPACE}-{name}"
 
 
-def _psycopg_url(url: str) -> str:
-    """Translate the testcontainers SQLAlchemy URL to a psycopg URL."""
-    return url.replace("postgresql+psycopg2://", "postgresql://", 1)
-
-
 @pytest.fixture(scope="module")
-def catalog_database() -> None:
-    """Migrate either the configured test DB or an isolated PostGIS container."""
-    original_url = settings.database_url
-    external_url = os.environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
-    if external_url:
-        # Artifact history is permanent by design and blocks the migration downgrade
-        # that other test modules perform, so never share their database.
-        private = f"od_artifacts_{uuid.uuid4().hex[:12]}"
-        with psycopg.connect(external_url, autocommit=True) as admin:
-            admin.execute(f'CREATE DATABASE "{private}"')
-        settings.database_url = (
-            make_url(external_url)
-            .set(database=private)
-            .render_as_string(hide_password=False)
-        )
-        _engine.cache_clear()
-        apply_migrations()
-        sync_inventory()
-        try:
-            yield
-        finally:
-            settings.database_url = original_url
-            _engine.cache_clear()
-            with psycopg.connect(external_url, autocommit=True) as admin:
-                admin.execute(f'DROP DATABASE IF EXISTS "{private}" WITH (FORCE)')
-        return
+def catalog_database() -> Iterator[None]:
+    """Use a private copy of the migrated template.
 
-    postgres = pytest.importorskip("testcontainers.postgres")
-    with postgres.PostgresContainer(
-        "postgis/postgis:17-3.5", username="test", password="test", dbname="test"
-    ) as container:
-        settings.database_url = _psycopg_url(container.get_connection_url())
-        apply_migrations()
+    Artifact history is permanent and blocks a migration downgrade, so this
+    module must not share a database with the modules that downgrade.
+    """
+    with cloned_database():
         sync_inventory()
-        try:
-            yield
-        finally:
-            settings.database_url = original_url
-            _engine.cache_clear()
+        yield
 
 
 def _register(key: str, checksum: str | None, *, conn: object | None = None) -> dict:

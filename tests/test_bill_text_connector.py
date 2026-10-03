@@ -2,14 +2,13 @@
 
 A fake origin serves small synthetic zips for Congress 998, a Congress that does not
 exist, so nothing here can touch real rows. Every test starts and ends with those rows
-removed: CI runs every DB module against one shared database.
+removed. Tests in this module share one database copy.
 """
 
 from __future__ import annotations
 
 import hashlib
 import io
-import os
 import zipfile
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -19,13 +18,12 @@ from xml.etree import ElementTree
 
 import pytest
 from alembic import command
+from db_cluster import cloned_database
 
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
 from opendiscourse_research.db import (
     _alembic_config,
-    _engine,
-    apply_migrations,
     connect,
 )
 from opendiscourse_research.ingestion import bill_text as bill_text_mod
@@ -51,30 +49,13 @@ LATER = "Sun, 21 Jan 2024 03:00:00 GMT"
 
 @pytest.fixture(scope="module")
 def catalog_database() -> Iterator[None]:
-    original = settings.database_url
-    external = os.environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
-    if external:
-        settings.database_url = external
-        container = None
-    else:
-        postgres = pytest.importorskip("testcontainers.postgres")
-        container = postgres.PostgresContainer(
-            "postgis/postgis:17-3.5", username="test", password="test", dbname="test"
-        )
-        container.start()
-        settings.database_url = container.get_connection_url().replace(
-            "postgresql+psycopg2://", "postgresql://", 1
-        )
-    try:
-        apply_migrations()
+    """Use a private copy of the migrated PostGIS template."""
+    with cloned_database():
         sync_inventory()
-        yield
-    finally:
-        _remove_rows()
-        settings.database_url = original
-        _engine.cache_clear()
-        if container is not None:
-            container.stop()
+        try:
+            yield
+        finally:
+            _remove_rows()
 
 
 def _remove_rows() -> None:

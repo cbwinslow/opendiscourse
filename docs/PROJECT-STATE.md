@@ -1,5 +1,13 @@
 # Project state and handoff
 
+**Database tests (2026-10-03).** One PostGIS server is used for a test run.
+Migrations run once into a template database, and each test module gets a
+private copy (`tests/db_cluster.py`). Do not start a container per test file.
+Parallel database tests stay off until each worker has its own template.
+Proof: `tests/test_db_cluster.py` and `tests/test_run_ledger.py` passed
+together in one run (13 tests, one server start). The full database suite
+was not rerun.
+
 **OpenStates Story 1 stopping point (2026-10-02).** At the operator's request,
 audit work is paused and saved on `feat/openstates-audit-story-1` at `7363339`,
 not merged into main. Resume in `/home/cbwinslow/workspace/opendiscourse-story-1`

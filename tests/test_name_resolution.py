@@ -9,7 +9,6 @@ from __future__ import annotations
 import copy
 import itertools
 import json
-import os
 import threading
 import time
 import uuid
@@ -19,15 +18,15 @@ from typing import Any
 import psycopg
 import pytest
 from alembic import command
+from db_cluster import cloned_database
 from typer.testing import CliRunner
 
+from opendiscourse_research import identitygate
 from opendiscourse_research.catalog import sync_inventory, validate_inventory
 from opendiscourse_research.cli import app
-from opendiscourse_research.config import settings
-from opendiscourse_research.db import _alembic_config, _engine, apply_migrations, connect
+from opendiscourse_research.db import _alembic_config, connect
 from opendiscourse_research.identity_merge import SamePerson
 from opendiscourse_research.ingestion.base import IngestionRun
-from opendiscourse_research import identitygate
 from opendiscourse_research.precedence import (
     _display,
     _entries,
@@ -247,27 +246,13 @@ def test_new_python_holds_no_long_sql() -> None:
 
 @pytest.fixture(scope="module")
 def catalog_database() -> Iterator[None]:
-    """CI's shared PostGIS service, or a disposable local one."""
-    original = settings.database_url
-    external = os.environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
-    container = None
-    if external:
-        settings.database_url = external
-    else:
-        postgres = pytest.importorskip("testcontainers.postgres")
-        container = postgres.PostgresContainer("postgis/postgis:17-3.5", username="test", password="test", dbname="test")
-        container.start()
-        settings.database_url = container.get_connection_url().replace("postgresql+psycopg2://", "postgresql://", 1)
-    try:
-        apply_migrations()
+    """Use a private copy of the migrated PostGIS template."""
+    with cloned_database():
         sync_inventory()
-        yield
-    finally:
-        _cleanup()
-        settings.database_url = original
-        _engine.cache_clear()
-        if container is not None:
-            container.stop()
+        try:
+            yield
+        finally:
+            _cleanup()
 
 
 def _cleanup() -> None:

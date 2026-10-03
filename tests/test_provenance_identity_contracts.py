@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
-import os
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 
 import httpx
 import pytest
+from db_cluster import cloned_database
 from geoalchemy2 import WKTElement
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
 from opendiscourse_research.catalog import sync_inventory
-from opendiscourse_research.config import settings
-from opendiscourse_research.db import _engine, apply_migrations, session
+from opendiscourse_research.db import session
 from opendiscourse_research.ingestion.base import IngestionRun
 from opendiscourse_research.models.catalog import artifact_table
 from opendiscourse_research.models.core import (
@@ -68,42 +67,12 @@ def _count(table, column: str, value: object) -> int:
         ).scalar_one()
 
 
-def _psycopg_url(url: str) -> str:
-    """Normalize testcontainers' SQLAlchemy URL for the project's psycopg client."""
-    return url.replace("postgresql+psycopg2://", "postgresql://", 1)
-
-
 @pytest.fixture(scope="module")
 def catalog_database() -> Iterator[None]:
-    """Provide CI's PostGIS service or a local disposable PostGIS instance."""
-    original_url = settings.database_url
-    external_url = os.environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
-    if external_url:
-        settings.database_url = external_url
-        apply_migrations()
+    """Use a private copy of the migrated PostGIS template."""
+    with cloned_database():
         sync_inventory()
-        try:
-            yield
-        finally:
-            settings.database_url = original_url
-            _engine.cache_clear()
-        return
-
-    postgres = pytest.importorskip("testcontainers.postgres")
-    with postgres.PostgresContainer(
-        "postgis/postgis:17-3.5",
-        username="test",
-        password="test",
-        dbname="test",
-    ) as container:
-        settings.database_url = _psycopg_url(container.get_connection_url())
-        apply_migrations()
-        sync_inventory()
-        try:
-            yield
-        finally:
-            settings.database_url = original_url
-            _engine.cache_clear()
+        yield
 
 
 def _contract_artifact(suffix: str) -> uuid.UUID:

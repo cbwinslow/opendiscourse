@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterator
 from datetime import date
 
 import pytest
+from db_cluster import cloned_database
 
 from opendiscourse_research.catalog import sync_inventory
-from opendiscourse_research.config import settings
 from opendiscourse_research.coverage import OfficialCache, build_report, congress_span
-from opendiscourse_research.db import _engine, apply_migrations, connect
+from opendiscourse_research.db import connect
 from opendiscourse_research.repositories.coverage import loaded_counts
 
 TEST_JURISDICTION = "ocd-jurisdiction/country:zz/coverage-test"
@@ -22,31 +21,13 @@ TABLES = ("core.bill", "core.roll_call", "fact.member_vote", "core.membership", 
 
 @pytest.fixture(scope="module")
 def database() -> Iterator[None]:
-    """CI's shared PostGIS service, or a disposable local one."""
-    original = settings.database_url
-    external = os.environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
-    container = None
-    if external:
-        settings.database_url = external
-    else:
-        postgres = pytest.importorskip("testcontainers.postgres")
-        container = postgres.PostgresContainer(
-            "postgis/postgis:17-3.5", username="test", password="test", dbname="test"
-        )
-        container.start()
-        settings.database_url = container.get_connection_url().replace(
-            "postgresql+psycopg2://", "postgresql://", 1
-        )
-    try:
-        apply_migrations()
+    """Use a private copy of the migrated PostGIS template."""
+    with cloned_database():
         sync_inventory()
-        yield
-    finally:
-        _cleanup()
-        settings.database_url = original
-        _engine.cache_clear()
-        if container is not None:
-            container.stop()
+        try:
+            yield
+        finally:
+            _cleanup()
 
 
 def _cleanup() -> None:

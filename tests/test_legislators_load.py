@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import itertools
 import json
-import os
 import subprocess
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from db_cluster import cloned_database
 from idempotency_harness import (
     IdempotencyCase,
     assert_kill_and_resume_same,
@@ -21,7 +21,7 @@ from sqlalchemy import func, select, text
 
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
-from opendiscourse_research.db import _engine, apply_migrations, connect, session
+from opendiscourse_research.db import connect, session
 from opendiscourse_research.ingestion.connector import run_connector
 from opendiscourse_research.ingestion.legislators import LegislatorsConnector
 from opendiscourse_research.models.catalog import artifact_table
@@ -38,38 +38,19 @@ def _bioguide() -> str:
 
 @pytest.fixture(scope="module")
 def catalog_database() -> Iterator[None]:
-    """Use CI's PostGIS service or a disposable local one, as the 1.6 contract tests do."""
-    original = settings.database_url
-    external = os.environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
-    if external:
-        settings.database_url = external
-        container = None
-    else:
-        postgres = pytest.importorskip("testcontainers.postgres")
-        container = postgres.PostgresContainer(
-            "postgis/postgis:17-3.5", username="test", password="test", dbname="test"
-        )
-        container.start()
-        settings.database_url = container.get_connection_url().replace(
-            "postgresql+psycopg2://", "postgresql://", 1
-        )
-    try:
-        apply_migrations()
+    """Use a private copy of the migrated PostGIS template."""
+    with cloned_database():
         sync_inventory()
         _seed_chamber_organizations()
-        yield
-    finally:
-        # CI runs every DB module against one shared database, and later tests
-        # downgrade the schema; the person_identifier downgrade guard refuses
-        # while evidence pointers exist. Leave the database as we found it.
-        _remove_loaded_rows()
-        with connect() as conn:
-            conn.execute("DELETE FROM core.organization WHERE metadata->>'test_seed' = 'true'")
-            conn.commit()
-        settings.database_url = original
-        _engine.cache_clear()
-        if container is not None:
-            container.stop()
+        try:
+            yield
+        finally:
+            _remove_loaded_rows()
+            with connect() as conn:
+                conn.execute(
+                    "DELETE FROM core.organization WHERE metadata->>'test_seed' = 'true'"
+                )
+                conn.commit()
 
 
 _TEST_ORGS = (("lower", "House"), ("upper", "Senate"))
