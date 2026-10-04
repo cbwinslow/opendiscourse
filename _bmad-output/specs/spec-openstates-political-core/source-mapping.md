@@ -2,6 +2,8 @@
 
 This companion defines the mapping review required by `SPEC-openstates-political-core` before bulk promotion. It is a contract for an owned OpenDiscourse model, not a request to copy the OpenStates database.
 
+The canonical tables model civic and political entities. A provider identifier describes how Congress.gov, GovInfo, the House, the Senate, OpenStates, or a later source names that entity. OpenDiscourse keeps the owned id. The provider id stays in a namespaced identifier row, with the artifact or payload and the run that asserted it.
+
 ## Source boundary
 
 The source of record is the full restored OpenStates snapshot; `openstates_source`
@@ -41,11 +43,11 @@ This crosswalk supports a stable *conceptual* model. It does not promise that an
 | --- | --- | --- |
 | Jurisdiction and division | `core.jurisdiction`, geographic/division reference | Preserve OCD/source identifier, classification, name, URL, parent/division reference, update timestamps, and source detail. |
 | Legislative session | `core.legislative_session` | Preserve source key, jurisdiction, identifiers, dates, class, active status, evidence, and source detail. |
-| Organization and its hierarchy | `core.organization`, `core.organization_identifier` | Preserve source key, class, name, jurisdiction, parent relationship, links, sources, other names, and source detail. |
-| Person and identifiers | `core.person`, `core.person_identifier`, name assertions | Preserve source key and every external identifier; type usable names, biography/dates/party/contact fields where approved, retain the source record, and never resolve a person by name. |
-| Office/post and membership | `core.post`, `core.membership` | Represent an office separately from its holder; preserve organization, division/district, role, party, dates, contact/leadership detail, and source key/evidence. If a required source relation is absent, report coverage rather than invent it. |
-| Bill, action, sponsorship, committee, subject, citation, document | `core.bill` and normalized bill child tables | Preserve OCD ID, official identifier, session/organization, class, dates, classification, subjects/citations, ordering, sponsor type/primary flag, source documents, and source detail. A source reference must remain source-keyed even when the target is not yet promoted. |
-| Vote event and individual vote | `core.roll_call`, `fact.member_vote`, supporting vote totals/source rows | Preserve source key, motion/question, classifications, result, timing/order, organization/session/bill/action references, vote option/note/voter text, and source detail. Unresolved voters remain recorded as source-native unresolved rows, never name-linked. |
+| Organization and its hierarchy | `core.organization`, `core.organization_identifier` | Preserve source key, class, name, jurisdiction, and an owned parent link (legislature, chamber, committee, subcommittee). Jurisdiction, division, and geography stay separate. Do not store an OCD id in `jurisdiction_geoid`. |
+| Person and identifiers | `core.person`, `core.person_identifier`, name assertions | A person is found by BioGuide, an OpenStates/OCD person id, or another approved identifier. The same person may carry both when each identifier is an authoritative assertion. Never merge on name, party, district, or office. |
+| Office/post and membership | `core.post`, `core.membership` | A post exists without a holder. Membership is the dated link among person, organization, post, and division. Historical facts use the division and boundary vintage of that time. |
+| Bill, action, sponsorship, committee, subject, citation, document, version | `core.bill`, `core.bill_identifier`, and normalized child tables | Owned `bill_id`, jurisdiction, session, originating organization where supplied, official identifier, classifications, and dates identify a bill. Congress keeps Congress number, bill type, and bill number. OpenStates keeps its bill id and the exact official identifier, such as `HB 264`. That identifier is not a title and is not parsed into federal type and number. |
+| Vote event and individual vote | `core.roll_call`, a namespaced roll-call identifier, `fact.member_vote`, source totals | Federal roll numbers and OpenStates vote ids stay in their own namespaces. An unresolved voter stays in source evidence with the displayed name and position. No canonical member vote is inserted without a resolved person, and source totals still reconcile the roll call. |
 
 ## Relation and field-disposition inventory
 
@@ -106,7 +108,7 @@ Each promotion run must reconcile:
 Story 1 is complete only when all of the following evidence exists:
 
 1. The generated source-relation/table/column/nested-field inventory covers the actual snapshot and records a disposition for every relation and field. It compares the snapshot manifest with the FDW allow-list and accounts for every difference.
-2. The mapping is reviewed against current OpenDiscourse tables and identifies minimal schema changes, including why each is needed; no source-table copy is proposed.
+2. The mapping is reviewed against current OpenDiscourse tables and identifies minimal schema changes, including why each is needed; no source-table copy is proposed. The semantic decisions in "Approved semantic decisions" were accepted on 2026-10-04. That acceptance does not sign each field, attest the restored archive, or authorize a migration.
 3. The mapping explicitly covers people, organizations, jurisdictions, sessions, offices/posts, memberships, bills, actions, sponsors, documents, vote events, individual votes, and every additional discovered relation; absent source coverage is reported as a gap.
 4. A source fingerprint and drift test fail closed for an unreviewed new relation, table, column, or nested public field.
 5. Identity tests prove that a display-name collision does not create a cross-provider link, while a permitted identifier does.
@@ -143,27 +145,51 @@ are separate checkpointed stories.
 4. Review pilot evidence, then approve jurisdiction/session batches separately.
 5. Only after political identities are proven, evaluate downstream FEC/federal research marts.
 
-## Schema decisions still waiting for a person to accept them
+## Approved semantic decisions (2026-10-04)
 
-The 2026-10-02 read-only audit compared the restored snapshot with the tables OpenDiscourse already owns. The proposal is `docs/audits/openstates/2026-10-02/mapping-review.json`. It is not an approval: `approved` is false, all 761 fields have no review time, and no one attested which archive file was restored into the database. Story 2 (new tables) stays blocked until a person accepts this list. No source table is copied.
+Accepted for the later schema story. They do not authorize a migration, a reader change, a source write, promotion, an FEC transfer, or a person join. Issue #100 stays a read-only audit. `docs/audits/openstates/2026-10-02/mapping-review.json` remains a field proposal: `approved` is false and no field has `reviewed_at`.
 
-These are the changes that block a faithful copy of state and local politics into the current federal-shaped tables:
+Providers are peers. Congress.gov, GovInfo, the House, the Senate, and OpenStates each keep their own files and identifiers. Those identifiers become assertions on owned rows. Neither the OpenStates Django tables nor today's Congress-shaped columns are the warehouse schema.
 
-| Source | Owned table | What has to be decided before any rows are copied |
+1. **Bills.** A bill is an owned `bill_id` plus jurisdiction, legislative session, originating organization where the source supplies one, the official identifier, classifications, dates, and identifier assertions. Congress rows keep Congress number, federal bill type, and federal bill number. OpenStates rows keep the OCD bill id, the exact official identifier (`HB 264`), jurisdiction, session, chamber where supplied, classifications, and source detail. Do not invent federal `bill_type` or `bill_number` for a state bill. `HB 264` is an official identifier in `core.bill_identifier`, not a title.
+2. **Sessions.** Keep the owned UUID primary key. Session identity is jurisdiction-scoped. Store the provider session identifier beside the jurisdiction and the evidence. Do not use an OpenStates id as the physical primary key.
+3. **Organizations.** Represent legislature, chamber, committee, and subcommittee with an owned parent link. Keep external ids in `core.organization_identifier`. `jurisdiction_geoid` is geography only. Organization identity, jurisdiction, division, and geography stay separate.
+4. **People.** Federal people resolve on BioGuide. OpenStates people enter on their OCD person id. Both may name the same `core.person` only when each side is an authoritative identifier assertion. Never merge on name, party, district, or office. `core.person_identifier(namespace, external_id)` remains the identity mechanism.
+5. **Sponsorship.** Federal sponsors keep namespace `bioguide`. OpenStates sponsors use the OCD person-id namespace. A name with no stable id stays unresolved source evidence. Do not invent a person. Keep sponsor/cosponsor, the primary flag when the source supplies it, and useful source order. Unusual wording stays in the source record. The role check is not a place to store every provider sentence.
+6. **Documents and bill versions.** `document_id` is owned. An OpenStates document id is a namespaced identifier, not the primary key. Link documents to bills through `core.bill_document`. Bill versions, abstracts, documents, media, related bills, vote counts, events, and agendas each keep an explicit disposition. Do not fold an OpenStates version into GovInfo's `version_code`. `congress`, `bill_type`, `bill_number`, and `version_code` are federal metadata, not the definition of a document.
+7. **Roll calls.** `roll_call_id` is owned. A federal roll number and an OpenStates vote id are different namespaces. Never write an OpenStates vote id into `roll_number`. Prefer `core.roll_call_identifier`, on the same pattern as person, bill, and organization identifiers, over one un-namespaced `external_id`. Source totals stay even when a voter is unresolved.
+8. **Individual votes.** `fact.member_vote` is only for a resolved person, keyed by `(roll_call_id, person_id)`. An unresolved voter keeps the source record, the displayed name, the position, and the evidence. Do not insert a member vote with a null person, do not name-match, and do not invent a person. The reconciliation report must count those rows. Aggregate totals still reconcile the roll call.
+9. **Field preservation.** Every discovered relation and public field gets a disposition: typed/promoted, retained source detail, reference-only, implementation-only, unavailable, or excluded with a reason. A field that does not fit the first typed columns is retained, not dropped.
+10. **Posts, memberships, and geography.** A post is not a membership. Membership is the dated relationship. Historical facts use the division and boundary of that date, not today's district.
+11. **Source boundary.** Database `openstates` is replace/restore only. `openstates_source` is the least-privilege read interface. Researchers query owned tables. A later dump restore must be able to replace `openstates` without changing owned political rows.
+12. **Provenance.** External ids are kept beside owned UUIDs. A promoted row points at its artifact or payload, member path where the source has one, mapping version, and ingest run. Conflicts stay visible.
+
+## Schema mismatches the later story must fix
+
+Reviewed against `src/opendiscourse_research/models/core.py` on 2026-10-04. No table was changed.
+
+| Current shape | Why it is federal-first | Required future change |
 | --- | --- | --- |
-| Bill | `core.bill` | `bill_type` and `bill_number` are required and mean a federal bill. Do not parse a state label into them. A later change must allow a non-federal bill, or those columns must allow empty values. Do not invent a fake federal number. |
-| Legislative session | `core.legislative_session` | Decide whether the source session id is reused after a collision check, or stored beside a new id. The owned table has no separate source-key column. |
-| Organization | `core.organization` | Do not store the Open Civic Data jurisdiction id in `jurisdiction_geoid`. There is no parent column, so a parent organization cannot be hidden in notes without an explicit hierarchy decision. |
-| Sponsorship | `core.bill_sponsorship` | The member id column assumes a BioGuide id and is required. State sponsorships need their own id space and must allow a missing person. The role check allows only sponsor or cosponsor; other source words stay in source detail or the check must widen. |
-| Document | `core.bill_document` | This table only links a bill to `core.document`. The document's date, note, and links need a document row plus retained evidence. The source-key grain for that document row is not approved. |
-| Vote event | `core.roll_call` | `external_id` has no id space. Do not write an OpenStates id there until a prefix is approved, because federal roll-call ids share that column. Fill jurisdiction and session only from resolved owned rows. |
-| Person vote | `fact.member_vote` | There is no voter-name column, and the person id is required. A vote whose voter is not resolved stays in the source until a person accepts a design for that gap. |
+| `core.bill.bill_type` and `bill_number` are `NOT NULL`. Uniqueness is `(jurisdiction, legislative_session, bill_type, bill_number)`. | A state bill has no Congress type or number. | Keep those columns for Congress rows. Stop requiring them for every bill. Identify a non-federal bill by owned id, jurisdiction, session, official identifier, and OCD id. Add originating `organization_id` and classifications. Do not parse `HB 264`. |
+| `core.legislative_session` already uses an owned UUID and unique `(jurisdiction_id, identifier)`. | The provider uuid and the human session identifier are two values, and only `identifier` is stored. | Keep the UUID key. Let `identifier` hold the provider's jurisdiction-scoped session id. Add a nullable OCD/session id, unique when present, rather than promoting either value to the primary key. |
+| `core.organization` has `jurisdiction_geoid` and no parent. It also has no artifact or payload column. | Hierarchy and place cannot be represented, and a new row would have nowhere to record evidence. | Add `parent_organization_id`. Add `jurisdiction_id` as a jurisdiction reference, separate from geography. Keep `organization_identifier`. Add nullable evidence columns; existing rows may stay without them, and a new promoted row must supply artifact or payload. |
+| `core.bill_sponsorship.member_namespace` defaults to `bioguide`. `member_external_id` is required. `role` allows only sponsor or cosponsor. There is no primary-sponsor column. | A state sponsor is not a BioGuide id. A name-only sponsor cannot be stored honestly, and a default would label it as federal. | Writers must set the namespace; drop the BioGuide default. Keep `member_external_id` required so a name-only sponsor cannot enter this table. Add a nullable primary flag. Leave other role words in source detail. |
+| `core.document` is uniquely `(document_type, source_key)` and carries GovInfo `congress`, `bill_type`, `bill_number`, and `version_code`. `core.bill_text_source_record` requires all of those federal keys. | An OpenStates document id is not a GovInfo package, and a state bill version cannot satisfy Congress, type, and number. | Keep owned `document_id`. Add `core.document_identifier`. Leave the federal columns nullable and unused for state rows. Distinguish a bill version from a supporting document with `document_type`. Keep `bill_text_source_record` as the GovInfo grain. A state version's lossless payload stays on the artifact/payload, linked by `document_id`, not in the GovInfo version table. |
+| `core.roll_call.external_id` is `NOT NULL` and unique with jurisdiction and session. `roll_number` is the House/Senate number. | One column cannot name both a Senate vote number and an OCD vote id. | Add `core.roll_call_identifier`. Allow `external_id` to be empty only when a namespaced identifier exists. Keep the current uniqueness for rows that still have `external_id`. Never copy an OCD vote id into `roll_number`. |
+| `fact.member_vote` primary key is `(roll_call_id, person_id)`. | An unresolved voter has no person id. | Leave this key. Do not add a null person. Unresolved voters remain in the roll-call source record and in the reconciliation counts. `name_at_vote` is display text from a resolved federal file, not a join key. |
 
-These do not block the audit, and they do not approve a copy yet:
+Partial dates stay out of `date` and `timestamp` columns. A year or a month remains source text. Membership still waits on person, organization, and optional post bridges. A post's source division id is not automatically `core.division.division_id`. Parent-derived coverage in `parent-derived-coverage.json` measured links; a missing link is "not supplied," not a publisher zero.
 
-- A jurisdiction row has no owned column that says which saved file supplied it.
-- A membership row waits until the person, organization, and optional post bridges exist.
-- A person's current jurisdiction is a current attribute, not a history of memberships.
-- A post's division id is not approved as a dated link to the owned division id.
-- An action date that is only a year or a month cannot become a full timestamp.
-- Child coverage through parent bills and sessions was measured in `parent-derived-coverage.json` (no query failures). A missing link is "not supplied," not a publisher zero. That file is not an approval, and it does not prove which archive was restored.
+## Proposed schema diff (not implemented)
+
+This is the review draft for the story after #100. It is not a migration. The change should be one reviewed Alembic revision that existing federal rows survive: new columns nullable, current Congress values left in place, and no copy from database `openstates`.
+
+- `core.bill`: nullable `bill_type` and `bill_number`; partial unique index on `(jurisdiction, legislative_session, bill_type, bill_number)` where both federal columns are present; nullable `organization_id`; `classification text[]`; official identifiers only in `core.bill_identifier`.
+- `core.legislative_session`: add nullable `ocd_id text` with a partial unique index. Do not replace `legislative_session_id`.
+- `core.organization`: add nullable `parent_organization_id` self-reference and nullable `jurisdiction_id`; add nullable `source_artifact_id` and `source_payload_id`.
+- `core.bill_sponsorship`: drop the `bioguide` server default; add nullable `is_primary boolean`.
+- `core.document_identifier`: new table, `(document_id, namespace, external_id)`, with artifact or payload required, matching `core.bill_identifier`.
+- `core.roll_call_identifier`: new table, `(roll_call_id, namespace, external_id)`, with the same evidence rule. Then allow `core.roll_call.external_id` to be null when that table has a row. Keep `roll_number` federal.
+- `fact.member_vote`: no column change. Unresolved voters are a report over the source record, not a new fact grain.
+
+A later promotion story, not this audit, backfills identifiers and writes rows. Before that migration is written, a person reviews this diff. Favor these alterations over a second political schema.

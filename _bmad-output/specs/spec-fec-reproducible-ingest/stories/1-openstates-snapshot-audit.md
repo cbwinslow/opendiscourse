@@ -82,7 +82,8 @@ canonical promotion, FEC transfers, or actual cross-provider person links.
   and profiling queries, permission failures and reference reconciliation.
 - [x] `docs/PROJECT-STATE.md`: record evidence, remaining gaps and the issue status;
   close #100 only after every governing definition-of-done condition is satisfied.
-  Not closed: restore lineage and mapping approval are still absent.
+  Not closed: semantic mapping was accepted on 2026-10-04, but field-level
+  review times and restored-archive lineage are still absent.
 
 **Acceptance Criteria:**
 
@@ -113,6 +114,12 @@ Implementation checkout: `/home/cbwinslow/workspace/opendiscourse-story-1`, bran
 `feat/openstates-audit-story-1`, based on the committed programme.
 
 ## Spec Change Log
+
+2026-10-04: the operator accepted the semantic mapping in
+`../spec-openstates-political-core/source-mapping.md`, including the future
+schema mismatches. That acceptance does not complete #100. `mapping-review.json`
+is still `approved: false`. Restore lineage is still absent. No migration was
+written.
 
 2026-10-03: the unapproved schema decisions that block promotion are listed in
 `../spec-openstates-political-core/source-mapping.md`. `mapping-review.json`

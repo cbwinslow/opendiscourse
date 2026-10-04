@@ -1,5 +1,14 @@
 # Project state and handoff
 
+**Semantic mapping accepted; issue #100 stays open (2026-10-04).**
+The operator approved the civic-entity model: provider databases stay
+read-only evidence, and Congress and OpenStates are peer sources of owned
+rows. The decisions and the not-yet-implemented schema diff are in
+`_bmad-output/specs/spec-openstates-political-core/source-mapping.md`.
+No migration, FDW change, source write, promotion, or person join was made.
+Field-level `reviewed_at` is still empty, and no one has attested which
+archive file was restored. Draft PR #107 stays a draft.
+
 **Story 1 audit code is in place; issue #100 stays open (2026-10-03).**
 The read-only audit now keeps one exported database snapshot per connection,
 refuses counts when row filtering is active, compares every reader alias and

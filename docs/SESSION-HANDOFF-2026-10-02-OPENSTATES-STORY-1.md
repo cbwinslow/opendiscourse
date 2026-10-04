@@ -66,10 +66,10 @@ stopping-point verification below before relying on current code.
 ## Completion gates still open
 
 - Establish verifiable restored-artifact lineage; file integrity alone is insufficient.
-- A person must accept the schema decisions in
+- The semantic decisions were accepted on 2026-10-04 and written into
   `_bmad-output/specs/spec-openstates-political-core/source-mapping.md`.
-  `mapping-review.json` is a proposal: `approved` is false and no field has a
-  review time. Matching source and target names is not acceptance.
+  `mapping-review.json` is still a field proposal: `approved` is false and no
+  field has a review time. Semantic acceptance is not field sign-off.
 - Parent-derived coverage was measured into `parent-derived-coverage.json`
   (no query failures). It is not an approval, and a missing link is not a
   publisher zero. Jurisdiction and session groups in that file come from a
@@ -97,9 +97,9 @@ The stopping-point code includes exported consistent snapshots, visibility guard
 recomputed/separate fingerprints, tagged paths, reader-column/type/alias comparison,
 explicit review/restore evidence inputs, concrete mapping transformations and
 precision-aware text-date profiling. These improvements have not been followed
-by a new consistent/tagged live audit. No actual restore attestation or mapping
-approval was supplied. Parent-derived coverage has a measured file and is not
-an approval.
+by a new consistent/tagged live audit. No restore attestation was supplied. Semantic mapping was accepted on
+2026-10-04; the field matrix is still unapproved. Parent-derived coverage has a
+measured file and is not an approval.
 
 Resume the approved Story 1 implementation, finish its corrections and coverage,
 run focused checks followed by the required gates, then review the final change.
