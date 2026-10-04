@@ -5,6 +5,9 @@ The operator approved the civic-entity model: provider databases stay
 read-only evidence, and Congress and OpenStates are peer sources of owned
 rows. The decisions and the not-yet-implemented schema diff are in
 `_bmad-output/specs/spec-openstates-political-core/source-mapping.md`.
+The first diff, which only made federal bill type and number optional, was
+withdrawn: Congress reload keys stay intact, and a state bill gets its own
+identity.
 No migration, FDW change, source write, promotion, or person join was made.
 Field-level `reviewed_at` is still empty, and no one has attested which
 archive file was restored. Draft PR #107 stays a draft.
