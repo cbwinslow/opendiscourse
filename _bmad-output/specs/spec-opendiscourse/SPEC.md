@@ -8,7 +8,9 @@ companions:
   - legislative-north-star.md
   - ../spec-district-linked-context/SPEC.md
   - ../spec-district-linked-context/jurisdiction-time-model.md
+  - ../spec-district-linked-context/stories.yaml
   - ../../../inventory/dataset-roadmap.yaml
+  - ../../../inventory/geography-vintages.yaml
   - ../../planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md
   - ../../planning-artifacts/prds/prd-opendiscourse-2026-09-14/prd.md
   - ../../../docs/adr/0002-schema-invariants.md
@@ -96,8 +98,8 @@ not authorize a redesign.
   - **intent:** Researcher can see what happened in the place a member
     represents, during the term, with the geography and method stated.
   - **success:** Per `spec-district-linked-context`: district boundary vintages
-    and crosswalks load with evidence; a congressional-district-year table
-    builds from direct district sources, each value naming its native geography,
+    and crosswalks load with evidence; a congressional-district-period table
+    builds from the bounded direct-geography slice, each value naming its native geography,
     vintage, method and coverage. Gated sources stay gated (roadmap `gate`).
 
 ## Constraints
@@ -184,9 +186,11 @@ session columns or `stage.fec_row` as the product.
 
 ## Assumptions
 
-- Operator folded the 2026-10-05 ChatGPT district-data research into
-  `spec-district-linked-context` and `inventory/dataset-roadmap.yaml`
-  (2026-10-05); publisher facts in it are unverified until checked.
+- Operator approved the district-linked context programme on 2026-10-05.
+  `spec-district-linked-context/stories.yaml` is the executable Epic 10 queue;
+  `inventory/geography-vintages.yaml` contains the reviewed Census geography
+  calendar. Other roadmap publisher facts remain unverified until their source
+  story checks them.
 - Operator Fast-path authorized this distill (2026-09-14).
 - Vendor clones from `scripts/bootstrap_upstream.sh` are the wrap targets.
 - Operator accepted keep-and-refine from the 2026-09-17 schema review
