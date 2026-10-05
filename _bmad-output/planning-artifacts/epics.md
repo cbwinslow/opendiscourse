@@ -213,7 +213,7 @@ ACS 5-year district facts → reviewed metric registry →
 Freeze the 2021-2024 ACS political/statistical geography vintages and the
 separate roles of TIGER, relationship files, and BEFs.
 
-### Story 10.1 — ADR-0006 and district-period storage contract — ready
+### Story 10.1 — ADR-0006 and district-period storage contract — done
 Define packed ACS grain, survey-window semantics, required geography/schema
 changes, migration/reconciliation plan, and tests. No data transfer or old-table
 drop in this story.
@@ -344,9 +344,10 @@ Built (`research-db sync-billstatus`, `ingestion/billstatus.py`, `providers/govi
 
 ## Current next build (2026-10-05)
 
-1. **Epic 10 Story 10.1** — write/review ADR-0006 and the district-period
-   storage/schema contract. This is the highest-ready build.
-2. Then execute Stories 10.2 → 10.6 in order. Do not broaden to another source
+1. **Epic 10 Story 10.2** — load the official 119th Congressional District and
+   2024 SLDU/SLDL boundary packages with evidence and reconciliation. This is
+   the highest-ready build.
+2. Then execute Stories 10.3 → 10.6 in order. Do not broaden to another source
    merely because its connector looks easy.
 3. Open `slice_proven` only after Story 10.6 is complete and recorded in
    `docs/PROJECT-STATE.md`.
