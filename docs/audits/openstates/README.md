@@ -51,7 +51,18 @@ The fingerprint records candidate usable artifacts from `ingest.current_artifact
 but deliberately does not assert which archive was restored. A matching registered
 checksum is not restore proof. No restore attestation was discovered during the
 initial operator-approved audit. This gap blocks a verified baseline and Story 1
-completion. No baseline approval, schema edit, FDW expansion, promotion, FEC
+completion.
+
+On 2026-10-05 a read-only lookup of `ingest.current_artifact` found two
+registered dump files and two federal-vote pointers. None of them is attested
+as the restored database:
+
+| dataset | key | status | what it is |
+| --- | --- | --- | --- |
+| `openstates.dump` | `data-2026-07` | downloaded | `https://data.openstates.org/postgres/monthly/2026-07-public.pgdump`, sha256 `e4b8eb6d40d2da768074dab29bbf0d6949b8f24a50d75c5807669edcee5af78c`, 10,711,908,617 bytes |
+| `openstates.dump` | `schema-2026-07` | downloaded | `https://data.openstates.org/postgres/schema/2026-07-schema.pgdump`, sha256 `dd5e6a25eb580907cabfc60b5d5b7e57396a76943fa41f1d8d79fda014ee5089`, 71,260 bytes |
+| `openstates.legislation` | `federal-votes-118` | loaded | pointer `openstates_source://opencivicdata_voteevent`, not a dump file |
+| `openstates.legislation` | `federal-votes-119` | loaded | pointer `openstates_source://opencivicdata_voteevent`, not a dump file | No baseline approval, schema edit, FDW expansion, promotion, FEC
 transfer or person join is performed by this command.
 
 Future promotion starts with a separately approved bounded pilot, preserving

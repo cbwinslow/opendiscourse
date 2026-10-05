@@ -5,10 +5,12 @@ The operator approved the civic-entity model: provider databases stay
 read-only evidence, and Congress and OpenStates are peer sources of owned
 rows. The decisions and the not-yet-implemented schema diff are in
 `_bmad-output/specs/spec-openstates-political-core/source-mapping.md`.
-A state bill's identity is jurisdiction + session + official identifier.
-Chamber is a relationship, not part of that identity. The preferred federal
-shape is a `bill_federal_identity` extension, not nullable Congress columns.
-Session ids use `legislative_session_identifier`, not one provider column.
+Design A is the long-term shape and is no longer being redesigned. A state
+bill cannot be loaded until the federal key and `upsert_bill.sql` change
+together. The official session label stays on `legislative_session.identifier`.
+Provider ids use identifier tables, and a bare roll number is not an id.
+Registered dump candidates are listed in `docs/audits/openstates/README.md`.
+Neither is attested as the restored database.
 No migration, FDW change, source write, promotion, or person join was made.
 Field-level `reviewed_at` is still empty, and no one has attested which
 archive file was restored. Draft PR #107 stays a draft.
