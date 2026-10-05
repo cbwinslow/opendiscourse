@@ -1541,7 +1541,7 @@ def dhc_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -
 def tiger_bulk_plan(
     basket: str = typer.Option(
         "default",
-        help="Catalog selection containing the TIGER national boundary package.",
+        help="Catalog selection containing one reviewed TIGER boundary package.",
     ),
 ) -> None:
     """Write a disabled TIGER/Line boundary plan from one reviewed package."""
