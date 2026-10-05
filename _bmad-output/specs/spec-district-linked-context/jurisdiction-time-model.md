@@ -49,9 +49,15 @@ division + Congress + boundary vintage + validity dates.
 `valid_to`, `source_dataset_id`, `source_artifact_id`. `weight_type` is required
 and matches the measure: population, housing_unit, household, employment, area,
 address_ratio. One generic area-overlap percentage is not allowed for
-population, housing, or employment measures. Weights come from Census
-relationship files, block equivalency files, and block-level LODES/decennial
-counts; do not hand-roll them (resolved-questions §6).
+population, housing, or employment measures.
+
+Census relationship files establish authoritative same-vintage geographic
+relationships, but an overlap row is **not automatically a population or
+employment weight**. Block Equivalency Files are whole-block tabulation
+assignments; where an official plan splits a block, TIGER geometry remains the
+boundary truth. Measure weights must be calculated reproducibly from an
+appropriate official atomic statistic (for example decennial population or
+LODES employment) and retain that source evidence.
 
 Supersedes the earlier non-goal "no `core.geography_relationship` until the
 first longitudinal mart": the `district_year` mart is that mart (resolved-questions §6 trigger met by this spec).
@@ -97,9 +103,7 @@ membership, person. Lives in `mart`/derived schema; follows AD rules (dbt owns
 `mart`). Raw ACS stays whole; a versioned semantic metric registry selects
 curated metrics (groups in the roadmap's `census.acs_5.metric_pack`).
 
-First gold table: `congressional_district_year` (population, CVAP, income,
-poverty, employment, establishments, payroll, housing cost, federal awards,
-requested funding, election margin, turnout), built after roadmap stages 1-10.
+First gold table: `congressional_district_period`, one row per division x boundary vintage x observation period. Story 10.6 proves it first with the 119th-Congress boundary and 2020-2024 ACS window only. CVAP and other sources are added after that gate; a wide table never mixes incompatible district vintages just to fill columns.
 
 ## 8. Three kinds of performance (project law)
 
