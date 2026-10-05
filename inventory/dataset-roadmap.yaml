@@ -3,8 +3,11 @@ description: >-
   Executable backlog of datasets that describe the places members represent.
   One row per source family, in build order. This is a plan, not a loader: a row
   authorizes nothing until its `gate` is met and its Connector story is opened.
-  `sources.yaml` stays the catalog of providers/datasets; this file adds
-  geography, priority, order, gate, and status. Spec:
+  `sources.yaml` stays the catalog of accepted/verified provider datasets;
+  this file may also hold unverified candidate IDs. A candidate without
+  `existing:` is promoted into `sources.yaml` only when its source story
+  verifies the publisher contract. This file adds geography, priority, order,
+  gate, and status. Spec:
   _bmad-output/specs/spec-district-linked-context/SPEC.md and
   jurisdiction-time-model.md beside it.
 origin: >-
@@ -142,14 +145,16 @@ datasets:
   - id: census.tiger.block
     existing: census.tiger
     priority: P0
-    stage: 1
+    stage: 8
     native: [block]
     rule: atomic_aggregate
-    gate: v1_spine
+    gate: slice_proven
     status: planned
     verified: false
     connector: extend tiger_bulk
-    notes: Atomic redistricting layer; large. Size via capacity gate before download.
+    notes: >-
+      Atomic redistricting layer; large and not part of the first vertical slice.
+      Capacity-gate a bounded official package before any transfer.
   - id: census.tiger.vtd
     existing: census.tiger
     priority: P0
