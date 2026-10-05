@@ -115,7 +115,7 @@ reviewed geography/time contracts.
 
 ### 4.5 Research access
 
-**FR-13:** dbt marts are the researcher interface (`district_year`,
+**FR-13:** dbt marts are the researcher interface (`congressional_district_period`,
 `legislator_vote`, bill timelines).
 
 **FR-14:** Read-only PostgREST on schema `api` (reviewed views only).
