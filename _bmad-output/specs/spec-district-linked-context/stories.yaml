@@ -45,7 +45,7 @@ stories:
   - id: "10.2"
     github_issue: 117
     title: Load official 119th congressional and 2024 state legislative boundaries
-    status: ready
+    status: in_progress
     depends_on: ["10.1"]
     gate: v1_spine
     deliverables:
