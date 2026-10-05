@@ -34,6 +34,7 @@ from opendiscourse_research.ingestion.tiger_bulk import (
     tiger_layers,
 )
 from opendiscourse_research.ingestion.tiger_load import _scope as tiger_scope
+from opendiscourse_research.ingestion.tiger_validate import _artifact_evidence
 
 
 def resource(dataset_id: str, key: str, resource_type: str) -> dict[str, str]:
@@ -253,6 +254,42 @@ class TestCensusBulkPlans(unittest.TestCase):
             ),
             {"cd119", "sldu", "sldl"},
         )
+
+    def test_tiger_validation_requires_retained_source_evidence(self) -> None:
+        with TemporaryDirectory() as directory:
+            retained = Path(directory) / "tl_2024_01_cd119.zip"
+            retained.write_bytes(b"fixture")
+            item = {
+                "artifact_key": "tiger-2024-cd119-01",
+                "kind": "cd119",
+                "state_fips": "01",
+                "url": (
+                    "https://www2.census.gov/geo/tiger/TIGER2024/CD/"
+                    "tl_2024_01_cd119.zip"
+                ),
+            }
+            artifact = {
+                "remote_url": item["url"],
+                "local_path": str(retained),
+                "bytes_downloaded": retained.stat().st_size,
+                "checksum_sha256": "a" * 64,
+            }
+            report = _artifact_evidence(
+                item,
+                artifact,
+                source_features=7,
+                official_host_required=True,
+            )
+            self.assertTrue(report["passed"])
+            artifact["checksum_sha256"] = ""
+            report = _artifact_evidence(
+                item,
+                artifact,
+                source_features=7,
+                official_host_required=True,
+            )
+            self.assertFalse(report["passed"])
+            self.assertFalse(report["checks"]["sha256"])
 
     def test_relevant_acs_tables_excludes_flags_collapsed_and_one_year_only(
         self,

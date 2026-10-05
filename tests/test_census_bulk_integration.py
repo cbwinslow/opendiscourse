@@ -22,6 +22,7 @@ from opendiscourse_research.ingestion.dhc_load import load_dhc, stage_dhc
 from opendiscourse_research.ingestion.fec_bulk import stage_family
 from opendiscourse_research.ingestion.pep_load import load_pep, stage_pep
 from opendiscourse_research.ingestion.tiger_load import load_tiger, stage_tiger
+from opendiscourse_research.ingestion.tiger_validate import validate_tiger_plan
 
 _BULK_DATABASE_READY = False
 
@@ -499,14 +500,40 @@ class TestBulkDatabaseIntegration(unittest.TestCase):
             },
             "canonical_load_scope": {"layers": ["cd119", "sldu", "sldl"]},
             "artifacts": [
-                {"artifact_key": key, "kind": layer}
-                for key, layer, _path in fixtures
+                {
+                    "artifact_key": key,
+                    "kind": layer,
+                    "url": f"https://example.test/{path.name}",
+                }
+                for key, layer, path in fixtures
             ],
         }
         self.assertEqual(stage_tiger(plan), 3)
         plan["state"] = "staged"
         self.assertEqual(load_tiger(plan), 3)
-        self.assertEqual(load_tiger(plan), 3)
+        plan["state"] = "loaded"
+        validation = validate_tiger_plan(
+            plan,
+            rerun_load=True,
+            official_host_required=False,
+        )
+        self.assertTrue(validation["passed"])
+        self.assertTrue(validation["idempotency"]["stable"])
+        self.assertEqual(
+            {
+                row["layer"]: (
+                    row["source_features"],
+                    row["staged_rows"],
+                    row["loaded_boundaries"],
+                )
+                for row in validation["layers"]
+            },
+            {
+                "cd119": (1, 1, 1),
+                "sldl": (1, 1, 1),
+                "sldu": (1, 1, 1),
+            },
+        )
 
         with connect() as conn, conn.cursor() as cur:
             cur.execute(
