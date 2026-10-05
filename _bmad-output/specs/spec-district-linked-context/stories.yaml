@@ -1,6 +1,7 @@
 version: 1
 spec: SPEC-district-linked-context
 programme: Epic 10 — Jurisdiction geography and district context
+programme_issue: 116
 north_star: >-
   Prove one complete, provenance-backed 119th-Congress vertical slice from
   official district boundary to member occupancy to 2024 ACS facts to curated
@@ -42,6 +43,7 @@ stories:
       Do not download data or drop the existing ACS fact table in this story.
 
   - id: "10.2"
+    github_issue: 117
     title: Load official 119th congressional and 2024 state legislative boundaries
     status: ready
     depends_on: ["10.1"]
@@ -62,6 +64,7 @@ stories:
       Do not start national block downloads.
 
   - id: "10.3"
+    github_issue: 118
     title: Link political divisions to boundary vintages and define crosswalk evidence
     status: blocked
     depends_on: ["10.2"]
@@ -82,6 +85,7 @@ stories:
       from area overlap.
 
   - id: "10.4"
+    github_issue: 119
     title: Publish packed 2024 ACS congressional-district facts
     status: blocked
     depends_on: ["10.1", "10.2", "10.3"]
@@ -103,6 +107,7 @@ stories:
       state-legislative districts.
 
   - id: "10.5"
+    github_issue: 120
     title: Define the curated district metric registry
     status: blocked
     depends_on: ["10.4"]
@@ -122,6 +127,7 @@ stories:
       table before Story 10.6 can complete.
 
   - id: "10.6"
+    github_issue: 121
     title: Prove the 119th congressional-district-period mart
     status: blocked
     depends_on: ["10.5"]
