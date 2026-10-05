@@ -87,13 +87,13 @@ district rows use the **116th**, not the 117th, district vintage.
   replicate weights and imputation flags stay in retained ZIPs; every row carries
   artifact, member and ordinal; 1-year and 5-year stay separate products.
 - **CAP-4** Topic sources join to members by geography. Success: each source is
-  verified at its official endpoint (URL, licence, size, coverage) before a Connector
-  is written; each declares its native geography and, where it does not match a
-  district, an approved crosswalk with the apportionment rule stated (an approximation
-  is labelled as one). Priority: election results by district (party), FBI crime,
-  immigration (DHS/CBP/EOIR/State), benefits (SNAP, TANF, SSA, Medicaid, HUD),
-  IRS income by ZIP/county, BLS LAUS/QCEW by county, BEA county output, HUD-USPS ZIP
-  crosswalk.
+  verified at its official endpoint (URL, terms/licence, size, coverage, schema)
+  before a Connector is written; each declares its native geography and, where
+  it does not match a district, an approved crosswalk with the allocation rule
+  stated and uncertainty labelled. Build order and authorization come only from
+  `stories.yaml` + `inventory/dataset-roadmap.yaml`: post-slice sources begin
+  with CVAP, CBP congressional-district coverage, IRS SOI, LODES, USAspending
+  and GAO CPF/CDS; elections/FBI/FEC remain behind Epic 7/person-join gates.
 - **CAP-6** A member's division resolves to boundary vintages and observations
   project onto it by a recorded method. Success: `core.division_boundary` (division
   x vintage x validity dates) and `core.geography_crosswalk` (typed `weight_type`,
@@ -125,8 +125,8 @@ district rows use the **116th**, not the 117th, district vintage.
 - Wiping and reloading derived rows is authorised; each wipe is recorded in
   `docs/PROJECT-STATE.md` or the run ledger. Retained artifacts are never changed.
 - The roadmap (`inventory/dataset-roadmap.yaml`) does not authorize ingest. Each row
-  keeps its `gate`: `v1_spine` (TIGER, ACS, CBP, decennial, PEP) may proceed;
-  `slice_proven` waits for a proven Connector-to-mart slice (v1-scope.md);
+  keeps its `gate`: `v1_spine` means only a currently-ready Epic 10 story
+  may proceed; `slice_proven` waits for Story 10.6 (v1-scope.md);
   `epic7` (elections, crime, money) stays closed until Epic 7 opens;
   `person_join` needs BioGuide through `identitygate`.
 - Direct district data beats crosswalking; ZCTA/ZIP is an escape hatch, labelled.
