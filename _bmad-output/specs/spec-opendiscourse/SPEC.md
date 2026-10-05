@@ -6,6 +6,9 @@ companions:
   - schema-invariants.md
   - resolved-questions.md
   - legislative-north-star.md
+  - ../spec-district-linked-context/SPEC.md
+  - ../spec-district-linked-context/jurisdiction-time-model.md
+  - ../../../inventory/dataset-roadmap.yaml
   - ../../planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md
   - ../../planning-artifacts/prds/prd-opendiscourse-2026-09-14/prd.md
   - ../../../docs/adr/0002-schema-invariants.md
@@ -89,6 +92,14 @@ not authorize a redesign.
     workflow is not done. Scorecards stay out of this capability (see
     non-goals). CAP-9 stays reserved for that later scorecard spec.
 
+- **CAP-11**
+  - **intent:** Researcher can see what happened in the place a member
+    represents, during the term, with the geography and method stated.
+  - **success:** Per `spec-district-linked-context`: district boundary vintages
+    and crosswalks load with evidence; a congressional-district-year table
+    builds from direct district sources, each value naming its native geography,
+    vintage, method and coverage. Gated sources stay gated (roadmap `gate`).
+
 ## Constraints
 
 - Database name is `opendiscourse`. Postgres/PostGIS is system of record (AD-1).
@@ -152,12 +163,14 @@ not authorize a redesign.
   (Story 2.3) branch.
 - Ripping `core.instrument` / `fact.market_bar` in v1, or loading market
   bars because those tables exist.
-- Adding `core.geography_relationship` before the first longitudinal mart
-  that needs Census relationship files (resolved-questions.md §6).
 - Promoting `core.embedding.vector_values` to pgvector before chunks exist
   and a kNN/search story needs HNSW (resolved-questions.md §2).
 - Promoting `stage.fec_row` jsonb into `core`/`fact`, or joining FEC donors
   to people by name (resolved-questions.md §1).
+- Using ZIP/ZCTA as a district key, or one generic area-overlap weight for
+  population, housing, or employment measures.
+- Opening Epic 7 sources, scorecards, or causal-impact claims through the
+  district roadmap (it carries gates; CAP-9 stays reserved).
 - Another architectural rewrite from `docs/research/2026-09-17-chatgpt-schema-review.md`.
 
 ## Success signal
@@ -171,6 +184,9 @@ session columns or `stage.fec_row` as the product.
 
 ## Assumptions
 
+- Operator folded the 2026-10-05 ChatGPT district-data research into
+  `spec-district-linked-context` and `inventory/dataset-roadmap.yaml`
+  (2026-10-05); publisher facts in it are unverified until checked.
 - Operator Fast-path authorized this distill (2026-09-14).
 - Vendor clones from `scripts/bootstrap_upstream.sh` are the wrap targets.
 - Operator accepted keep-and-refine from the 2026-09-17 schema review

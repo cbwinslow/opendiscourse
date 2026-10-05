@@ -17,7 +17,9 @@ search, or export code. Wrap behind provenance.
 | `usaspending-orm` | Evaluate before a custom USAspending client |
 | FEC bulk files (cm, cn, ccl, indiv, pas2, oth, oppexp) | Wrap official cycle zips; typed grains in `resolved-questions.md`. Do not promote `stage.fec_row` jsonb. Evaluate `fec-gov-postgres` as a loader reference, not a schema to copy |
 | MIT Election Lab / OpenElections | Evaluate when Epic 7 opens |
-| Census relationship files | Wrap for `geography_relationship` when Epic 5 needs vintage comparability |
+| Census relationship files, block equivalency files | Wrap for `geography_crosswalk` / `division_boundary` (Epic 10) |
+| LEHD LODES, IRS SOI, CVAP, FCC BDC, GAO CPF/CDS, HMDA, CDC PLACES, NCES CCD/CRDC | Candidates per `inventory/dataset-roadmap.yaml`; verify at the publisher, use official files |
+| Redistricting Data Hub | Comparison/validation source for election and boundary data, not a system of record |
 | IPUMS NHGIS crosswalks | Optional weights; evaluate before hand-rolling interpolation |
 | dlt | REST → `stage` only |
 | dbt | Marts |

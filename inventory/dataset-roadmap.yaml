@@ -1,0 +1,642 @@
+version: 1
+description: >-
+  Executable backlog of datasets that describe the places members represent.
+  One row per source family, in build order. This is a plan, not a loader: a row
+  authorizes nothing until its `gate` is met and its Connector story is opened.
+  `sources.yaml` stays the catalog of providers/datasets; this file adds
+  geography, priority, order, gate, and status. Spec:
+  _bmad-output/specs/spec-district-linked-context/SPEC.md and
+  jurisdiction-time-model.md beside it.
+origin: >-
+  Operator-supplied ChatGPT research, 2026-10-05, archived reasoning in the spec
+  memlog. Every provider claim below (endpoint, years, geographies, cadence) is
+  UNVERIFIED until the source's own story checks it at the publisher's endpoint
+  (`verified: false`). Do not copy a claim into a Connector without that check.
+
+# Field meanings
+#   stage      build order (1 = first). Rows sharing a stage can proceed in parallel.
+#   priority   P0 geographic infrastructure, P1 core outcome data, P2 contextual.
+#   native     geography the publisher actually reports. `direct` = reports the
+#              political geography itself (no crosswalk needed).
+#   rule       how it reaches a member's division (selection hierarchy, spec
+#              Constraints): direct | atomic_aggregate | weighted_crosswalk |
+#              spatial_interpolation | zip_approx | member_attributed | context_only
+#   gate       v1_spine            allowed now (SPEC v1 sequence: TIGER/Census).
+#              slice_proven        waits until a Connector->mart slice is proven
+#                                  (v1-scope.md; do not expand horizontally).
+#              epic7               elections, crime, money; Epic 7 not opened.
+#              person_join         member-keyed; needs BioGuide via identitygate.
+#   status     loaded | partial | downloaded | planned. `existing` names the
+#              sources.yaml id when one exists.
+
+geography_types:
+  # core.geography.geography_type values to support (spec CAP-1 / model §2).
+  # present today: nation, state, county, cbsa, zcta
+  required_new: [congressional_district, sldu, sldl, tract, block_group, block, puma, vtd, place, school_district, aiannh, local_division]
+  zip_policy: >-
+    ZCTA is a Census statistical area, USPS ZIP is a delivery route. Neither is
+    a district key. ZIP-only sources use zip_approx and are labelled.
+
+selection_hierarchy:
+  - direct observation at the exact political geography
+  - exact aggregation from contained atomic geography (blocks, tracts)
+  - weighted crosswalk (weight type matches the measure)
+  - spatial interpolation
+  - zip approximation
+
+datasets:
+  # ---- Stage 1: geography infrastructure (P0) ----
+  - id: census.tiger.cd
+    existing: census.tiger
+    priority: P0
+    stage: 1
+    native: [congressional_district]
+    direct: true
+    rule: direct
+    gate: v1_spine
+    status: planned
+    verified: false
+    connector: extend tiger_bulk (LAYER_DIRS has state/county/cbsa/zcta only)
+    notes: One boundary vintage per Congress; record vintage and Congress.
+  - id: census.tiger.sldu
+    existing: census.tiger
+    priority: P0
+    stage: 1
+    native: [sldu]
+    direct: true
+    rule: direct
+    gate: v1_spine
+    status: planned
+    verified: false
+    connector: extend tiger_bulk
+  - id: census.tiger.sldl
+    existing: census.tiger
+    priority: P0
+    stage: 1
+    native: [sldl]
+    direct: true
+    rule: direct
+    gate: v1_spine
+    status: planned
+    verified: false
+    connector: extend tiger_bulk
+  - id: census.tiger.puma
+    existing: census.tiger
+    priority: P0
+    stage: 1
+    native: [puma]
+    direct: false
+    rule: weighted_crosswalk
+    gate: v1_spine
+    status: planned
+    verified: false
+    connector: extend tiger_bulk
+    notes: Only geography PUMS can be tied to.
+  - id: census.tiger.tract
+    existing: census.tiger
+    priority: P0
+    stage: 1
+    native: [tract]
+    rule: atomic_aggregate
+    gate: v1_spine
+    status: planned
+    verified: false
+    connector: extend tiger_bulk
+    notes: >-
+      Tract and block group are deferred by the district spec's first phase
+      (85k and 242k geographies) until measured sizes are reviewed. Block
+      needed first for crosswalk weights (BEF, LODES).
+  - id: census.tiger.block_group
+    existing: census.tiger
+    priority: P0
+    stage: 1
+    native: [block_group]
+    rule: atomic_aggregate
+    gate: v1_spine
+    status: planned
+    verified: false
+    connector: extend tiger_bulk
+  - id: census.tiger.block
+    existing: census.tiger
+    priority: P0
+    stage: 1
+    native: [block]
+    rule: atomic_aggregate
+    gate: v1_spine
+    status: planned
+    verified: false
+    connector: extend tiger_bulk
+    notes: Atomic redistricting layer; large. Size via capacity gate before download.
+  - id: census.tiger.vtd
+    existing: census.tiger
+    priority: P0
+    stage: 1
+    native: [vtd]
+    rule: atomic_aggregate
+    gate: v1_spine
+    status: planned
+    verified: false
+    connector: extend tiger_bulk
+  - id: census.tiger.place_school_district
+    existing: census.tiger
+    priority: P0
+    stage: 1
+    native: [place, school_district]
+    rule: direct
+    gate: v1_spine
+    status: planned
+    verified: false
+    connector: extend tiger_bulk
+  - id: census.redistricting_relationship
+    priority: P0
+    stage: 2
+    native: [congressional_district, sldu, sldl, county, tract, block]
+    rule: weighted_crosswalk
+    gate: v1_spine
+    status: planned
+    verified: false
+    connector: new; feeds core.geography_crosswalk
+    notes: Official comparability (same type over time) and containment (two types) files. Wrap, never hand-roll weights.
+  - id: census.redistricting_bef
+    priority: P0
+    stage: 2
+    native: [block]
+    rule: atomic_aggregate
+    gate: v1_spine
+    status: planned
+    verified: false
+    connector: new; feeds core.division_boundary support
+    notes: Block equivalency files give block to district reconstruction.
+
+  # ---- Stages 3-4: ACS to districts (data already retained) ----
+  - id: census.acs_5.district
+    existing: census.acs_5_bulk
+    priority: P1
+    stage: 3
+    native: [congressional_district, sldu, sldl, puma, zcta, state, county]
+    direct: true
+    rule: direct
+    gate: v1_spine
+    status: downloaded
+    verified: true   # geography counts measured in retained 2021-2024 files, 2026-10-05
+    connector: acs_load; widen SUMMARY_LEVELS beyond 040/050; packed facts per district spec CAP-2
+    period: {survey_window_years: 5, release_years: [2021, 2022, 2023, 2024]}
+    notes: >-
+      Overlapping 5-year windows are not independent yearly observations.
+      Store release_year, period_start, period_end. Direct beats crosswalk.
+  - id: census.acs_5.metric_pack
+    existing: census.acs_5_bulk
+    priority: P1
+    stage: 4
+    native: [congressional_district, sldu, sldl]
+    rule: direct
+    gate: v1_spine
+    status: planned
+    connector: semantic metric registry over retained raw tables (raw stays whole)
+    groups:
+      population: [B01001, B01003]
+      race_ethnicity: [B02001, B03002]
+      citizenship_immigration: [B05001, B05002, B05005, B05006, B05007]
+      language: [B16001, B16005, B16008]
+      education: [B14001, B15003]
+      poverty: [B17001, B17025]
+      household_income: [B19001, B19013, B19113]
+      per_capita_income: [B19301]
+      earnings: [B20004]
+      employment: [B23025]
+      occupation: [B24010]
+      industry: [B24030]
+      commuting: [B08301, B08303, B08134]
+      household: [B11001]
+      snap: [B22002]
+      housing_units: [B25001, B25002]
+      tenure: [B25003]
+      vacancy: [B25004]
+      household_size: [B25010]
+      crowding: [B25014]
+      housing_age: [B25034]
+      vehicles: [B25044]
+      rent: [B25064, B25070, B25071]
+      home_value: [B25075, B25077]
+      mortgage: [B25081, B25091]
+      health_insurance: [B27001, B27020]
+      internet: [B28002]
+  - id: census.acs_1
+    existing: census.acs_1
+    priority: P1
+    stage: 3
+    native: [state, congressional_district]
+    rule: direct
+    gate: slice_proven
+    status: planned
+    verified: false
+  - id: census.acs_pums
+    existing: census.acs_housing_archive
+    priority: P1
+    stage: 3
+    native: [puma]
+    rule: weighted_crosswalk
+    gate: v1_spine
+    status: partial
+    notes: >-
+      Staging stopped 2026-10-05 (153 M rows). Microdata stays at PUMA. A district
+      number from PUMS is a synthetic estimate: aggregation_method=synthetic_crosswalk,
+      store coverage_ratio and standard_error. Prefer a direct ACS table whenever one exists.
+  - id: census.ahs
+    existing: census.acs_housing_archive
+    priority: P1
+    stage: 3
+    native: [national, cbsa]
+    rule: context_only
+    gate: v1_spine
+    status: partial
+    notes: Not a district source; do not force it to districts.
+
+  # ---- Stages 5-7: direct-district economic and electorate sources ----
+  - id: census.cvap
+    priority: P1
+    stage: 5
+    native: [congressional_district, sldu, sldl, county, place, tract, block_group]
+    direct: true
+    rule: direct
+    gate: slice_proven
+    status: planned
+    verified: false
+    connector: new
+    notes: 2020-2024 special tabulation (released 2026-01-30 per research; verify). Denominator for turnout and registration.
+  - id: census.cbp
+    existing: census.business_patterns
+    priority: P1
+    stage: 6
+    native: [congressional_district, county, zcta, state, cbsa]
+    direct: true
+    rule: direct
+    gate: v1_spine
+    status: loaded
+    connector: cbp_load; add congressional_district as a canonical level
+    notes: Already loaded at county; the CD geography is the gain. Establishments, employment, payroll by industry.
+  - id: irs.soi_congressional
+    priority: P1
+    stage: 7
+    native: [congressional_district]
+    direct: true
+    rule: direct
+    gate: slice_proven
+    status: planned
+    verified: false
+    connector: new
+    notes: Tax years about 2017-2022 per research; verify.
+  - id: irs.soi_county
+    priority: P1
+    stage: 7
+    native: [county]
+    rule: weighted_crosswalk
+    gate: slice_proven
+    status: planned
+    verified: false
+  - id: irs.soi_zip
+    priority: P1
+    stage: 7
+    native: [zip]
+    rule: zip_approx
+    gate: slice_proven
+    status: planned
+    verified: false
+    notes: Postal ZIP, labelled approximation.
+  - id: irs.migration
+    priority: P1
+    stage: 7
+    native: [county, state]
+    rule: context_only
+    gate: slice_proven
+    status: planned
+    verified: false
+  - id: census.lehd_lodes
+    priority: P1
+    stage: 8
+    native: [block]
+    rule: atomic_aggregate
+    gate: slice_proven
+    status: planned
+    verified: false
+    connector: new
+    notes: >-
+      Workplace, residence, origin-destination files at block. Gives jobs in a
+      district, workers living in it, commuter flows. Version 8 uses 2020 blocks.
+  - id: census.qwi
+    priority: P1
+    stage: 8
+    native: [state, county, cbsa]
+    rule: weighted_crosswalk
+    gate: slice_proven
+    status: planned
+    verified: false
+  - id: bls.laus
+    existing: bls.laus
+    priority: P1
+    stage: 8
+    native: [county, state, cbsa, place]
+    rule: weighted_crosswalk
+    gate: slice_proven
+    status: partial
+    notes: Only 9 national series to 2016 are loaded.
+  - id: bls.qcew
+    existing: bls.qcew
+    priority: P1
+    stage: 8
+    native: [county, state, cbsa]
+    rule: weighted_crosswalk
+    gate: slice_proven
+    status: planned
+    notes: Nothing loaded.
+  - id: bea.regional
+    existing: bea.regional
+    priority: P1
+    stage: 8
+    native: [state, county, cbsa]
+    rule: weighted_crosswalk
+    gate: slice_proven
+    status: planned
+  - id: census.decennial_pl_dhc
+    existing: census.decennial
+    priority: P1
+    stage: 8
+    native: [block, tract, block_group]
+    rule: atomic_aggregate
+    gate: v1_spine
+    status: partial
+    notes: Population weights for crosswalks come from here.
+  - id: census.population_estimates
+    existing: census.population_estimates
+    priority: P1
+    stage: 8
+    native: [state, county]
+    rule: weighted_crosswalk
+    gate: v1_spine
+    status: loaded
+  - id: census.nonemployer
+    priority: P1
+    stage: 8
+    native: [state, county, cbsa]
+    rule: weighted_crosswalk
+    gate: slice_proven
+    status: planned
+    verified: false
+
+  # ---- Stages 9-10: federal money ----
+  - id: usaspending.awards
+    existing: usaspending.awards
+    priority: P1
+    stage: 9
+    native: [congressional_district, county, zip, place]
+    direct: true
+    rule: direct
+    gate: slice_proven
+    status: planned
+    verified: false
+    connector: new (evaluate usaspending-orm per reuse.md)
+    notes: Filters exist for original and current CD; store which one a row used.
+  - id: gao.cpf_cds
+    priority: P1
+    stage: 10
+    native: [member, project_location]
+    rule: member_attributed
+    gate: person_join
+    status: planned
+    verified: false
+    connector: new
+    notes: >-
+      Requesting member plus project, agency, amount, FY2022-2024 per research. The
+      only dataset that attributes money to a member directly. Joins on BioGuide, never name.
+
+  # ---- Stage 11: elections (Epic 7) ----
+  - id: elections.medsl_house
+    existing: elections.results
+    priority: P1
+    stage: 11
+    native: [congressional_district]
+    direct: true
+    rule: direct
+    gate: epic7
+    status: planned
+    verified: false
+    notes: House returns 1976-2024 per research. Party comes from here, never from Census.
+  - id: elections.medsl_precinct
+    existing: elections.results
+    priority: P1
+    stage: 11
+    native: [vtd, precinct]
+    rule: atomic_aggregate
+    gate: epic7
+    status: planned
+    verified: false
+    notes: Validate against official state results; Redistricting Data Hub is a comparison source.
+  - id: eac.eavs
+    priority: P1
+    stage: 11
+    native: [state, local_jurisdiction]
+    rule: weighted_crosswalk
+    gate: epic7
+    status: planned
+    verified: false
+  - id: fec.campaign_finance
+    existing: fec.campaign_finance
+    priority: P1
+    stage: 11
+    native: [candidate, committee]
+    rule: member_attributed
+    gate: person_join
+    status: partial
+    notes: Governed by the approved FEC programme; this row adds no authorization.
+
+  # ---- Stages 12-17: topic subsystems ----
+  - id: cfpb.hmda
+    priority: P1
+    stage: 12
+    native: [tract]
+    rule: atomic_aggregate
+    gate: slice_proven
+    status: planned
+    verified: false
+  - id: fhfa.hpi
+    priority: P1
+    stage: 12
+    native: [tract, zip, county, cbsa, state]
+    rule: atomic_aggregate
+    gate: slice_proven
+    status: planned
+    verified: false
+  - id: hud.chas
+    priority: P1
+    stage: 12
+    native: [tract, county]
+    rule: atomic_aggregate
+    gate: slice_proven
+    status: planned
+    verified: false
+  - id: fbi.ucr_nibrs
+    existing: fbi.crime_agency
+    priority: P1
+    stage: 13
+    native: [agency]
+    rule: spatial_interpolation
+    gate: epic7
+    status: planned
+    notes: >-
+      Voluntary reporting. Every metric stores reporting_agencies, eligible_agencies,
+      months_reported, population_covered, coverage_ratio. Never assign an agency's
+      crime to the district holding its headquarters; agency service areas are mapped.
+  - id: fbi.leec
+    priority: P1
+    stage: 13
+    native: [agency]
+    rule: spatial_interpolation
+    gate: epic7
+    status: planned
+    verified: false
+  - id: cdc.places
+    priority: P1
+    stage: 13
+    native: [tract, county, place, zcta]
+    rule: atomic_aggregate
+    gate: slice_proven
+    status: planned
+    verified: false
+  - id: cdc.wonder_mortality
+    priority: P1
+    stage: 13
+    native: [county]
+    rule: weighted_crosswalk
+    gate: slice_proven
+    status: planned
+    verified: false
+  - id: nces.ccd
+    priority: P1
+    stage: 14
+    native: [school, lea]
+    rule: atomic_aggregate
+    gate: slice_proven
+    status: planned
+    verified: false
+    notes: Schools are geocoded points; NCES also identifies congressional district.
+  - id: ed.crdc
+    priority: P1
+    stage: 14
+    native: [school, lea]
+    rule: atomic_aggregate
+    gate: slice_proven
+    status: planned
+    verified: false
+  - id: fcc.bdc
+    priority: P1
+    stage: 15
+    native: [congressional_district, county, place, cbsa, location]
+    direct: true
+    rule: direct
+    gate: slice_proven
+    status: planned
+    verified: false
+    notes: Availability (FCC) and adoption (ACS B28002) are different measures; keep both.
+  - id: dol.oflc
+    priority: P1
+    stage: 16
+    native: [employer, worksite]
+    rule: spatial_interpolation
+    gate: slice_proven
+    status: planned
+    verified: false
+    notes: PERM, LCA, H-2A, H-2B, CW-1 disclosures. DHS/USCIS series stay at their published state level.
+  - id: epa.echo
+    priority: P1
+    stage: 17
+    native: [facility_point]
+    rule: spatial_interpolation
+    gate: slice_proven
+    status: planned
+    verified: false
+  - id: epa.tri
+    priority: P1
+    stage: 17
+    native: [facility_point]
+    rule: spatial_interpolation
+    gate: slice_proven
+    status: planned
+    verified: false
+  - id: epa.aqs
+    priority: P2
+    stage: 17
+    native: [monitor, county]
+    rule: context_only
+    gate: slice_proven
+    status: planned
+  - id: fema.nri
+    priority: P2
+    stage: 17
+    native: [tract, county]
+    rule: atomic_aggregate
+    gate: slice_proven
+    status: planned
+    notes: Control variable, so a disaster is not read as a member's failure.
+  - id: fema.openfema
+    priority: P2
+    stage: 17
+    native: [county, state]
+    rule: context_only
+    gate: slice_proven
+    status: planned
+  - id: fdic.sod
+    priority: P2
+    stage: 17
+    native: [branch_point]
+    rule: spatial_interpolation
+    gate: slice_proven
+    status: planned
+  - id: usda.food_access
+    priority: P2
+    stage: 17
+    native: [tract]
+    rule: atomic_aggregate
+    gate: slice_proven
+    status: planned
+  - id: usda.census_ag
+    priority: P2
+    stage: 17
+    native: [county]
+    rule: weighted_crosswalk
+    gate: slice_proven
+    status: planned
+  - id: eia.860_923
+    priority: P2
+    stage: 17
+    native: [facility_point, county]
+    rule: spatial_interpolation
+    gate: slice_proven
+    status: planned
+  - id: nhtsa.fars
+    priority: P2
+    stage: 17
+    native: [crash_point, county]
+    rule: spatial_interpolation
+    gate: slice_proven
+    status: planned
+  - id: sba.loans
+    priority: P2
+    stage: 17
+    native: [borrower_location]
+    rule: spatial_interpolation
+    gate: slice_proven
+    status: planned
+  - id: sbir.awards
+    priority: P2
+    stage: 17
+    native: [recipient_address]
+    rule: spatial_interpolation
+    gate: slice_proven
+    status: planned
+  - id: uspto.patents
+    priority: P2
+    stage: 17
+    native: [inventor_address]
+    rule: spatial_interpolation
+    gate: slice_proven
+    status: planned

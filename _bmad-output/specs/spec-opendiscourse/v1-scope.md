@@ -8,6 +8,11 @@ identity → legislation (incl. Epic 8 primitives) → TIGER/geography
 then v1.1: disclosures → elections → crime
 ```
 
+District geography (TIGER CD/SLD/PUMA, `division_boundary`, crosswalks, ACS at
+districts, CBP at districts) is part of the TIGER/Census step above (Epic 10,
+stages 1-6 of `inventory/dataset-roadmap.yaml`). Other roadmap sources wait for
+a proven slice; elections, crime, and money stay v1.1.
+
 Do not start v1.1 because a staging table already exists. Do not expand
 horizontally until a Connector→mart slice is proven (FRED e2e and/or
 legislator-vote). Pre-Connector ACS/TIGER/bill loads do not count.
