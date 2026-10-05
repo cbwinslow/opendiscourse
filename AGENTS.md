@@ -45,7 +45,8 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
 - Architecture: `_bmad-output/planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md`
 - ADRs: `docs/adr/0001-postgres-system-of-record.md` (Postgres system of
   record); `docs/adr/0002-schema-invariants.md` (identity, provenance,
-  ownership, schema ≠ ingest)
+  ownership, schema ≠ ingest); `docs/adr/0006-district-period-and-packed-acs.md`
+  (jurisdiction-time boundaries, crosswalks, packed ACS facts)
 - Project skills: `.agents/skills/opendiscourse-connector`, `opendiscourse-schema-change`, `opendiscourse-provenance`, `opendiscourse-testing`
 - Data registry: `inventory/sources.yaml`, `plans.yaml`, `contracts/`
 - HTTP only: `src/opendiscourse_research/providers/`
@@ -57,6 +58,7 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
 - Planning index: `_bmad-output/README.md`
 - **Current state, decisions, and next steps: `docs/PROJECT-STATE.md`. Read it
   first when resuming; update it when a decision or story status changes.**
+- District/GIS programme: `_bmad-output/specs/spec-district-linked-context/SPEC.md`, its `stories.yaml`, `inventory/geography-vintages.yaml`, and `inventory/dataset-roadmap.yaml`. Follow story dependencies; a roadmap row alone is not authorization.
 
 ## Running and verifying
 
