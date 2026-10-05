@@ -1,12 +1,16 @@
 # Project state and handoff
 
-**District roadmap folded in (2026-10-05).** ChatGPT's jurisdiction-time plan is now
-in `_bmad-output/specs/spec-district-linked-context/` (CAP-6..8, new
-`jurisdiction-time-model.md`), main SPEC CAP-11, Epic 10 in `epics.md`, and a 60-row
-backlog `inventory/dataset-roadmap.yaml` with gates. Confirmed in code: TIGER loads
-only state/county/CBSA/ZCTA; `acs_load` keeps only state+county. Nothing ingested.
-Publisher facts in the roadmap are unverified. Next: operator review of the draft
-spec, then Story 10.1.
+**District programme approved and execution queue frozen (2026-10-05).**
+The operator approved `_bmad-output/specs/spec-district-linked-context/`.
+`stories.yaml` is now the executable Epic 10 queue and
+`inventory/geography-vintages.yaml` is the verified Census geography calendar.
+First proof is deliberately narrow: 119th-Congress member term → official 119th
+TIGER boundary → retained 2024 ACS 5-year district facts → reviewed metric registry
+→ `mart.congressional_district_period`. Completing Story 10.6 opens
+`slice_proven`; until then no horizontal source expansion or national block/tract
+download. Confirmed in code: TIGER still loads only state/county/CBSA/ZCTA and
+`acs_load` still keeps only state+county, so no district data was ingested by this
+planning change. **Next build: Story 10.1 (ADR-0006 + storage/schema contract).**
 
 
 **ACS loader stopped; district-linked plan drafted (2026-10-05).** The operator
