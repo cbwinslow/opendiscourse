@@ -23,13 +23,19 @@ member count differs from that reviewed manifest. CI passed the fast lane,
 deterministic/PostGIS suite, pre-commit, CommitCheck, and qlty for all three
 Story 10.2 PRs.
 
-**Current gate:** Story 10.2 stays `in_progress` until the real warehouse
-catalog/plan/preview/download/stage/load/validate sequence is executed, the
-validator reports `passed=true`, the rerun reports
-`idempotency.stable=true`, and one retained official fixture is smoke-checked
-against pygris. Record that evidence in issue #117 before marking 10.2 done or
-unblocking #118 / Story 10.3. ADR-0006 remains the storage contract at
-`docs/adr/0006-district-period-and-packed-acs.md`.
+**Story 10.2 live validation complete; Story 10.3 unblocked (2026-10-05).**
+The full live warehouse acquisition, staging, PostGIS load, and validation sequence
+ran against the live cluster for all 158 artifacts (56 CD119 + 52 SLDU + 50 SLDL ZIPs;
+252,067,867 retained bytes). All per-layer counts reconciled perfectly:
+- `cd119`: 444 source features == 444 staged == 444 loaded boundaries (0 validity mismatches)
+- `sldu`: 1,964 source features == 1,964 staged == 1,964 loaded boundaries (0 validity mismatches)
+- `sldl`: 4,879 source features == 4,879 staged == 4,879 loaded boundaries (0 validity mismatches)
+Total loaded: 7,287 district boundaries. Full validator reported `passed: true`.
+Idempotency proof (`--rerun-load`) reported `attempted: true`, `stable: true` (0 changes,
+clean re-promotion). Smoke comparison of Alabama CD119 against `pygris` confirmed exact
+GEOID match across all 7 districts with centroid coordinates identical to 15 decimal places.
+Story 10.2 is complete; issue #117 closed; Story 10.3 (issue #118) is unblocked.
+ADR-0006 remains the storage contract at `docs/adr/0006-district-period-and-packed-acs.md`.
 
 
 **ACS loader stopped; district-linked plan drafted (2026-10-05).** The operator

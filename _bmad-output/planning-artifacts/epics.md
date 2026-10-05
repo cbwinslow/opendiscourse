@@ -218,12 +218,12 @@ Define packed ACS grain, survey-window semantics, required geography/schema
 changes, migration/reconciliation plan, and tests. No data transfer or old-table
 drop in this story.
 
-### Story 10.2 — 119th CD + 2024 SLDU/SLDL boundaries
+### Story 10.2 — 119th CD + 2024 SLDU/SLDL boundaries — done
 Extend the TIGER path only for the first political layers. Evaluate `pygris`
 before custom acquisition/parsing, but OpenDiscourse retains exact Census ZIP
 bytes and evidence. Do not download national block/tract layers here.
 
-### Story 10.3 — Division↔boundary and crosswalk evidence
+### Story 10.3 — Division↔boundary and crosswalk evidence — ready
 Add `core.division_boundary` and `core.geography_crosswalk`; prove member
 term→division→119th boundary. Relationship rows are not generic population
 weights; BEFs are whole-block tabulation assignments, not split-block polygon
@@ -344,10 +344,10 @@ Built (`research-db sync-billstatus`, `ingestion/billstatus.py`, `providers/govi
 
 ## Current next build (2026-10-05)
 
-1. **Epic 10 Story 10.2** — load the official 119th Congressional District and
-   2024 SLDU/SLDL boundary packages with evidence and reconciliation. This is
-   the highest-ready build.
-2. Then execute Stories 10.3 → 10.6 in order. Do not broaden to another source
+1. **Epic 10 Story 10.3** — Link political divisions to boundary vintages and
+   define crosswalk evidence (`core.division_boundary`, `core.geography_crosswalk`).
+   Story 10.2 is complete and validated live on the warehouse.
+2. Then execute Stories 10.4 → 10.6 in order. Do not broaden to another source
    merely because its connector looks easy.
 3. Open `slice_proven` only after Story 10.6 is complete and recorded in
    `docs/PROJECT-STATE.md`.
