@@ -1,0 +1,229 @@
+version: 1
+spec: SPEC-district-linked-context
+programme: Epic 10 — Jurisdiction geography and district context
+north_star: >-
+  Prove one complete, provenance-backed 119th-Congress vertical slice from
+  official district boundary to member occupancy to 2024 ACS facts to curated
+  district-period research mart. Only after Story 10.6 passes may sources gated
+  by slice_proven start.
+
+stories:
+  - id: "10.0"
+    title: Verify and freeze the Census geography calendar
+    status: done
+    depends_on: []
+    gate: v1_spine
+    deliverables:
+      - inventory/geography-vintages.yaml
+    completion:
+      - 2021-2024 ACS congressional, SLD, PUMA, tract and block-group vintages are explicit.
+      - TIGER, relationship-file and BEF roles are separated.
+      - 2021 ACS is explicitly prevented from being mislabeled as a 117th-Congress district product.
+    invoke_dev_with: >-
+      No build work remains in this story. Treat inventory/geography-vintages.yaml
+      as the reviewed calendar. Do not infer a different Congress from release year.
+
+  - id: "10.1"
+    title: Approve the district-period storage and schema contract
+    status: ready
+    depends_on: ["10.0"]
+    gate: v1_spine
+    deliverables:
+      - docs/adr/0006-district-period-and-packed-acs.md
+      - reversible Alembic design for required geography and packed ACS tables
+    completion:
+      - ADR defines packed ACS grain, field dictionary, survey-window semantics and retirement/reconciliation of fact.acs_bulk_estimate.
+      - Schema names and ownership agree with ADR-0001/0002 and dbt ownership of mart.
+      - No durable fact is keyed only by state plus district number.
+      - Migration plan includes upgrade, downgrade, provenance, uniqueness and idempotency tests.
+    invoke_dev_with: >-
+      Read SPEC.md, jurisdiction-time-model.md, inventory/geography-vintages.yaml,
+      ADR-0001 and ADR-0002. Produce ADR-0006 and the reviewed schema contract only.
+      Do not download data or drop the existing ACS fact table in this story.
+
+  - id: "10.2"
+    title: Load official 119th congressional and 2024 state legislative boundaries
+    status: blocked
+    depends_on: ["10.1"]
+    gate: v1_spine
+    deliverables:
+      - TIGER Connector/adapter extension for CD, SLDU and SLDL
+      - immutable official TIGER artifacts and evidence-linked boundaries
+    completion:
+      - Publisher endpoint, filename convention, size, field layout and license/terms are verified before implementation.
+      - Reuse evaluation tests pygris against one retained official fixture; adoption is optional and may not hide raw ZIP evidence.
+      - 119th CD and 2024 SLDU/SLDL counts reconcile to Census source products.
+      - Every boundary has boundary_vintage, source_artifact_id and valid period.
+      - Rerun is idempotent and interrupted acquisition resumes safely.
+      - Tract, block-group, block, VTD, place and school-district expansion does not occur in this story.
+    invoke_dev_with: >-
+      Implement only CD/SLDU/SLDL for the first slice. Search reuse.md first and
+      evaluate pygris, but retain exact Census bytes and URLs under DATA_ROOT.
+      Do not start national block downloads.
+
+  - id: "10.3"
+    title: Link political divisions to boundary vintages and define crosswalk evidence
+    status: blocked
+    depends_on: ["10.2"]
+    gate: v1_spine
+    deliverables:
+      - core.division_boundary
+      - core.geography_crosswalk
+      - loaders for the bounded 119th/2024 relationship and BEF evidence needed by tests
+    completion:
+      - Member -> membership -> post -> division -> boundary resolves the 119th House term without name matching.
+      - Crosswalk rows require weight_type, method, source evidence, vintages and coverage.
+      - Relationship-file overlap is not mislabeled as population/employment weight.
+      - BEF rows are documented as whole-block tabulation assignments, not exact split-block polygon truth.
+      - Tests cover validity overlap, wrong-vintage rejection, duplicate prevention and evidence lineage.
+    invoke_dev_with: >-
+      Implement the schema and the minimum 119th/2024 evidence needed to prove it.
+      TIGER geometry remains boundary truth. Do not manufacture demographic weights
+      from area overlap.
+
+  - id: "10.4"
+    title: Publish packed 2024 ACS congressional-district facts
+    status: blocked
+    depends_on: ["10.1", "10.2", "10.3"]
+    gate: v1_spine
+    deliverables:
+      - packed ACS table-row fact and field dictionary
+      - 2024 congressional-district load using already-retained ACS artifacts
+      - compatibility research view that can expose field-level rows
+    completion:
+      - First production scope is 2024 ACS 5-year x 119th Congressional District only.
+      - Grain is release x geography x table; estimates and MOEs remain distinguishable.
+      - release_year=2024, period_start=2020, period_end=2024 and boundary Congress=119 are stored/derivable without guessing.
+      - Parsed/source/stored counts reconcile and all rows carry source artifact plus source ordinal.
+      - Existing fact.acs_bulk_estimate rows are compared before any retirement; retained raw files are untouched.
+      - A rerun changes no result.
+    invoke_dev_with: >-
+      Use the retained 2024 ACS table artifacts; do not download a second copy.
+      Prove the 119th direct-district slice before widening to 2022/2023/2021 or
+      state-legislative districts.
+
+  - id: "10.5"
+    title: Define the curated district metric registry
+    status: blocked
+    depends_on: ["10.4"]
+    gate: v1_spine
+    deliverables:
+      - versioned metric definitions for the reviewed ACS groups in dataset-roadmap.yaml
+      - dbt/source tests for formulas, denominators, MOE handling and missing values
+    completion:
+      - Raw ACS remains lossless; the registry selects metrics rather than deleting source fields.
+      - Every metric names source table/field(s), formula, denominator, unit, period semantics and quality/MOE behavior.
+      - No adjacent overlapping ACS 5-year releases are treated as independent annual change.
+      - No political evaluation or causal claim is encoded in a metric definition.
+    invoke_dev_with: >-
+      Start with a small useful profile set (population, age/sex, race/ethnicity,
+      citizenship/nativity, education, poverty, income, employment, housing and
+      insurance). Keep the larger group catalog available but do not require every
+      table before Story 10.6 can complete.
+
+  - id: "10.6"
+    title: Prove the 119th congressional-district-period mart
+    status: blocked
+    depends_on: ["10.5"]
+    gate: v1_spine
+    deliverables:
+      - mart.congressional_district_period
+      - member-facing view over membership/post/division
+      - evidence drill-through and coverage tests
+    completion:
+      - One row represents one division x boundary vintage x observation period; the mart is not named district_year.
+      - The first release uses 119th boundaries and the 2020-2024 ACS period only.
+      - Stable uniqueness, coverage status, source vintages and evidence drill-through tests pass.
+      - A member term resolves through stable identifiers; no display-name join exists.
+      - The mart documentation states that constituency outcomes are descriptive and not causal attribution.
+      - Completion is recorded in PROJECT-STATE; only then is gate slice_proven open.
+    invoke_dev_with: >-
+      Build the smallest complete vertical slice. Do not add CVAP, IRS, elections,
+      crime, FEC, USAspending or other horizontal sources just to make the mart look
+      richer. Finishing this story is the permission gate for the next sources.
+
+  - id: "10.7"
+    title: Add CVAP on the exact 2024/119th geography
+    status: blocked
+    depends_on: ["10.6"]
+    gate: slice_proven
+    completion:
+      - Official 2020-2024 CVAP CSV product, documentation, size, fields and geographies are verified and inventoried.
+      - Congressional/SLDU/SLDL rows retain estimates and uncertainty metadata available from the product.
+      - 119th/2024 geography alignment is validated against inventory/geography-vintages.yaml.
+      - District-period mart gains voting-age/citizen-voting-age metrics without changing its grain.
+    invoke_dev_with: >-
+      Write a source-specific build spec first, then a Connector. Use the official
+      Census CVAP files, not a third-party repack.
+
+  - id: "10.8"
+    title: Add County Business Patterns congressional-district facts
+    status: blocked
+    depends_on: ["10.6"]
+    gate: slice_proven
+    completion:
+      - The exact congressional-district vintage for each selected CBP reference year is verified before joining.
+      - Establishment, employment and payroll facts keep NAICS and suppression semantics.
+      - Direct district rows are preferred to county/ZIP crosswalks.
+      - Existing county CBP data is not duplicated or re-downloaded without cause.
+    invoke_dev_with: >-
+      Extend the existing CBP source after verifying its congressional-district
+      geography by year. Do not assume 2023 CBP is on 119th boundaries.
+
+  - id: "10.9"
+    title: Add IRS SOI congressional-district tax statistics
+    status: blocked
+    depends_on: ["10.6"]
+    gate: slice_proven
+    completion:
+      - Official IRS district files and documentation for the selected tax years are verified.
+      - District boundary basis for each tax year is recorded.
+      - Income, wage, return and tax measures preserve IRS disclosure/suppression semantics.
+      - Direct congressional-district files are used before county or ZIP approximations.
+    invoke_dev_with: >-
+      Write the source-specific spec and field checklist from IRS documentation
+      before code. Start with one recent tax year and reconcile its district count.
+
+  - id: "10.10"
+    title: Add LODES block employment and commuting context
+    status: blocked
+    depends_on: ["10.6"]
+    gate: slice_proven
+    completion:
+      - Official LODES version/geography/year coverage is verified and gaps are recorded.
+      - Block acquisition passes capacity review before transfer.
+      - WAC, RAC and OD grains stay distinct and aggregate to districts through exact block geography.
+      - Jobs/workers/commuter metrics retain source year, block vintage and coverage notes.
+    invoke_dev_with: >-
+      Evaluate existing LEHD/LODES download libraries only as references or adapters;
+      prefer official bulk files and preserve exact source bytes. Do not adopt an
+      unmaintained downloader simply to avoid a small provider adapter.
+
+  - id: "10.11"
+    title: Add USAspending district award flows
+    status: blocked
+    depends_on: ["10.6"]
+    gate: slice_proven
+    completion:
+      - Official API/bulk contract and original-vs-current district semantics are verified.
+      - usaspending-orm is smoke-tested as an optional adapter before custom pagination code is written.
+      - Award/transaction grain and obligations/outlays are not mixed.
+      - Every district assignment records whether it came from the publisher directly or a crosswalk.
+    invoke_dev_with: >-
+      Write a source-specific spec first. Prefer direct publisher district fields and
+      evaluate usaspending-orm behind the provider boundary; OpenDiscourse still owns
+      evidence, keys and persistence.
+
+  - id: "10.12"
+    title: Add GAO CPF/CDS member-attributed projects
+    status: blocked
+    depends_on: ["10.6"]
+    gate: person_join
+    completion:
+      - Official GAO downloadable project data and requesting-member fields are verified.
+      - Member linkage uses a reviewed stable-identifier bridge; display names never create identity.
+      - Project amount, agency, recipient, location, fiscal year and execution status retain source evidence.
+      - The result remains a transparent member-attributed funding fact, not a political performance score.
+    invoke_dev_with: >-
+      Keep this blocked until identitygate explicitly permits the reviewed join.
+      Do not use GAO requesting-member display text as a BioGuide substitute.
