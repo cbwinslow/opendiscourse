@@ -30,6 +30,7 @@ from opendiscourse_research.ingestion.dhc_load import _scope as dhc_scope
 from opendiscourse_research.ingestion.pep_bulk import build_pep_bulk_plan
 from opendiscourse_research.ingestion.pep_load import _scope as pep_scope
 from opendiscourse_research.ingestion.tiger_bulk import (
+    _require_political_member_count,
     build_tiger_bulk_plan,
     tiger_layers,
 )
@@ -196,6 +197,21 @@ class TestCensusBulkPlans(unittest.TestCase):
         self.assertEqual(len(build_tiger_bulk_plan("test", selected)["artifacts"]), 4)
         with self.assertRaisesRegex(ValueError, "exactly"):
             build_tiger_bulk_plan("test", [])
+
+    def test_tiger_political_manifest_count_fails_closed_when_partial(self) -> None:
+        _require_political_member_count(
+            2024,
+            "cd119",
+            56,
+            "https://www2.census.gov/geo/tiger/TIGER2024/CD/",
+        )
+        with self.assertRaisesRegex(ValueError, "expected reviewed publisher count 56"):
+            _require_political_member_count(
+                2024,
+                "cd119",
+                55,
+                "https://www2.census.gov/geo/tiger/TIGER2024/CD/",
+            )
 
     def test_tiger_political_plan_is_bounded_to_119th_and_2024_sld(self) -> None:
         artifacts = [
