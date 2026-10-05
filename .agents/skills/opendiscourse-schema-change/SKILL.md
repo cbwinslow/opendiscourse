@@ -6,7 +6,9 @@ description: 'Change OpenDiscourse warehouse schema the approved way. Use when a
 # OpenDiscourse schema change
 
 Read `AGENTS.md`, ADR-0001 (`docs/adr/0001-postgres-system-of-record.md`),
-and ADR-0002 (`docs/adr/0002-schema-invariants.md`) first.
+and ADR-0002 (`docs/adr/0002-schema-invariants.md`) first. For geography,
+TIGER, crosswalk, or ACS storage changes also read ADR-0006
+(`docs/adr/0006-district-period-and-packed-acs.md`) and the active Epic 10 story.
 
 ## When to use
 
@@ -31,7 +33,7 @@ and ADR-0002 (`docs/adr/0002-schema-invariants.md`) first.
   reference, not a second migration path.
 - Bound parameters only. JSON via `psycopg.types.json.Jsonb`.
 - `dlt` writes `stage` only, never `core`/`fact`.
-- Shared attributes (ADR-0005, Story 10.2): a value two sources can describe for one entity gets an assertion table
+- Shared attributes (ADR-0005 and its assertion-model contract): a value two sources can describe for one entity gets an assertion table
   (`core.person_name_source`, `core.geography_name_source` are the pattern: entity, kind, value, `dataset_id`,
   `source_vintage`, artifact OR payload, run; unique `NULLS NOT DISTINCT`), a ranking in `inventory/precedence.yaml`, and
   a resolver-owned column with a `name_source_id`-style pointer, all in the same change that adds the second source.
@@ -50,3 +52,4 @@ and ADR-0002 (`docs/adr/0002-schema-invariants.md`) first.
   new ADR (extension may already be installed).
 - Physically copy the OpenStates database into `opendiscourse`.
 - Make `censusdis` a required dependency.
+- Put `geography_id` directly on `core.division`, use ZIP/ZCTA as a political district key, or invent one generic crosswalk weight for every measure.
