@@ -3,10 +3,15 @@
 A match is an equal identifier in an approved namespace. Display name, party,
 district, office, and biography are never compared. A state bill label such as
 ``HB 264`` is not a Congress bill type and number.
+
+Every person identifier, link, name, source, office, and contact column is
+kept. Twitter and the other contact schemes are stored. They do not merge
+two people. BioGuide is the only person join this module trusts.
 """
 
 from __future__ import annotations
 
+import json
 import re
 from collections import defaultdict
 from collections.abc import Mapping
@@ -14,6 +19,16 @@ from dataclasses import dataclass
 
 # OpenStates asserts this scheme. It is the only person bridge this module trusts.
 PERSON_LINK_SCHEME = "bioguide"
+# These schemes are contact details. They are stored, and they are not join keys.
+SOCIAL_SCHEMES = frozenset({"twitter", "facebook", "instagram", "youtube", "mastodon"})
+PERSON_CONTACT_TABLES = (
+    "opencivicdata_person",
+    "opencivicdata_personidentifier",
+    "opencivicdata_personlink",
+    "opencivicdata_personname",
+    "opencivicdata_personsource",
+    "openstates_personoffice",
+)
 US_JURISDICTION_ID = "ocd-jurisdiction/country:us/government"
 _FEDERAL_BILL = re.compile(
     r"^(hr|s|hres|sres|hjres|sjres|hconres|sconres) (\d+)$",
@@ -53,6 +68,26 @@ class VoteLink:
     external_id: str
     ocd_vote_ids: tuple[str, ...]
     matched: bool
+
+
+@dataclass(frozen=True)
+class RetainedContact:
+    """One source value kept for later use.
+
+    ``joins_people`` is true only for a BioGuide identifier. A shared Twitter
+    handle is recorded and does not select an owned person by itself.
+    ``fields`` holds every non-empty column from the source row.
+    """
+
+    ocd_person_id: str
+    table: str
+    kind: str
+    scheme: str
+    value: str
+    fields: tuple[tuple[str, str], ...]
+    person_id: str | None
+    joins_people: bool
+    shared_with_other_person: bool = False
 
 
 def link_people(
@@ -98,6 +133,157 @@ def link_people(
                 )
             )
     return links
+
+
+def source_fields(row: Mapping[str, object]) -> tuple[tuple[str, str], ...]:
+    """Return every non-empty column. Nested JSON is kept as stable text."""
+    kept: list[tuple[str, str]] = []
+    for key in sorted(row):
+        value = row[key]
+        if value is None:
+            continue
+        if isinstance(value, (dict, list)):
+            text = json.dumps(value, sort_keys=True, default=str, separators=(",", ":"))
+        else:
+            text = str(value).strip()
+        if text:
+            kept.append((str(key), text))
+    return tuple(kept)
+
+
+def _owned_person_ids(links: list[PersonLink]) -> dict[str, str | None]:
+    """Map an OpenStates person to an owned id only when BioGuide is unambiguous."""
+    grouped: dict[str, list[PersonLink]] = defaultdict(list)
+    for link in links:
+        grouped[link.ocd_person_id].append(link)
+    owned: dict[str, str | None] = {}
+    for ocd_person_id, person_links in grouped.items():
+        if len(person_links) == 1 and person_links[0].conflict is None and person_links[0].person_id:
+            owned[ocd_person_id] = person_links[0].person_id
+        else:
+            owned[ocd_person_id] = None
+    return owned
+
+
+def retain_person_contact(
+    *,
+    identifiers: list[tuple[str, str, str]] | None = None,
+    people: list[Mapping[str, object]] | None = None,
+    links: list[Mapping[str, object]] | None = None,
+    names: list[Mapping[str, object]] | None = None,
+    sources: list[Mapping[str, object]] | None = None,
+    offices: list[Mapping[str, object]] | None = None,
+    owned_bioguide: Mapping[str, str] | None = None,
+) -> tuple[list[PersonLink], list[RetainedContact]]:
+    """Keep every contact field and link people only through BioGuide.
+
+    ``identifiers`` are ``(ocd_person_id, scheme, identifier)`` rows. Mapping
+    rows are the publisher tables named in ``PERSON_CONTACT_TABLES``. A blank
+    value is the publisher having nothing to say. Every other column is kept.
+    """
+    identifier_rows = identifiers or []
+    person_links = link_people(identifier_rows, owned_bioguide or {})
+    owned = _owned_person_ids(person_links)
+    retained: list[RetainedContact] = []
+
+    def add(ocd_person_id: str, table: str, kind: str, scheme: str, value: str, fields: tuple[tuple[str, str], ...], *, joins: bool) -> None:
+        text = value.strip()
+        if not ocd_person_id or not text:
+            return
+        retained.append(
+            RetainedContact(
+                ocd_person_id=ocd_person_id,
+                table=table,
+                kind=kind,
+                scheme=scheme,
+                value=text,
+                fields=fields,
+                person_id=owned.get(ocd_person_id),
+                joins_people=joins,
+            )
+        )
+
+    for ocd_person_id, scheme, identifier in identifier_rows:
+        scheme_text = (scheme or "").strip()
+        identifier_text = (identifier or "").strip()
+        if not scheme_text or not identifier_text:
+            continue
+        kind = "social" if scheme_text in SOCIAL_SCHEMES else "identifier"
+        add(
+            ocd_person_id,
+            "opencivicdata_personidentifier",
+            kind,
+            scheme_text,
+            identifier_text,
+            (("identifier", identifier_text), ("person_id", ocd_person_id), ("scheme", scheme_text)),
+            joins=scheme_text == PERSON_LINK_SCHEME,
+        )
+
+    for row in people or []:
+        ocd_person_id = str(row.get("id") or row.get("person_id") or "")
+        fields = source_fields(row)
+        for column, text in fields:
+            if column in {"id", "person_id"}:
+                continue
+            kind = "email" if column == "email" else "person_field"
+            add(ocd_person_id, "opencivicdata_person", kind, column, text, fields, joins=False)
+    for row in links or []:
+        ocd_person_id = str(row.get("person_id") or "")
+        fields = source_fields(row)
+        url = str(row.get("url") or "").strip()
+        note = str(row.get("note") or "link").strip() or "link"
+        add(ocd_person_id, "opencivicdata_personlink", "link", note, url or note, fields, joins=False)
+    for row in names or []:
+        ocd_person_id = str(row.get("person_id") or "")
+        fields = source_fields(row)
+        add(
+            ocd_person_id,
+            "opencivicdata_personname",
+            "name",
+            str(row.get("note") or "name"),
+            str(row.get("name") or ""),
+            fields,
+            joins=False,
+        )
+    for row in sources or []:
+        ocd_person_id = str(row.get("person_id") or "")
+        fields = source_fields(row)
+        url = str(row.get("url") or "").strip()
+        note = str(row.get("note") or "source").strip() or "source"
+        add(ocd_person_id, "opencivicdata_personsource", "source", note, url or note, fields, joins=False)
+    for row in offices or []:
+        ocd_person_id = str(row.get("person_id") or "")
+        fields = source_fields(row)
+        classification = str(row.get("classification") or "office").strip() or "office"
+        for column in ("address", "voice", "fax", "name"):
+            add(
+                ocd_person_id,
+                "openstates_personoffice",
+                "office",
+                f"{classification}:{column}",
+                str(row.get(column) or ""),
+                fields,
+                joins=False,
+            )
+
+    seen: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for item in retained:
+        seen[(item.scheme, item.value)].add(item.ocd_person_id)
+    marked = [
+        RetainedContact(
+            ocd_person_id=item.ocd_person_id,
+            table=item.table,
+            kind=item.kind,
+            scheme=item.scheme,
+            value=item.value,
+            fields=item.fields,
+            person_id=item.person_id,
+            joins_people=item.joins_people,
+            shared_with_other_person=len(seen[(item.scheme, item.value)]) > 1,
+        )
+        for item in retained
+    ]
+    return person_links, marked
 
 
 def federal_bill_key(session: str, identifier: str) -> tuple[str, str, str] | None:

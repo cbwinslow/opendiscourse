@@ -25,11 +25,14 @@ dump. The month name is not the identity. The SHA-256 of the bytes is.
   On 2026-10-05 those URLs answered HTTP 200 for 2026-08, 2026-09, and 2026-10.
   The registered copy is still `data-2026-07`.
 - The downloader keeps a checksum-named file and registers an artifact version.
-  A later call for the same month returns the saved file and does not look
-  again, once that version is marked downloaded. A current-month dump can
-  change during the month, so the refresh command must re-request the URL
-  and register a new version when the checksum differs. It must not treat
-  `data-2026-10` as one eternal file.
+  `bootstrap openstates-dump` now checks the publisher headers on every run.
+  The official page (https://open.pluralpolicy.com/data, retrieved 2026-10-05)
+  says to build the address as
+  `https://data.openstates.org/postgres/monthly/YYYY-MM-public.pgdump`,
+  that the file updates through the month, and that the link can be missing
+  at the start of a month. The same ETag, last-modified time, and size reuse
+  the saved file. Any difference downloads again, appends an artifact version,
+  and keeps the old bytes. `data-2026-10` is a label, not the identity.
 - The live reader is the foreign-data server `openstates_local` on database
   `opendiscourse`, port 5434. It points at `dbname=openstates` through the
   local socket, with each remote session started as `openstates_fdw`.
@@ -147,10 +150,26 @@ row was inserted or updated.
 | Federal bills | 70,880 United States bills, all 70,880 matched Congress + type + number |
 | Federal votes | 1,828 OpenStates events grouped into 1,827 official keys, all 1,827 keys matched; one key has two events |
 
-State bills such as `HB 264` are not given a federal type or number. Other
-person schemes, including Twitter and a display name, are ignored. The same
-function will be run again after the October snapshot is activated, and only
-that rerun may attach new identifier assertions.
+State bills such as `HB 264` are not given a federal type or number. Twitter,
+Facebook, YouTube, Instagram, email, phone, fax, office address, links,
+names, and every other non-empty person column are kept as contact records.
+Only BioGuide selects an owned person. A handle shared by two OpenStates
+people is stored on both and does not merge them. The same function will be
+run again after the October snapshot is activated, and only that rerun may
+attach new identifier assertions.
+
+The contact tables in the publisher database are `opencivicdata_person`
+(including `email`, `extras`, and `current_role`),
+`opencivicdata_personidentifier` (`scheme`, `identifier`),
+`opencivicdata_personlink`, `opencivicdata_personname`,
+`opencivicdata_personsource`, and `openstates_personoffice` (`address`,
+`voice`, `fax`, `name`, `classification`). None of these columns is a reason
+to skip a row. Owned tables that require a BioGuide id
+(`core.person_social_account`, `core.district_office`) can receive the
+federal rows after the BioGuide link is clean. State people who have no
+BioGuide id keep the same fields on the OpenStates person. They are not
+discarded, and they are not copied onto a different person because the
+handle looks familiar.
 
 ## How the two datasets stay one warehouse
 
@@ -168,7 +187,13 @@ implement. This workflow only prepares the snapshot.
   source states that fact.
 - A person matches only by an identifier an auditable crosswalk states.
   BioGuide and an OpenStates person id may name the same person only when
-  that crosswalk says so. Name, party, district, office, and biography do not.
+  that crosswalk says so. Name, party, district, office, biography, email,
+  phone, and Twitter do not. Those values are still stored.
+- From one month to the next, the same OpenStates id keeps the same owned
+  row. A new phone number or handle is a new assertion with that snapshot's
+  checksum. The old value stays. The displayed value follows precedence.
+  An id that is absent from the new dump is marked not seen in that snapshot.
+  It is not deleted, and the absence does not set an end date.
 - A state bill's identity is jurisdiction + legislative session + official
   identifier. `HB 264` is an official identifier, not a title. State bills
   wait until the shared bill tables exist.

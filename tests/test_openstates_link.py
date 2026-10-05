@@ -12,22 +12,77 @@ from opendiscourse_research.openstateslink import (
     link_federal_bills,
     link_people,
     link_votes,
+    retain_person_contact,
 )
 
 
-def test_people_match_on_bioguide_and_ignore_names_and_other_schemes() -> None:
-    links = link_people(
-        [
+def test_people_match_on_bioguide_and_keep_every_other_contact_field() -> None:
+    links, retained = retain_person_contact(
+        identifiers=[
             ("ocd-person/a", "bioguide", "A000001"),
             ("ocd-person/a", "twitter", "someone"),
             ("ocd-person/b", "full_name", "A000001"),
         ],
-        {"A000001": "person-1"},
+        people=[
+            {
+                "id": "ocd-person/a",
+                "name": "Ada",
+                "email": "ada@example.test",
+                "biography": "kept",
+                "extras": {"contact_form": "https://example.test/contact"},
+            }
+        ],
+        links=[{"person_id": "ocd-person/a", "note": "website", "url": "https://example.test"}],
+        names=[{"person_id": "ocd-person/a", "name": "Ada Example", "note": "display"}],
+        sources=[{"person_id": "ocd-person/a", "note": "official", "url": "https://example.test/bio"}],
+        offices=[
+            {
+                "person_id": "ocd-person/a",
+                "classification": "capitol",
+                "address": "1 First St",
+                "voice": "202-555-0100",
+                "fax": "202-555-0101",
+                "name": "Capitol",
+            }
+        ],
+        owned_bioguide={"A000001": "person-1"},
     )
     assert len(links) == 1
     assert links[0].person_id == "person-1"
     assert links[0].bioguide == "A000001"
-    assert links[0].conflict is None
+    twitter = next(item for item in retained if item.scheme == "twitter")
+    assert twitter.value == "someone"
+    assert twitter.joins_people is False
+    assert twitter.person_id == "person-1"
+    email = next(item for item in retained if item.kind == "email")
+    assert email.value == "ada@example.test"
+    assert email.joins_people is False
+    phone = next(item for item in retained if item.scheme == "capitol:voice")
+    assert phone.value == "202-555-0100"
+    assert ("extras", '{"contact_form":"https://example.test/contact"}') in email.fields
+    assert any(item.kind == "link" and item.value == "https://example.test" for item in retained)
+    assert any(item.kind == "name" and item.value == "Ada Example" for item in retained)
+    assert any(item.kind == "source" for item in retained)
+    full_name = next(item for item in retained if item.scheme == "full_name")
+    assert full_name.joins_people is False
+    assert full_name.person_id is None
+
+
+def test_a_shared_twitter_handle_does_not_merge_two_people() -> None:
+    links, retained = retain_person_contact(
+        identifiers=[
+            ("ocd-person/a", "bioguide", "A000001"),
+            ("ocd-person/a", "twitter", "shared"),
+            ("ocd-person/b", "twitter", "shared"),
+        ],
+        owned_bioguide={"A000001": "person-1"},
+    )
+    assert [link.person_id for link in links] == ["person-1"]
+    handles = [item for item in retained if item.scheme == "twitter"]
+    assert {item.ocd_person_id for item in handles} == {"ocd-person/a", "ocd-person/b"}
+    assert {item.person_id for item in handles} == {"person-1", None}
+    assert all(item.shared_with_other_person for item in handles)
+    assert all(item.joins_people is False for item in handles)
 
 
 def test_people_do_not_match_a_missing_bioguide() -> None:
