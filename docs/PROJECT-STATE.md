@@ -1,16 +1,29 @@
 # Project state and handoff
 
-**District programme approved and execution queue frozen (2026-10-05).**
+**District programme active; Story 10.2 implementation merged (2026-10-05).**
 The operator approved `_bmad-output/specs/spec-district-linked-context/`.
-`stories.yaml` is now the executable Epic 10 queue and
+`stories.yaml` is the executable Epic 10 queue and
 `inventory/geography-vintages.yaml` is the verified Census geography calendar.
-First proof is deliberately narrow: 119th-Congress member term → official 119th
-TIGER boundary → retained 2024 ACS 5-year district facts → reviewed metric registry
-→ `mart.congressional_district_period`. Completing Story 10.6 opens
-`slice_proven`; until then no horizontal source expansion or national block/tract
-download. Confirmed in code: TIGER still loads only state/county/CBSA/ZCTA and
-`acs_load` still keeps only state+county, so no district data was ingested by this
-planning change. ADR-0006 is now accepted at `docs/adr/0006-district-period-and-packed-acs.md`. **Next build: Story 10.2 (119th CD + 2024 SLDU/SLDL TIGER boundaries only).**
+First proof remains deliberately narrow: 119th-Congress member term → official
+119th TIGER boundary → retained 2024 ACS 5-year district facts → reviewed metric
+registry → `mart.congressional_district_period`. Completing Story 10.6 opens
+`slice_proven`; until then no horizontal source expansion or national
+block/tract download.
+
+Story 10.2 code merged in PR #122 / commit
+`95fd1dc068d192d10e7b8af3b0c00f7b815ef672`. The merged path catalogs and
+discovers the exact official 2024 `cd119`, `sldu`, and `sldl` Census ZIPs,
+reuses the capacity-gated resumable/checksummed TIGER acquisition pipeline,
+validates `CDSESSN=119` and `LSY=2024`, promotes artifact-linked PostGIS
+boundaries with reviewed validity, records geography-name provenance, and
+reconciles source/stage/load counts. Fast checks, the full deterministic/PostGIS
+database suite, pre-commit, CommitCheck, and qlty passed before merge. **Story
+10.2 remains in progress until the real warehouse run records capacity,
+retained-artifact checksums, measured CD119/SLDU/SLDL reconciliation, an
+idempotent rerun, and a retained-fixture pygris smoke check in issue #117.
+Story 10.3 / #118 remains blocked.**
+ADR-0006 remains the storage contract at
+`docs/adr/0006-district-period-and-packed-acs.md`.
 
 
 **ACS loader stopped; district-linked plan drafted (2026-10-05).** The operator
