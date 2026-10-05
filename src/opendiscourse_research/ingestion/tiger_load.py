@@ -12,6 +12,7 @@ from psycopg.types.json import Jsonb
 from ..db import connect
 from ..repositories.artifacts import require_current_artifact
 from ..repositories.names import upsert_geography_name_sources
+from .base import IngestionRun
 
 _QUERY_ROOT = Path(__file__).resolve().parents[3] / "sql" / "query" / "census" / "tiger"
 
@@ -232,48 +233,56 @@ def load_tiger(
     if not artifact_ids:
         raise ValueError("TIGER plan resolved no approved artifacts")
 
-    with connect() as conn, conn.cursor() as cur:
-        params = {"layers": layers, "artifact_ids": artifact_ids}
-        cur.execute(_query("upsert_geographies"), params)
-        cur.fetchall()
+    parameters = {
+        "action": "load_tiger",
+        "boundary_vintage": vintage,
+        "layers": layers,
+        "artifact_count": len(artifact_ids),
+    }
+    with IngestionRun("census.tiger", parameters, mode="manual") as run:
+        with connect() as conn, conn.cursor() as cur:
+            params = {"layers": layers, "artifact_ids": artifact_ids}
+            cur.execute(_query("upsert_geographies"), params)
+            cur.fetchall()
 
-        cur.execute(_query("name_rows"), params)
-        assertions = []
-        for row in cur.fetchall():
-            name_kind = LAYER_INFO[row["layer"]]["name_kind"]
-            if name_kind is None:
-                continue
-            assertions.append(
-                {
-                    "geography_id": row["geography_id"],
-                    "name_kind": name_kind,
-                    "name": row["name"],
-                    "dataset_id": "census.tiger",
-                    "source_vintage": str(vintage),
-                    "artifact_id": row["artifact_id"],
-                    "payload_id": None,
-                    "run_id": None,
-                }
-            )
-        upsert_geography_name_sources(cur, assertions)
-
-        boundary_params = {
-            **params,
-            "vintage": vintage,
-            "valid_from": valid_from,
-            "valid_to": valid_to,
-        }
-        cur.execute(_query("upsert_boundaries"), boundary_params)
-        total = len(cur.fetchall())
-
-        cur.execute(_query("reconciliation"), boundary_params)
-        reconciliation = cur.fetchall()
-        for row in reconciliation:
-            if int(row["staged_rows"]) != int(row["loaded_boundaries"]):
-                raise ValueError(
-                    f"TIGER {row['layer']} reconciliation failed: "
-                    f"{row['staged_rows']} staged rows, "
-                    f"{row['loaded_boundaries']} loaded boundaries"
+            cur.execute(_query("name_rows"), params)
+            assertions = []
+            for row in cur.fetchall():
+                name_kind = LAYER_INFO[row["layer"]]["name_kind"]
+                if name_kind is None:
+                    continue
+                assertions.append(
+                    {
+                        "geography_id": row["geography_id"],
+                        "name_kind": name_kind,
+                        "name": row["name"],
+                        "dataset_id": "census.tiger",
+                        "source_vintage": str(vintage),
+                        "artifact_id": row["artifact_id"],
+                        "payload_id": None,
+                        "run_id": run.run_id,
+                    }
                 )
-        conn.commit()
+            upsert_geography_name_sources(cur, assertions)
+
+            boundary_params = {
+                **params,
+                "vintage": vintage,
+                "valid_from": valid_from,
+                "valid_to": valid_to,
+            }
+            cur.execute(_query("upsert_boundaries"), boundary_params)
+            total = len(cur.fetchall())
+
+            cur.execute(_query("reconciliation"), boundary_params)
+            reconciliation = cur.fetchall()
+            for row in reconciliation:
+                if int(row["staged_rows"]) != int(row["loaded_boundaries"]):
+                    raise ValueError(
+                        f"TIGER {row['layer']} reconciliation failed: "
+                        f"{row['staged_rows']} staged rows, "
+                        f"{row['loaded_boundaries']} loaded boundaries"
+                    )
+            conn.commit()
+        run.record_count = total
     return total
