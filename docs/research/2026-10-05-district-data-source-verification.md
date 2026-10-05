@@ -65,6 +65,16 @@ and 2024 state-legislative plans and that legal boundaries/names are as of
 `tl_2024_<state FIPS>_sldl.zip`. File sizes are publisher-listed and are
 re-probed by the normal `tiger-bulk-preview` capacity gate before transfer.
 
+Current publisher-index manifest count rechecked on 2026-10-05:
+
+- `CD/`: 56 `cd119` ZIP members;
+- `SLDU/`: 52 ZIP members;
+- `SLDL/`: 50 ZIP members;
+- total expected discovery manifest: **158 ZIP artifacts**.
+
+This is review evidence, not a loader constant. The live warehouse plan must
+rediscover the publisher manifest and reconcile its own exact counts.
+
 The 2024 record layouts make the join contract explicit:
 
 - CD119: `STATEFP`, `CD119FP`, `GEOID`, `NAMELSAD`, `CDSESSN`;
