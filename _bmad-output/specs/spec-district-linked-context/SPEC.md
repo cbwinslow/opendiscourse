@@ -1,9 +1,11 @@
 ---
 id: SPEC-district-linked-context
-status: draft-for-operator-review (2026-10-05)
+status: approved (operator, 2026-10-05)
 companions:
   - jurisdiction-time-model.md
+  - stories.yaml
   - ../../../inventory/dataset-roadmap.yaml
+  - ../../../inventory/geography-vintages.yaml
   - ../spec-political-research-marts/SPEC.md
   - ../spec-housing-microdata-archive/SPEC.md
   - ../../../docs/adr/0002-schema-invariants.md
@@ -19,6 +21,32 @@ district, state) and a party. The warehouse must therefore hold who lives there
 (age, sex, race, education, income, children, citizenship, benefits), what happens
 there (crime, immigration, employment, housing, tax), and how that place voted, all
 joined to the member by geography and time, never by name.
+
+## North star and first release
+
+The programme is complete enough to expand only after one vertical slice is proven end to end:
+
+```text
+119th Congress member term
+  -> OCD post/division
+  -> official 119th TIGER boundary
+  -> retained 2024 ACS 5-year district facts (2020-2024 window)
+  -> reviewed semantic metrics
+  -> mart.congressional_district_period
+  -> source-evidence drill-through
+```
+
+The first release is deliberately **119th Congress + 2024 ACS 5-year**. Census
+publishes the 2024 ACS on 119th-Congress boundaries, so this slice does not need
+a cross-vintage approximation. One mart row is a division x boundary vintage x
+observation period; it is not a fake "district-year" row. Story 10.6 is the
+`slice_proven` gate. Until it passes, agents must finish this vertical slice
+rather than adding CVAP, IRS, elections, crime, FEC, USAspending, or other
+horizontal sources.
+
+The authoritative 2021-2024 geography calendar is
+`inventory/geography-vintages.yaml`. In particular, 2021 ACS congressional
+district rows use the **116th**, not the 117th, district vintage.
 
 ## Measured facts (2026-10-05)
 
@@ -78,7 +106,7 @@ joined to the member by geography and time, never by name.
   gives every source a stable id, native geography, rule, priority, stage, gate and
   status; a source moves out of `verified: false` only after its endpoint, licence,
   size and years are checked at the publisher; the first gold table
-  `congressional_district_year` builds from stages 1-10 with every column traceable.
+  `congressional_district_period` builds in Story 10.6 from the bounded 119th/2024 vertical slice with every column traceable.
 - **CAP-8** Outcomes keep honest uncertainty. Success: ACS values carry release
   year and survey window and are never differenced across overlapping windows;
   voluntary-reporting data (FBI) stores coverage and refuses a rate without it;
@@ -106,32 +134,41 @@ joined to the member by geography and time, never by name.
   their own spec and stay separate from constituency outcomes and causal claims.
 - Publisher facts in the roadmap came from a research summary and are unverified
   until each source's story checks them.
-- Tract and block-group levels are out of this spec's first phase (85 k and 242 k
-  geographies); revisit with measured sizes.
+- Tract, block-group, block, VTD, place and school-district geometry are out of the first vertical slice. They open only after Story 10.6, with a capacity preview before any large national transfer.
 - Puerto Rico microdata is deferred by operator decision (2026-10-05).
 
 ## Phases
 
-1. ADR for packed ACS facts; geography types and the Congress-to-vintage rule;
-   `fact.acs_table_row` + field dictionary; reload 2021-2024 for the new levels.
-2. Compact person table proven on one year, then the rest; retire
-   `stage.acs_pums_record` after reconciliation.
-3. Geography spine (roadmap stages 1-2): TIGER CD/SLDU/SLDL/PUMA (+block, VTD, place,
-   school district), `division_boundary`, `geography_crosswalk`, relationship and
-   block equivalency files. Then ACS district facts (stages 3-4) and CBP at CD (6).
-   Then, only when their gates allow, CVAP, IRS, LODES, USAspending, GAO CPF/CDS
-   (stages 5-10), in roadmap order.
-3b. Topic sources in the CAP-4 priority order, one verified source at a time.
-4. Type and storage audit of existing tables, then cleanup.
+0. **Geography calendar — done.** `inventory/geography-vintages.yaml` freezes the
+   reviewed ACS/CD/SLD/PUMA vintages and the roles of TIGER, relationship files,
+   and BEFs.
+1. **Prove the 119th/2024 vertical slice.** Stories 10.1-10.6: ADR/schema,
+   CD/SLD boundaries, division-to-boundary model, packed 2024 ACS CD facts,
+   semantic metrics, then `mart.congressional_district_period`.
+2. **Expand comparable Census coverage.** Only after Story 10.6: CVAP, CBP at
+   its verified district vintage, then 118th and earlier district periods where
+   geography equivalence is explicit. State legislative districts follow the
+   same rule.
+3. **Add atomic/crosswalk geography when a source needs it.** Tract, block
+   group, block, VTD, place, school district and measure-specific weights are
+   acquired under capacity review. PUMS remains PUMA-native and synthetic
+   district estimates remain labelled.
+4. **Add one topic source at a time.** IRS, LODES, USAspending, GAO CPF/CDS,
+   housing, health, education, broadband, immigration, environment, then
+   Epic-7 elections/crime/FEC when their gates permit.
+5. **Storage cleanup.** Run the table-width/type audit after the new packed
+   path is proven; delete only reconciled derived rows, never retained evidence.
 
-## Open items (need verification, not assumption)
+The executable story queue is `stories.yaml`. If prose and that queue disagree,
+the story dependencies and gates win unless the operator changes the spec.
 
-- Earliest year for which the table-based Summary File publishes by district.
-- Which Congress each ACS vintage's districts correspond to (including mid-decade
-  redistricting in some states).
-- Official endpoint, licence, size and geography of every CAP-4 source.
-- Tract/block-group inclusion: revisit after measured sizes (tract is the crosswalk
-  backbone, so it may be needed before ACS tract facts).
-- Reconcile CAP-4's priority list with the roadmap order (election results are Epic 7).
-- Roadmap `verified: false` rows: endpoint, licence, size, years, geography.
-- Why `stage.fec_row` holds ~102 M rows when the registry lists FEC as a disabled pilot.
+## Open items (verify in the source-specific story, not by assumption)
+
+- Exact congressional-district vintage used by each selected **CBP** reference year.
+- Endpoint, terms/licence, size, coverage years, field dictionary and publisher
+  count/manifest for every roadmap source still marked `verified: false`.
+- Tract/block/block-group national capacity before those layers are approved.
+- Historical 117th-Congress comparability: 2021 ACS is explicitly a 116th-
+  Congress geography product and must not be relabelled.
+- Why `stage.fec_row` holds ~102 M rows when the registry lists FEC as a
+  disabled pilot; this is independent cleanup and does not open Epic 7.
