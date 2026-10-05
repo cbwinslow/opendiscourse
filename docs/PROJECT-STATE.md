@@ -10,7 +10,7 @@ TIGER boundary → retained 2024 ACS 5-year district facts → reviewed metric r
 `slice_proven`; until then no horizontal source expansion or national block/tract
 download. Confirmed in code: TIGER still loads only state/county/CBSA/ZCTA and
 `acs_load` still keeps only state+county, so no district data was ingested by this
-planning change. **Next build: Story 10.1 (ADR-0006 + storage/schema contract).**
+planning change. ADR-0006 is now accepted at `docs/adr/0006-district-period-and-packed-acs.md`. **Next build: Story 10.2 (119th CD + 2024 SLDU/SLDL TIGER boundaries only).**
 
 
 **ACS loader stopped; district-linked plan drafted (2026-10-05).** The operator
