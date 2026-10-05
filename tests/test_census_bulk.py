@@ -196,6 +196,64 @@ class TestCensusBulkPlans(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "exactly"):
             build_tiger_bulk_plan("test", [])
 
+    def test_tiger_political_plan_is_bounded_to_119th_and_2024_sld(self) -> None:
+        artifacts = [
+            {
+                "artifact_key": "tiger-2024-cd119-01",
+                "kind": "cd119",
+                "url": "https://www2.census.gov/geo/tiger/TIGER2024/CD/tl_2024_01_cd119.zip",
+                "filename": "tl_2024_01_cd119.zip",
+                "boundary_vintage": 2024,
+                "state_fips": "01",
+            },
+            {
+                "artifact_key": "tiger-2024-sldu-01",
+                "kind": "sldu",
+                "url": "https://www2.census.gov/geo/tiger/TIGER2024/SLDU/tl_2024_01_sldu.zip",
+                "filename": "tl_2024_01_sldu.zip",
+                "boundary_vintage": 2024,
+                "state_fips": "01",
+            },
+            {
+                "artifact_key": "tiger-2024-sldl-01",
+                "kind": "sldl",
+                "url": "https://www2.census.gov/geo/tiger/TIGER2024/SLDL/tl_2024_01_sldl.zip",
+                "filename": "tl_2024_01_sldl.zip",
+                "boundary_vintage": 2024,
+                "state_fips": "01",
+            },
+        ]
+        selected = [
+            resource(
+                "census.tiger",
+                "political:2024:cd119-sld2024",
+                "Political district boundary layers",
+            )
+        ]
+        with patch(
+            "opendiscourse_research.ingestion.tiger_bulk.discover_political_tiger_artifacts",
+            return_value=artifacts,
+        ):
+            plan = build_tiger_bulk_plan("districts", selected)
+        self.assertEqual(plan["selection"]["boundary_vintage"], 2024)
+        self.assertEqual(plan["selection"]["congress"], 119)
+        self.assertEqual(plan["selection"]["legislative_year"], 2024)
+        self.assertEqual(plan["selection"]["valid_from"], "2024-01-01")
+        self.assertEqual(plan["selection"]["layers"], ["cd119", "sldu", "sldl"])
+        self.assertEqual({item["kind"] for item in plan["artifacts"]}, {"cd119", "sldu", "sldl"})
+
+    def test_tiger_scope_accepts_only_reviewed_political_layers(self) -> None:
+        self.assertEqual(
+            tiger_scope(
+                {
+                    "canonical_load_scope": {
+                        "layers": ["cd119", "sldu", "sldl"]
+                    }
+                }
+            ),
+            {"cd119", "sldu", "sldl"},
+        )
+
     def test_relevant_acs_tables_excludes_flags_collapsed_and_one_year_only(
         self,
     ) -> None:

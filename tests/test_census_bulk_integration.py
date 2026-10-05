@@ -90,6 +90,10 @@ class TestBulkDatabaseIntegration(unittest.TestCase):
                     (row["artifact_id"],),
                 )
                 cur.execute(
+                    "DELETE FROM core.geography_name_source WHERE artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+                cur.execute(
                     "DELETE FROM stage.cbp_row WHERE artifact_id=%s",
                     (row["artifact_id"],),
                 )
@@ -118,7 +122,14 @@ class TestBulkDatabaseIntegration(unittest.TestCase):
                     (row["artifact_id"],),
                 )
             cur.execute(
-                "DELETE FROM core.geography WHERE geography_type='state' AND geoid='99'"
+                "DELETE FROM core.geography AS geography "
+                "WHERE ((geography.geography_type='state' AND geography.geoid='99') "
+                "OR (geography.geography_type IN ('congressional_district','sldu','sldl') "
+                "AND geography.state_fips='99')) "
+                "AND NOT EXISTS (SELECT 1 FROM core.geography_boundary AS boundary "
+                "WHERE boundary.geography_id=geography.geography_id) "
+                "AND NOT EXISTS (SELECT 1 FROM core.geography_name_source AS assertion "
+                "WHERE assertion.geography_id=geography.geography_id)"
             )
             conn.commit()
 
@@ -408,6 +419,124 @@ class TestBulkDatabaseIntegration(unittest.TestCase):
             )
             self.assertEqual(cur.fetchone()["count"], 1)
         self._remove_artifact(key)
+
+    def test_tiger_political_boundaries_preserve_vintage_validity_and_evidence(
+        self,
+    ) -> None:
+        try:
+            import geopandas
+            from shapely.geometry import Polygon
+        except ImportError:
+            self.skipTest("TIGER integration requires the spatial extra")
+
+        def _archive(name: str, attributes: dict[str, list[str]]) -> Path:
+            source = Path(self.temp.name) / f"{name}.shp"
+            geopandas.GeoDataFrame(
+                attributes,
+                geometry=[Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])],
+                crs="EPSG:4269",
+            ).to_file(source, driver="ESRI Shapefile")
+            archive_path = Path(self.temp.name) / f"{name}.zip"
+            with ZipFile(archive_path, "w") as archive:
+                for member in source.parent.glob(f"{name}.*"):
+                    if member.suffix != ".zip":
+                        archive.write(member, member.name)
+            return archive_path
+
+        fixtures = [
+            (
+                "integration-tiger-cd119",
+                "cd119",
+                _archive(
+                    "cd119",
+                    {
+                        "GEOID": ["9901"],
+                        "NAMELSAD": ["Congressional District 1"],
+                        "STATEFP": ["99"],
+                        "CDSESSN": ["119"],
+                    },
+                ),
+            ),
+            (
+                "integration-tiger-sldu",
+                "sldu",
+                _archive(
+                    "sldu",
+                    {
+                        "GEOID": ["99001"],
+                        "NAMELSAD": ["State Senate District 1"],
+                        "STATEFP": ["99"],
+                        "LSY": ["2024"],
+                    },
+                ),
+            ),
+            (
+                "integration-tiger-sldl",
+                "sldl",
+                _archive(
+                    "sldl",
+                    {
+                        "GEOID": ["99002"],
+                        "NAMELSAD": ["State House District 2"],
+                        "STATEFP": ["99"],
+                        "LSY": ["2024"],
+                    },
+                ),
+            ),
+        ]
+        for key, _layer, path in fixtures:
+            self._remove_artifact(key)
+            self._register("census.tiger", key, path)
+
+        plan = {
+            "state": "downloaded",
+            "selection": {
+                "boundary_vintage": 2024,
+                "package": "political_district_boundaries",
+                "congress": 119,
+                "legislative_year": 2024,
+                "valid_from": "2024-01-01",
+            },
+            "canonical_load_scope": {"layers": ["cd119", "sldu", "sldl"]},
+            "artifacts": [
+                {"artifact_key": key, "kind": layer}
+                for key, layer, _path in fixtures
+            ],
+        }
+        self.assertEqual(stage_tiger(plan), 3)
+        plan["state"] = "staged"
+        self.assertEqual(load_tiger(plan), 3)
+        self.assertEqual(load_tiger(plan), 3)
+
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT geography.geography_type, geography.geoid, "
+                "boundary.boundary_vintage, boundary.valid_from, "
+                "boundary.source_artifact_id IS NOT NULL AS has_evidence "
+                "FROM core.geography_boundary AS boundary "
+                "JOIN core.geography AS geography USING (geography_id) "
+                "WHERE geography.state_fips='99' "
+                "AND geography.geography_type IN "
+                "('congressional_district','sldu','sldl') "
+                "ORDER BY geography.geography_type"
+            )
+            rows = cur.fetchall()
+            self.assertEqual(len(rows), 3)
+            self.assertTrue(all(row["boundary_vintage"] == 2024 for row in rows))
+            self.assertTrue(all(str(row["valid_from"]) == "2024-01-01" for row in rows))
+            self.assertTrue(all(row["has_evidence"] for row in rows))
+            cur.execute(
+                "SELECT count(*) FROM core.geography_name_source "
+                "WHERE dataset_id='census.tiger' AND source_vintage='2024' "
+                "AND geography_id IN ("
+                "SELECT geography_id FROM core.geography "
+                "WHERE state_fips='99' AND geography_type IN "
+                "('congressional_district','sldu','sldl'))"
+            )
+            self.assertEqual(cur.fetchone()["count"], 3)
+
+        for key, _layer, _path in fixtures:
+            self._remove_artifact(key)
 
     def test_tiger_load_scopes_geography_to_its_own_plan_across_vintages(
         self,

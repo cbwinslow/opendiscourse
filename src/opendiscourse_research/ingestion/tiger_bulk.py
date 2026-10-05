@@ -1,8 +1,9 @@
-"""TIGER/Line national-boundary package planning utilities."""
+"""TIGER/Line boundary-package planning utilities."""
 
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,25 +13,31 @@ import yaml
 
 from ..capacity import GiB, remote_size, storage_preview
 from ..config import settings
+from ..providers.census import census_directory_links
+from .base import client
 
-# Core layers confirmed present with this exact filename pattern:
-# TIGER{year}/{DIR}/tl_{year}_us_{layer}.zip. Tract/block-group/block layers
-# are deliberately not included here -- their archives are much larger and
-# organized per-state rather than one national file, a distinct addition
-# rather than a parametrization of this one.
 LAYER_DIRS = (
     ("STATE", "state"),
     ("COUNTY", "county"),
     ("CBSA", "cbsa"),
 )
 
-# ZCTA boundaries are redefined each decennial census, and Census renames
-# both the directory and filename suffix to match -- confirmed live: the
-# 2010-vintage `ZCTA5/..._zcta510.zip` 404s starting TIGER2021, while the
-# 2020-vintage `ZCTA520/..._zcta520.zip` 404s before TIGER2020 (both exist
-# in the 2020 transition year). A single hardcoded ZCTA520 directory (the
-# original Phase 1 fix) silently 404s for every year before 2020.
 _ZCTA_CUTOVER_YEAR = 2020
+
+# Story 10.2 is intentionally one verified political-boundary vintage. Each
+# future political vintage must be checked against Census before admission.
+_POLITICAL_PACKAGES: dict[int, dict[str, int | str]] = {
+    2024: {
+        "congress": 119,
+        "legislative_year": 2024,
+        "valid_from": "2024-01-01",
+    }
+}
+_POLITICAL_DIRECTORIES = (
+    ("CD", "cd119"),
+    ("SLDU", "sldu"),
+    ("SLDL", "sldl"),
+)
 
 
 def _zcta_layer(year: int) -> str:
@@ -39,15 +46,11 @@ def _zcta_layer(year: int) -> str:
     return f"ZCTA520/tl_{year}_us_zcta520.zip"
 
 
-# Confirmed live: Census did not publish a national CBSA delineation file
-# under TIGER2022 -- every filename tried under TIGER2022/CBSA/ 404s, and
-# the directory listing has no CBSA entry for that year at all. A genuine
-# one-year publishing gap, not a naming guess; extend this if a future
-# vintage turns out to have a similar gap in a different layer.
 _MISSING_LAYERS: dict[int, frozenset[str]] = {2022: frozenset({"cbsa"})}
 
 
 def tiger_layers(year: int) -> tuple[str, ...]:
+    """Return the small national core-boundary members for one TIGER vintage."""
     missing = _MISSING_LAYERS.get(year, frozenset())
     core = tuple(
         f"{directory}/tl_{year}_us_{layer}.zip"
@@ -63,40 +66,29 @@ def _root() -> Path:
     return root
 
 
-def _boundary_vintage(resource: dict[str, Any]) -> int | None:
+def _selection(resource: dict[str, Any]) -> tuple[int, str] | None:
+    """Return the reviewed vintage and package for one TIGER catalog resource."""
     if resource.get("dataset_id") != "census.tiger":
         return None
     parts = str(resource.get("resource_key", "")).split(":")
-    if len(parts) != 3 or parts[0] != "national" or parts[2] != "core-boundaries":
-        return None
-    try:
-        return int(parts[1])
-    except ValueError:
-        return None
+    if len(parts) == 3 and parts[0] == "national" and parts[2] == "core-boundaries":
+        try:
+            return int(parts[1]), "national_core_boundaries"
+        except ValueError:
+            return None
+    if len(parts) == 3 and parts[0] == "political" and parts[2] == "cd119-sld2024":
+        try:
+            return int(parts[1]), "political_district_boundaries"
+        except ValueError:
+            return None
+    return None
 
 
-def build_tiger_bulk_plan(
-    basket_name: str, resources: list[dict[str, Any]]
-) -> dict[str, Any]:
-    """Create a review-only plan for one vintage's national TIGER core boundaries."""
-    years = sorted(
-        {year for resource in resources if (year := _boundary_vintage(resource))}
-    )
-    if len(years) != 1:
-        raise ValueError(
-            "Select exactly one vintage's national TIGER core boundary package."
-        )
-    year = years[0]
+def _national_core_artifacts(year: int) -> list[dict[str, Any]]:
     base = f"https://www2.census.gov/geo/tiger/TIGER{year}"
-    artifacts = [
+    return [
         {
             "artifact_key": f"tiger-{year}-{path.split('/')[-1][:-4]}",
-            # Derived from the filename's own layer suffix (e.g.
-            # "tl_2019_us_zcta510.zip" -> "zcta510"), not the directory name
-            # -- the ZCTA directory ("ZCTA5") and its vintage-suffixed layer
-            # kind ("zcta510") deliberately differ, since tiger_load.py's
-            # LAYER_INFO is keyed by the vintage-suffixed kind (its shapefile
-            # attribute columns are vintage-suffixed too: GEOID10/GEOID20).
             "kind": path.split("/")[-1].removesuffix(".zip").split("_us_", 1)[1],
             "url": f"{base}/{path}",
             "filename": path.split("/")[-1],
@@ -104,6 +96,93 @@ def build_tiger_bulk_plan(
         }
         for path in tiger_layers(year)
     ]
+
+
+def discover_political_tiger_artifacts(year: int) -> list[dict[str, Any]]:
+    """Enumerate exactly the political ZIPs Census publishes for one reviewed vintage.
+
+    Census publishes 2024 CD/SLD TIGER/Line files state-by-state. Discovery uses
+    the provider directory indexes instead of a hand-maintained state list, so
+    missing chambers are represented by publisher absence rather than guessed 404s.
+    """
+    if year not in _POLITICAL_PACKAGES:
+        raise ValueError(
+            f"No reviewed TIGER political-boundary package is defined for {year}"
+        )
+    base = f"https://www2.census.gov/geo/tiger/TIGER{year}"
+    artifacts: list[dict[str, Any]] = []
+    with client() as http:
+        for directory, kind in _POLITICAL_DIRECTORIES:
+            index_url = f"{base}/{directory}/"
+            response = http.get(index_url)
+            response.raise_for_status()
+            pattern = re.compile(
+                rf"^tl_{year}_(?P<state>[0-9]{{2}})_{re.escape(kind)}[.]zip$"
+            )
+            matches = []
+            for url in census_directory_links(index_url, response.text):
+                filename = url.rsplit("/", 1)[-1]
+                match = pattern.fullmatch(filename)
+                if match:
+                    matches.append((url, filename, match.group("state")))
+            if not matches:
+                raise ValueError(
+                    f"Census published no {kind} ZIP members at {index_url}"
+                )
+            for url, filename, state_fips in sorted(matches):
+                artifacts.append(
+                    {
+                        "artifact_key": f"tiger-{year}-{kind}-{state_fips}",
+                        "kind": kind,
+                        "url": url,
+                        "filename": filename,
+                        "boundary_vintage": year,
+                        "state_fips": state_fips,
+                    }
+                )
+    natural_keys = {(item["kind"], item["state_fips"]) for item in artifacts}
+    if len(natural_keys) != len(artifacts):
+        raise ValueError("Census political TIGER discovery produced duplicate members")
+    return artifacts
+
+
+def build_tiger_bulk_plan(
+    basket_name: str, resources: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Create a review-only plan for one exact TIGER boundary package."""
+    selections = sorted(
+        {
+            selected
+            for resource in resources
+            if (selected := _selection(resource)) is not None
+        }
+    )
+    if len(selections) != 1:
+        raise ValueError("Select exactly one TIGER boundary package.")
+    year, package = selections[0]
+
+    if package == "national_core_boundaries":
+        artifacts = _national_core_artifacts(year)
+        selection: dict[str, Any] = {
+            "boundary_vintage": year,
+            "package": package,
+            "layers": [item["kind"] for item in artifacts],
+        }
+        source_pages = [f"https://www2.census.gov/geo/tiger/TIGER{year}/"]
+    else:
+        political = _POLITICAL_PACKAGES[year]
+        artifacts = discover_political_tiger_artifacts(year)
+        selection = {
+            "boundary_vintage": year,
+            "package": package,
+            "layers": ["cd119", "sldu", "sldl"],
+            "congress": int(political["congress"]),
+            "legislative_year": int(political["legislative_year"]),
+            "valid_from": str(political["valid_from"]),
+        }
+        base = f"https://www2.census.gov/geo/tiger/TIGER{year}"
+        source_pages = [f"{base}/CD/", f"{base}/SLDU/", f"{base}/SLDL/"]
+
     return {
         "version": 1,
         "state": "draft",
@@ -112,12 +191,10 @@ def build_tiger_bulk_plan(
         "format": "TIGER/Line Shapefile ZIP",
         "created_at": datetime.now(UTC).isoformat(),
         "basket": basket_name,
-        "selection": {
-            "boundary_vintage": year,
-            "package": "national_core_boundaries",
-            "layers": [item["kind"] for item in artifacts],
-        },
-        "canonical_load_scope": "not approved; select boundary layers after the PostGIS loader is available",
+        "selection": selection,
+        "canonical_load_scope": (
+            "not approved; select boundary layers after storage preview"
+        ),
         "artifacts": artifacts,
         "storage": {
             "state": "unpreviewed",
@@ -126,8 +203,11 @@ def build_tiger_bulk_plan(
             "reserve_gib": 100,
         },
         "provenance": {
-            "source_page": base + "/",
-            "note": "Each ZIP remains immutable. A spatial loader must record boundary vintage and artifact lineage in core.geography_boundary.",
+            "source_pages": source_pages,
+            "note": (
+                "Each Census ZIP remains immutable. Canonical boundaries retain "
+                "boundary vintage, reviewed validity, and artifact lineage."
+            ),
         },
     }
 

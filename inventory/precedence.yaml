@@ -60,5 +60,11 @@ geography:
         - {dataset: census.acs_5, field: NAME}
       cbsa:
         - {dataset: census.tiger, field: NAMELSAD}
+      congressional_district:
+        - {dataset: census.tiger, field: NAMELSAD}
+      sldu:
+        - {dataset: census.tiger, field: NAMELSAD}
+      sldl:
+        - {dataset: census.tiger, field: NAMELSAD}
       nation:
         - {dataset: census.population_estimates, field: NAME}

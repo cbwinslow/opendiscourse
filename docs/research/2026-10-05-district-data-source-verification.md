@@ -43,6 +43,49 @@ BEFs assign whole 2020 Census blocks to districts for tabulation. Where an
 official plan splits a block, Census TIGER/Line geometry can depict the actual
 split boundary; the whole-block BEF does not replace that geometry.
 
+### Story 10.2 implementation verification
+
+Re-checked immediately before implementation:
+
+- 2024 TIGER/Line release page:
+  https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.2024.html
+- 2024 technical documentation:
+  https://www.census.gov/programs-surveys/geography/technical-documentation/complete-technical-documentation/tiger-geo-line.2024.html
+- official CD directory:
+  https://www2.census.gov/geo/tiger/TIGER2024/CD/
+- official SLDU directory:
+  https://www2.census.gov/geo/tiger/TIGER2024/SLDU/
+- official SLDL directory:
+  https://www2.census.gov/geo/tiger/TIGER2024/SLDL/
+
+Census states that the 2024 vintage contains the 119th Congressional District
+and 2024 state-legislative plans and that legal boundaries/names are as of
+2024-01-01. The official directory members use
+`tl_2024_<state FIPS>_cd119.zip`, `tl_2024_<state FIPS>_sldu.zip`, and
+`tl_2024_<state FIPS>_sldl.zip`. File sizes are publisher-listed and are
+re-probed by the normal `tiger-bulk-preview` capacity gate before transfer.
+
+The 2024 record layouts make the join contract explicit:
+
+- CD119: `STATEFP`, `CD119FP`, `GEOID`, `NAMELSAD`, `CDSESSN`;
+  `CDSESSN` must be `119`.
+- SLDL: `STATEFP`, `SLDLST`, `GEOID`, `NAMELSAD`, `LSY`;
+  `LSY` must be `2024`.
+- SLDU uses the analogous current upper-chamber fields and the same
+  `LSY=2024` contract.
+
+The technical-documentation legal disclaimer says U.S. Government works are
+not copyright-protected under 17 U.S.C. 105, so Census materials may be
+reproduced; Census requests source citation. TIGER/Line is a registered
+trademark and the statistical boundary disclaimer must not be misrepresented as
+a legal land-description claim.
+
+Implementation decision: discover the exact published ZIP members from those
+three Census directory indexes, then pass them through OpenDiscourse's existing
+capacity preview, resumable transfer, checksum retention, staging and PostGIS
+promotion. This avoids a guessed state/chamber manifest and preserves the
+existing evidence model.
+
 ## Verified post-slice source candidates
 
 ### Census CVAP
@@ -119,9 +162,14 @@ Repository: https://github.com/walkerke/pygris
 TIGER/Line geography and exposes helpers for congressional districts, state
 legislative districts, PUMAs, tracts, block groups, blocks and voting districts.
 
-Decision: **evaluate in Story 10.2 before extending custom TIGER download
-code.** It may save URL/discovery/parsing work. OpenDiscourse still retains the
-official Census ZIP URL, bytes, checksum and its own canonical keys.
+Story 10.2 evaluation result: **do not adopt `pygris` as the production
+acquisition path.** Inspection of `pygris/legislative.py` confirms the same
+2024 Census URL patterns used here and makes it a useful validation oracle.
+However, its all-state congressional helper catches download exceptions, and it
+does not provide OpenDiscourse artifact/version/checksum/run evidence. The
+production path therefore reuses the existing OpenDiscourse TIGER downloader
+and Pyogrio loader while borrowing the verified upstream URL conventions. No
+new runtime dependency is added.
 
 ### U.S. Census Bureau Data API MCP
 

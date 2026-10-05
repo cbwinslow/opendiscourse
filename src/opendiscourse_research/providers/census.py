@@ -497,7 +497,7 @@ def sync_dhc_bulk_packages() -> int:
 
 
 def sync_tiger_bulk_packages() -> int:
-    """Publish a small, complete national boundary package per available TIGER vintage."""
+    """Publish reviewed TIGER boundary packages without opening heavy layers."""
     for year in TIGER_YEARS:
         upsert_resource(
             "census.tiger",
@@ -511,4 +511,19 @@ def sync_tiger_bulk_packages() -> int:
                 "base_url": f"https://www2.census.gov/geo/tiger/TIGER{year}",
             },
         )
-    return len(TIGER_YEARS)
+    upsert_resource(
+        "census.tiger",
+        "political:2024:cd119-sld2024",
+        "Political district boundary layers",
+        "2024 TIGER/Line — 119th congressional and 2024 state legislative districts",
+        "Official state-based 119th Congressional District, SLDU, and SLDL TIGER/Line archives. The planner discovers the exact published ZIP members from Census directory indexes.",
+        2024,
+        {
+            "package": "political_district_boundaries",
+            "congress": 119,
+            "legislative_year": 2024,
+            "base_url": "https://www2.census.gov/geo/tiger/TIGER2024",
+            "source_page": "https://www.census.gov/programs-surveys/decennial-census/about/rdo/congressional-districts.119th_Congress.html",
+        },
+    )
+    return len(TIGER_YEARS) + 1

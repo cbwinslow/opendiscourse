@@ -1541,10 +1541,10 @@ def dhc_bulk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -
 def tiger_bulk_plan(
     basket: str = typer.Option(
         "default",
-        help="Catalog selection containing the TIGER national boundary package.",
+        help="Catalog selection containing one reviewed TIGER boundary package.",
     ),
 ) -> None:
-    """Write a disabled 2020 TIGER/Line national-boundary plan."""
+    """Write a disabled TIGER/Line boundary plan from one reviewed package."""
     typer.echo(write_tiger_bulk_plan(basket, catalog_basket(basket)))
 
 
@@ -1577,13 +1577,19 @@ def tiger_bulk_approve(
 @ingest_app.command("tiger-bulk-download")
 def tiger_bulk_download(
     plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    workers: int = typer.Option(
+        4,
+        min=1,
+        max=16,
+        help="Concurrent artifact downloads; each member remains independently resumable.",
+    ),
 ) -> None:
     """Resumably download approved TIGER artifacts and register checksums."""
     payload = yaml.safe_load(plan.read_text()) or {}
     with render_progress(
         "Downloading TIGER bulk archives", len(payload.get("artifacts", []))
     ) as update:
-        result = download_plan(plan, update)
+        result = download_plan(plan, update, workers=workers)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 
