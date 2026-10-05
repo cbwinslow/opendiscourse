@@ -93,6 +93,7 @@ from .ingestion.pep_bulk import preview_pep_bulk_plan, write_pep_bulk_plan
 from .ingestion.pep_load import load_pep, stage_pep
 from .ingestion.tiger_bulk import preview_tiger_bulk_plan, write_tiger_bulk_plan
 from .ingestion.tiger_load import load_tiger, stage_tiger
+from .ingestion.tiger_validate import validate_tiger_plan
 from .ingestion.treasury import ingest_yield_curve
 from .ingestion.votes import VOTE_CONNECTORS
 from .ingestion.voteview import VoteviewConnector
@@ -1617,6 +1618,28 @@ def tiger_bulk_load(
         count = load_tiger(payload, update)
     advance_plan(plan, "staged", "loaded", "load", {"boundary_count": count})
     typer.echo(f"Loaded {count} TIGER geography boundaries.")
+
+
+@ingest_app.command("tiger-bulk-validate")
+def tiger_bulk_validate(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    rerun_load: bool = typer.Option(
+        False,
+        "--rerun-load",
+        help=(
+            "Replay only the canonical TIGER promotion and prove its "
+            "count/validity fingerprint is unchanged."
+        ),
+    ),
+) -> None:
+    """Validate retained TIGER evidence and source/stage/publish reconciliation."""
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_spinner("Validating TIGER source and canonical evidence"):
+        report = validate_tiger_plan(payload, rerun_load=rerun_load)
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+    if not report["passed"]:
+        raise typer.Exit(code=1)
 
 
 @ingest_app.command("census-search")
