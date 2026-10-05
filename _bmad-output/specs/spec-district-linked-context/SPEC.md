@@ -76,8 +76,10 @@ district rows use the **116th**, not the 117th, district vintage.
   Congress-to-vintage rule (ADR-0002 #8); cross-vintage comparison is refused.
 - **CAP-2** ACS table facts are stored packed, with row-level evidence. Success:
   `(release, geography, table)` is the unique grain; each row retains
-  `source_artifact_id` and `source_ordinal`; a field dictionary maps array position to
-  field id and label; a view unnests to one row per field for researchers; the loader
+  `source_artifact_id` and `source_ordinal`; the existing
+  `catalog.dataset_field` is extended/reused as the field dictionary and a
+  field-order hash binds packed array positions to field ids/labels; a view
+  unnests to one row per field for researchers; the loader
   reconciles parsed versus stored counts and is idempotent and resumable; the existing
   280 M facts are re-derived from retained files and compared before the old table is
   dropped (derived rows only; retained files are never touched).
