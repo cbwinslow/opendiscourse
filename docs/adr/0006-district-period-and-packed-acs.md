@@ -110,30 +110,26 @@ Rules:
 
 ### 3. Packed ACS becomes the new canonical bulk-table representation
 
-Create a source-specific field dictionary and packed fact table.
+Do **not** create an ACS-only field-dictionary table. The repo already has the
+generic `catalog.dataset_field`, and `load_acs_field_catalog()` already loads
+the official ACS Table Shells into it with release-specific `valid_from`,
+estimate/MOE variable IDs, table id, line, label, title, universe, and type.
 
-#### `catalog.acs_table_field`
+Story 10.4 extends that existing generic catalog rather than duplicating it:
 
-One row describes one logical value position within an ACS Detailed Table for
-one release:
+- add nullable `source_artifact_id uuid` and `source_ordinal bigint` to
+  `catalog.dataset_field` so new/refreshing metadata rows can retain direct
+  immutable evidence;
+- backfill is not required merely to add the columns; ACS Story 10.4 reloads the
+  already-retained Table Shell metadata for the bounded 2024 slice and verifies
+  its provenance;
+- packed field order is estimate-variable order within
+  `(dataset_id, valid_from/release, table_id)`, using the official line/field
+  number already retained in `DatasetField.metadata`;
+- estimate and MOE fields are paired by their shared ACS table/line identity.
 
-| Column | Contract |
-| --- | --- |
-| `release_year smallint` | ACS release year |
-| `table_id text` | Detailed Table id |
-| `ordinal smallint` | zero-based packed-array position |
-| `estimate_field_id text` | Census estimate variable id |
-| `moe_field_id text` | corresponding Census MOE variable id |
-| `label text` | official label where published |
-| `concept text` / `universe text` | official metadata where published |
-| `source_artifact_id uuid` | retained table-shell/metadata evidence |
-| `metadata jsonb` | remaining provider metadata |
-
-Primary key: `(release_year, table_id, ordinal)`.
-Also require uniqueness of estimate/MOE field ids within a release/table.
-
-This table is a compact field dictionary, not a replacement for the general
-Census catalog. Raw metadata remains retained.
+This preserves one reusable field-catalog abstraction for Census and later
+sources rather than creating `catalog.acs_*_field` tables.
 
 #### `fact.acs_table_row`
 
@@ -147,7 +143,9 @@ One row represents one ACS Detailed Table for one geography in one release:
 | `geography_id uuid` | FK to `core.geography` |
 | `boundary_id uuid` | nullable FK to exact `core.geography_boundary`; required by the loader for CD/SLDU/SLDL |
 | `table_id text` | ACS Detailed Table id |
-| `estimates double precision[]` | values in dictionary ordinal order |
+| `field_count smallint` | number of estimate/MOE pairs in the arrays |
+| `field_order_sha256 text` | hash of the ordered estimate field ids used to pack the row |
+| `estimates double precision[]` | values in field-catalog order |
 | `margins_of_error double precision[]` | MOEs in the same order |
 | `source_artifact_id uuid` | retained Detailed Table artifact |
 | `source_ordinal bigint` | source row ordinal |
@@ -158,9 +156,9 @@ Rules:
 - LIST partition by `release_year` from creation, per ADR-0003;
 - first production partition is **2024 only**;
 - unique canonical key is `(release_year, geography_id, table_id)`;
-- estimates and MOE arrays have equal positive cardinality;
-- dictionary cardinality must equal array cardinality (loader validation + DB
-  reconciliation query);
+- `field_count > 0`, and both arrays have cardinality exactly `field_count`;
+- `field_order_sha256` is computed from the ordered estimate field ids and
+  must match the same order reconstructed from `catalog.dataset_field`;
 - arrays use PostgreSQL double precision, not `numeric[]`; the immutable source
   preserves original text/precision and the packed table is a derived analytical
   representation;
@@ -207,8 +205,10 @@ its own evidence without acquiring national block polygons.
 
 Retirement sequence:
 
-1. create new dictionary + packed partitioned table;
-2. load/reconcile the bounded 2024 CD slice;
+1. extend the existing generic field catalog with provenance columns and create
+   the packed partitioned fact table;
+2. reload/verify the retained 2024 Table Shell metadata and load/reconcile the
+   bounded 2024 CD slice;
 3. prove field-level equality for sampled and aggregate counts against retained
    source and, where overlapping, existing scalar facts;
 4. widen release/geography scope only through later stories;
@@ -219,8 +219,9 @@ Retirement sequence:
 No retained Census artifact is deleted or overwritten.
 
 The field-level compatibility surface is a **dbt/read-only view**, not another
-Alembic-owned scalar fact table. dbt unnests arrays using
-`catalog.acs_table_field.ordinal` when a row-per-variable interface is needed.
+Alembic-owned scalar fact table. dbt reconstructs the ordered ACS field list
+from `catalog.dataset_field`, verifies `field_order_sha256`, and unnests the
+arrays when a row-per-variable interface is needed.
 
 ## Alembic implementation plan
 
@@ -229,8 +230,9 @@ Story 10.2/10.3/10.4 migrations are additive and independently reversible:
 1. **Geography/junction revision:** add `core.division_boundary` and
    `core.geography_crosswalk`; no rewrite of `core.division` or existing
    `core.geography_boundary`.
-2. **ACS packed revision:** add `catalog.acs_table_field` and partitioned
-   `fact.acs_table_row`, plus only the 2024 partition initially.
+2. **ACS packed revision:** add provenance columns to
+   `catalog.dataset_field`, add partitioned `fact.acs_table_row`, and create
+   only the 2024 partition initially.
 3. Update SQLAlchemy table mappings and `models/__init__.py` in the same
    revision/story that owns each table.
 4. Downgrade drops only newly added tables/partitions/indexes; it never touches
@@ -250,7 +252,7 @@ Before a story is complete:
 - wrong-vintage political boundary rejection;
 - crosswalk weighted/unweighted CHECK behavior;
 - source-less junction/fact rejection;
-- packed array cardinality/dictionary mismatch rejection by loader validation;
+- packed array cardinality / `catalog.dataset_field` order-hash mismatch rejection by loader validation;
 - 2024 CD rerun idempotency;
 - killed stage/load resume equals clean load;
 - source row count and field count reconciliation;
