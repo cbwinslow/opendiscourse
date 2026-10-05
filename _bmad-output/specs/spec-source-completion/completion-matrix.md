@@ -15,6 +15,8 @@ A source is complete only when all applicable checks pass:
 
 ## V1 delivery queue
 
+This table tracks completion debt across the programme; it is **not** the agent dispatch order. `docs/PROJECT-STATE.md` and the active story DAG choose the next build. As of 2026-10-05 that is Epic 10 Story 10.2 / issue #117. Legislative publisher-error exceptions and the member closeout remain tracked but do not preempt #117 unless explicitly assigned.
+
 | Order | Source / bounded work | Current evidence | Completion gap and next deliverable | Stop condition |
 |---:|---|---|---|---|
 | 1 | Legislative tracker reconciliation | Bills 106–119, official votes 108–119, bill text 113–119, people, terms, committees, Voteview, and CBO estimates are live. | Update `inventory/progress.yaml` to match verified live status; retain named exceptions. Retry only when Congress.gov serves the two missing 107th bill detail pages and three cosponsor pages. Write a small reconciliation spec. | Do not rerun the full 106–107 bill job while those five pages return HTTP 500. |
