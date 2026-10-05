@@ -91,7 +91,8 @@ stories:
     depends_on: ["10.1", "10.2", "10.3"]
     gate: v1_spine
     deliverables:
-      - packed ACS table-row fact and field dictionary
+      - packed ACS table-row fact reusing catalog.dataset_field as the field dictionary
+      - provenance extension for catalog.dataset_field
       - 2024 congressional-district load using already-retained ACS artifacts
       - compatibility research view that can expose field-level rows
     completion:
