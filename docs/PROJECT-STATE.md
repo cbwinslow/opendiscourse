@@ -15,10 +15,13 @@ Story 10.2 implementation is merged: PR #122 / `95fd1dc0` added the official
 checksum-retained acquisition, PostGIS promotion, field guards, validity, and
 source/stage/load reconciliation. PR #124 / `f52a04ab` added
 `research-db ingest tiger-bulk-validate --plan <plan>` plus `--rerun-load`
-for evidence-led warehouse validation and idempotency proof. CI passed the fast
-lane, deterministic/PostGIS suite, pre-commit, CommitCheck, and qlty. The official
-2024 directory indexes currently expose 56 CD119, 52 SLDU, and 50 SLDL ZIPs
-(158 total); discovery remains dynamic rather than hard-coded.
+for evidence-led warehouse validation and idempotency proof. PR #126 /
+`64d80b81` froze the independently verified publisher completeness baseline:
+56 CD119 + 52 SLDU + 50 SLDL ZIPs = 158 artifacts. Discovery still reads the
+official Census indexes, but the 2024 package now fails closed if any layer's
+member count differs from that reviewed manifest. CI passed the fast lane,
+deterministic/PostGIS suite, pre-commit, CommitCheck, and qlty for all three
+Story 10.2 PRs.
 
 **Current gate:** Story 10.2 stays `in_progress` until the real warehouse
 catalog/plan/preview/download/stage/load/validate sequence is executed, the
