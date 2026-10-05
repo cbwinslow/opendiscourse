@@ -65,6 +65,14 @@ def _probe_size(url: str) -> RemoteObject:
                 return RemoteObject(url, int(match.group(1)), "range")
             if response.headers.get("content-length"):
                 return RemoteObject(url, int(response.headers["content-length"]), "get")
+            max_probe_bytes = 25 * 1024 * 1024
+            total = 0
+            for chunk in response.iter_bytes(chunk_size=65536):
+                total += len(chunk)
+                if total > max_probe_bytes:
+                    return RemoteObject(url, None, "unknown")
+            if total > 0:
+                return RemoteObject(url, total, "stream")
     return RemoteObject(url, None, "unknown")
 
 

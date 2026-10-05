@@ -45,7 +45,7 @@ stories:
   - id: "10.2"
     github_issue: 117
     title: Load official 119th congressional and 2024 state legislative boundaries
-    status: in_progress
+    status: done
     depends_on: ["10.1"]
     gate: v1_spine
     deliverables:
@@ -66,7 +66,7 @@ stories:
   - id: "10.3"
     github_issue: 118
     title: Link political divisions to boundary vintages and define crosswalk evidence
-    status: blocked
+    status: ready
     depends_on: ["10.2"]
     gate: v1_spine
     deliverables:
