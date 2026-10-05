@@ -2,6 +2,7 @@
 id: SPEC-political-research-marts
 companions:
   - mart-catalog.md
+  - ../spec-district-linked-context/SPEC.md
   - ../spec-openstates-political-core/SPEC.md
   - ../spec-fec-reproducible-ingest/SPEC.md
 sources:
@@ -19,7 +20,7 @@ The normalized warehouse is necessary for trustworthy ingestion, but researchers
 ## Capabilities
 
 - **CAP-1**
-  - **intent:** A researcher can use named political marts for people, office terms, member votes, bills, candidate-cycle finance, and district-year context.
+  - **intent:** A researcher can use named political marts for people, office terms, member votes, bills, candidate-cycle finance, and district-period context.
   - **success:** Every published mart declares its row grain, stable key, time basis, source dependencies, coverage status, and link back to underlying source evidence.
 - **CAP-2**
   - **intent:** A researcher can tell a true zero apart from data that was not available, not loaded, not comparable, or not safely linked to a person.
@@ -36,7 +37,7 @@ The normalized warehouse is necessary for trustworthy ingestion, but researchers
 - dbt owns `mart`; canonical identity, provenance, and factual tables remain in `core`/`fact`.
 - One mart has one declared grain. A convenience column may not conceal a one-to-many expansion, mismatched reporting period, duplicate source record, alternative entity class, or alternative version grain.
 - Do not create person joins from display names or expose a FEC-to-politician metric before the identifier bridge is enabled.
-- Preserve historical time and geographic vintage. Do not compare or aggregate district values across redistricting without a reviewed relationship/crosswalk rule.
+- Preserve historical time and geographic vintage. Do not compare or aggregate district values across redistricting without a reviewed relationship/crosswalk rule. ACS 5-year releases are observation windows, not annual observations; district marts use period_start/period_end.
 - Derived measures must state their formula and source coverage. Opaque political effectiveness, bias, integrity, or corruption scores are out of scope.
 
 ## Non-goals
