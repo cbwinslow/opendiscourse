@@ -1,16 +1,32 @@
 # Project state and handoff
 
-**District programme approved and execution queue frozen (2026-10-05).**
+**District programme approved; Story 10.2 live validation in progress (2026-10-05).**
 The operator approved `_bmad-output/specs/spec-district-linked-context/`.
-`stories.yaml` is now the executable Epic 10 queue and
+`stories.yaml` is the executable Epic 10 queue and
 `inventory/geography-vintages.yaml` is the verified Census geography calendar.
-First proof is deliberately narrow: 119th-Congress member term → official 119th
-TIGER boundary → retained 2024 ACS 5-year district facts → reviewed metric registry
-→ `mart.congressional_district_period`. Completing Story 10.6 opens
+First proof remains deliberately narrow: 119th-Congress member term → official
+119th TIGER boundary → retained 2024 ACS 5-year district facts → reviewed metric
+registry → `mart.congressional_district_period`. Completing Story 10.6 opens
 `slice_proven`; until then no horizontal source expansion or national block/tract
-download. Confirmed in code: TIGER still loads only state/county/CBSA/ZCTA and
-`acs_load` still keeps only state+county, so no district data was ingested by this
-planning change. ADR-0006 is now accepted at `docs/adr/0006-district-period-and-packed-acs.md`. **Next build: Story 10.2 (119th CD + 2024 SLDU/SLDL TIGER boundaries only).**
+download.
+
+Story 10.2 implementation is merged: PR #122 / `95fd1dc0` added the official
+2024 TIGER CD119 + SLDU/SLDL package, publisher-directory discovery, resumable
+checksum-retained acquisition, PostGIS promotion, field guards, validity, and
+source/stage/load reconciliation. PR #124 / `f52a04ab` added
+`research-db ingest tiger-bulk-validate --plan <plan>` plus `--rerun-load`
+for evidence-led warehouse validation and idempotency proof. CI passed the fast
+lane, deterministic/PostGIS suite, pre-commit, CommitCheck, and qlty. The official
+2024 directory indexes currently expose 56 CD119, 52 SLDU, and 50 SLDL ZIPs
+(158 total); discovery remains dynamic rather than hard-coded.
+
+**Current gate:** Story 10.2 stays `in_progress` until the real warehouse
+catalog/plan/preview/download/stage/load/validate sequence is executed, the
+validator reports `passed=true`, the rerun reports
+`idempotency.stable=true`, and one retained official fixture is smoke-checked
+against pygris. Record that evidence in issue #117 before marking 10.2 done or
+unblocking #118 / Story 10.3. ADR-0006 remains the storage contract at
+`docs/adr/0006-district-period-and-packed-acs.md`.
 
 
 **ACS loader stopped; district-linked plan drafted (2026-10-05).** The operator
