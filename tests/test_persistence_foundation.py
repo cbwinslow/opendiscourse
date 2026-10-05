@@ -3132,6 +3132,13 @@ def test_tiger_bulk_stage_and_promotion_are_idempotent_on_postgis(
         )
         connection.execute(
             text(
+                "DELETE FROM core.geography_name_source WHERE artifact_id IN "
+                "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+            ),
+            {"key": key},
+        )
+        connection.execute(
+            text(
                 "DELETE FROM stage.tiger_feature WHERE artifact_id IN "
                 "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
             ),
@@ -3164,6 +3171,13 @@ def test_tiger_bulk_stage_and_promotion_are_idempotent_on_postgis(
             connection.execute(
                 text(
                     "DELETE FROM core.geography_boundary WHERE source_artifact_id IN "
+                    "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
+                ),
+                {"key": key},
+            )
+            connection.execute(
+                text(
+                    "DELETE FROM core.geography_name_source WHERE artifact_id IN "
                     "(SELECT artifact_id FROM ingest.artifact WHERE artifact_key=:key)"
                 ),
                 {"key": key},
