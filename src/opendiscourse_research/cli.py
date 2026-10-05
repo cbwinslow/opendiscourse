@@ -88,7 +88,7 @@ from .ingestion.dhc_load import load_dhc, stage_dhc
 from .ingestion.fec_bulk import preview_family, register_family, stage_family
 from .ingestion.fred import ingest_manifest, ingest_series
 from .ingestion.legislators import LegislatorsConnector
-from .ingestion.openstates import download_monthly_dump
+from .ingestion.openstates import download_monthly_dump, resolve_published_month
 from .ingestion.pep_bulk import preview_pep_bulk_plan, write_pep_bulk_plan
 from .ingestion.pep_load import load_pep, stage_pep
 from .ingestion.tiger_bulk import preview_tiger_bulk_plan, write_tiger_bulk_plan
@@ -99,6 +99,7 @@ from .ingestion.voteview import VoteviewConnector
 from .legload import load_billstatus
 from .legreconcile import reconcile_billstatus
 from .legvalidate import validate_billstatus
+from .openstatesacquire import SnapshotCapacityError, SnapshotNotPublished
 from .openstatesrefresh import dry_run_openstates_vote_refresh
 from .openstatessnapshot import validate_snapshot_artifact, write_snapshot_manifest
 from .openstatesstage import (
@@ -1806,26 +1807,40 @@ def acs_housing(
 
 @bootstrap_app.command("openstates-dump")
 def openstates_dump(
-    year: int = typer.Option(..., min=2010),
-    month: int = typer.Option(..., min=1, max=12),
+    year: int | None = typer.Option(None, min=2010),
+    month: int | None = typer.Option(None, min=1, max=12),
     schema: bool = typer.Option(
         True, help="Also download the matching schema archive."
     ),
     data: bool = typer.Option(
         False, help="Download the large public data archive as well."
     ),
+    refresh: bool = typer.Option(
+        True,
+        help="Ask the publisher whether this month's file changed, and download it again when it did.",
+    ),
 ) -> None:
-    """Download and checksum the official OpenStates dump; do not restore it."""
+    """Download and checksum the official OpenStates dump; do not restore it.
+
+    The address is ``https://data.openstates.org/postgres/monthly/YYYY-MM-public.pgdump``.
+    Omit the year and month to try this month, then last month if this month is
+    not published yet. A later run of the same month keeps the old file when
+    the publisher has replaced the bytes.
+    """
     if not schema and not data:
         raise typer.BadParameter("Choose at least one of --schema or --data")
+    if not refresh and (year is None or month is None):
+        raise typer.BadParameter("Pass --year and --month when --no-refresh is set")
     try:
+        if year is None or month is None:
+            year, month = resolve_published_month(year, month)
         with render_spinner(
             f"Downloading approved OpenStates {year}-{month:02d} dump artifacts"
         ):
             paths = download_monthly_dump(
-                year, month, include_schema=schema, include_data=data
+                year, month, include_schema=schema, include_data=data, refresh=refresh
             )
-    except ValueError as exc:
+    except (ValueError, SnapshotNotPublished, SnapshotCapacityError) as exc:
         raise typer.BadParameter(str(exc)) from None
     for path in paths:
         typer.echo(path)

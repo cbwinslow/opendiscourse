@@ -20,6 +20,31 @@ ACS from already-retained files. See
 `docs/SESSION-HANDOFF-2026-10-05-ACS-STOP-AND-DISTRICT-PLAN.md`. Do not restart
 `od-acs-housing-archive.service`.
 
+**OpenStates monthly snapshot (2026-10-05).** The refresh design is
+`docs/openstates-snapshot-refresh.md`. Contact fields, including Twitter,
+email, phone, office, and links, are retained and are not person-join keys.
+BioGuide remains the only person join. `bootstrap openstates-dump` checks the
+official `YYYY-MM` address and downloads again when the publisher's ETag,
+modification time, or size changes. The old file stays. October 2026 is the
+snapshot being acquired. The download does not restore into the database
+named `openstates`. Issue #100 and draft PR #107 stay a read-only audit.
+The July audit's missing restore proof stays unresolved history.
+
+**Database tests (2026-10-03).** One PostGIS server is used for a test run.
+Migrations run once into a template database, and each test module gets a
+private copy (`tests/db_cluster.py`). Do not start a container per test file.
+Parallel database tests stay off until each worker has its own template.
+Proof: `tests/test_db_cluster.py` and `tests/test_run_ledger.py` passed
+together in one run (13 tests, one server start). The full database suite
+was not rerun.
+
+**Census plan command (2026-10-03).** A Census housing plan with a complete
+publisher size, or with no files listed, no longer opens the warehouse
+database. The warehouse is opened only to fill a publisher row that has no
+size, using an already-saved file of the same address and checksum. A known
+publisher size is left as published even when a saved copy has a different
+size.
+
 **OpenStates Story 1 stopping point (2026-10-02).** At the operator's request,
 audit work is paused and saved on `feat/openstates-audit-story-1` at `7363339`,
 not merged into main. Resume in `/home/cbwinslow/workspace/opendiscourse-story-1`

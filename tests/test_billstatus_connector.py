@@ -2,14 +2,13 @@
 
 A fake origin serves small synthetic zips for Congress 998, a Congress that does not
 exist, so nothing here can touch real rows. Every test starts and ends with those rows
-removed: CI runs every DB module against one shared database.
+removed. Tests in this module share one database copy.
 """
 
 from __future__ import annotations
 
 import hashlib
 import io
-import os
 import zipfile
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -17,11 +16,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from db_cluster import cloned_database
 from idempotency_harness import IdempotencyCase, check_all
 
 from opendiscourse_research.catalog import sync_inventory
 from opendiscourse_research.config import settings
-from opendiscourse_research.db import _engine, apply_migrations, connect, engine
+from opendiscourse_research.db import connect, engine
 from opendiscourse_research.ingestion import billstatus
 from opendiscourse_research.ingestion.billstatus import BillStatusConnector
 from opendiscourse_research.ingestion.bulk import ArtifactSpec, register_local
@@ -37,31 +37,13 @@ LATER = "Sun, 21 Jan 2024 03:00:00 GMT"
 # -- database ---------------------------------------------------------------
 @pytest.fixture(scope="module")
 def catalog_database() -> Iterator[None]:
-    """Use CI's PostGIS service or a disposable local one, as the other DB contracts do."""
-    original = settings.database_url
-    external = os.environ.get("OPENDISCOURSE_TEST_DATABASE_URL")
-    if external:
-        settings.database_url = external
-        container = None
-    else:
-        postgres = pytest.importorskip("testcontainers.postgres")
-        container = postgres.PostgresContainer(
-            "postgis/postgis:17-3.5", username="test", password="test", dbname="test"
-        )
-        container.start()
-        settings.database_url = container.get_connection_url().replace(
-            "postgresql+psycopg2://", "postgresql://", 1
-        )
-    try:
-        apply_migrations()
+    """Use a private copy of the migrated PostGIS template."""
+    with cloned_database():
         sync_inventory()
-        yield
-    finally:
-        _remove_rows()
-        settings.database_url = original
-        _engine.cache_clear()
-        if container is not None:
-            container.stop()
+        try:
+            yield
+        finally:
+            _remove_rows()
 
 
 _BILL_IDS = "(SELECT bill_id FROM core.bill WHERE jurisdiction = 'us' AND legislative_session = '998')"
@@ -591,7 +573,10 @@ def _count(table: str) -> int:
 def test_first_sync_stores_the_whole_record_and_promotes_the_sections(origin: FakeOrigin) -> None:
     from xml.etree import ElementTree
 
-    from opendiscourse_research.ingestion.billstatus_record import record_problems, xml_to_record
+    from opendiscourse_research.ingestion.billstatus_record import (
+        record_problems,
+        xml_to_record,
+    )
 
     _sync(origin)
     artifact = _artifact()
