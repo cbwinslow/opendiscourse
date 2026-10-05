@@ -110,6 +110,10 @@ Census publishes two official kinds
 NHGIS crosswalks add interpolation weights; evaluate as wrap-optional
 when area-weighted allocation is required. Do not hand-roll weights.
 
+Update 2026-10-05: trigger met by Epic 10. Build `core.geography_crosswalk`
+(typed `weight_type`) and `core.division_boundary` per
+`spec-district-linked-context/jurisdiction-time-model.md`.
+
 Trigger: Epic 5 `district_year` (or a CD redistricting pack) must compare
 two TIGER vintages. Load typed rows with `source_artifact_id`; keep
 `parent_geoid` as a loose string until then. Division↔TIGER remains the

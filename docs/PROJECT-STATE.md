@@ -1,5 +1,25 @@
 # Project state and handoff
 
+**District roadmap folded in (2026-10-05).** ChatGPT's jurisdiction-time plan is now
+in `_bmad-output/specs/spec-district-linked-context/` (CAP-6..8, new
+`jurisdiction-time-model.md`), main SPEC CAP-11, Epic 10 in `epics.md`, and a 60-row
+backlog `inventory/dataset-roadmap.yaml` with gates. Confirmed in code: TIGER loads
+only state/county/CBSA/ZCTA; `acs_load` keeps only state+county. Nothing ingested.
+Publisher facts in the roadmap are unverified. Next: operator review of the draft
+spec, then Story 10.1.
+
+
+**ACS loader stopped; district-linked plan drafted (2026-10-05).** The operator
+stopped the ACS PUMS/AHS staging service after 153.3 M rows (1,731 members, 0
+rejected; `stage.acs_pums_record` 286 GB, JSONB). Nothing deleted. The database is on
+the 1.4 TB-free workspace volume, not the root disk. Decision: keep person-level
+microdata but store it as ~55 typed columns (231 B/row measured), and store ACS table
+facts packed (9.3 B/fact measured vs ~375). Next: the draft
+`_bmad-output/specs/spec-district-linked-context/SPEC.md`, starting with district-level
+ACS from already-retained files. See
+`docs/SESSION-HANDOFF-2026-10-05-ACS-STOP-AND-DISTRICT-PLAN.md`. Do not restart
+`od-acs-housing-archive.service`.
+
 **OpenStates monthly snapshot (2026-10-05).** The refresh design is
 `docs/openstates-snapshot-refresh.md`. Contact fields, including Twitter,
 email, phone, office, and links, are retained and are not person-join keys.

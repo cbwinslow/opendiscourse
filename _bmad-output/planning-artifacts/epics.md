@@ -197,6 +197,39 @@ Acceptance: No `ingest`/`stage` exposure; Compose profile still works.
 As a researcher, exports do not `fetchall()` unbounded sets.
 Acceptance: Streaming/chunked path; analytics extra.
 
+## Epic 10 — Jurisdiction geography and district metrics
+
+Spec: `specs/spec-district-linked-context/` (CAP-1..8, model companion).
+Backlog and gates: `inventory/dataset-roadmap.yaml`. Stories 10.1-10.6 are
+`v1_spine`; later stories wait on their gate. Each source story begins by
+verifying the publisher (endpoint, licence, size, years).
+
+### Story 10.1 — ADR-0006 and geography types
+ADR for packed ACS facts, new `geography_type` values (CD, SLDU, SLDL, PUMA,
+tract, block group, block, VTD, place, school district), Congress-to-vintage rule.
+
+### Story 10.2 — TIGER layers
+Extend `tiger_bulk` to the new layers; capacity gate before blocks.
+
+### Story 10.3 — `division_boundary` and `geography_crosswalk`
+Alembic revision; Census relationship + block equivalency files as evidence;
+weight_type required; tests for vintage validity, idempotency, coverage.
+
+### Story 10.4 — ACS district facts
+Widen `acs_load` beyond state/county; packed facts; reconcile with the old 280 M-row
+table before retirement; release year and survey window stored.
+
+### Story 10.5 — ACS metric pack and CBP at district
+Semantic metric registry; CBP congressional-district geography first-class.
+
+### Story 10.6 — `congressional_district_year` skeleton
+dbt mart from stages 1-6 sources; member view over division, post, membership.
+
+### Stories 10.7+ — roadmap stages 5, 7-10 (CVAP, IRS SOI, LODES, USAspending,
+GAO CPF/CDS) and 11-17. Created one at a time, gate permitting. Epic 7 sources
+(MEDSL, EAVS, FBI, FEC) and member-keyed sources (GAO CPF/CDS) do not open
+without their gates.
+
 ## Epic 7 — v1.1 money, elections, crime
 
 Do not start in v1. Politician *joins* still need Epic 3 / CAP-4. FEC-native
@@ -285,7 +318,8 @@ Built (`research-db sync-billstatus`, `ingestion/billstatus.py`, `providers/govi
   evidence-backed rows; transparent indicators; no opaque corruption score.
 - **Text/NLP/vectors:** keep bill text as immutable artifacts and `core.document`
   now; embeddings, summaries, and kNN only after chunks exist (ADR first).
-- Crime data (Epic 7), FRED depth, ACS/housing marts.
+- Crime data (Epic 7), FRED depth.
+- Legislative-effectiveness metric (CAP-9, LES-style, own spec) and any causal-impact work.
 
 ## Suggested next build (updated 2026-09-25)
 
