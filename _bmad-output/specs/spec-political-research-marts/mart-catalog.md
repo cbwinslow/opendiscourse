@@ -10,7 +10,7 @@
 | `bill_analysis` | one canonical bill identity | bill, action, sponsorship, subject, document, session | Status/action dates and classifications retain source vocabulary; document/version analysis is a distinct relation or future mart, never an alternate row grain. |
 | `candidate_cycle_finance` | one FEC candidate ID × cycle | approved FEC candidate master/linkage/facts; reviewed person bridge if person-keyed | Measures are columns with family/cycle coverage; candidate-to-committee linkage is explicit and itemized, summary/unitemized, transfer, and expenditure measures remain separate. |
 | `committee_cycle_finance` | one FEC committee ID × cycle | approved FEC committee master/linkage/facts | Measures are columns with family/cycle coverage; a committee is not treated as a person and no person bridge is implied. |
-| `district_year` | one political/geographic division for one defined period and boundary vintage | approved geography, boundary/crosswalk, measurements, office-term linkage when needed | It is not published across redistricting until comparable-vintage rules are documented. |
+| `congressional_district_period` | one congressional division × boundary vintage × observation period | approved geography, boundary/crosswalk, measurements, office-term linkage when needed | First release is 119th-Congress boundaries × 2020-2024 ACS window. It is not widened across redistricting until comparable-vintage rules are documented. |
 
 ## Required shared fields
 

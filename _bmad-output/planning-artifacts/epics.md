@@ -182,7 +182,7 @@ macro/financial.
 Acceptance: Documented in `docs/` and status/browse copy; no new schema.
 
 ### Story 5.2 — dbt marts
-As a researcher, `district_year` and `legislator_vote` (or equivalent) build
+As a researcher, `congressional_district_period` and `legislator_vote` (or equivalent) build
 from `core`/`fact`.
 Acceptance: dbt tests; mart schema already exists.
 
@@ -197,38 +197,59 @@ Acceptance: No `ingest`/`stage` exposure; Compose profile still works.
 As a researcher, exports do not `fetchall()` unbounded sets.
 Acceptance: Streaming/chunked path; analytics extra.
 
-## Epic 10 — Jurisdiction geography and district metrics
+## Epic 10 — Jurisdiction geography and district context
 
-Spec: `specs/spec-district-linked-context/` (CAP-1..8, model companion).
-Backlog and gates: `inventory/dataset-roadmap.yaml`. Stories 10.1-10.6 are
-`v1_spine`; later stories wait on their gate. Each source story begins by
-verifying the publisher (endpoint, licence, size, years).
+Canonical contract: `specs/spec-district-linked-context/SPEC.md`.
+Executable queue: `specs/spec-district-linked-context/stories.yaml`.
+Geography calendar: `inventory/geography-vintages.yaml`.
+Dataset backlog: `inventory/dataset-roadmap.yaml`.
 
-### Story 10.1 — ADR-0006 and geography types
-ADR for packed ACS facts, new `geography_type` values (CD, SLDU, SLDL, PUMA,
-tract, block group, block, VTD, place, school district), Congress-to-vintage rule.
+**North star:** prove one vertical slice before horizontal expansion:
+119th-Congress member term → official 119th TIGER boundary → retained 2024
+ACS 5-year district facts → reviewed metric registry →
+`mart.congressional_district_period` with evidence drill-through.
 
-### Story 10.2 — TIGER layers
-Extend `tiger_bulk` to the new layers; capacity gate before blocks.
+### Story 10.0 — Census geography calendar — done
+Freeze the 2021-2024 ACS political/statistical geography vintages and the
+separate roles of TIGER, relationship files, and BEFs.
 
-### Story 10.3 — `division_boundary` and `geography_crosswalk`
-Alembic revision; Census relationship + block equivalency files as evidence;
-weight_type required; tests for vintage validity, idempotency, coverage.
+### Story 10.1 — ADR-0006 and district-period storage contract — done
+Define packed ACS grain, survey-window semantics, required geography/schema
+changes, migration/reconciliation plan, and tests. No data transfer or old-table
+drop in this story.
 
-### Story 10.4 — ACS district facts
-Widen `acs_load` beyond state/county; packed facts; reconcile with the old 280 M-row
-table before retirement; release year and survey window stored.
+### Story 10.2 — 119th CD + 2024 SLDU/SLDL boundaries
+Extend the TIGER path only for the first political layers. Evaluate `pygris`
+before custom acquisition/parsing, but OpenDiscourse retains exact Census ZIP
+bytes and evidence. Do not download national block/tract layers here.
 
-### Story 10.5 — ACS metric pack and CBP at district
-Semantic metric registry; CBP congressional-district geography first-class.
+### Story 10.3 — Division↔boundary and crosswalk evidence
+Add `core.division_boundary` and `core.geography_crosswalk`; prove member
+term→division→119th boundary. Relationship rows are not generic population
+weights; BEFs are whole-block tabulation assignments, not split-block polygon
+truth.
 
-### Story 10.6 — `congressional_district_year` skeleton
-dbt mart from stages 1-6 sources; member view over division, post, membership.
+### Story 10.4 — Packed 2024 ACS congressional-district facts
+Use the already-retained 2024 files. First production grain is
+2024 ACS5 × 119th CD. Reconcile with the existing scalar facts before retiring
+derived rows. Preserve release year, 2020-2024 survey window, MOE, artifact and
+source ordinal.
 
-### Stories 10.7+ — roadmap stages 5, 7-10 (CVAP, IRS SOI, LODES, USAspending,
-GAO CPF/CDS) and 11-17. Created one at a time, gate permitting. Epic 7 sources
-(MEDSL, EAVS, FBI, FEC) and member-keyed sources (GAO CPF/CDS) do not open
-without their gates.
+### Story 10.5 — Curated district metric registry
+Publish transparent definitions/formulas for a useful ACS profile subset while
+retaining the complete raw source. No causal or political judgment lives here.
+
+### Story 10.6 — Congressional district period mart
+Build and test `mart.congressional_district_period`, one row per division ×
+boundary vintage × observation period. Completing this story opens the
+`slice_proven` gate.
+
+### Stories 10.7-10.12 — one verified source at a time
+CVAP → CBP congressional district → IRS SOI congressional district → LODES →
+USAspending → GAO CPF/CDS, each under its own source-specific build spec and
+gate. Topic sources after that follow `inventory/dataset-roadmap.yaml`.
+Epic-7 sources (elections/crime/FEC) remain closed until Epic 7 opens; GAO
+member attribution remains behind `person_join`.
 
 ## Epic 7 — v1.1 money, elections, crime
 
@@ -321,23 +342,14 @@ Built (`research-db sync-billstatus`, `ingestion/billstatus.py`, `providers/govi
 - Crime data (Epic 7), FRED depth.
 - Legislative-effectiveness metric (CAP-9, LES-style, own spec) and any causal-impact work.
 
-## Suggested next build (updated 2026-09-25)
+## Current next build (2026-10-05)
 
-Keep-and-refine. Do not start Epic 7. The legislative north star
-(`specs/spec-opendiscourse/legislative-north-star.md`) is the order:
-
-1. CBO columns are merged (#79) and applied on the live database
-   (17,640 estimates). A later bill-file refresh keeps them current.
-2. Voteview scores are loaded and relinked. 32 member rows in Congresses
-   108–119 stay unlinked because the ICPSR conflicts or the file lists two
-   numbers. Do not download `HSall_votes.csv`. The member field checklist is
-   the next gap. Years 2000–2002 need a source other than GovInfo bill files.
-3. Write the `congress.legislators` field checklist and a per-person whole
-   record for any field that checklist cannot mark typed or explicitly skipped.
-4. Merge the person-merge fix so committee seats move with the person
-   (`feat/person-merge-committee-seats`).
-5. Leave recorded votes on bill actions, alternate titles, and committee
-   reports as whole-record until a story needs them as columns.
-
-Independent tracks stay on separate branches. Improve evidence, identity,
-temporal membership, and vote completeness before broadening sources.
+1. **Epic 10 Story 10.2** — load the official 119th Congressional District and
+   2024 SLDU/SLDL boundary packages with evidence and reconciliation. This is
+   the highest-ready build.
+2. Then execute Stories 10.3 → 10.6 in order. Do not broaden to another source
+   merely because its connector looks easy.
+3. Open `slice_proven` only after Story 10.6 is complete and recorded in
+   `docs/PROJECT-STATE.md`.
+4. The OpenStates Story #100 audit remains a separate paused branch; FEC remains
+   under its strict-gated programme. Do not start Epic 7.

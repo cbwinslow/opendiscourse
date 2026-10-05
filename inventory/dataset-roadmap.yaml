@@ -3,8 +3,11 @@ description: >-
   Executable backlog of datasets that describe the places members represent.
   One row per source family, in build order. This is a plan, not a loader: a row
   authorizes nothing until its `gate` is met and its Connector story is opened.
-  `sources.yaml` stays the catalog of providers/datasets; this file adds
-  geography, priority, order, gate, and status. Spec:
+  `sources.yaml` stays the catalog of accepted/verified provider datasets;
+  this file may also hold unverified candidate IDs. A candidate without
+  `existing:` is promoted into `sources.yaml` only when its source story
+  verifies the publisher contract. This file adds geography, priority, order,
+  gate, and status. Spec:
   _bmad-output/specs/spec-district-linked-context/SPEC.md and
   jurisdiction-time-model.md beside it.
 origin: >-
@@ -13,17 +16,40 @@ origin: >-
   UNVERIFIED until the source's own story checks it at the publisher's endpoint
   (`verified: false`). Do not copy a claim into a Connector without that check.
 
+first_vertical_slice:
+  completion_story: "10.6"
+  congress: 119
+  boundary_vintage: 2024
+  acs_5_release_year: 2024
+  survey_window: [2020, 2024]
+  mart: congressional_district_period
+  rule: >-
+    Finish this direct-geography slice before horizontal source expansion.
+    It opens the slice_proven gate.
+
+source_verification_required:
+  - official publisher URL and product/dataset identifier
+  - terms/licence or public-domain status
+  - available years and known publisher gaps
+  - cadence and revision/version behavior
+  - native geography and stable join keys
+  - field dictionary/schema
+  - exact or bounded transfer-size estimate
+  - publisher count, manifest, or documented best reconciliation basis
+  - maintained reuse candidate evaluation before custom acquisition/parser code
+
+
 # Field meanings
 #   stage      build order (1 = first). Rows sharing a stage can proceed in parallel.
 #   priority   P0 geographic infrastructure, P1 core outcome data, P2 contextual.
 #   native     geography the publisher actually reports. `direct` = reports the
 #              political geography itself (no crosswalk needed).
 #   rule       how it reaches a member's division (selection hierarchy, spec
-#              Constraints): direct | atomic_aggregate | weighted_crosswalk |
+#              Constraints): direct | relationship | atomic_aggregate | weighted_crosswalk |
 #              spatial_interpolation | zip_approx | member_attributed | context_only
-#   gate       v1_spine            allowed now (SPEC v1 sequence: TIGER/Census).
-#              slice_proven        waits until a Connector->mart slice is proven
-#                                  (v1-scope.md; do not expand horizontally).
+#   gate       v1_spine            allowed now only when its Epic 10 story is ready.
+#              slice_proven        opens only after Story 10.6 is complete and
+#                                  recorded in PROJECT-STATE; do not expand horizontally.
 #              epic7               elections, crime, money; Epic 7 not opened.
 #              person_join         member-keyed; needs BioGuide via identitygate.
 #   status     loaded | partial | downloaded | planned. `existing` names the
@@ -83,22 +109,22 @@ datasets:
   - id: census.tiger.puma
     existing: census.tiger
     priority: P0
-    stage: 1
+    stage: 7
     native: [puma]
     direct: false
     rule: weighted_crosswalk
-    gate: v1_spine
+    gate: slice_proven
     status: planned
     verified: false
     connector: extend tiger_bulk
-    notes: Only geography PUMS can be tied to.
+    notes: Only geography PUMS can be tied to; not part of the 119th/2024 first slice.
   - id: census.tiger.tract
     existing: census.tiger
     priority: P0
-    stage: 1
+    stage: 8
     native: [tract]
     rule: atomic_aggregate
-    gate: v1_spine
+    gate: slice_proven
     status: planned
     verified: false
     connector: extend tiger_bulk
@@ -109,54 +135,60 @@ datasets:
   - id: census.tiger.block_group
     existing: census.tiger
     priority: P0
-    stage: 1
+    stage: 8
     native: [block_group]
     rule: atomic_aggregate
-    gate: v1_spine
+    gate: slice_proven
     status: planned
     verified: false
     connector: extend tiger_bulk
   - id: census.tiger.block
     existing: census.tiger
     priority: P0
-    stage: 1
+    stage: 8
     native: [block]
     rule: atomic_aggregate
-    gate: v1_spine
+    gate: slice_proven
     status: planned
     verified: false
     connector: extend tiger_bulk
-    notes: Atomic redistricting layer; large. Size via capacity gate before download.
+    notes: >-
+      Atomic redistricting layer; large and not part of the first vertical slice.
+      Capacity-gate a bounded official package before any transfer.
   - id: census.tiger.vtd
     existing: census.tiger
     priority: P0
-    stage: 1
+    stage: 11
     native: [vtd]
     rule: atomic_aggregate
-    gate: v1_spine
+    gate: epic7
     status: planned
     verified: false
     connector: extend tiger_bulk
   - id: census.tiger.place_school_district
     existing: census.tiger
     priority: P0
-    stage: 1
+    stage: 14
     native: [place, school_district]
     rule: direct
-    gate: v1_spine
+    gate: slice_proven
     status: planned
     verified: false
     connector: extend tiger_bulk
   - id: census.redistricting_relationship
     priority: P0
     stage: 2
-    native: [congressional_district, sldu, sldl, county, tract, block]
-    rule: weighted_crosswalk
+    native: [congressional_district, sldu, sldl, county, tract, zcta, place, school_district, aiannh]
+    rule: relationship
     gate: v1_spine
     status: planned
     verified: false
     connector: new; feeds core.geography_crosswalk
-    notes: Official comparability (same type over time) and containment (two types) files. Wrap, never hand-roll weights.
+    notes: >-
+      Authoritative same-vintage/comparability relationships. Do not treat overlap
+      fields as population, housing or employment weights unless the publisher
+      explicitly defines them that way; measure-specific weights require an
+      appropriate official atomic statistic.
   - id: census.redistricting_bef
     priority: P0
     stage: 2
@@ -166,7 +198,9 @@ datasets:
     status: planned
     verified: false
     connector: new; feeds core.division_boundary support
-    notes: Block equivalency files give block to district reconstruction.
+    notes: >-
+      Whole-2020-block tabulation assignments. They support tabulation/reconstruction
+      but do not replace TIGER polygon truth when an official district splits a block.
 
   # ---- Stages 3-4: ACS to districts (data already retained) ----
   - id: census.acs_5.district
@@ -181,6 +215,8 @@ datasets:
     verified: true   # geography counts measured in retained 2021-2024 files, 2026-10-05
     connector: acs_load; widen SUMMARY_LEVELS beyond 040/050; packed facts per district spec CAP-2
     period: {survey_window_years: 5, release_years: [2021, 2022, 2023, 2024]}
+    geography_calendar: inventory/geography-vintages.yaml
+    first_load: {release_year: 2024, congress: 119}
     notes: >-
       Overlapping 5-year windows are not independent yearly observations.
       Store release_year, period_start, period_end. Direct beats crosswalk.
@@ -233,10 +269,10 @@ datasets:
   - id: census.acs_pums
     existing: census.acs_housing_archive
     priority: P1
-    stage: 3
+    stage: 7
     native: [puma]
     rule: weighted_crosswalk
-    gate: v1_spine
+    gate: slice_proven
     status: partial
     notes: >-
       Staging stopped 2026-10-05 (153 M rows). Microdata stays at PUMA. A district
@@ -245,10 +281,10 @@ datasets:
   - id: census.ahs
     existing: census.acs_housing_archive
     priority: P1
-    stage: 3
+    stage: 12
     native: [national, cbsa]
     rule: context_only
-    gate: v1_spine
+    gate: slice_proven
     status: partial
     notes: Not a district source; do not force it to districts.
 
@@ -271,8 +307,8 @@ datasets:
     native: [congressional_district, county, zcta, state, cbsa]
     direct: true
     rule: direct
-    gate: v1_spine
-    status: loaded
+    gate: slice_proven
+    status: partial
     connector: cbp_load; add congressional_district as a canonical level
     notes: Already loaded at county; the CD geography is the gain. Establishments, employment, payroll by industry.
   - id: irs.soi_congressional
@@ -363,7 +399,7 @@ datasets:
     stage: 8
     native: [block, tract, block_group]
     rule: atomic_aggregate
-    gate: v1_spine
+    gate: slice_proven
     status: partial
     notes: Population weights for crosswalks come from here.
   - id: census.population_estimates
@@ -372,7 +408,7 @@ datasets:
     stage: 8
     native: [state, county]
     rule: weighted_crosswalk
-    gate: v1_spine
+    gate: slice_proven
     status: loaded
   - id: census.nonemployer
     priority: P1

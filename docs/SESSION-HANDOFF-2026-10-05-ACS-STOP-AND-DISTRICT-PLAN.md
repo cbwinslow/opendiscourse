@@ -2,9 +2,12 @@
 
 ## Start here
 
-Read `AGENTS.md`, `docs/PROJECT-STATE.md`, then this file and
-`_bmad-output/specs/spec-district-linked-context/SPEC.md` (draft, awaiting operator
-review). This supersedes the "do not interrupt" instruction in
+This handoff preserves the measured 2026-10-05 ACS state. The district plan it
+drafted has since been **approved**. For new work read `AGENTS.md`,
+`docs/PROJECT-STATE.md`, then
+`_bmad-output/specs/spec-district-linked-context/SPEC.md` and its
+`stories.yaml`; Story 10.1 is the next build. This supersedes the "do not
+interrupt" instruction in
 `SESSION-HANDOFF-2026-09-29-ACS-STAGING-AND-INVENTORY.md`.
 
 ## What happened
@@ -60,9 +63,8 @@ review). This supersedes the "do not interrupt" instruction in
 
 ## Not yet done (next steps, in order)
 
-1. ADR-0006 (packed ACS facts), geography types for CD/SLD/PUMA, Congress-to-vintage
-   rule, `fact.acs_table_row` + field dictionary, reload 2021-2024 for new levels,
-   reconcile against the old table before retiring it.
+1. Follow Epic 10 `stories.yaml`. Story 10.1 is ADR-0006/storage contract;
+   Stories 10.2-10.6 prove the 119th/2024 vertical slice before any wider release.
 2. Compact person table on one year, then all 1-year and four non-overlapping 5-year
    windows. Retire `stage.acs_pums_record` only after reconciliation; record the wipe.
 3. Topic sources, one verified at a time (election results by district first).

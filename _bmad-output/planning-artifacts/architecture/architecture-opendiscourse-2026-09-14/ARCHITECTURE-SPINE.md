@@ -7,8 +7,8 @@ paradigm: layered lakehouse with Connector adapters
 scope: whole warehouse and agent development system
 status: final
 created: 2026-09-14
-updated: 2026-09-17
-binds: [CAP-1, CAP-2, CAP-3, CAP-4, CAP-5, CAP-6, CAP-7, CAP-8]
+updated: 2026-10-05
+binds: [CAP-1, CAP-2, CAP-3, CAP-4, CAP-5, CAP-6, CAP-7, CAP-8, CAP-11]
 sources:
   - docs/research/2026-09-14-chatgpt-review.md
   - docs/research/2026-09-14-chatgpt-engineering-plan.md
@@ -145,6 +145,13 @@ Python: `providers/` (HTTP only) → `ingestion/` (pipelines; Connector in
   do not redesign from ChatGPT schema reviews.
 - **ADR:** `docs/adr/0002-schema-invariants.md`
 
+### AD-11 — Jurisdiction identity, boundary vintage, and observation period are separate [ADOPTED]
+
+- **Binds:** CAP-11, Epic 10
+- **Prevents:** treating ZIP as a district key, attaching a current polygon to a historical term, or flattening an ACS 5-year window into a fake annual observation
+- **Rule:** A member occupies a post representing an OCD division. The division is a political identity; Census TIGER supplies evidence-linked boundary vintages through `core.division_boundary`. Observations remain on their native geography and period. Direct political-geography observations are preferred; otherwise a typed `core.geography_crosswalk` records method, weight type, vintages, coverage, and evidence. ACS 5-year rows store their full survey window. Epic 10 Story 10.6 proves the first 119th/2024 slice before source expansion.
+- **Contract:** `specs/spec-district-linked-context/`, `inventory/geography-vintages.yaml`.
+
 ## Consistency Conventions
 
 | Concern | Convention |
@@ -208,6 +215,7 @@ flowchart LR
 | CAP-6 Access | `api` schema, DuckDB extra | AD-1, AD-10 |
 | CAP-7 SDD | BMAD + inventory | AD-6 |
 | CAP-8 Legislative primitives | `core` post/division/membership; OpenStates promote | AD-8, AD-10 |
+| CAP-11 District-linked context | `core.division_boundary`, `core.geography_crosswalk`, packed ACS facts, dbt district-period mart | AD-11, AD-3, AD-10 |
 
 ## Deferred
 
@@ -225,8 +233,10 @@ flowchart LR
   BioGuide, still out of v1). Existing `stage.fec_row` is not a green light.
 - Dropping textual `jurisdiction`/`legislative_session` from `core.bill` and
   `core.roll_call` unique keys (Story 8.3; gate in `resolved-questions.md`).
-- `core.geography_relationship` from Census relationship files when Epic 5
-  needs vintage comparability. `parent_geoid` stays a loose string until then.
+- Generic geography relationship trees remain out. Epic 10 now owns the
+  specific `core.division_boundary` and typed `core.geography_crosswalk`
+  contracts needed for jurisdiction-time analysis; `parent_geoid` remains a
+  loose source attribute rather than a universal hierarchy.
 - Provenance CHECK audit for class-A tables missing constraints
   (`geography_boundary`, `document`).
 - Immutable artifact-version migration (Story 1.7); current unique logical

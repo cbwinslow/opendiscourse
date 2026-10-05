@@ -12,12 +12,14 @@ search, or export code. Wrap behind provenance.
 | CBO cost estimates | Retained GovInfo BILLSTATUS XML carries `cboCostEstimates` (`pubDate`, `title`, `url`, `description`), promoted with bill/artifact/member/ordinal evidence. A scripted fetch of cbo.gov/cost-estimates/xml returned HTTP 403 (2026-09-22). |
 | OpenStates / Plural dumps | Isolated DB + FDW `openstates_source`; OCD language in `core`, not Django dump schema |
 | `pyopenstates` | Evaluate for API v3 incremental after dump promote |
+| U.S. Census Bureau Data API MCP | Official agent-facing Census metadata/query tool. Use for Claude/Codex exploration and source verification; production acquisition still follows Connector + retained official bytes. Do not make the MCP's local database a warehouse authority. |
 | `openstates-core` | Model reference; do not clone internal schema |
-| U.S. BEA `beaapi` | Evaluate before a custom BEA client |
-| `usaspending-orm` | Evaluate before a custom USAspending client |
+| U.S. BEA `beaapi` | Preferred optional adapter to evaluate before a custom BEA client; official BEA GitHub project, keep its cache under DATA_ROOT or disable it |
+| `usaspending-orm` | Strong adapter candidate before custom USAspending pagination/model code; smoke-test it behind the provider boundary and retain OpenDiscourse evidence/keys |
 | FEC bulk files (cm, cn, ccl, indiv, pas2, oth, oppexp) | Wrap official cycle zips; typed grains in `resolved-questions.md`. Do not promote `stage.fec_row` jsonb. Evaluate `fec-gov-postgres` as a loader reference, not a schema to copy |
 | MIT Election Lab / OpenElections | Evaluate when Epic 7 opens |
 | Census relationship files, block equivalency files | Wrap for `geography_crosswalk` / `division_boundary` (Epic 10) |
+| `jamaps/lehd`, Urban Institute `lodes-data-downloads` | Reference/evaluate only for LODES file conventions and aggregation ideas. Do not pre-approve as production dependencies; verify maintenance and official Version-8 coverage when Story 10.10 starts. |
 | LEHD LODES, IRS SOI, CVAP, FCC BDC, GAO CPF/CDS, HMDA, CDC PLACES, NCES CCD/CRDC | Candidates per `inventory/dataset-roadmap.yaml`; verify at the publisher, use official files |
 | Redistricting Data Hub | Comparison/validation source for election and boundary data, not a system of record |
 | IPUMS NHGIS crosswalks | Optional weights; evaluate before hand-rolling interpolation |
@@ -30,7 +32,7 @@ search, or export code. Wrap behind provenance.
 | Meltano/Singer | Not the foundation |
 | `censusdis` | Optional convenience; not required (license) |
 | Serena, Context7, GitHub MCP | Agent retrieval; not authority |
-| `pygris`, `datamade/census` | EVALUATE when the source's story starts; adopt if licence and maintenance are fine (ADR-0004) |
+| `pygris`, `datamade/census` | EVALUATE in Epic 10 before custom TIGER/Census API convenience code. `pygris` directly supports CD/SLD/PUMA/tract/block/BG TIGER access through 2024; it may assist discovery/parsing but cannot hide the official ZIP URL/bytes. `datamade/census` is an optional API client, not a reason to replace retained ACS bulk files. |
 | `fredapi` | Optional extra `fred`; our FRED client stays |
 | LDA.gov API (lobbying) | Candidate, gate `later`: official REST API; verify limits and licence before use |
 | USAspending, SAM.gov, Federal Register, Regulations.gov, eCFR, CourtListener | Candidates, gate `later`: use the publisher's own bulk files or API; not scheduled |

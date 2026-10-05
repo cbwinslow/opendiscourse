@@ -10,6 +10,10 @@ operator decisions that followed (BMAD Method v6 + TEA; Fast path).
 | Architecture spine | `planning-artifacts/architecture/architecture-opendiscourse-2026-09-14/ARCHITECTURE-SPINE.md` |
 | Spec kernel | `specs/spec-opendiscourse/SPEC.md` |
 | Legislative done-state (CAP-10) | `specs/spec-opendiscourse/legislative-north-star.md` |
+| District/GIS north star (CAP-11) | `specs/spec-district-linked-context/SPEC.md` |
+| District executable story queue | `specs/spec-district-linked-context/stories.yaml` |
+| District dataset backlog | `../inventory/dataset-roadmap.yaml` |
+| Census geography calendar | `../inventory/geography-vintages.yaml` |
 | Epics and stories | `planning-artifacts/epics.md` |
 
 Sources (absorbed; do not re-ingest unless updating the spec):
@@ -25,6 +29,6 @@ Sources (absorbed; do not re-ingest unless updating the spec):
 Live schema snapshot for external review: `docs/schema-snapshot/`
 (reading order: `docs/research/2026-09-17-chatgpt-review-packet.md`).
 
-**Standing:** see `docs/PROJECT-STATE.md` (updated 2026-09-19). AGY's merges
+**Standing:** see `docs/PROJECT-STATE.md` (updated continuously; current district execution state is 2026-10-05). AGY's merges
 (2.2, 2.3, 8.2, 1.7) were reverted in #26 and are being redone; do not use the
 2026-09-17 status that used to be here.

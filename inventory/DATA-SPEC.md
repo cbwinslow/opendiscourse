@@ -11,9 +11,11 @@ record of how, so anyone can repeat it on their own machine. Then link the data 
 
 ## Rules for every source
 
-1. **Take everything the source offers.** Every field, every record, every period, within reason. "Within reason" is
-   decided in writing: a field or file we do not store is listed in the source's field checklist as `not_stored`
-   with a reason. Silence is not allowed.
+1. **Bound the source first; then keep the approved selection losslessly.** A catalog entry or provider offering is
+   not authorization to download every product it publishes. The active BMAD spec, `inventory/dataset-roadmap.yaml`,
+   and the source's gate decide which product, years, geographies, and files enter the build queue. Once that bounded
+   selection is approved, account for every field and record it contains: a field or file we do not store is listed
+   in the source's field checklist as `not_stored` with a reason. Silence is not allowed.
 2. **Store the whole record first.** Keep each source record whole (raw file as an immutable artifact, and the
    full record as JSON in the warehouse where the file is many small records), then add typed tables for the fields
    people query. New typed tables come from the stored record, without downloading again. Model: BILLSTATUS,

@@ -13,9 +13,12 @@ districts, CBP at districts) is part of the TIGER/Census step above (Epic 10,
 stages 1-6 of `inventory/dataset-roadmap.yaml`). Other roadmap sources wait for
 a proven slice; elections, crime, and money stay v1.1.
 
-Do not start v1.1 because a staging table already exists. Do not expand
-horizontally until a Connector→mart slice is proven (FRED e2e and/or
-legislator-vote). Pre-Connector ACS/TIGER/bill loads do not count.
+Do not start v1.1 because a staging table already exists. For district-linked
+context, "slice proven" now has one concrete meaning: Epic 10 Story 10.6 is
+complete and `mart.congressional_district_period` proves the 119th-Congress /
+2020-2024 ACS vertical slice with evidence drill-through. Pre-Connector
+ACS/TIGER/bill loads do not count by themselves; the touched district path must
+meet the Connector/lifecycle and mart completion checks in Stories 10.1-10.6.
 
 The FEC/OpenStates political-research programme is a separately approved,
 strict-gated sequence: OpenStates field/coverage mapping → four-file FEC pilot

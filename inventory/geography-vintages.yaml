@@ -1,0 +1,87 @@
+version: 1
+verified_on: '2026-10-05'
+publisher: U.S. Census Bureau
+purpose: >-
+  Authoritative geography calendar for the district-linked context programme.
+  This file answers which political boundary vintage a retained ACS release uses
+  and how Census redistricting products may be used. It is a data contract, not
+  an ingest authorization.
+
+sources:
+  acs_geography_by_year: https://www.census.gov/programs-surveys/acs/geography-acs/geography-boundaries-by-year.html
+  relationship_files: https://www.census.gov/geographies/reference-files/2020/geo/relationship-files.html
+  relationship_layouts: https://www.census.gov/programs-surveys/geography/technical-documentation/records-layout/2020-CD-SLD-record-layout.html
+  congressional_districts_119: https://www.census.gov/programs-surveys/decennial-census/about/rdo/congressional-districts.119th_Congress.html
+  congressional_bef_119: https://www.census.gov/geographies/mapping-files/2025/dec/rdo/119-congressional-district-bef.html
+  state_legislative_2024: https://www.census.gov/programs-surveys/decennial-census/about/rdo/state-legislative-district.2024.html
+  state_legislative_bef_2024: https://www.census.gov/geographies/mapping-files/2025/dec/rdo/2024-state-legislative-bef.html
+
+rules:
+  acs_boundary_vintage: >-
+    ACS uses the geography vintage of the estimate year; for a 5-year release,
+    the last year of the survey window determines the geography vintage.
+  legal_boundary_truth: >-
+    TIGER/Line polygons are the geometry used for legal-area boundary analysis.
+    Where a plan splits a 2020 Census block, the TIGER boundary can depict that
+    split.
+  bef_role: >-
+    Block Equivalency Files are whole-block tabulation assignments supplied for
+    redistricting products. They are not a replacement for TIGER legal boundary
+    geometry when an official plan splits a block.
+  relationship_file_role: >-
+    Congressional/state-legislative relationship files are authoritative
+    same-vintage relationships between political districts and other Census
+    geographies. Do not assume that an overlap row supplies a population,
+    household, housing-unit, or employment weight.
+  weight_rule: >-
+    A crosswalk weight must name its weight_type and its source. Population,
+    housing, household, and employment weights are derived only from an
+    appropriate official count/statistic at an atomic geography; generic area
+    overlap is not a substitute.
+  district_key_rule: >-
+    A district observation is keyed by political division, boundary vintage,
+    and validity/observation period. State plus district number alone is not a
+    historical key.
+
+acs_5_releases:
+  2021:
+    survey_window: [2017, 2021]
+    congressional_district_congress: 116
+    state_legislative_session_year: 2018
+    puma_vintage: 2010
+    tract_vintage: 2020
+    block_group_vintage: 2020
+    notes: >-
+      Census did not publish the 2021 ACS on a 117th-Congress district vintage;
+      do not silently label these district rows as 117th-Congress observations.
+  2022:
+    survey_window: [2018, 2022]
+    congressional_district_congress: 118
+    state_legislative_session_year: 2022
+    puma_vintage: 2020
+    tract_vintage: 2020
+    block_group_vintage: 2020
+  2023:
+    survey_window: [2019, 2023]
+    congressional_district_congress: 118
+    state_legislative_session_year: 2022
+    puma_vintage: 2020
+    tract_vintage: 2020
+    block_group_vintage: 2020
+  2024:
+    survey_window: [2020, 2024]
+    congressional_district_congress: 119
+    state_legislative_session_year: 2024
+    puma_vintage: 2020
+    tract_vintage: 2020
+    block_group_vintage: 2020
+
+first_vertical_slice:
+  congress: 119
+  acs_release_year: 2024
+  state_legislative_session_year: 2024
+  reason: >-
+    The 2024 ACS 5-year release and the 2020-2024 CVAP special tabulation use
+    the 119th Congressional Districts and 2024 state legislative districts,
+    giving the first slice an exact direct-geography pairing without a
+    cross-vintage approximation.
