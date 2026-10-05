@@ -134,6 +134,24 @@ the field review only where the structures are the same. If it differs,
 regenerate the affected dispositions and leave them unapproved. Human approval
 has to name this snapshot, not the unresolved July one.
 
+## Identifier link, measured and not yet written
+
+`openstateslink.py` matches rows only by identifier. It was run read-only on
+2026-10-05 against the database currently named `openstates`. That database
+is still the unattested historical copy, not the October baseline. No owned
+row was inserted or updated.
+
+| Link | Result |
+| --- | --- |
+| BioGuide people | 722 OpenStates BioGuide ids, 722 matched an owned person, 0 missing, 0 conflicts |
+| Federal bills | 70,880 United States bills, all 70,880 matched Congress + type + number |
+| Federal votes | 1,828 OpenStates events grouped into 1,827 official keys, all 1,827 keys matched; one key has two events |
+
+State bills such as `HB 264` are not given a federal type or number. Other
+person schemes, including Twitter and a display name, are ignored. The same
+function will be run again after the October snapshot is activated, and only
+that rerun may attach new identifier assertions.
+
 ## How the two datasets stay one warehouse
 
 Promotion is a later story. The rules below are the contract that story must
