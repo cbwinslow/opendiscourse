@@ -39,6 +39,14 @@ _POLITICAL_DIRECTORIES = (
     ("SLDL", "sldl"),
 )
 
+# Verified against the frozen official TIGER2024 publisher indexes on
+# 2026-10-05. These are package completeness checks, not guessed jurisdiction
+# lists: discovery still reads the Census directory, but a partial response
+# may not silently become an approved manifest.
+_POLITICAL_EXPECTED_MEMBER_COUNTS = {
+    2024: {"cd119": 56, "sldu": 52, "sldl": 50},
+}
+
 
 def _zcta_layer(year: int) -> str:
     if year < _ZCTA_CUTOVER_YEAR:
@@ -98,6 +106,22 @@ def _national_core_artifacts(year: int) -> list[dict[str, Any]]:
     ]
 
 
+def _require_political_member_count(
+    year: int, kind: str, count: int, index_url: str
+) -> None:
+    """Fail closed when a reviewed frozen publisher index is incomplete."""
+    expected = _POLITICAL_EXPECTED_MEMBER_COUNTS.get(year, {}).get(kind)
+    if expected is None:
+        raise ValueError(
+            f"No reviewed TIGER member-count contract exists for {year} {kind}"
+        )
+    if count != expected:
+        raise ValueError(
+            f"Census {year} {kind} manifest at {index_url} returned {count} "
+            f"ZIP members; expected reviewed publisher count {expected}"
+        )
+
+
 def discover_political_tiger_artifacts(year: int) -> list[dict[str, Any]]:
     """Enumerate exactly the political ZIPs Census publishes for one reviewed vintage.
 
@@ -125,10 +149,9 @@ def discover_political_tiger_artifacts(year: int) -> list[dict[str, Any]]:
                 match = pattern.fullmatch(filename)
                 if match:
                     matches.append((url, filename, match.group("state")))
-            if not matches:
-                raise ValueError(
-                    f"Census published no {kind} ZIP members at {index_url}"
-                )
+            _require_political_member_count(
+                year, kind, len(matches), index_url
+            )
             for url, filename, state_fips in sorted(matches):
                 artifacts.append(
                     {
