@@ -1,5 +1,15 @@
 # Project state and handoff
 
+**OpenStates monthly snapshot (2026-10-05).** The refresh design is
+`docs/openstates-snapshot-refresh.md`. Contact fields, including Twitter,
+email, phone, office, and links, are retained and are not person-join keys.
+BioGuide remains the only person join. `bootstrap openstates-dump` checks the
+official `YYYY-MM` address and downloads again when the publisher's ETag,
+modification time, or size changes. The old file stays. October 2026 is the
+snapshot being acquired. The download does not restore into the database
+named `openstates`. Issue #100 and draft PR #107 stay a read-only audit.
+The July audit's missing restore proof stays unresolved history.
+
 **Database tests (2026-10-03).** One PostGIS server is used for a test run.
 Migrations run once into a template database, and each test module gets a
 private copy (`tests/db_cluster.py`). Do not start a container per test file.
