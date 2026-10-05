@@ -62,8 +62,12 @@ Census states that the 2024 vintage contains the 119th Congressional District
 and 2024 state-legislative plans and that legal boundaries/names are as of
 2024-01-01. The official directory members use
 `tl_2024_<state FIPS>_cd119.zip`, `tl_2024_<state FIPS>_sldu.zip`, and
-`tl_2024_<state FIPS>_sldl.zip`. File sizes are publisher-listed and are
-re-probed by the normal `tiger-bulk-preview` capacity gate before transfer.
+`tl_2024_<state FIPS>_sldl.zip`. The publisher indexes contain **56 CD119
+archives, 52 SLDU archives, and 50 SLDL archives (158 total)**. These counts are
+now a fail-closed completeness contract for the frozen 2024 package: discovery
+still comes from Census, but a partial directory response cannot silently become
+an approved manifest. File sizes are publisher-listed and are re-probed by the
+normal `tiger-bulk-preview` capacity gate before transfer.
 
 The 2024 record layouts make the join contract explicit:
 
