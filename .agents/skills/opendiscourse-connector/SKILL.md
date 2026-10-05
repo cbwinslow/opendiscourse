@@ -9,6 +9,12 @@ Read `AGENTS.md` and `_bmad-output/specs/spec-opendiscourse/SPEC.md` CAP-2 first
 Data SDD is `inventory/` (`sources.yaml`, `plans.yaml`, `contracts/`), not a new
 PRD. Also load `opendiscourse-provenance` and `opendiscourse-testing`.
 
+For Census/TIGER/ACS or any district-linked source, also read
+`_bmad-output/specs/spec-district-linked-context/stories.yaml`,
+`inventory/geography-vintages.yaml`, `inventory/dataset-roadmap.yaml`, and
+`docs/adr/0006-district-period-and-packed-acs.md`. A roadmap candidate is not
+authorization; the story gate and source-verification checklist must be open.
+
 ## When to use
 
 - A new or migrated HTTP/source path
@@ -19,7 +25,9 @@ PRD. Also load `opendiscourse-provenance` and `opendiscourse-testing`.
 ## Do
 
 - Search for a maintained project before writing acquisition code (`reuse.md`
-  beside the spec). Wrap it; own evidence and canonical keys.
+  beside the spec). Record the evaluation in the story/PR. Wrap it when it
+  saves real work, but own evidence, official URLs/bytes, canonical keys, and
+  completion checks. For TIGER Story 10.2, smoke-test `pygris` first.
 - Put provider-specific behavior in `src/opendiscourse_research/providers/`
   (HTTP only) or a Connector adapter.
 - Lifecycle: discover → select → plan → extract → evidence → stage →
