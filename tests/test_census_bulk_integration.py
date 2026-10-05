@@ -122,10 +122,14 @@ class TestBulkDatabaseIntegration(unittest.TestCase):
                     (row["artifact_id"],),
                 )
             cur.execute(
-                "DELETE FROM core.geography "
-                "WHERE (geography_type='state' AND geoid='99') "
-                "OR (geography_type IN ('congressional_district','sldu','sldl') "
-                "AND state_fips='99')"
+                "DELETE FROM core.geography AS geography "
+                "WHERE ((geography.geography_type='state' AND geography.geoid='99') "
+                "OR (geography.geography_type IN ('congressional_district','sldu','sldl') "
+                "AND geography.state_fips='99')) "
+                "AND NOT EXISTS (SELECT 1 FROM core.geography_boundary AS boundary "
+                "WHERE boundary.geography_id=geography.geography_id) "
+                "AND NOT EXISTS (SELECT 1 FROM core.geography_name_source AS assertion "
+                "WHERE assertion.geography_id=geography.geography_id)"
             )
             conn.commit()
 
