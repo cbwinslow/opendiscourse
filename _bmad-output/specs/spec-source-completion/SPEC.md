@@ -5,6 +5,8 @@ companions:
   - ../../spec-opendiscourse/SPEC.md
   - ../../spec-opendiscourse/legislative-north-star.md
   - ../spec-longitudinal-source-coverage/SPEC.md
+  - ../spec-district-linked-context/SPEC.md
+  - ../spec-district-linked-context/stories.yaml
   - ../../../docs/PROJECT-STATE.md
 sources:
   - ../../../inventory/DATA-SPEC.md
