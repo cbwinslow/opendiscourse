@@ -45,7 +45,7 @@ source_verification_required:
 #   native     geography the publisher actually reports. `direct` = reports the
 #              political geography itself (no crosswalk needed).
 #   rule       how it reaches a member's division (selection hierarchy, spec
-#              Constraints): direct | atomic_aggregate | weighted_crosswalk |
+#              Constraints): direct | relationship | atomic_aggregate | weighted_crosswalk |
 #              spatial_interpolation | zip_approx | member_attributed | context_only
 #   gate       v1_spine            allowed now only when its Epic 10 story is ready.
 #              slice_proven        opens only after Story 10.6 is complete and
@@ -178,8 +178,8 @@ datasets:
   - id: census.redistricting_relationship
     priority: P0
     stage: 2
-    native: [congressional_district, sldu, sldl, county, tract, block]
-    rule: weighted_crosswalk
+    native: [congressional_district, sldu, sldl, county, tract, zcta, place, school_district, aiannh]
+    rule: relationship
     gate: v1_spine
     status: planned
     verified: false
@@ -269,10 +269,10 @@ datasets:
   - id: census.acs_pums
     existing: census.acs_housing_archive
     priority: P1
-    stage: 3
+    stage: 7
     native: [puma]
     rule: weighted_crosswalk
-    gate: v1_spine
+    gate: slice_proven
     status: partial
     notes: >-
       Staging stopped 2026-10-05 (153 M rows). Microdata stays at PUMA. A district
@@ -281,10 +281,10 @@ datasets:
   - id: census.ahs
     existing: census.acs_housing_archive
     priority: P1
-    stage: 3
+    stage: 12
     native: [national, cbsa]
     rule: context_only
-    gate: v1_spine
+    gate: slice_proven
     status: partial
     notes: Not a district source; do not force it to districts.
 
@@ -307,8 +307,8 @@ datasets:
     native: [congressional_district, county, zcta, state, cbsa]
     direct: true
     rule: direct
-    gate: v1_spine
-    status: loaded
+    gate: slice_proven
+    status: partial
     connector: cbp_load; add congressional_district as a canonical level
     notes: Already loaded at county; the CD geography is the gain. Establishments, employment, payroll by industry.
   - id: irs.soi_congressional
@@ -399,7 +399,7 @@ datasets:
     stage: 8
     native: [block, tract, block_group]
     rule: atomic_aggregate
-    gate: v1_spine
+    gate: slice_proven
     status: partial
     notes: Population weights for crosswalks come from here.
   - id: census.population_estimates
@@ -408,7 +408,7 @@ datasets:
     stage: 8
     native: [state, county]
     rule: weighted_crosswalk
-    gate: v1_spine
+    gate: slice_proven
     status: loaded
   - id: census.nonemployer
     priority: P1
