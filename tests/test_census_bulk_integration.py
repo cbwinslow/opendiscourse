@@ -90,6 +90,10 @@ class TestBulkDatabaseIntegration(unittest.TestCase):
                     (row["artifact_id"],),
                 )
                 cur.execute(
+                    "DELETE FROM core.geography_name_source WHERE artifact_id=%s",
+                    (row["artifact_id"],),
+                )
+                cur.execute(
                     "DELETE FROM stage.cbp_row WHERE artifact_id=%s",
                     (row["artifact_id"],),
                 )
@@ -118,7 +122,10 @@ class TestBulkDatabaseIntegration(unittest.TestCase):
                     (row["artifact_id"],),
                 )
             cur.execute(
-                "DELETE FROM core.geography WHERE geography_type='state' AND geoid='99'"
+                "DELETE FROM core.geography "
+                "WHERE (geography_type='state' AND geoid='99') "
+                "OR (geography_type IN ('congressional_district','sldu','sldl') "
+                "AND state_fips='99')"
             )
             conn.commit()
 
