@@ -32,9 +32,10 @@ human command names.
 
 Do not use an all-purpose JSON facts table. Keep source-specific parser output
 in staging or raw objects, then load stable analytical grains into typed tables.
-The existing `fact.measurement` is appropriate for Census/FRED/BLS-like scalar
-series; bills, documents, votes, sponsors, money, and GIS each deserve their
-own grain.
+`fact.measurement` remains appropriate for modest scalar series such as
+FRED/BLS. High-volume ACS Detailed Tables use the ADR-0006 packed
+release × geography × table grain; bills, documents, votes, sponsors, money,
+and GIS each keep their own typed grain.
 
 ## Contracts and refresh
 
@@ -72,10 +73,14 @@ politician joins still require their own completion evidence.
 2. Identity crosswalk (BioGuide) and legislative primitives (Epic 8), then
    wrap Congress.gov / GovInfo / clerk votes into `core` (not the OpenStates
    dump).
-3. TIGER geography vintages, then ACS/PEP/CBP/bounded BEA/BLS place-year
-   facts. Macro: FRED/Treasury as the Connector reference slice.
-4. dbt marts (`district_year`, `legislator_vote`) and access (`api` views,
-   DuckDB/Parquet).
+3. Epic 10 proves one jurisdiction-time vertical slice in strict order:
+   119th CD + 2024 SLD TIGER boundaries → division/boundary link → packed
+   2024 ACS congressional-district facts → metric registry →
+   `mart.congressional_district_period`. Do not start national block/tract
+   expansion or horizontal topic sources before that slice passes.
+4. After `slice_proven`, add CVAP, CBP congressional-district, IRS SOI,
+   LODES, USAspending and later topic sources one verified Connector at a time;
+   keep `legislator_vote` and reviewed access views/exports as separate marts.
 5. **Post-v1:** disclosures, elections, crime/FBI. The FEC/OpenStates
    programme follows its own gates: field/coverage mapping, pilot, typed model,
    approved 2000–2024 batches, identifier bridge, then marts. Existing
