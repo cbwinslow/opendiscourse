@@ -218,12 +218,15 @@ Define packed ACS grain, survey-window semantics, required geography/schema
 changes, migration/reconciliation plan, and tests. No data transfer or old-table
 drop in this story.
 
-### Story 10.2 — 119th CD + 2024 SLDU/SLDL boundaries
-Extend the TIGER path only for the first political layers. Evaluate `pygris`
-before custom acquisition/parsing, but OpenDiscourse retains exact Census ZIP
-bytes and evidence. Do not download national block/tract layers here.
+### Story 10.2 — 119th CD + 2024 SLDU/SLDL boundaries — in progress
+Implementation and validation tooling are merged. The frozen 2024 publisher
+manifest is fail-closed at 56 CD119 + 52 SLDU + 50 SLDL ZIPs (158 total).
+Story 10.2 remains open only for the live warehouse
+plan→preview→download→stage→load→validate/idempotency evidence and the retained
+fixture `pygris` smoke comparison recorded in issue #117. Do not download
+national block/tract layers here.
 
-### Story 10.3 — Division↔boundary and crosswalk evidence
+### Story 10.3 — Division↔boundary and crosswalk evidence — blocked by 10.2
 Add `core.division_boundary` and `core.geography_crosswalk`; prove member
 term→division→119th boundary. Relationship rows are not generic population
 weights; BEFs are whole-block tabulation assignments, not split-block polygon
