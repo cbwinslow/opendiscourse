@@ -1,5 +1,12 @@
 # Project state and handoff
 
+**OpenStates monthly snapshot (2026-10-05).** The active refresh design is
+`docs/openstates-snapshot-refresh.md`. It is not implemented. October 2026 is
+the snapshot to acquire. The current database named `openstates` stays in
+place until a candidate restore is validated and renamed into service. Issue
+#100 and draft PR #107 stay a read-only audit and do not perform this restore.
+The July audit's missing restore proof stays unresolved history.
+
 **Database tests (2026-10-03).** One PostGIS server is used for a test run.
 Migrations run once into a template database, and each test module gets a
 private copy (`tests/db_cluster.py`). Do not start a container per test file.
