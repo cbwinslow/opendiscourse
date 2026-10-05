@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -10,19 +11,90 @@ from psycopg.types.json import Jsonb
 
 from ..db import connect
 from ..repositories.artifacts import require_current_artifact
+from ..repositories.names import upsert_geography_name_sources
 
-LAYER_INFO = {
-    "state": ("state", "GEOID", "NAME", "STATEFP", None),
-    "county": ("county", "GEOID", "NAME", "STATEFP", "COUNTYFP"),
-    "cbsa": ("cbsa", "GEOID", "NAME", None, None),
-    # ZCTA boundaries are redefined each decennial census, and Census
-    # vintage-suffixes the shapefile's own attribute column names to match
-    # (confirmed live via the 2019 file's DBF header: GEOID10/ZCTA5CE10, not
-    # GEOID/ZCTA5CE) -- both vintages load into the same "zcta" geography
-    # type/table, just from differently-named source columns.
-    "zcta510": ("zcta", "GEOID10", "ZCTA5CE10", None, None),
-    "zcta520": ("zcta", "GEOID20", "ZCTA5CE20", None, None),
+_QUERY_ROOT = Path(__file__).resolve().parents[3] / "sql" / "query" / "census" / "tiger"
+
+LAYER_INFO: dict[str, dict[str, Any]] = {
+    "state": {
+        "geography_type": "state",
+        "geoid": "GEOID",
+        "name": "NAME",
+        "state": "STATEFP",
+        "county": None,
+        "name_kind": "short",
+        "expected": {},
+    },
+    "county": {
+        "geography_type": "county",
+        "geoid": "GEOID",
+        "name": "NAME",
+        "state": "STATEFP",
+        "county": "COUNTYFP",
+        "name_kind": "short",
+        "expected": {},
+    },
+    "cbsa": {
+        "geography_type": "cbsa",
+        "geoid": "GEOID",
+        "name": "NAME",
+        "state": None,
+        "county": None,
+        "name_kind": "short",
+        "expected": {},
+    },
+    "zcta510": {
+        "geography_type": "zcta",
+        "geoid": "GEOID10",
+        "name": "ZCTA5CE10",
+        "state": None,
+        "county": None,
+        "name_kind": None,
+        "expected": {},
+    },
+    "zcta520": {
+        "geography_type": "zcta",
+        "geoid": "GEOID20",
+        "name": "ZCTA5CE20",
+        "state": None,
+        "county": None,
+        "name_kind": None,
+        "expected": {},
+    },
+    "cd119": {
+        "geography_type": "congressional_district",
+        "geoid": "GEOID",
+        "name": "NAMELSAD",
+        "state": "STATEFP",
+        "county": None,
+        "name_kind": "full",
+        "expected": {"CDSESSN": "119"},
+    },
+    "sldu": {
+        "geography_type": "sldu",
+        "geoid": "GEOID",
+        "name": "NAMELSAD",
+        "state": "STATEFP",
+        "county": None,
+        "name_kind": "full",
+        "expected": {"LSY": "2024"},
+    },
+    "sldl": {
+        "geography_type": "sldl",
+        "geoid": "GEOID",
+        "name": "NAMELSAD",
+        "state": "STATEFP",
+        "county": None,
+        "name_kind": "full",
+        "expected": {"LSY": "2024"},
+    },
 }
+
+
+@cache
+def _query(name: str) -> str:
+    """Read a version-controlled TIGER query once per process."""
+    return (_QUERY_ROOT / f"{name}.sql").read_text()
 
 
 def _scope(plan: dict[str, Any]) -> set[str]:
@@ -40,6 +112,16 @@ def _artifact(key: str) -> dict[str, Any]:
     return require_current_artifact(key, label="TIGER")
 
 
+def _validate_fields(layer: str, raw: dict[str, str | None], ordinal: int) -> None:
+    info = LAYER_INFO[layer]
+    for field, expected in info["expected"].items():
+        if raw.get(field) != expected:
+            raise ValueError(
+                f"TIGER {layer} row {ordinal} has {field}={raw.get(field)!r}; "
+                f"expected {expected!r}"
+            )
+
+
 def stage_tiger(
     plan: dict[str, Any], update: Callable[[str], None] | None = None
 ) -> int:
@@ -50,24 +132,24 @@ def stage_tiger(
         import pyogrio
     except ImportError as exc:
         raise RuntimeError(
-            "TIGER loading requires the spatial extra: `uv sync --extra spatial`"
+            "TIGER loading requires the spatial extra: uv sync --extra spatial"
         ) from exc
+
     total = 0
+    scope = _scope(plan)
     with connect() as conn:
         for item in plan["artifacts"]:
             layer = str(item["kind"])
-            if layer not in _scope(plan):
+            if layer not in scope:
                 continue
             artifact = _artifact(item["artifact_key"])
             if update:
                 update(f"Reading TIGER {layer} features")
-            _geography_type, geoid_key, name_key, state_key, county_key = LAYER_INFO[
-                layer
-            ]
-            info = pyogrio.read_info(Path(artifact["local_path"]))
-            for start in range(0, int(info["features"]), 1_000):
-                # ZCTA geometry can be large. Bounded reads prevent a complete
-                # nationwide layer from occupying all process memory at once.
+            info = LAYER_INFO[layer]
+            source_info = pyogrio.read_info(Path(artifact["local_path"]))
+            source_features = int(source_info["features"])
+            parsed = 0
+            for start in range(0, source_features, 1_000):
                 frame = pyogrio.read_dataframe(
                     Path(artifact["local_path"]),
                     skip_features=start,
@@ -80,35 +162,52 @@ def stage_tiger(
                         str(key): (None if value is None else str(value))
                         for key, value in feature.drop(labels="geometry").items()
                     }
-                    geoid = raw.get(geoid_key)
+                    _validate_fields(layer, raw, ordinal)
+                    geoid = raw.get(info["geoid"])
                     if not geoid:
                         raise ValueError(
-                            f"TIGER {layer} row {ordinal} has no {geoid_key}"
+                            f"TIGER {layer} row {ordinal} has no {info['geoid']}"
                         )
                     geometry = feature.geometry
                     if geometry is None or geometry.is_empty:
-                        continue
+                        raise ValueError(
+                            f"TIGER {layer} row {ordinal} has empty geometry"
+                        )
                     rows.append(
                         (
                             artifact["artifact_id"],
                             layer,
                             ordinal,
                             geoid,
-                            raw.get(name_key),
-                            raw.get(state_key) if state_key else None,
-                            raw.get(county_key) if county_key else None,
+                            raw.get(info["name"]),
+                            raw.get(info["state"]) if info["state"] else None,
+                            raw.get(info["county"]) if info["county"] else None,
                             Jsonb(raw),
                             bytes(geometry.wkb),
                         )
                     )
                 if rows:
                     with conn.cursor() as cur:
-                        cur.executemany(
-                            "INSERT INTO stage.tiger_feature (artifact_id, layer, source_ordinal, geoid, name, state_fips, county_fips, raw, geom) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,ST_Transform(ST_SetSRID(ST_GeomFromWKB(%s),4269),4326)) ON CONFLICT DO NOTHING",
-                            rows,
-                        )
-                    total += len(rows)
+                        cur.executemany(_query("insert_stage"), rows)
+                    parsed += len(rows)
+            if parsed != source_features:
+                raise ValueError(
+                    f"TIGER {layer} parsed {parsed} features; source reports "
+                    f"{source_features}"
+                )
             conn.commit()
+            with conn.cursor() as cur:
+                cur.execute(
+                    _query("stage_count"),
+                    {"artifact_id": artifact["artifact_id"], "layer": layer},
+                )
+                staged = int(cur.fetchone()["row_count"])
+            if staged != source_features:
+                raise ValueError(
+                    f"TIGER {layer} staged {staged} rows; source reports "
+                    f"{source_features}"
+                )
+            total += parsed
     return total
 
 
@@ -118,40 +217,63 @@ def load_tiger(
     """Promote staged features into vintage-specific, artifact-linked boundaries."""
     if plan.get("state") != "staged":
         raise ValueError("TIGER plan must be staged before canonical loading")
-    layers = list(_scope(plan))
+    layers = sorted(_scope(plan))
     vintage = int(plan["selection"]["boundary_vintage"])
+    valid_from = plan["selection"].get("valid_from")
+    valid_to = plan["selection"].get("valid_to")
     if update:
         update("Creating TIGER geographies and boundaries")
+
+    artifact_ids = [
+        _artifact(item["artifact_key"])["artifact_id"]
+        for item in plan["artifacts"]
+        if str(item["kind"]) in layers
+    ]
+    if not artifact_ids:
+        raise ValueError("TIGER plan resolved no approved artifacts")
+
     with connect() as conn, conn.cursor() as cur:
-        # Scoped to this plan's own artifacts -- without this, the query pulled
-        # from every vintage ever staged into stage.tiger_feature (this table
-        # has no per-plan partition). Confirmed live: once a second vintage
-        # (2016) was staged alongside the first (2020), CBSA delineations
-        # renamed between them (e.g. "Atlanta-Sandy Springs-Alpharetta, GA" ->
-        # "...-Roswell, GA") produced two rows for the same (geography_type,
-        # geoid) in one INSERT's SELECT DISTINCT, which Postgres rejects for
-        # ON CONFLICT DO UPDATE ("cannot affect row a second time") -- this
-        # was latent and never triggered while only one vintage existed.
-        artifact_ids = [
-            _artifact(item["artifact_key"])["artifact_id"]
-            for item in plan["artifacts"]
-            if str(item["kind"]) in layers
-        ]
-        cur.execute(
-            """INSERT INTO core.geography (geography_type, geoid, name, state_fips, county_fips)
-          SELECT DISTINCT CASE WHEN layer IN ('zcta510', 'zcta520') THEN 'zcta' ELSE layer END, geoid, name, state_fips, county_fips
-          FROM stage.tiger_feature WHERE layer = ANY(%s) AND artifact_id = ANY(%s)
-          ON CONFLICT (geography_type, geoid) DO UPDATE SET name=EXCLUDED.name, state_fips=EXCLUDED.state_fips, county_fips=EXCLUDED.county_fips""",
-            (layers, artifact_ids),
-        )
-        cur.execute(
-            """INSERT INTO core.geography_boundary (geography_id, boundary_vintage, geom, source_artifact_id)
-          SELECT geography.geography_id, %s, feature.geom, feature.artifact_id
-          FROM stage.tiger_feature feature JOIN core.geography geography ON geography.geography_type = CASE WHEN feature.layer IN ('zcta510', 'zcta520') THEN 'zcta' ELSE feature.layer END AND geography.geoid = feature.geoid
-          WHERE feature.layer = ANY(%s) AND feature.artifact_id = ANY(%s)
-          ON CONFLICT (geography_id, boundary_vintage) DO UPDATE SET geom=EXCLUDED.geom, source_artifact_id=EXCLUDED.source_artifact_id""",
-            (vintage, layers, artifact_ids),
-        )
-        total = cur.rowcount
+        params = {"layers": layers, "artifact_ids": artifact_ids}
+        cur.execute(_query("upsert_geographies"), params)
+        cur.fetchall()
+
+        cur.execute(_query("name_rows"), params)
+        assertions = []
+        for row in cur.fetchall():
+            name_kind = LAYER_INFO[row["layer"]]["name_kind"]
+            if name_kind is None:
+                continue
+            assertions.append(
+                {
+                    "geography_id": row["geography_id"],
+                    "name_kind": name_kind,
+                    "name": row["name"],
+                    "dataset_id": "census.tiger",
+                    "source_vintage": str(vintage),
+                    "artifact_id": row["artifact_id"],
+                    "payload_id": None,
+                    "run_id": None,
+                }
+            )
+        upsert_geography_name_sources(cur, assertions)
+
+        boundary_params = {
+            **params,
+            "vintage": vintage,
+            "valid_from": valid_from,
+            "valid_to": valid_to,
+        }
+        cur.execute(_query("upsert_boundaries"), boundary_params)
+        total = len(cur.fetchall())
+
+        cur.execute(_query("reconciliation"), boundary_params)
+        reconciliation = cur.fetchall()
+        for row in reconciliation:
+            if int(row["staged_rows"]) != int(row["loaded_boundaries"]):
+                raise ValueError(
+                    f"TIGER {row['layer']} reconciliation failed: "
+                    f"{row['staged_rows']} staged rows, "
+                    f"{row['loaded_boundaries']} loaded boundaries"
+                )
         conn.commit()
     return total
