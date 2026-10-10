@@ -33,11 +33,15 @@ The product is the **standardizing surface**, not another one-off downloader.
 - Join a member to votes, districts, and (v1.1) donations/disclosures via
   BioGuide, never name-matching.
 - Add a new government source without forking `cli.py` / `plans.py`.
+- (2026-10-10) Publish findings and politician report cards for any office-holder
+  (representatives, senators, president, governors, state legislators), regenerable
+  for any past date, each figure traceable to source. See the 2026-10-10 vision brief.
 
 ### 2.2 Non-Users (v1)
 
-Casual news readers, campaign operatives wanting opposition research scores,
-quant traders (CFA owns markets).
+Casual news readers and a voter-facing app (readers consume published findings, not
+the tool), campaign operatives wanting opposition research scores, quant traders
+(CFA owns markets).
 
 ### 2.3 Key User Journeys
 
@@ -150,8 +154,9 @@ only. `[SOURCE: 2026-09-17 schema review absorb.]`
 - News, Epstein, or stocks as first-class schema domains. Existing
   `core.instrument` / `fact.market_bar` are empty compatibility tables, not
   a license to ingest prices.
-- Corruption/integrity **scores** as a schema domain or opaque single score (keep
-  evidence). Evidence-linked scorecards may be added later as derived marts.
+- Corruption/integrity **scores** as a schema domain, opaque single scores, or verdict
+  labels (bribed, insider trading, lie). Report cards are derived marts over versioned,
+  tiered metrics (2026-10-10).
 - Meltano/Singer as the foundation; Qdrant/Pinecone; FastAPI CRUD.
 - OpenSpec or Spec Kit beside BMAD.
 - Playwright as the default test stack.
@@ -187,6 +192,11 @@ FRED branch.
   `specs/spec-opendiscourse/legislative-north-star.md` (SPEC CAP-10): publisher
   counts match, every offered field is on a checklist, and the live database
   agrees with `inventory/progress.yaml`. Validates the 2026-09-25 operator goal.
+
+- **SM-5 (2026-10-10):** A report card regenerates for any past date and every figure
+  drills to its source file, run and checksum.
+- **SM-6 (2026-10-10):** Every published metric carries a definition version and a
+  reliability tier (established, estimated, exploratory).
 
 **Counter-metric SM-C1:** Number of datasets registered. Do not optimize
 catalog size.

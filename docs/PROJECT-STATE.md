@@ -1,5 +1,15 @@
 # Project state and handoff
 
+**Product direction set (2026-10-10).** The operator approved
+`_bmad-output/planning-artifacts/briefs/brief-OpenDiscourse-2026-10-10/` (vision brief and addendum):
+a free local political research center that produces published findings and politician report cards,
+with eight tracks (1 votes, 2 bill text, 5 outcomes by place, 8 report cards are core). The data audit is
+`docs/data-audit-2026-10-10.md`. Decision: keep all ACS PUMS (all years, 1- and 5-year) as typed tables with
+weights and replicate weights; nothing is dropped until the typed load reconciles. Story 10.3 is specified in
+`_bmad-output/implementation-artifacts/spec-10-3-division-boundary-crosswalk.md` (draft, awaiting go).
+Postgres query tracking and tuning are approved and need a restart at a quiet moment. No project rules
+(`AGENTS.md`) have been changed yet.
+
 **District programme approved; Story 10.2 live validation in progress (2026-10-05).**
 The operator approved `_bmad-output/specs/spec-district-linked-context/`.
 `stories.yaml` is the executable Epic 10 queue and

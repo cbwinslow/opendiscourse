@@ -30,12 +30,18 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
 - Do not name-match people. Federal person *joins* need BioGuide (Epic 3).
   FEC/disclosure/elections politician joins stay gated by `person_join` in
   `inventory/sources.yaml`; call `identitygate.require_person_join` before promoting
-  person-keyed rows. Do not start
-  Epic 7 (FEC-native/crime staging, elections) in v1.
-- Do not invent news, stocks, or corruption scores as schema domains.
-  Politician scorecards are allowed later only as derived `mart` outputs over
-  evidence-backed `core`/`fact` rows (SPEC non-goals); never an opaque single
-  "corruption score".
+  person-keyed rows. The money, outcomes, disclosures and statements epics
+  (14, 16, 17, 18; they replace the old Epic 7) open only after Epic 10 Story 10.6
+  (`slice_proven`), and each source first needs a written contract (coverage,
+  licence, size) and a capacity preview. Operator decision 2026-10-10.
+- No market-price data and no news product. Members' STOCK Act trades and other
+  required disclosures are an allowed source domain. GDELT/news is allowed only as
+  evidence that a statement was reported (link plus short quote, lower trust).
+  Report cards are derived `mart` outputs over evidence-backed `core`/`fact` rows,
+  built from versioned metrics that carry a reliability tier (established,
+  estimated, exploratory). Never an opaque single score and never verdict labels
+  such as "bribed", "insider trading" or "lie": show timelines and both items.
+  Vision: `_bmad-output/planning-artifacts/briefs/brief-OpenDiscourse-2026-10-10/`.
 - Never commit secrets or `.env`. Capacity gate fails closed on unknown size.
 - `dlt` writes `stage` only, never `core`/`fact`.
 

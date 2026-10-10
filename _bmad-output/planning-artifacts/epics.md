@@ -253,6 +253,8 @@ member attribution remains behind `person_join`.
 
 ## Epic 7 — v1.1 money, elections, crime
 
+**Superseded 2026-10-10** by Epics 14, 16, 17 and 18 below (sprint-change-proposal-2026-10-10).
+
 Do not start in v1. Politician *joins* still need Epic 3 / CAP-4. FEC-native
 and crime-native staging are not blocked on BioGuide; open this epic only
 when v1 spine + Epic 8 are in place. Existing `stage.fec_row` (~102M rows)
@@ -332,11 +334,35 @@ manifest; passes the 9.1 harness. Spec `spec-9-5-billstatus-connector.md`.
 Built (`research-db sync-billstatus`, `ingestion/billstatus.py`, `providers/govinfo.py`,
 `providers/paced.py`). Does not remove the old fixed-path loaders; that is the next story.
 
+## Epics 12-19 — research center (approved 2026-10-10; each needs its own spec before work starts)
+
+Source: `sprint-change-proposal-2026-10-10.md`, brief and addendum in `briefs/brief-OpenDiscourse-2026-10-10/`.
+Stories are not written yet. A row here is not authorization to ingest.
+
+- **Epic 12 Time-aware facts and method registry:** as-of (knowledge-date) facts; versioned metric
+  definitions with reliability tiers; hypothesis log; text-model evaluation harness. (AD-12, AD-13, AD-14)
+- **Epic 13 Politician profile and vote metrics, any office:** person-office-term model for
+  representatives, senators, president, governors, state legislators; depends on OpenStates promotion #102
+  for state offices.
+- **Epic 14 Outcomes by place and opinion:** district ACS (Story 10.4), ACS PUMS all years (1- and 5-year) typed
+  with weights and replicate weights, labour, tax, housing, crime, health, immigration measures,
+  Cooperative Election Study, election results.
+- **Epic 15 Text analytics:** policy topic taxonomy, chunks and embeddings (ADR first), text reuse,
+  accuracy-measured claim extraction.
+- **Epic 16 Money in and out:** FEC typed cycles and identity bridge (#103, #104), donor grouping (estimated),
+  Lobbying Disclosure Act, FARA, USAspending, rules and comments.
+- **Epic 17 Disclosures and ethics:** House and Senate disclosures, ethics actions, timeline views.
+- **Epic 18 Statements:** Congressional Record speeches, GDELT reported quotes, consistency check; social media
+  only if legally and cheaply available.
+- **Epic 19 Report cards and publishing:** card generator, as-of regeneration, methodology and corrections
+  pages, findings export (AD-15), legal review gate before named-person grades.
+
+Order: Epic 10 to `slice_proven`, then 12, 13, 19 (first card, U.S. House), then 16, 14, 17, 18, 15.
+
 ## Later (not started; do not begin without a spec)
 
-- **Scorecards** (CAP-9, reserved; needs its own spec before it is added to
-  SPEC.md): derived `mart` outputs over
-  evidence-backed rows; transparent indicators; no opaque corruption score.
+- **Scorecards** (CAP-9): now Epics 12, 13 and 19 (2026-10-10); needs its own spec before it is
+  added to SPEC.md; derived `mart` outputs; transparent, tiered indicators; no opaque score.
 - **Text/NLP/vectors:** keep bill text as immutable artifacts and `core.document`
   now; embeddings, summaries, and kNN only after chunks exist (ADR first).
 - Crime data (Epic 7), FRED depth.
