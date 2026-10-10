@@ -1,0 +1,29 @@
+dataset: census.redistricting_relationship
+audited_on: '2026-10-10'
+origin: >-
+  https://www2.census.gov/geo/docs/maps-data/data/rel2020/cd-sld/ (national files
+  tab20_cd11920_*, tab20_sldu202420_*, tab20_sldl202420_*)
+capture:
+  whole_record: stage.census_relationship_row.raw
+  notes: >-
+    Each national relationship file is a retained artifact. Every data row is staged as one
+    JSON row with its source line number; the two identifiers and the two overlap areas are
+    also typed. Rows where either side is blank are staged but not promoted and are counted.
+    The pipe-delimited files carry a UTF-8 byte-order mark. Overlap areas are Census land and
+    water areas of the intersection in square metres; they are kept in the crosswalk row's
+    metadata and are never used as a weight.
+fields:
+- name: district GEOID (GEOID_CD119_20, GEOID_SLDU2024_20, GEOID_SLDL2024_20)
+  status: typed
+  where: core.geography_crosswalk.from_geography_id (the district's core.geography row from TIGER)
+- name: overlapping geography GEOID (GEOID_COUNTY_20, GEOID_TRACT_20 and the other families)
+  status: typed
+  where: >-
+    core.geography_crosswalk.to_geography_id. A core.geography identity row (type and GEOID only)
+    is created when the geography is not yet loaded.
+- name: AREALAND_PART, AREAWATER_PART
+  status: typed
+  where: core.geography_crosswalk.metadata (land_part, water_part); weight_type stays none
+- name: OID_*, NAMELSAD_*, NAME_*, MTFCC_*, CLASSFP_*, FUNCSTAT_*, AREALAND_*, AREAWATER_* of each side
+  status: whole_record_only
+  reason: Descriptive attributes of the two geographies; TIGER owns names and classes. Kept in stage.census_relationship_row.raw.

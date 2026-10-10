@@ -82,6 +82,24 @@ providers:
         cadence: annual
         priority: 1
         notes: Includes state, county, tract, block group, ZCTA, congressional, state legislative, and voting district geographies where available.
+      - id: census.redistricting_relationship
+        title: Census congressional and state legislative district relationship files
+        access: bulk pipe-delimited text files
+        client: httpx
+        grain: district x overlapping Census geography x geography vintage
+        identifiers: [GEOID_district, GEOID_overlap, vintage]
+        cadence: per redistricting cycle
+        priority: 1
+        notes: Same-vintage overlap between districts and county, tract, place, county subdivision, American Indian area, combined school district, urban area and ZCTA. An overlap row is a relationship, not a population weight.
+      - id: census.redistricting_bef
+        title: Census redistricting block equivalency files
+        access: bulk ZIP of comma-delimited text files
+        client: httpx
+        grain: 2020 census block x district plan
+        identifiers: [GEOID_block, district_code, plan]
+        cadence: per redistricting cycle
+        priority: 1
+        notes: Whole-block tabulation assignment to the 119th Congress and 2024 state legislative plans. Not legal boundary truth where a plan splits a block; TIGER polygons remain that truth.
       - id: census.business_patterns
         title: County Business Patterns and Nonemployer Statistics
         access: REST API and bulk files

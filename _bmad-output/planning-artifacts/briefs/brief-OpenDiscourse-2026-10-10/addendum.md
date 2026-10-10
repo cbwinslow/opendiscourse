@@ -22,6 +22,7 @@ Reliability tiers: **E** established (published method, official data), **S** es
 | Waste and fraud | Payment-accuracy (improper payments) and Inspector General reports | The only official measures of waste |
 | Constituent opinion by district | Cooperative Election Study (open, Harvard Dataverse) | Lets us compare votes with what the district says it wants |
 | Elections | MIT Election Data + Science Lab results | Needed for close-election comparisons and tenure |
+| State campaign donors | Each state's campaign-finance filings (or an aggregator such as the National Institute on Money in Politics) | **FEC covers federal candidates only.** State legislators and governors need this; coverage and formats differ by state |
 | Alternative ideology | Bonica DIME / CFscores (donor-based), Volden-Wiseman legislative effectiveness | Cross-check on DW-NOMINATE |
 | Topic taxonomy | Comparative Agendas Project codes | Standard way to say which bills are the same issue (needed for flip-flops) |
 

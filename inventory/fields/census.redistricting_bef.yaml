@@ -1,0 +1,22 @@
+dataset: census.redistricting_bef
+audited_on: '2026-10-10'
+origin: >-
+  https://www2.census.gov/programs-surveys/decennial/rdo/mapping-files/2025/ (cd119.zip member
+  NationalCD119.txt, sldu24.zip member NationalSLDU24.txt, sldl24.zip member NationalSLDL24.txt)
+capture:
+  whole_record: stage.census_block_assignment
+  notes: >-
+    Each ZIP is a retained artifact. The national member of each ZIP is staged one row per
+    2020 census block with its source line number. The per-state members are subsets of the
+    national file and are not staged separately. Block identities are GEOID text only; no
+    block polygon is downloaded. New Hampshire floterial districts are published in a
+    separate file that is not part of this dataset.
+fields:
+- name: GEOID (2020 census block, 15 digits)
+  status: typed
+  where: core.geography_crosswalk.from_geography_id (a core.geography row of type block)
+- name: CDFP / SLDUST / SLDLST (district code within the state)
+  status: typed
+  where: >-
+    core.geography_crosswalk.to_geography_id after joining state FIPS plus code to the TIGER
+    district GEOID; weight_type assignment, weight 1, quality_flag whole_block_tabulation

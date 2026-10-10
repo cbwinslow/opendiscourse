@@ -18,6 +18,7 @@ from xml.etree import ElementTree
 
 import pytest
 from alembic import command
+from alembic.script import ScriptDirectory
 from db_cluster import cloned_database
 
 from opendiscourse_research.catalog import sync_inventory
@@ -629,5 +630,5 @@ def test_the_migration_refuses_to_downgrade_while_records_exist(origin: FakeOrig
     rows = _records()
     with pytest.raises(RuntimeError, match=rf"core\.bill_text_source_record holds {rows} rows"):
         command.downgrade(_alembic_config(), "c8e2a5f1b937")
-    assert _one("SELECT version_num AS v FROM alembic_version") == "f8a3c1d7e245"
+    assert _one("SELECT version_num AS v FROM alembic_version") == ScriptDirectory.from_config(_alembic_config()).get_current_head()
     assert _records() == rows
