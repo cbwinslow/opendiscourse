@@ -1,5 +1,12 @@
 # Project state and handoff
 
+**Story 10.3 status (2026-10-10, in progress, branch `story-10-3-division-boundary-crosswalk`, not merged).**
+Code is built and tested and pushed: migration `a1d4c8e6f372` (core.division_boundary, core.geography_crosswalk, two stage tables),
+divisions->boundary linker (`research-db ingest link-divisions`), and the Census crosswalk loaders (`crosswalk-plan/preview/approve/download/stage/load/validate`).
+NOT YET DONE: the live run. Plans and size previews exist in `meta/bulk-plans/` (relationship: 24 files, 123 MB, about 1 GB database; BEF: 3 files, 74 MB, about 15 GB database plus 3 GB stage).
+Waiting for operator "go" before download/load. After the live run: record counts here, open the PR, merge when CI is green.
+Open items: (1) Census publishes no district-to-PUMA file; the PUMA bridge is a later weighted crosswalk (BEF + block-to-PUMA + block population). (2) About 370 letter/town-coded state districts need OpenStates division ids; the FDW lacks `opencivicdata_division`/`post`, so an administrator must approve expanding it. (3) Migration is not yet applied to the live warehouse. (4) `story-10-2-tiger-validation.json` is still an untracked stray: commit as evidence or delete.
+
 **Product direction set (2026-10-10).** The operator approved
 `_bmad-output/planning-artifacts/briefs/brief-OpenDiscourse-2026-10-10/` (vision brief and addendum):
 a free local political research center that produces published findings and politician report cards,
