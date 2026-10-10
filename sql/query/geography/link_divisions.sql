@@ -26,11 +26,13 @@ WITH state_map AS (
   UNION ALL
     SELECT division.division_id,
            match[2],
-           mapping.fips || lpad(match[3], 3, '0'),
+           mapping.fips || CASE WHEN match[3] ~ '^[0-9]+$' THEN lpad(match[3], 3, '0')
+                                ELSE lpad((regexp_match(match[3], '^([0-9]*)([a-z])$'))[1], 2, '0')
+                                     || upper((regexp_match(match[3], '^([0-9]*)([a-z])$'))[2]) END,
            'legal_boundary'
     FROM core.division AS division
     CROSS JOIN LATERAL regexp_match(
-        division.ocd_division_id, '^ocd-division/country:us/state:([a-z]{2})/(sldu|sldl):([0-9]+)$') AS match
+        division.ocd_division_id, '^ocd-division/country:us/state:([a-z]{2})/(sldu|sldl):([0-9]+|[0-9]*[a-z])$') AS match
     JOIN state_map AS mapping ON mapping.postal = match[1]
     WHERE division.ocd_division_id IS NOT NULL
 )

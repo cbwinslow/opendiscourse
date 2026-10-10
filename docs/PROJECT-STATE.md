@@ -1,11 +1,18 @@
 # Project state and handoff
 
-**Story 10.3 status (2026-10-10, in progress, branch `story-10-3-division-boundary-crosswalk`, not merged).**
-Code is built and tested and pushed: migration `a1d4c8e6f372` (core.division_boundary, core.geography_crosswalk, two stage tables),
-divisions->boundary linker (`research-db ingest link-divisions`), and the Census crosswalk loaders (`crosswalk-plan/preview/approve/download/stage/load/validate`).
-NOT YET DONE: the live run. Plans and size previews exist in `meta/bulk-plans/` (relationship: 24 files, 123 MB, about 1 GB database; BEF: 3 files, 74 MB, about 15 GB database plus 3 GB stage).
-Waiting for operator "go" before download/load. After the live run: record counts here, open the PR, merge when CI is green.
-Open items: (1) Census publishes no district-to-PUMA file; the PUMA bridge is a later weighted crosswalk (BEF + block-to-PUMA + block population). (2) About 370 letter/town-coded state districts need OpenStates division ids; the FDW lacks `opencivicdata_division`/`post`, so an administrator must approve expanding it. (3) Migration is not yet applied to the live warehouse. (4) `story-10-2-tiger-validation.json` is still an untracked stray: commit as evidence or delete.
+**Story 10.3 status (2026-10-10, live run done for the relationship files; branch `story-10-3-division-boundary-crosswalk`, PR pending).**
+Migration `a1d4c8e6f372` applied to the live warehouse. Relationship files (24 files, 123 MB) downloaded, staged, loaded and validated
+(`ok: true` for all 24): 766,797 rows in `core.geography_crosswalk`; rows with a blank side in the Census file (area not in the
+other geography) are counted per file as `blank_side` and not stored. Block equivalency files (BEF, 74 MB, about 15 GB database) are NOT downloaded; they need a separate go.
+Division links: 6,905 before, 7,107 after the letter-code rule below. Still unlinked: 109 state house and 56 state senate boundaries
+(Vermont and Massachusetts-senate districts coded by county or name in Census, and `ZZZ` water/no-district placeholders), 196 old divisions not in the current plan.
+**OpenStates link expanded (operator go, 2026-10-10):** `GRANT SELECT` on `opencivicdata_division` (193,807 rows) and `opencivicdata_post` (7,657) to `openstates_fdw`
+in database `openstates`, then `IMPORT FOREIGN SCHEMA` of those two into `openstates_source` (read-only). Cause of the gap: the original allow-list covered only bills, votes and people.
+**Letter-code rule:** Alaska senate A-T, Maryland, Minnesota, North Dakota and South Dakota house seats (e.g. Census `01A`) become OCD `sldl:1a` by rule (zeros dropped, lower case);
+202 divisions seeded, all 202 ids exist exactly in OpenStates. No other state is guessed.
+Open items: (1) Census publishes no district-to-PUMA file; the PUMA bridge is a later weighted crosswalk (BEF + block-to-PUMA + block population).
+(2) Vermont, Massachusetts senate need a reviewed mapping (OpenStates uses names such as `addison-1`, `1st_bristol_and_plymouth`; Census uses `ADD`, `D01`); the new `opencivicdata_post` read is the evidence source, never name matching.
+(3) Deleted the untracked `story-10-2-tiger-validation.json` (numbers are recorded above).
 
 **Product direction set (2026-10-10).** The operator approved
 `_bmad-output/planning-artifacts/briefs/brief-OpenDiscourse-2026-10-10/` (vision brief and addendum):

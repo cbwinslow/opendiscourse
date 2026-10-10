@@ -81,7 +81,9 @@ GRANT SELECT ON TABLE
   public.opencivicdata_billsponsorship,
   public.opencivicdata_billdocument,
   public.opencivicdata_voteevent,
-  public.opencivicdata_personvote
+  public.opencivicdata_personvote,
+  public.opencivicdata_division,
+  public.opencivicdata_post
 TO openstates_fdw;
 ```
 

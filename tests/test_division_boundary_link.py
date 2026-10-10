@@ -136,19 +136,45 @@ def test_second_run_changes_nothing(catalog_database: None, artifact_id: uuid.UU
     assert _links() == before
 
 
-def test_placeholder_and_non_numeric_codes_are_reported_not_guessed(catalog_database: None, artifact_id: uuid.UUID) -> None:
-    _boundary("sldl", "25999", artifact_id)  # not numeric after the state code: "999" is, so use a letter code
-    _boundary("sldl", "2401A", artifact_id)
+def test_placeholder_and_name_coded_districts_are_reported_not_guessed(catalog_database: None, artifact_id: uuid.UUID) -> None:
+    _boundary("sldl", "25999", artifact_id)
+    _boundary("sldu", "50ADD", artifact_id)  # Vermont's code is an abbreviation of a county name
     _boundary("sldu", "09ZZZ", artifact_id)
     _boundary("congressional_district", "09ZZ", artifact_id)
     report = link_division_boundaries()
     by_family = {row["geography_type"]: row for row in report.families}
-    assert by_family["sldl"]["unlinked"] >= 1  # 2401A: no division can be derived
+    assert by_family["sldu"]["unlinked"] >= 1  # 50ADD: no division can be derived from the code
     assert by_family["sldu"]["placeholder_unlinked"] >= 1
     assert by_family["congressional_district"]["placeholder_unlinked"] >= 1
     with session() as active:
-        names = active.execute(text("SELECT count(*) FROM core.division WHERE ocd_division_id LIKE '%/sldl:%a'")).scalar_one()
-    assert names == 0  # no division invented for a letter-coded district
+        invented = active.execute(
+            text("SELECT count(*) FROM core.division WHERE ocd_division_id LIKE '%state:vt/%'")
+        ).scalar_one()
+    assert invented == 0
+
+
+def test_letter_suffixed_codes_get_the_open_civic_data_id_by_rule(catalog_database: None, artifact_id: uuid.UUID) -> None:
+    """Maryland '01A' is OCD ``sldl:1a`` and Alaska '00A' is ``sldu:a``; no other state is guessed."""
+    _boundary("sldl", "2401A", artifact_id)
+    _boundary("sldu", "0200A", artifact_id)
+    _boundary("sldl", "5001A", artifact_id)  # a state outside the reviewed list
+    link_division_boundaries()
+    with session() as active:
+        ids = set(
+            active.execute(
+                text("SELECT ocd_division_id FROM core.division WHERE ocd_division_id ~ 'sld[ul]:[0-9]*[a-z]$'")
+            ).scalars()
+        )
+    assert ids == {"ocd-division/country:us/state:md/sldl:1a", "ocd-division/country:us/state:ak/sldu:a"}
+    with session() as active:
+        linked = active.execute(
+            text(
+                "SELECT count(*) FROM core.division_boundary l JOIN core.division d USING (division_id)"
+                " WHERE d.ocd_division_id IN ('ocd-division/country:us/state:md/sldl:1a',"
+                " 'ocd-division/country:us/state:ak/sldu:a')"
+            )
+        ).scalar_one()
+    assert linked == 2
 
 
 def test_wrong_vintage_requests_are_refused() -> None:
