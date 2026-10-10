@@ -156,6 +156,108 @@ def geography_boundary_table():
     return core_geography_boundary
 
 
+core_division_boundary = Table(
+    "division_boundary",
+    SQLModel.metadata,
+    Column("division_boundary_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("division_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.division.division_id"), nullable=False),
+    Column("boundary_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.geography_boundary.boundary_id"), nullable=False),
+    Column("valid_from", Date),
+    Column("valid_to", Date),
+    Column("congress", Integer),
+    Column("legislative_year", Integer),
+    Column("relationship_kind", Text, nullable=False),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id"), nullable=False),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    UniqueConstraint("division_id", "boundary_id", name="division_boundary_pair_key"),
+    CheckConstraint(
+        "valid_to IS NULL OR valid_from IS NULL OR valid_from < valid_to",
+        name="division_boundary_validity_check",
+    ),
+    Index("division_boundary_division_validity_idx", "division_id", "valid_from", "valid_to"),
+    Index("division_boundary_boundary_idx", "boundary_id"),
+    Index("division_boundary_congress_idx", "congress", postgresql_where=text("congress IS NOT NULL")),
+    schema="core",
+)
+
+
+def division_boundary_table():
+    """Return the Alembic-adopted division-to-boundary link table (ADR-0006)."""
+    return core_division_boundary
+
+
+CROSSWALK_WEIGHT_TYPES = (
+    "none",
+    "assignment",
+    "population",
+    "housing_unit",
+    "household",
+    "employment",
+    "area",
+    "address_ratio",
+)
+
+core_geography_crosswalk = Table(
+    "geography_crosswalk",
+    SQLModel.metadata,
+    Column("geography_crosswalk_id", PostgreSQLUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("from_geography_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.geography.geography_id"), nullable=False),
+    Column("to_geography_id", PostgreSQLUUID(as_uuid=True), ForeignKey("core.geography.geography_id"), nullable=False),
+    Column("from_vintage", Integer, nullable=False),
+    Column("to_vintage", Integer, nullable=False),
+    Column("method", Text, nullable=False),
+    Column("weight_type", Text, nullable=False),
+    Column("weight", Float),
+    Column("numerator", Float),
+    Column("denominator", Float),
+    Column("coverage_ratio", Float),
+    Column("quality_flag", Text),
+    Column("valid_from", Date),
+    Column("valid_to", Date),
+    Column("source_dataset_id", Text, ForeignKey("catalog.dataset.dataset_id"), nullable=False),
+    Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id"), nullable=False),
+    Column("source_ordinal", BigInteger),
+    Column("metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    CheckConstraint(
+        "weight_type IN ('none','assignment','population','housing_unit','household','employment','area','address_ratio')",
+        name="geography_crosswalk_weight_type_check",
+    ),
+    CheckConstraint(
+        "(weight_type = 'none' AND weight IS NULL) OR (weight_type <> 'none' AND weight IS NOT NULL)",
+        name="geography_crosswalk_weight_presence_check",
+    ),
+    CheckConstraint("weight IS NULL OR (weight >= 0 AND weight <= 1)", name="geography_crosswalk_weight_range_check"),
+    CheckConstraint(
+        "coverage_ratio IS NULL OR (coverage_ratio >= 0 AND coverage_ratio <= 1)",
+        name="geography_crosswalk_coverage_ratio_range_check",
+    ),
+    CheckConstraint(
+        "valid_to IS NULL OR valid_from IS NULL OR valid_from < valid_to",
+        name="geography_crosswalk_validity_check",
+    ),
+    UniqueConstraint(
+        "from_geography_id",
+        "to_geography_id",
+        "from_vintage",
+        "to_vintage",
+        "method",
+        "weight_type",
+        "source_artifact_id",
+        "source_ordinal",
+        name="geography_crosswalk_source_key",
+        postgresql_nulls_not_distinct=True,
+    ),
+    Index("geography_crosswalk_from_idx", "from_geography_id", "from_vintage"),
+    Index("geography_crosswalk_to_idx", "to_geography_id", "to_vintage"),
+    schema="core",
+)
+
+
+def geography_crosswalk_table():
+    """Return the Alembic-adopted cross-geography relationship/weight table (ADR-0006)."""
+    return core_geography_crosswalk
+
+
 core_jurisdiction = Table(
     "jurisdiction",
     SQLModel.metadata,

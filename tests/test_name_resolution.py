@@ -923,7 +923,7 @@ def test_downgrade_refuses_while_assertions_exist(warehouse: None) -> None:
         command.downgrade(_alembic_config(), "a4d9e1c7b356")
     with connect() as conn:  # nothing was dropped
         assert conn.execute("SELECT to_regclass('core.person_name_source') AS t").fetchone()["t"] is not None
-        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()["version_num"] == "f8a3c1d7e245"
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()["version_num"] == "a1d4c8e6f372"
 
 
 @db

@@ -267,7 +267,7 @@ def test_adopted_schemas_and_search_indexes(catalog_database: None) -> None:
             )
         }
 
-    assert revision == "f8a3c1d7e245"
+    assert revision == "a1d4c8e6f372"
     assert {
         "catalog.provider",
         "catalog.dataset",
@@ -432,7 +432,7 @@ def test_existing_schema_without_alembic_watermark_is_adopted_safely(
     with engine().connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "f8a3c1d7e245"
+        ).scalar_one() == "a1d4c8e6f372"
         assert connection.execute(
             text("SELECT to_regclass('core.bill')")
         ).scalar_one() == "core.bill"
@@ -472,7 +472,7 @@ def test_alembic_adoptions_can_downgrade_and_reupgrade(
         command.upgrade(config, "head")
 
     with engine().connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "f8a3c1d7e245"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "a1d4c8e6f372"
         assert connection.execute(text("SELECT to_regclass('core.division')")).scalar_one() == "core.division"
         assert connection.execute(text("SELECT to_regclass('core.post')")).scalar_one() == "core.post"
         assert connection.execute(
@@ -2849,7 +2849,7 @@ def test_acs_member_reconciliation_migration_refuses_to_discard_recorded_counts(
         with pytest.raises(RuntimeError, match="refusing to discard ACS member reconciliation evidence"):
             command.downgrade(_alembic_config(), "f6b2a7c4d913")
         with engine().connect() as connection:
-            assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "f8a3c1d7e245"
+            assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "a1d4c8e6f372"
     finally:
         with engine().begin() as connection:
             connection.execute(text("DELETE FROM ingest.run_target WHERE run_id=:run_id"), {"run_id": run.run_id})
