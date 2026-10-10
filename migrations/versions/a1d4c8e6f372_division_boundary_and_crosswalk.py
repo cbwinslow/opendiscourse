@@ -33,6 +33,10 @@ def upgrade() -> None:
         _create_division_boundary()
     if not inspector.has_table("geography_crosswalk", schema="core"):
         _create_geography_crosswalk()
+    if not inspector.has_table("census_relationship_row", schema="stage"):
+        _create_stage_relationship_row()
+    if not inspector.has_table("census_block_assignment", schema="stage"):
+        _create_stage_block_assignment()
 
 
 def _create_division_boundary() -> None:
@@ -126,11 +130,47 @@ def _create_geography_crosswalk() -> None:
     op.create_index("geography_crosswalk_to_idx", "geography_crosswalk", ["to_geography_id", "to_vintage"], schema="core")
 
 
+def _create_stage_relationship_row() -> None:
+    op.create_table(
+        "census_relationship_row",
+        sa.Column("artifact_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("ingest.artifact.artifact_id"), nullable=False),
+        sa.Column("source_ordinal", sa.BigInteger(), nullable=False),
+        sa.Column("family", sa.Text(), nullable=False),
+        sa.Column("overlap_kind", sa.Text(), nullable=False),
+        sa.Column("district_geoid", sa.Text()),
+        sa.Column("overlap_geoid", sa.Text()),
+        sa.Column("area_land_part", sa.BigInteger()),
+        sa.Column("area_water_part", sa.BigInteger()),
+        sa.Column("raw", postgresql.JSONB(), nullable=False),
+        sa.Column("staged_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.PrimaryKeyConstraint("artifact_id", "source_ordinal"),
+        schema="stage",
+    )
+
+
+def _create_stage_block_assignment() -> None:
+    op.create_table(
+        "census_block_assignment",
+        sa.Column("artifact_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("ingest.artifact.artifact_id"), nullable=False),
+        sa.Column("source_ordinal", sa.BigInteger(), nullable=False),
+        sa.Column("family", sa.Text(), nullable=False),
+        sa.Column("block_geoid", sa.Text(), nullable=False),
+        sa.Column("district_code", sa.Text(), nullable=False),
+        sa.PrimaryKeyConstraint("artifact_id", "source_ordinal"),
+        schema="stage",
+    )
+
+
 def downgrade() -> None:
     """Drop only these tables, and only while empty: linked evidence is never discarded."""
     bind = op.get_bind()
     for table in ("geography_crosswalk", "division_boundary"):
         if bind.execute(sa.text(f"SELECT EXISTS (SELECT 1 FROM core.{table})")).scalar():
             raise RuntimeError(f"refusing to drop populated core.{table}; its rows are district evidence")
+    for staged in ("census_relationship_row", "census_block_assignment"):
+        if bind.execute(sa.text(f"SELECT EXISTS (SELECT 1 FROM stage.{staged})")).scalar():
+            raise RuntimeError(f"refusing to drop populated stage.{staged}; reload would need the source again")
+    op.drop_table("census_block_assignment", schema="stage")
+    op.drop_table("census_relationship_row", schema="stage")
     op.drop_table("geography_crosswalk", schema="core")
     op.drop_table("division_boundary", schema="core")

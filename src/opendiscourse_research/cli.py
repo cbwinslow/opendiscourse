@@ -80,11 +80,20 @@ from .ingestion.census import (
     review_bulk_contract,
     search_acs_tables,
 )
+from .ingestion.census_crosswalk import (
+    FAMILIES,
+    load_crosswalk,
+    preview_crosswalk_plan,
+    stage_crosswalk,
+    validate_crosswalk,
+    write_crosswalk_plan,
+)
 from .ingestion.committee_membership import CommitteeMembershipConnector
 from .ingestion.congress import ingest_bill
 from .ingestion.connector import run_connector
 from .ingestion.dhc_bulk import preview_dhc_bulk_plan, write_dhc_bulk_plan
 from .ingestion.dhc_load import load_dhc, stage_dhc
+from .ingestion.division_boundary import link_division_boundaries
 from .ingestion.fec_bulk import preview_family, register_family, stage_family
 from .ingestion.fred import ingest_manifest, ingest_series
 from .ingestion.legislators import LegislatorsConnector
@@ -1618,6 +1627,105 @@ def tiger_bulk_load(
         count = load_tiger(payload, update)
     advance_plan(plan, "staged", "loaded", "load", {"boundary_count": count})
     typer.echo(f"Loaded {count} TIGER geography boundaries.")
+
+
+@ingest_app.command("crosswalk-plan")
+def crosswalk_plan(
+    dataset: str = typer.Option(
+        ...,
+        help="census.redistricting_relationship or census.redistricting_bef.",
+    ),
+) -> None:
+    """Write a review-only plan for Census district relationship files or block equivalency files."""
+    typer.echo(write_crosswalk_plan(dataset))
+
+
+@ingest_app.command("crosswalk-preview")
+def crosswalk_preview(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Measure the crosswalk download and database growth without downloading anything."""
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_progress(
+        "Measuring Census crosswalk files", len(payload.get("artifacts", []))
+    ) as update:
+        report = preview_crosswalk_plan(plan, update)
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
+@ingest_app.command("crosswalk-approve")
+def crosswalk_approve(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Approve a previewed crosswalk plan for download."""
+    typer.echo(
+        json.dumps(approve_plan(plan, {"families": list(FAMILIES)}), indent=2, sort_keys=True)
+    )
+
+
+@ingest_app.command("crosswalk-download")
+def crosswalk_download(
+    plan: Path = typer.Option(..., exists=True, dir_okay=False),
+    workers: int = typer.Option(2, min=1, max=8, help="Concurrent downloads."),
+) -> None:
+    """Resumably download approved crosswalk files and register their checksums."""
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_progress(
+        "Downloading Census crosswalk files", len(payload.get("artifacts", []))
+    ) as update:
+        result = download_plan(plan, update, workers=workers)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@ingest_app.command("crosswalk-stage")
+def crosswalk_stage(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Stage downloaded crosswalk files without changing canonical tables."""
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_spinner("Staging Census crosswalk rows") as update:
+        counts = stage_crosswalk(payload, update)
+    if payload.get("state") == "downloaded":
+        advance_plan(plan, "downloaded", "staged", "staging", {"row_count": sum(counts.values())})
+    typer.echo(json.dumps(counts, indent=2, sort_keys=True))
+
+
+@ingest_app.command("crosswalk-load")
+def crosswalk_load(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Promote staged rows into core.geography_crosswalk."""
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
+    with render_spinner("Loading Census crosswalk") as update:
+        results = load_crosswalk(payload, update)
+    if payload.get("state") == "staged":
+        advance_plan(plan, "staged", "loaded", "load", {"stored": sum(r["stored"] for r in results.values())})
+    typer.echo(json.dumps(results, indent=2, sort_keys=True))
+
+
+@ingest_app.command("crosswalk-validate")
+def crosswalk_validate(plan: Path = typer.Option(..., exists=True, dir_okay=False)) -> None:
+    """Check staged and stored crosswalk rows against each other."""
+    apply_migrations()
+    payload = yaml.safe_load(plan.read_text()) or {}
+    report = validate_crosswalk(payload)
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+    if not report["ok"]:
+        raise typer.Exit(1)
+
+
+@ingest_app.command("link-divisions")
+def link_divisions() -> None:
+    """Link divisions to the CD119 and 2024 state legislative boundaries by identifier."""
+    apply_migrations()
+    report = link_division_boundaries()
+    typer.echo(
+        json.dumps(
+            {
+                "seeded_divisions": report.seeded_divisions,
+                "new_links": report.new_links,
+                "families": report.families,
+                "unlinked_by_reason": report.unlinked_by_reason(),
+            },
+            indent=2,
+            sort_keys=True,
+            default=str,
+        )
+    )
 
 
 @ingest_app.command("tiger-bulk-validate")

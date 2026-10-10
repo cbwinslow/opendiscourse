@@ -75,6 +75,35 @@ stage_tiger_feature = Table(
 )
 
 
+stage_census_relationship_row = Table(
+    "census_relationship_row",
+    SQLModel.metadata,
+    _artifact_column(),
+    Column("source_ordinal", BigInteger, primary_key=True),
+    Column("family", Text, nullable=False),
+    Column("overlap_kind", Text, nullable=False),
+    Column("district_geoid", Text),
+    Column("overlap_geoid", Text),
+    Column("area_land_part", BigInteger),
+    Column("area_water_part", BigInteger),
+    Column("raw", JSONB, nullable=False),
+    Column("staged_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    schema="stage",
+)
+
+
+stage_census_block_assignment = Table(
+    "census_block_assignment",
+    SQLModel.metadata,
+    _artifact_column(),
+    Column("source_ordinal", BigInteger, primary_key=True),
+    Column("family", Text, nullable=False),
+    Column("block_geoid", Text, nullable=False),
+    Column("district_code", Text, nullable=False),
+    schema="stage",
+)
+
+
 stage_dhc_geo_row = Table(
     "dhc_geo_row",
     SQLModel.metadata,
