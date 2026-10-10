@@ -1718,6 +1718,8 @@ def link_divisions() -> None:
             {
                 "seeded_divisions": report.seeded_divisions,
                 "new_links": report.new_links,
+                "crosswalk_links": report.crosswalk_links,
+                "retired_divisions": report.retired_divisions,
                 "families": report.families,
                 "unlinked_by_reason": report.unlinked_by_reason(),
             },

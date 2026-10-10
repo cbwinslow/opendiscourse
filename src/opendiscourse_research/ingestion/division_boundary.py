@@ -9,6 +9,7 @@ requires; a link to any other vintage is refused.
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass, field
 from datetime import date
 from functools import cache
@@ -18,7 +19,11 @@ from typing import Any
 from ..db import connect
 from .base import IngestionRun
 
-_QUERY_ROOT = Path(__file__).resolve().parents[3] / "sql" / "query" / "geography"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_QUERY_ROOT = _REPO_ROOT / "sql" / "query" / "geography"
+#: Reviewed Census-to-OCD pairs for districts that share no code (built by
+#: ``scripts/build_ocd_sld_crosswalk.py``; every pair passed its checks before it was written).
+CROSSWALK_FILE = _REPO_ROOT / "inventory" / "geography" / "ocd-sld-crosswalk-2024.csv"
 
 #: Official two-letter codes used in OCD ids and their Census state FIPS codes.
 STATE_FIPS: dict[str, str] = {
@@ -45,6 +50,17 @@ def _query(name: str) -> str:
     return (_QUERY_ROOT / f"{name}.sql").read_text()
 
 
+def load_crosswalk(path: Path = CROSSWALK_FILE) -> list[dict[str, str]]:
+    """Read the reviewed pairs; refuse a file with a repeated district or division id."""
+    with path.open(newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    districts = [(row["chamber"], row["census_geoid"]) for row in rows]
+    divisions = [row["ocd_division_id"] for row in rows]
+    if len(set(districts)) != len(districts) or len(set(divisions)) != len(divisions):
+        raise ValueError(f"{path.name}: a district or division id is repeated")
+    return rows
+
+
 def _state_params() -> dict[str, list[str]]:
     return {"postals": list(STATE_FIPS), "fips": list(STATE_FIPS.values())}
 
@@ -68,6 +84,8 @@ class LinkReport:
 
     seeded_divisions: int = 0
     new_links: int = 0
+    crosswalk_links: int = 0
+    retired_divisions: int = 0
     families: list[dict[str, Any]] = field(default_factory=list)
     unlinked_divisions: list[dict[str, Any]] = field(default_factory=list)
 
@@ -100,8 +118,27 @@ def link_division_boundaries(
         "boundary_vintage": boundary_vintage,
     }
     with IngestionRun("census.tiger", parameters, mode="manual") as run:
+        pairs = load_crosswalk()
+        keys = [f"{row['chamber']}:{row['census_geoid']}" for row in pairs]
         with connect() as conn, conn.cursor() as cur:
-            cur.execute(_query("seed_sld_divisions"), {**states, "vintage": boundary_vintage})
+            cur.execute(
+                _query("retire_phantom_divisions"),
+                {"keys": keys, "ocd_ids": [row["ocd_division_id"] for row in pairs]},
+            )
+            report.retired_divisions = len(cur.fetchall())
+            crosswalk_params = {
+                "geoids": [row["census_geoid"] for row in pairs],
+                "chambers": [row["chamber"] for row in pairs],
+                "ocd_ids": [row["ocd_division_id"] for row in pairs],
+                "names": [row["census_name"] for row in pairs],
+                "vintage": boundary_vintage,
+                "legislative_year": legislative_year,
+            }
+            cur.execute(_query("create_crosswalk_divisions"), crosswalk_params)
+            report.seeded_divisions += len(cur.fetchall())
+            cur.execute(_query("link_crosswalk_divisions"), crosswalk_params)
+            report.crosswalk_links = len(cur.fetchall())
+            cur.execute(_query("seed_sld_divisions"), {**states, "vintage": boundary_vintage, "skip_keys": keys})
             report.seeded_divisions = len(cur.fetchall())
             cur.execute(
                 _query("link_divisions"),
@@ -126,5 +163,5 @@ def link_division_boundaries(
             cur.execute(_query("unlinked_divisions"))
             report.unlinked_divisions = list(cur.fetchall())
             conn.commit()
-        run.record_count = report.new_links + report.seeded_divisions
+        run.record_count = report.new_links + report.seeded_divisions + report.crosswalk_links
     return report

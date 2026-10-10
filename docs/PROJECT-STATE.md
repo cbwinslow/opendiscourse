@@ -4,14 +4,21 @@
 Migration `a1d4c8e6f372` applied to the live warehouse. Relationship files (24 files, 123 MB) downloaded, staged, loaded and validated
 (`ok: true` for all 24): 766,797 rows in `core.geography_crosswalk`; rows with a blank side in the Census file (area not in the
 other geography) are counted per file as `blank_side` and not stored. Block equivalency files (BEF, 74 MB, about 15 GB database) are NOT downloaded; they need a separate go.
-Division links: 6,905 before, 7,107 after the letter-code rule below. Still unlinked: 109 state house and 56 state senate boundaries
-(Vermont and Massachusetts-senate districts coded by county or name in Census, and `ZZZ` water/no-district placeholders), 196 old divisions not in the current plan.
+Division links (final, verified 2026-10-10): every non-placeholder boundary has exactly one division link: 441 congressional, 4,873 state house, 1,958 state senate
+(7,272 of 7,287; the other 15 are Census `ZZ` water/no-district placeholders). Every linked division id exists in the OpenStates snapshot (0 missing).
+The 196 divisions without a link are all old congressional districts (e.g. New York's former 27th) that belong to earlier Congresses.
 **OpenStates link expanded (operator go, 2026-10-10):** `GRANT SELECT` on `opencivicdata_division` (193,807 rows) and `opencivicdata_post` (7,657) to `openstates_fdw`
 in database `openstates`, then `IMPORT FOREIGN SCHEMA` of those two into `openstates_source` (read-only). Cause of the gap: the original allow-list covered only bills, votes and people.
-**Letter-code rule:** Alaska senate A-T, Maryland, Minnesota, North Dakota and South Dakota house seats (e.g. Census `01A`) become OCD `sldl:1a` by rule (zeros dropped, lower case);
-202 divisions seeded, all 202 ids exist exactly in OpenStates. No other state is guessed.
-Open items: (1) Census publishes no district-to-PUMA file; the PUMA bridge is a later weighted crosswalk (BEF + block-to-PUMA + block population).
-(2) Vermont, Massachusetts senate need a reviewed mapping (OpenStates uses names such as `addison-1`, `1st_bristol_and_plymouth`; Census uses `ADD`, `D01`); the new `opencivicdata_post` read is the evidence source, never name matching.
+**Why codes did not match, and the three rules now in force:**
+1. Same code, different spelling (Alaska senate `00A`, MD/MN/ND/SD house `01A` vs OCD `sldu:a`, `sldl:1a`): code rule in `seed_sld_divisions.sql`/`link_divisions.sql`, five states only; 202 divisions.
+2. No shared code (MA House and Senate, NH House, VT House and Senate, DC wards, PR): Census names the district, OCD writes a slug of that name. The reviewed file
+   `inventory/geography/ocd-sld-crosswalk-2024.csv` (545 pairs) is produced by `scripts/build_ocd_sld_crosswalk.py`, which refuses to write unless every id is in the pinned official OCD list
+   (`opencivicdata/ocd-division-ids` commit `1ec1eda0`, checksums pinned), no two districts share an id, and the id is an OpenStates division. Two accepted exceptions carry written evidence
+   (VT `50ORC` Orange-Caledonia: OCD says ended 2023-01-03 but OpenStates holds a seat; VT `50WWB`: OpenStates keeps the seat on `windham-bennington-windsor`). The linker reads the file by identifier only.
+3. The earlier numeric seeding was wrong for MA/NH House, DC and PR (those ids exist nowhere in OpenStates; DC and PR also used the wrong OCD form). **Wiped 380 derived seeded divisions and their links**
+   (MA House 160, NH House 164, DC 8, PR 48; `core.division` rows with `metadata.seeded_from = census.tiger`, no posts); no artifact files were touched. Replaced by the reviewed pairs.
+Known and left as is: 46 New Hampshire House and 44 Vermont House OpenStates divisions hold seats but have no 2024 Census district (old floterial/sub-districts); report only.
+Open items: (1) Census publishes no district-to-PUMA file; the PUMA bridge is a later weighted crosswalk (BEF + block-to-PUMA + block population). (2) BEF files not downloaded; need a separate go.
 (3) Deleted the untracked `story-10-2-tiger-validation.json` (numbers are recorded above).
 
 **Product direction set (2026-10-10).** The operator approved

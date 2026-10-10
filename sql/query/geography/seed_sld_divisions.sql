@@ -27,6 +27,7 @@ WITH state_map AS (
     LEFT JOIN core.geography AS state
       ON state.geography_type = 'state' AND state.geoid = substr(geography.geoid, 1, 2)
     WHERE geography.geography_type IN ('sldu', 'sldl')
+      AND (geography.geography_type || ':' || geography.geoid) <> ALL(%(skip_keys)s::text[])
 )
 INSERT INTO core.division (ocd_division_id, label, classification, source_artifact_id, metadata)
 SELECT format('ocd-division/country:us/state:%%s/%%s:%%s', postal, chamber, code),

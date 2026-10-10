@@ -136,21 +136,58 @@ def test_second_run_changes_nothing(catalog_database: None, artifact_id: uuid.UU
     assert _links() == before
 
 
-def test_placeholder_and_name_coded_districts_are_reported_not_guessed(catalog_database: None, artifact_id: uuid.UUID) -> None:
+def test_unreviewed_name_coded_districts_are_reported_not_guessed(catalog_database: None, artifact_id: uuid.UUID) -> None:
     _boundary("sldl", "25999", artifact_id)
-    _boundary("sldu", "50ADD", artifact_id)  # Vermont's code is an abbreviation of a county name
+    _boundary("sldu", "50QRS", artifact_id)  # a Vermont-style code that is not in the reviewed crosswalk
     _boundary("sldu", "09ZZZ", artifact_id)
     _boundary("congressional_district", "09ZZ", artifact_id)
     report = link_division_boundaries()
     by_family = {row["geography_type"]: row for row in report.families}
-    assert by_family["sldu"]["unlinked"] >= 1  # 50ADD: no division can be derived from the code
+    assert by_family["sldu"]["unlinked"] >= 1
     assert by_family["sldu"]["placeholder_unlinked"] >= 1
     assert by_family["congressional_district"]["placeholder_unlinked"] >= 1
     with session() as active:
         invented = active.execute(
-            text("SELECT count(*) FROM core.division WHERE ocd_division_id LIKE '%state:vt/%'")
+            text("SELECT count(*) FROM core.division WHERE ocd_division_id ILIKE '%qrs%'")
         ).scalar_one()
     assert invented == 0
+
+
+def test_reviewed_crosswalk_pairs_link_by_identifier_and_retire_phantoms(catalog_database: None, artifact_id: uuid.UUID) -> None:
+    """MA '25001' (1st Barnstable) links to OCD ``1st_barnstable``; the old numeric seed is retired."""
+    _boundary("sldl", "25001", artifact_id)
+    _boundary("sldu", "50ADD", artifact_id)
+    with session() as active:
+        active.execute(
+            text(
+                "INSERT INTO core.division (ocd_division_id, label, classification, source_artifact_id, metadata)"
+                " VALUES ('ocd-division/country:us/state:ma/sldl:1', 'seeded', 'sldl', :a,"
+                " '{\"seeded_from\": \"census.tiger\", \"geoid\": \"25001\"}')"
+            ),
+            {"a": artifact_id},
+        )
+    report = link_division_boundaries()
+    assert report.retired_divisions == 1
+    with session() as active:
+        rows = dict(
+            active.execute(
+                text(
+                    "SELECT d.ocd_division_id, l.metadata->>'rule' FROM core.division_boundary l"
+                    " JOIN core.division d USING (division_id)"
+                    " WHERE d.ocd_division_id IN ('ocd-division/country:us/state:ma/sldl:1st_barnstable',"
+                    " 'ocd-division/country:us/state:vt/sldu:addison')"
+                )
+            ).all()
+        )
+        phantom = active.execute(
+            text("SELECT count(*) FROM core.division WHERE ocd_division_id = 'ocd-division/country:us/state:ma/sldl:1'")
+        ).scalar_one()
+    assert rows == {
+        "ocd-division/country:us/state:ma/sldl:1st_barnstable": "reviewed_ocd_crosswalk",
+        "ocd-division/country:us/state:vt/sldu:addison": "reviewed_ocd_crosswalk",
+    }
+    assert phantom == 0
+    assert link_division_boundaries().crosswalk_links == 0  # idempotent
 
 
 def test_letter_suffixed_codes_get_the_open_civic_data_id_by_rule(catalog_database: None, artifact_id: uuid.UUID) -> None:
