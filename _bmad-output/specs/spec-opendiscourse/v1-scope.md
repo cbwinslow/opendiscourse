@@ -59,9 +59,11 @@ bounded BLS).
 
 ## Not a product domain
 
-News, stocks/CFA, Epstein-as-schema, corruption scores as a schema domain.
-Scorecards over evidence-backed rows are allowed later as derived marts (SPEC
-non-goals); not part of the v1 ingest spine.
+News as a product, market prices/CFA, Epstein-as-schema, corruption scores as a
+schema domain, single opaque scores, verdict labels. Allowed (operator, 2026-10-10):
+members' required disclosures (STOCK Act trades), news only as reported-statement
+evidence, and report cards as derived marts over versioned, tiered metrics; these
+open after Epic 10 `slice_proven` (see sprint-change-proposal-2026-10-10).
 `core.instrument` / `fact.market_bar` are retained empty compatibility
 tables; no market-price ingest.
 
