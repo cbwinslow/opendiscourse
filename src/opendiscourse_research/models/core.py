@@ -1570,7 +1570,8 @@ core_person_social_account = Table(
     Column("loaded_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
     CheckConstraint("btrim(bioguide) <> ''", name="person_social_account_bioguide_check"),
     CheckConstraint(
-        "network IN ('twitter', 'facebook', 'instagram', 'youtube', 'mastodon')",
+        "network IN ('twitter', 'facebook', 'instagram', 'youtube', 'mastodon', "
+        "'threads', 'bluesky', 'substack', 'linkedin', 'tiktok', 'medium', 'rumble', 'flickr')",
         name="person_social_account_network_check",
     ),
     CheckConstraint(

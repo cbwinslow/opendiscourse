@@ -1004,3 +1004,32 @@ def test_profile_keeps_the_later_end_for_duplicate_leadership_identity(
     assert [str(role["end_date"]) for role in roles] == ["2025-01-03"]
     assert result.result["leadership_changed"] == 1
     assert source_records == 1
+
+
+def test_every_network_the_publisher_lists_is_stored_and_an_unlisted_one_stops_the_load(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bg = _bioguide()
+    added = ("threads", "bluesky", "substack", "linkedin", "tiktok", "medium", "rumble", "flickr")
+    social = f"- id:\n    bioguide: {bg}\n  social:\n" + "".join(
+        f"    {network}: {network}-handle\n" for network in added
+    )
+    upstream = _upstream(
+        tmp_path, [{"bioguide": bg}], [{"bioguide": _bioguide()}], social=social
+    )
+    _load(tmp_path, monkeypatch, upstream)
+    with connect() as conn:
+        stored = conn.execute(
+            "SELECT network, handle, external_id FROM core.person_social_account WHERE bioguide = %s",
+            (bg,),
+        ).fetchall()
+    assert {tuple(row.values()) for row in stored} == {
+        (network, f"{network}-handle", None) for network in added
+    }
+
+    (upstream / "legislators-social-media.yaml").write_text(
+        social + "    not_a_network: someone\n"
+    )
+    with pytest.raises(ValueError, match="unknown social field: not_a_network"):
+        _load(tmp_path, monkeypatch, upstream)
+    assert _latest_run()["status"] == "failed"

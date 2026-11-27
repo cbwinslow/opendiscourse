@@ -25,6 +25,19 @@ SOCIAL_PAIRS = (
     ("instagram", "instagram", "instagram_id"),
     ("youtube", "youtube", "youtube_id"),
     ("mastodon", "mastodon", None),
+    *(
+        (network, network, None)
+        for network in (
+            "threads",
+            "bluesky",
+            "substack",
+            "linkedin",
+            "tiktok",
+            "medium",
+            "rumble",
+            "flickr",
+        )
+    ),
 )
 SOCIAL_KEYS = {key for _, handle, external in SOCIAL_PAIRS for key in (handle, external) if key}
 _Loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)

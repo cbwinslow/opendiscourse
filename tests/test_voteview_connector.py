@@ -45,7 +45,7 @@ from opendiscourse_research.repositories.voteview import publish_voteview
 ORIGIN = "https://example.test/voteview"
 MODIFIED = "Tue, 22 Sep 2026 06:18:49 GMT"
 LATER = "Wed, 23 Sep 2026 06:18:49 GMT"
-HEAD = "c7e2b94d5a13"
+HEAD = "e5a3f9c1b846"
 CONGRESS = 998
 
 MEMBER_FIELDS = (
