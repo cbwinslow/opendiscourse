@@ -33,7 +33,13 @@ from .catalog import sync_inventory, validate_inventory
 from .censushealth import census_health
 from .congresshealth import congressional_health, recover_stale_congressional_runs
 from .contracts import load_contracts, validate_contracts
-from .coverage import coverage_report, format_table, normalize_congresses
+from .coverage import (
+    FIRST_CONGRESS,
+    LAST_CONGRESS,
+    coverage_report,
+    format_table,
+    normalize_congresses,
+)
 from .db import apply_migrations, connect
 from .exports import available_exports, export_relation
 from .feedback import (
@@ -131,6 +137,7 @@ from .repositories.names import ENTITIES, UnrankedSource, resolve_names
 from .repositories.people import merge_reviewed_people
 from .repositories.runs import loaded_coverage
 from .repositories.source_status import source_status
+from .repositories.votes import link_house_bills, link_senate_bills
 from .scaffold import ScaffoldError, new_provider
 from .votereconcile import reconcile_openstates_votes
 
@@ -777,6 +784,20 @@ def recover_congress_bills_command(
     typer.echo(json.dumps(connector.result, indent=2, sort_keys=True))
     if connector.result.get("partial"):
         raise typer.Exit(2)
+
+
+@app.command("link-vote-bills")
+def link_vote_bills(
+    congress: list[int] | None = typer.Option(None, "--congress", help="Repeatable; default 108-119."),
+) -> None:
+    """Link stored House and Senate roll calls to the bills they officially name. Downloads nothing."""
+    congresses = congress or list(range(FIRST_CONGRESS, LAST_CONGRESS + 1))
+    with connect() as conn:
+        report = {
+            "house_linked": link_house_bills(conn, congresses),
+            "senate_linked": link_senate_bills(conn, congresses),
+        }
+    typer.echo(json.dumps(report, sort_keys=True))
 
 
 @app.command("sync-voteview")

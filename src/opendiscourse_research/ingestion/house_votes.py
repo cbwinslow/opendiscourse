@@ -19,6 +19,7 @@ from ..repositories.votes import (
     HOUSE_OCD_ORGANIZATION,
     bioguide_people,
     house_organization_id,
+    link_house_bills,
     save_house_roll_call,
 )
 from .bulk import download
@@ -83,6 +84,14 @@ class HouseVotesConnector(RollCallVotesConnector):
             sleep=sleep,
             download_pace_seconds=download_pace_seconds,
         )
+
+    _bills_linked = 0
+
+    def _finish(self, conn: Any, congresses: Sequence[int]) -> None:
+        self._bills_linked = link_house_bills(conn, list(congresses))
+
+    def _extra_result(self) -> dict[str, Any]:
+        return {"linked_to_bills_at_end": self._bills_linked}
 
     def _bounds(self) -> tuple[int, int]:
         return FIRST_CONGRESS, LAST_CONGRESS

@@ -275,6 +275,13 @@ def link_senate_bills(conn: Any, congresses: list[int]) -> int:
         return cur.rowcount
 
 
+def link_house_bills(conn: Any, congresses: list[int]) -> int:
+    """Link the House roll calls of these Congresses that name a bill core.bill now holds; returns how many."""
+    with conn.cursor() as cur:
+        cur.execute(_query("link_house_roll_call_bills"), {"congresses": [str(c) for c in congresses]})
+        return cur.rowcount
+
+
 def count_disagreements(conn: Any, roll_call_ids: list[str]) -> list[dict[str, Any]]:
     """Rolls whose official totals differ from the typed votes stored for them."""
     if not roll_call_ids:

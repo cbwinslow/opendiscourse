@@ -25,6 +25,13 @@ ON CONFLICT (jurisdiction, legislative_session, external_id) DO UPDATE SET
   roll_year = EXCLUDED.roll_year,
   congress_session = EXCLUDED.congress_session,
   legislative_number = EXCLUDED.legislative_number,
+  -- A corrected official bill number drops the old link; the end of the run links the new one. A link
+  -- on a row that never had an official number (a provider's) is left alone.
+  bill_id = CASE
+    WHEN core.roll_call.legislative_number IS NOT NULL
+     AND core.roll_call.legislative_number IS DISTINCT FROM EXCLUDED.legislative_number THEN NULL
+    ELSE core.roll_call.bill_id
+  END,
   vote_type = EXCLUDED.vote_type,
   vote_result = EXCLUDED.vote_result,
   majority_party = EXCLUDED.majority_party,

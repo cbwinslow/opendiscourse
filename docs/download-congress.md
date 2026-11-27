@@ -56,6 +56,13 @@ fetches its own three files.
 does not download the file of every member's vote, and it does not replace
 the official House and Senate roll calls.
 
+## Bill links
+
+`sync-votes` links each roll call to the bill it officially names, for bills
+already loaded. After loading more bills, `uv run research-db link-vote-bills`
+adds the missing links without downloading anything. Procedural votes and
+nominations name no bill and stay unlinked.
+
 ## When a command finishes
 
 The command prints JSON.
