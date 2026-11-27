@@ -11,7 +11,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import time
 from collections.abc import Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -628,9 +630,9 @@ def test_provider_votes_stay_while_the_official_file_has_an_unidentified_member(
     assert "T998009" in _votes(2) and connector.result["provider_votes_removed"] == 0
 
 
-def _openstates_load(roll_id: str, votes: dict[str, str]) -> int:
+def _openstates_load(roll_id: str, votes: dict[str, str], artifact: dict | None = None) -> int:
     """Run the two statements the OpenStates loader runs for one roll call; returns the votes written."""
-    art = register_artifact(
+    art = artifact or register_artifact(
         "openstates.legislation", "https://v3.openstates.org/x", "virtual://openstates-998", OPENSTATES_KEY,
         content_type="application/json",
     )
@@ -676,6 +678,36 @@ def test_a_later_openstates_load_cannot_change_an_officially_recorded_roll_call(
     assert written == 0 and _votes(2) == votes and _state() == before
     assert _roll(2)["result"] is None and _roll(2)["metadata"]["source"] == source
     assert _roll(2)["ocd_id"] == "ocd-vote/test-998"  # the provider's identifier is still recorded
+
+
+def test_an_openstates_load_waiting_on_an_official_load_still_sees_that_it_is_official(clerk: FakeClerk) -> None:
+    roll_id = _openstates_roll(2, {})
+    art = register_artifact(
+        "openstates.legislation", "https://v3.openstates.org/x", "virtual://openstates-998", OPENSTATES_KEY,
+        content_type="application/json",
+    )
+    with connect() as official, ThreadPoolExecutor(max_workers=1) as pool:
+        # the official load, not yet committed: it holds the row
+        official.execute(
+            "UPDATE core.roll_call SET question = 'official question', result = NULL, source_artifact_id = %s "
+            "WHERE roll_call_id = %s", (art["artifact_id"], roll_id),
+        )
+        official.execute(
+            "INSERT INTO core.roll_call_source_record (roll_call_id, source_artifact_id, record, record_sha256) "
+            "VALUES (%s, %s, '{}'::jsonb, 'x')", (roll_id, art["artifact_id"]),
+        )
+        provider = pool.submit(_openstates_load, roll_id, {}, art)
+        deadline = time.monotonic() + 30
+        while not _rows(
+            "SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' "
+            "AND query LIKE %s", "%INSERT INTO core.roll_call (%"
+        ):
+            assert not provider.done() and time.monotonic() < deadline, "the provider load never waited"
+            time.sleep(0.05)
+        official.commit()
+        provider.result(timeout=30)
+
+    assert _roll(2)["question"] == "official question" and _roll(2)["result"] is None
 
 
 def test_openstates_may_fill_a_gap_but_never_replace_an_official_vote(clerk: FakeClerk) -> None:
