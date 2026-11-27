@@ -5,8 +5,8 @@
 profiles; (3) campaign finance; (4) disclosures and trades, small trial first; (5) bill explanations; state data after.
 This lifts the 2026-10-10 sequencing rule that money and disclosure work wait for Story 10.6; Epic 10 is paused, not
 dropped. The identity gate (`person_join`), source contracts and capacity previews still apply. `AGENTS.md` and
-`epics.md` still state the old order and need updating. A design review (keep, restructure or rebuild) is open with
-the operator. Read-only findings the same day: 0 of 15,185 House roll calls have `bill_id` (14,651 of 15,148 with a
+`epics.md` still state the old order and need updating. The design review is closed: the operator approved keeping
+the project and repairing it (2026-11-27; `_bmad-output/specs/spec-voting-first-redesign/`). Read-only findings the same day: 0 of 15,185 House roll calls have `bill_id` (14,651 of 15,148 with a
 legislative number match a loaded bill); `fact.member_vote` has no index leading on `person_id` (one member's history
 took 4.4 s; 0.14 s on an indexed temporary copy). Nothing in the warehouse was changed.
 

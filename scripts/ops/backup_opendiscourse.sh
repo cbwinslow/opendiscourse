@@ -40,7 +40,7 @@ if [ -z "$BACKUP_DIR" ]; then
   BACKUP_DIR="$(dirname "$DATA_ROOT")/backup"
 fi
 # Rows we do not dump: rebuildable from raw files by their loaders (sizes measured 2026-09-19).
-EXCLUDE_DATA="${OPENDISCOURSE_BACKUP_EXCLUDE_DATA:-stage.* fact.acs_bulk_estimate fact.business_pattern core.geography_boundary}"
+EXCLUDE_DATA="${OPENDISCOURSE_BACKUP_EXCLUDE_DATA:-stage.* fact.acs_bulk_estimate fact.business_pattern core.geography_boundary core.division_boundary}"
 
 # pg_dump must be at least as new as the server; the default one on PATH may be older.
 MIRROR_DIR="${OPENDISCOURSE_BACKUP_MIRROR_DIR:-$(env_value OPENDISCOURSE_BACKUP_MIRROR_DIR)}"
@@ -120,16 +120,19 @@ say "done: $(du -h "$FINAL" | cut -f1) at $FINAL (previous copy replaced; manife
 [ -n "$MIRROR_DIR" ] || exit 0
 mirror_failed() { die "the backup is saved, but the mirror at $MIRROR_DIR was not updated: $*"; }
 mkdir -p "$MIRROR_DIR" 2>/dev/null || mirror_failed "cannot create the directory"
-need_gb=$(( $(du -B1G "$FINAL" | cut -f1) + MIRROR_KEEP_FREE_GB ))
-have_gb=$(( $(df --output=avail -B1G "$MIRROR_DIR" | tail -1 | tr -d ' ') ))
-[ "$have_gb" -ge "$need_gb" ] || mirror_failed "${have_gb} GB free, need $need_gb"
-trap 'rm -f "$MIRROR_DIR"/*.partial' EXIT
-for source in "$FINAL" "$MANIFEST"; do
-  copy="$MIRROR_DIR/$(basename "$source").partial"
-  cp "$source" "$copy" && cmp -s "$source" "$copy" || mirror_failed "the copy does not match"
-done
-for name in "$(basename "$FINAL")" "$(basename "$MANIFEST")"; do
-  mv -f "$MIRROR_DIR/$name.partial" "$MIRROR_DIR/$name"
-done
+# Counted in bytes: df rounds whole gigabytes up, which would eat into the reserve unnoticed.
+need=$(( $(stat -c %s "$FINAL") + $(stat -c %s "$MANIFEST") + MIRROR_KEEP_FREE_GB * 1024 * 1024 * 1024 ))
+have=$(( $(df --output=avail -B1 "$MIRROR_DIR" | tail -1 | tr -d ' ') ))
+[ "$have" -ge "$need" ] || mirror_failed "$have bytes free, need $need"
+# A fresh private folder, so a stale file cannot lend the new copy its permissions.
+stage="$(mktemp -d "$MIRROR_DIR/.staging.XXXXXX")" || mirror_failed "cannot create a staging folder"
+dump_copy="$stage/$(basename "$FINAL")"
+manifest_copy="$stage/$(basename "$MANIFEST")"
+trap 'rm -f "$dump_copy" "$manifest_copy"; rmdir "$stage" 2>/dev/null || true' EXIT
+{ cp "$FINAL" "$dump_copy" && cmp -s "$FINAL" "$dump_copy"; } || mirror_failed "the copy does not match"
+{ cp "$MANIFEST" "$manifest_copy" && cmp -s "$MANIFEST" "$manifest_copy"; } || mirror_failed "the copy does not match"
+mv -f "$dump_copy" "$MIRROR_DIR/$(basename "$FINAL")"
+mv -f "$manifest_copy" "$MIRROR_DIR/$(basename "$MANIFEST")"
+rmdir "$stage"
 trap - EXIT
 say "mirrored : $MIRROR_DIR"

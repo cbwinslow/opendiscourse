@@ -1,6 +1,6 @@
 ---
 title: Voting-first repair and redesign
-status: draft (awaiting operator approval)
+status: approved (operator, 2026-11-27)
 created: 2026-11-27
 ---
 

@@ -49,7 +49,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Drop both indexes; they hold no data of their own."""
+    """Drop both indexes inside the migration transaction.
+
+    Not concurrently: an older revision may refuse the downgrade, and that refusal must also bring
+    these indexes back, because the recorded revision stays here.
+    """
     for name, schema, table, _columns, _include in _INDEXES:
-        with op.get_context().autocommit_block():
-            op.drop_index(name, table_name=table, schema=schema, postgresql_concurrently=True, if_exists=True)
+        op.drop_index(name, table_name=table, schema=schema, if_exists=True)

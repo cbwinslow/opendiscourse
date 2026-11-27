@@ -11,6 +11,8 @@ import pytest
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "ops" / "backup_opendiscourse.sh"
 
+GIB = 1024**3
+
 # A server version no machine has installed, so the script takes pg_dump from PATH: the stand-in.
 _TOOLS = {
     "psql": '#!/bin/sh\ncase "$*" in *server_version_num*) echo 990000;; *) echo \'{"counts": {}}\';; esac\n',
@@ -23,7 +25,10 @@ _TOOLS = {
     "df": (
         "#!/bin/sh\n"
         'for last in "$@"; do :; done\n'
-        'echo Avail\ncase "$last" in */mirror) echo "${FAKE_MIRROR_FREE_GB:-100}";; *) echo 100;; esac\n'
+        # Free space in bytes, or rounded up to whole units as GNU df does when asked for -B1G.
+        'case "$last" in */mirror) free="${FAKE_MIRROR_FREE_BYTES:-107374182400}";; *) free=107374182400;; esac\n'
+        'case "$*" in *-B1G*) free=$(( (free + 1073741823) / 1073741824 ));; esac\n'
+        'echo Avail\necho "$free"\n'
     ),
 }
 
@@ -84,7 +89,7 @@ def test_a_full_mirror_disk_fails_loudly_and_keeps_the_previous_mirror(repo: Pat
     _backup(repo, OPENDISCOURSE_BACKUP_MIRROR_DIR=str(mirror), FAKE_DUMP="first")
 
     done = _backup(
-        repo, OPENDISCOURSE_BACKUP_MIRROR_DIR=str(mirror), FAKE_DUMP="second", FAKE_MIRROR_FREE_GB="3"
+        repo, OPENDISCOURSE_BACKUP_MIRROR_DIR=str(mirror), FAKE_DUMP="second", FAKE_MIRROR_FREE_BYTES=str(3 * GIB)
     )
 
     assert done.returncode != 0 and "mirror" in done.stderr
@@ -99,3 +104,38 @@ def test_an_unusable_mirror_path_fails_loudly_after_the_backup_itself_is_saved(r
 
     assert done.returncode != 0 and "mirror" in done.stderr
     assert _copy(repo / "primary")[0] == "dump"
+
+
+def test_the_free_space_reserve_is_not_rounded_away(repo: Path) -> None:
+    mirror = repo / "mirror"
+
+    done = _backup(repo, OPENDISCOURSE_BACKUP_MIRROR_DIR=str(mirror), FAKE_MIRROR_FREE_BYTES=str(20 * GIB + 1))
+
+    assert done.returncode != 0 and "free" in done.stderr
+    assert list(mirror.iterdir()) == []
+
+
+def test_a_failed_copy_removes_only_this_scripts_own_unfinished_files(repo: Path) -> None:
+    mirror = repo / "mirror"
+    mirror.mkdir()
+    (mirror / "someone-elses.partial").write_text("theirs")
+    (repo / "bin" / "cmp").write_text("#!/bin/sh\nexit 1\n")
+    (repo / "bin" / "cmp").chmod(0o755)
+
+    done = _backup(repo, OPENDISCOURSE_BACKUP_MIRROR_DIR=str(mirror))
+
+    assert done.returncode != 0 and "does not match" in done.stderr
+    assert [p.name for p in mirror.iterdir()] == ["someone-elses.partial"]
+
+
+def test_a_stale_open_staging_file_does_not_make_the_mirror_readable_by_others(repo: Path) -> None:
+    mirror = repo / "mirror"
+    mirror.mkdir()
+    stale = mirror / "opendiscourse.dump.partial"
+    stale.write_text("left behind")
+    stale.chmod(0o644)
+
+    done = _backup(repo, OPENDISCOURSE_BACKUP_MIRROR_DIR=str(mirror))
+
+    assert done.returncode == 0, done.stderr
+    assert (mirror / "opendiscourse.dump").stat().st_mode & 0o077 == 0

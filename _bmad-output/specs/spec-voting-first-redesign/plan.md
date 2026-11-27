@@ -1,6 +1,6 @@
 # Voting repair: implementation plan
 
-Spec: `../specs/spec-voting-first-redesign/SPEC.md` (approved by the operator 2026-11-27).
+Spec: `SPEC.md` (this folder) (approved by the operator 2026-11-27).
 Execution: one agent, in order, test first, one commit per task, PR, merge on green CI.
 
 ## Global constraints
