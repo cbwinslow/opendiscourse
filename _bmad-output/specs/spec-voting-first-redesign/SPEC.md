@@ -133,3 +133,10 @@ Done: R1, R4, R12, R13, R19, R20, R21. R5: 64 disagreeing roll calls fell to 2 (
 member; Senate 2020 roll 216, publisher totals 0). R9: votes current (House to 2026-11-19, Senate to
 2026-11-20); bills and text not refreshed. R18: order update done in `AGENTS.md` and `epics.md`; the rest
 open. Open: R0, R2, R3, R6-R8, R10, R11, R14-R17. Detail: `docs/SESSION-HANDOFF-2026-11-27-VOTING-REPAIR.md`.
+
+## Status, 2026-11-27 (second session)
+
+Done: R7, R22, R23 (#151-#153; live loads verified, 42 superseded term rows wiped and listed on their run).
+R11 is wider than first recorded: seven runs are stuck at "running". Next: R6.
+Detail: `docs/PROJECT-STATE.md`.
+

@@ -1,14 +1,18 @@
 # Project state and handoff
 
-**Refresh inputs fixed and members reloaded (2026-11-27, second session).** Merged #150, #151, #152. `load-legislators`
-and `sync-committee-membership` now download the publisher's latest commit (R7, new fault R22). Live port 5434 is at
-revision `e5a3f9c1b846` (eight more social networks). Both loads ran from commit `2b1fe728` (2026-11-22).
-**Open, found after the load (call it R23):** the legislator load added 43 terms and left 42 older terms that the file no
-longer lists; all 42 overlap a current term of the same member and chamber (start dates changed upstream, e.g. Joe Wilson
-2001-12-18 vs 2001-12-19), so those members show duplicate terms. Nothing was deleted. Next: decide and fix in the term
-load (identity includes the start date), then wipe the stale rows and record it. Then R6 (one refresh command and timer;
-needs an operator-approved size limit). Also open: an unlisted social network still stops the whole member load; seven
-`ingest.run` rows are stuck at "running" (R11).
+**Refresh inputs fixed and members reloaded (2026-11-27, second session).** Merged #150-#153. `load-legislators`
+and `sync-committee-membership` now download the publisher's latest commit (R7, R22). Live port 5434 is at revision
+`e5a3f9c1b846` (eight more social networks). Both loads ran from `unitedstates/congress-legislators` commit
+`2b1fe728` (2026-11-22). **Wiped 42 derived `core.membership` rows** (dataset `congress.legislators`, 42 members,
+terms starting 1989-2001): each was an older start date of a term the files still list, overlapping the corrected row.
+All 42 are listed in `ingest.run.parameters.superseded_terms` on run `1ba39ce1-e41a-44c4-a741-6035cd949723`; retained
+files were not touched (R23, fixed in #153). Verified after the load: 12,770 people, 45,536 terms with 0 overlapping
+pairs, 2,068 social accounts, 1,306 district offices, 559 committees, 3,919 committee seats, 7,394,356 member votes
+(unchanged). A backup finished 13:56 UTC the same day, before these loads.
+Open: R6 (one refresh command and timer; needs a size preview and an operator-approved limit); an unlisted social
+network still stops the whole member load (decision wanted: keep failing, or keep the safety copy and mark the run
+partial, which is recommended); seven `ingest.run` rows are stuck at "running" (six `congress.congress_gov_bills`
+from 2026-09-26, one `census.acs_housing_archive` from 2026-10-01; R11); bills and bill text not refreshed.
 
 **Voting repair, first session (2026-11-27). Resume from `docs/SESSION-HANDOFF-2026-11-27-VOTING-REPAIR.md`.**
 Merged #145, #146, #147, #149. Live on port 5434: revision `c7e2b94d5a13`; 14,662 House and 2,046 Senate roll calls
