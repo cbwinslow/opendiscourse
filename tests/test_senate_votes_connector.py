@@ -666,16 +666,18 @@ def test_an_openstates_roll_call_is_enriched_in_place_not_duplicated(senate: Fak
 
 
 def test_a_count_disagreement_with_existing_votes_is_reported_not_hidden(senate: FakeSenate) -> None:
-    _add_people({"T997009": "Extra"})
-    _openstates_roll(2, {"T997009": "yes"})
+    # the file's printed yes total does not match the senators it lists
+    xml, changed = re.subn(r"<yeas>\d*</yeas>", "<yeas>3</yeas>", _vote_xml(2), count=1)
+    assert changed == 1
+    senate.publish(YEAR, 2, xml, modified=MODIFIED)
 
     connector = _sync(senate)
 
     assert connector.result["count_disagreements"] == 1
     assert connector.result["count_disagreement_examples"] == [
-        {"roll": senate_external_id(YEAR, 2), "official": [2, 1, 1], "stored": [3, 1, 1]}
+        {"roll": senate_external_id(YEAR, 2), "official": [3, 1, 1], "stored": [2, 1, 1]}
     ]
-    assert len(_votes(2)) == 6 and connector.result["partial"] is False
+    assert len(_votes(2)) == 5 and connector.result["partial"] is False
 
 
 def test_an_unknown_lis_id_is_reported_never_name_matched_and_retried_later(senate: FakeSenate) -> None:

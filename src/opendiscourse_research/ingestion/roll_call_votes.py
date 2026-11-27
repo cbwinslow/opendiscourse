@@ -472,6 +472,7 @@ class RollCallVotesConnector:
             "roll_calls_enriched_from_openstates": totals["enriched"],
             "roll_calls_refreshed": totals["refreshed"],
             "member_votes_written": totals["votes"],
+            "provider_votes_removed": totals["provider_removed"],
             self.without_id_result_key: totals["without_id"],
             self.unresolved_result_key: {
                 member: rolls for member, rolls in sorted(self._unresolved.items())
@@ -614,6 +615,7 @@ class RollCallVotesConnector:
                     gained["loaded"] += 1
                     gained["votes"] += saved["typed"]
                     gained["without_id"] += saved["entries_without_id"]
+                    gained["provider_removed"] += saved["provider_votes_removed"]
                     if saved["inserted"]:
                         gained["inserted"] += 1
                     elif saved["enriched"]:

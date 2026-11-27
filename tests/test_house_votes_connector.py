@@ -9,6 +9,8 @@ spec's I/O matrix row by row.
 from __future__ import annotations
 
 import hashlib
+import json
+import re
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -21,8 +23,10 @@ from alembic import command
 from alembic.script import ScriptDirectory
 from db_cluster import cloned_database
 from psycopg.types.json import Jsonb
+from typer.testing import CliRunner
 
 from opendiscourse_research.catalog import sync_inventory
+from opendiscourse_research.cli import app
 from opendiscourse_research.config import settings
 from opendiscourse_research.db import _alembic_config, connect
 from opendiscourse_research.ingestion import bulk, house_votes, roll_call_votes
@@ -40,6 +44,7 @@ from opendiscourse_research.providers.clerk import (
     RemoteRoll,
     roll_url,
 )
+from opendiscourse_research.repositories import legislation
 from opendiscourse_research.repositories.legislation import register_artifact
 from opendiscourse_research.repositories.votes import (
     HOUSE_OCD_ORGANIZATION,
@@ -206,6 +211,14 @@ def _roll_xml(
 <vote-data>
 {entries}</vote-data>
 </rollcall-vote>"""
+
+
+def _misstated(number: int, field: str, total: int) -> str:
+    """A roll call whose overall ``field`` total says ``total``, whatever its members add up to."""
+    head, tail = _roll_xml(number).split("<total-stub>Totals</total-stub>")
+    tail, changed = re.subn(rf"<{field}>\d+</{field}>", f"<{field}>{total}</{field}>", tail, count=1)
+    assert changed == 1
+    return f"{head}<total-stub>Totals</total-stub>{tail}"
 
 
 class FakeClerk:
@@ -594,6 +607,112 @@ def test_an_openstates_roll_call_is_enriched_in_place_not_duplicated(clerk: Fake
     ) == [("core.roll_call", 2, 1)]
 
 
+def test_a_provider_vote_for_someone_the_file_does_not_list_is_removed(clerk: FakeClerk) -> None:
+    # The provider credited a member who was not on this roll (as happened for a successor with a shared surname)
+    _add_people({"T998009": "Successor Member"})
+    _openstates_roll(2, {"T998009": "not voting"})
+
+    connector = _sync(clerk)
+
+    assert "T998009" not in _votes(2) and len(_votes(2)) == 5
+    assert connector.result["provider_votes_removed"] == 1
+
+
+def test_provider_votes_stay_while_the_official_file_has_an_unidentified_member(clerk: FakeClerk) -> None:
+    clerk.publish(YEAR, 2, _roll_xml(2, [*DEFAULT_VOTES, ("T998404", "Aye")]), modified=MODIFIED)
+    _add_people({"T998009": "Possibly That Member"})
+    _openstates_roll(2, {"T998009": "yes"})
+
+    connector = _sync(clerk)
+
+    assert "T998009" in _votes(2) and connector.result["provider_votes_removed"] == 0
+
+
+def _openstates_load(roll_id: str, votes: dict[str, str]) -> int:
+    """Run the two statements the OpenStates loader runs for one roll call; returns the votes written."""
+    art = register_artifact(
+        "openstates.legislation", "https://v3.openstates.org/x", "virtual://openstates-998", OPENSTATES_KEY,
+        content_type="application/json",
+    )
+    written = 0
+    with connect() as conn:
+        external_id = conn.execute(
+            "SELECT external_id FROM core.roll_call WHERE roll_call_id = %s", (roll_id,)
+        ).fetchone()["external_id"]
+        loaded = conn.execute(
+            legislation._query("upsert_openstates_roll_call"),
+            {
+                "congress": "998", "chamber": "house", "external_id": external_id,
+                "occurred_at": "3783-06-06T00:00:00+00:00", "question": "provider question", "result": "fail",
+                "metadata": Jsonb({"source": "openstates", "ocd_id": "ocd-vote/test-998"}),
+                "ocd_id": "ocd-vote/test-998", "organization_id": None,
+            },
+        ).fetchone()
+        assert str(loaded["roll_call_id"]) == roll_id
+        for bioguide, position in votes.items():
+            person = conn.execute(
+                "SELECT person_id FROM core.person_identifier WHERE namespace = 'bioguide' AND external_id = %s",
+                (bioguide,),
+            ).fetchone()
+            written += conn.execute(
+                legislation._query("upsert_member_vote"),
+                {
+                    "roll_call_id": roll_id, "person_id": person["person_id"], "position": position,
+                    "source_artifact_id": art["artifact_id"],
+                },
+            ).rowcount
+        conn.commit()
+    return written
+
+
+def test_a_later_openstates_load_cannot_change_an_officially_recorded_roll_call(clerk: FakeClerk) -> None:
+    clerk.publish(YEAR, 2, _roll_xml(2, result="Tabled"), modified=MODIFIED)
+    _sync(clerk)
+    _add_people({"T998009": "Not On The Roll"})
+    before, votes, source = _state(), _votes(2), _roll(2)["metadata"]["source"]
+
+    written = _openstates_load(str(_roll(2)["roll_call_id"]), {"T998001": "no", "T998009": "yes"})
+
+    assert written == 0 and _votes(2) == votes and _state() == before
+    assert _roll(2)["result"] is None and _roll(2)["metadata"]["source"] == source
+    assert _roll(2)["ocd_id"] == "ocd-vote/test-998"  # the provider's identifier is still recorded
+
+
+def test_openstates_may_fill_a_gap_but_never_replace_an_official_vote(clerk: FakeClerk) -> None:
+    clerk.publish(YEAR, 2, _roll_xml(2, [*DEFAULT_VOTES, ("T998404", "Aye")]), modified=MODIFIED)
+    _sync(clerk)
+    _add_people({"T998009": "Possibly That Member"})
+    official = _votes(2)["T998001"]
+
+    written = _openstates_load(str(_roll(2)["roll_call_id"]), {"T998001": "no", "T998009": "yes"})
+
+    assert written == 1 and _votes(2)["T998001"] == official and _votes(2)["T998009"][0] == "yes"
+
+
+def test_stored_provider_leftovers_can_be_pruned_once(clerk: FakeClerk) -> None:
+    _sync(clerk)
+    _add_people({"T998009": "Successor Member"})
+    art = register_artifact(
+        "openstates.legislation", "https://v3.openstates.org/x", "virtual://openstates-998", OPENSTATES_KEY,
+        content_type="application/json",
+    )
+    with connect() as conn:  # a leftover from before the loader removed them
+        conn.execute(
+            "INSERT INTO fact.member_vote (roll_call_id, person_id, position, source_artifact_id) "
+            "SELECT %s, person_id, 'not voting', %s FROM core.person_identifier "
+            "WHERE namespace = 'bioguide' AND external_id = 'T998009'",
+            (_roll(2)["roll_call_id"], art["artifact_id"]),
+        )
+        conn.commit()
+
+    first = CliRunner().invoke(app, ["prune-provider-votes"])
+    second = CliRunner().invoke(app, ["prune-provider-votes"])
+
+    assert first.exit_code == 0, first.output
+    assert json.loads(first.output)["removed"] == 1 and json.loads(second.output)["removed"] == 0
+    assert "T998009" not in _votes(2) and len(_votes(2)) == 5
+
+
 def test_the_official_result_replaces_a_stale_provider_result_even_when_it_is_not_pass_or_fail(clerk: FakeClerk) -> None:
     roll_id = _openstates_roll(2, {})
     with connect() as conn:
@@ -609,17 +728,16 @@ def test_the_official_result_replaces_a_stale_provider_result_even_when_it_is_no
 
 
 def test_a_count_disagreement_with_existing_votes_is_reported_not_hidden(clerk: FakeClerk) -> None:
-    # a provider vote by a person the official file does not list makes the stored yes-count differ
-    _add_people({"T998009": "Extra"})
-    _openstates_roll(2, {"T998009": "yes"})
+    # the file's printed yes total does not match the members it lists
+    clerk.publish(YEAR, 2, _misstated(2, "yea-total", 3), modified=MODIFIED)
 
     connector = _sync(clerk)
 
     assert connector.result["count_disagreements"] == 1
     assert connector.result["count_disagreement_examples"] == [
-        {"roll": house_external_id(YEAR, 2), "official": [2, 1, 1], "stored": [3, 1, 1]}
+        {"roll": house_external_id(YEAR, 2), "official": [3, 1, 1], "stored": [2, 1, 1]}
     ]
-    assert len(_votes(2)) == 6  # the provider's vote stays; nothing is wiped
+    assert len(_votes(2)) == 5  # the listed votes stay as printed
     assert connector.result["partial"] is False  # reported, not a failure
 
 
@@ -811,15 +929,14 @@ def test_the_migration_refuses_to_downgrade_while_official_rows_exist(clerk: Fak
 
 # -- review follow-ups ----------------------------------------------------------
 def test_a_disagreement_only_in_not_voting_is_flagged(clerk: FakeClerk) -> None:
-    # yes and no counts stay equal to the file (2 and 1); only not-voting differs (2 stored, 1 official)
-    _add_people({"T998009": "Extra"})
-    _openstates_roll(2, {"T998009": "not voting"})
+    # yes and no counts match the listed members (2 and 1); only the not-voting total differs
+    clerk.publish(YEAR, 2, _misstated(2, "not-voting-total", 2), modified=MODIFIED)
 
     connector = _sync(clerk)
 
     assert connector.result["count_disagreements"] == 1
     assert connector.result["count_disagreement_examples"] == [
-        {"roll": house_external_id(YEAR, 2), "official": [2, 1, 1], "stored": [2, 1, 2]}
+        {"roll": house_external_id(YEAR, 2), "official": [2, 1, 2], "stored": [2, 1, 1]}
     ]
 
 

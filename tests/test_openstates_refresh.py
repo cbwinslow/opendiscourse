@@ -213,12 +213,14 @@ class TestOpenStatesRefreshPlan(unittest.TestCase):
                     {
                         "roll_calls": 1,
                         "member_votes": 2,
+                        "left_to_official_record": 0,
                         "unresolved_people": 0,
                         "last_ocd_id": "ocd-vote-11",
                     },
                     {
                         "roll_calls": 0,
                         "member_votes": 0,
+                        "left_to_official_record": 0,
                         "unresolved_people": 0,
                         "last_ocd_id": "ocd-vote-11",
                     },

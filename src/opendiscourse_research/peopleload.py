@@ -55,7 +55,7 @@ def load_openstates_votes(
             metadata={"congress": congress},
             conn=conn,
         )
-        counts = {"roll_calls": 0, "member_votes": 0, "unresolved_people": 0}
+        counts = {"roll_calls": 0, "member_votes": 0, "left_to_official_record": 0, "unresolved_people": 0}
         checkpoint = get_resume_cursor("openstates.legislation", cursor_key, conn)
         cursor = (
             (checkpoint or {}).get("cursor", {}).get("last_ocd_id") if resume else None
