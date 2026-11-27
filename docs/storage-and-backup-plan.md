@@ -17,12 +17,22 @@ inferences. Server layout and sizes come from `docs/data-inventory-2026-09-19.md
    **and** there are scripts that make re-downloading and re-ingesting easy. The second condition is not met
    yet (see "Still to do"), so nothing has been dropped.
 
+## Second copy (operator, 2026-11-27)
+
+The operator chose to keep backups on this server. The database, raw files and the main backup share
+the RAID array `md0`, so the nightly script also keeps one mirror of the dump (about 2 GB) in
+`OPENDISCOURSE_BACKUP_MIRROR_DIR`, set to a directory on the root disk, which is a separate physical
+disk. The mirror is skipped with an error unless 20 GB stays free there. It protects against losing
+the array, not against losing the machine.
+
 ## What is in place
 
 - **`scripts/ops/backup_opendiscourse.sh`**: dumps the whole schema plus the rows of everything hard to rebuild
   (identities, bills, terms, the artifact registry, the run ledger, small fact tables). It leaves out the rows
-  (not the empty tables) of `stage.*`, `fact.acs_bulk_estimate`, `fact.business_pattern` and
-  `core.geography_boundary`, which loaders rebuild from raw. Result: **about 0.75 GB instead of 238 GB**, in about
+  (not the empty tables) of `stage.*`, `fact.acs_bulk_estimate`, `fact.business_pattern`,
+  `core.geography_boundary` and `core.division_boundary` (which only points at those shapes; added
+  2026-11-27), all rebuilt from raw files by their loaders. After reloading the shapes, `research-db ingest link-divisions`
+  rebuilds the links. Result: **about 0.75 GB instead of 238 GB**, in about
   2 minutes. It writes to `/mnt/storage/data-lake/backups/opendiscourse/` (a different volume from the
   workspace, on the same RAID pool, 817 GB free), refuses any target on the root disk, uses the right `pg_dump`
   version (the default one on this machine is older than the server), and holds **exactly one copy**: the new
@@ -33,7 +43,9 @@ inferences. Server layout and sizes come from `docs/data-inventory-2026-09-19.md
 - **`scripts/ops/restore_drill.sh`**: restores the dump into a throwaway PostGIS container and compares row counts
   with the manifest. **Passed 2026-09-19** (172,709 bills, 172,703 records, 45,535 memberships, 12,771 people,
   99,368 identifiers, 2,655 artifacts, 301 runs; migration head matches). It is also the recipe for restoring on a
-  new machine.
+  new machine. **Since 2026-11-27 it also fails on any unexpected restore error**, not only on a count
+  mismatch: a run that day passed on counts while the link from `core.division_boundary` to the left-out
+  shapes could not be created.
 
 ## Power cuts and restarts (measured 2026-09-19)
 

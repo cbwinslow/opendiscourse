@@ -41,12 +41,28 @@ docker exec "$NAME" pg_isready -U postgres -d drill >/dev/null || { echo "contai
 
 docker cp "$DUMP" "$NAME:/tmp/od.dump"
 echo "restoring $(du -h "$DUMP" | cut -f1) ..."
-# Some errors are expected here: an extension the throwaway image does not ship (pgvector).
+# Two kinds of error are expected from a throwaway server: the extension its image does not ship
+# (pgvector), and a user mapping for a role that only the real server has. Anything else fails.
 docker exec "$NAME" pg_restore --no-owner --no-acl -j 4 -U postgres -d drill /tmp/od.dump 2>"$LOG" || true
 
 status=0
-echo "restore messages: $(grep -c 'error:' "$LOG" || true) error line(s)"
-grep 'error:' "$LOG" | grep -v -i -E 'extension "vector"|vector\.control|type "vector"' | sort | uniq -c | head -5 || true
+python3 - "$LOG" <<'PY' || status=1
+import re, sys
+blocks = re.split(r"(?m)^(?=pg_restore: error:)", open(sys.argv[1], errors="replace").read())
+errors = [block for block in blocks if block.startswith("pg_restore: error:")]
+
+def expected(block):
+    message = block.splitlines()[0]
+    if re.search(r'extension "vector"|vector\.control|type "vector"', message, re.IGNORECASE):
+        return True
+    return bool(re.search(r'role ".*" does not exist', message)) and "Command was: CREATE USER MAPPING" in block
+
+unexpected = [block.splitlines()[0] for block in errors if not expected(block)]
+print(f"restore messages: {len(errors)} error line(s), {len(unexpected)} unexpected")
+for message in unexpected[:20]:
+    print(f"  FAIL {message}")
+sys.exit(1 if unexpected else 0)
+PY
 
 echo "comparing with the manifest ($MANIFEST):"
 python3 - "$MANIFEST" "$NAME" <<'PY' || status=1

@@ -23,6 +23,11 @@ _DB_FILES = {
     "test_senate_votes_connector.py",
 }
 
+# Starting the throwaway PostGIS server and migrating its template happens inside the
+# first database test's setup. It took 109 s on the operator's disks, past the 60 s
+# per-test limit in pyproject.toml, so database tests get their own limit.
+DB_TIMEOUT_SECONDS = 300
+
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Mark known database integration modules without rewriting every test."""
@@ -33,6 +38,8 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         if path.name in _DB_FILES:
             item.add_marker(db_marker)
             item.add_marker(integration_marker)
+        if item.get_closest_marker("db") and not item.get_closest_marker("timeout"):
+            item.add_marker(pytest.mark.timeout(DB_TIMEOUT_SECONDS))
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:

@@ -78,6 +78,7 @@ def _remove_rows() -> None:
             f"DELETE FROM core.roll_call_party_total WHERE roll_call_id IN {_ROLLS}",
             f"DELETE FROM core.roll_call_source_record WHERE roll_call_id IN {_ROLLS}",
             "DELETE FROM core.roll_call WHERE jurisdiction = 'us' AND legislative_session = '998'",
+            "DELETE FROM core.bill WHERE jurisdiction = 'us' AND legislative_session IN ('997', '998')",
             (
                 "WITH gone AS (DELETE FROM core.person_identifier WHERE namespace = 'bioguide' "
                 "AND external_id LIKE 'T998%' RETURNING person_id) "
@@ -163,6 +164,7 @@ def _roll_xml(
     claims: int | None = None,
     parties: tuple[str, ...] = ("Republican",),
     etz: str | None = None,
+    legis: str | None = None,
 ) -> str:
     votes = DEFAULT_VOTES if votes is None else votes
     yea = sum(w in {"Yea", "Aye"} for _, w in votes)
@@ -189,7 +191,7 @@ def _roll_xml(
 <session>1st</session>
 <chamber>U.S. House of Representatives</chamber>
 <rollcall-num>{claims or number}</rollcall-num>
-<legis-num>H R {number}</legis-num>
+<legis-num>{legis or f"H R {number}"}</legis-num>
 <vote-question>{question}</vote-question>
 <vote-type>YEA-AND-NAY</vote-type>
 <vote-result>{result}</vote-result>
@@ -1083,3 +1085,94 @@ def test_a_failed_refresh_keeps_the_old_version_and_rows_and_a_rerun_completes_i
     assert fixed.result["partial"] is False and fixed.result["failed"] == {}
     assert _current(2)["artifact_version"] == 2 and set(_votes(2)) == {"T998001"}
     assert Path(old["local_path"]).is_file()
+
+
+# -- links from a roll call to the bill the Clerk names (voting repair, R1) -----------
+def _add_bill(bill_type: str, number: int, congress: int = CONGRESS) -> str:
+    return str(
+        _one(
+            "INSERT INTO core.bill (jurisdiction, legislative_session, bill_type, bill_number) "
+            "VALUES ('us', %s, %s, %s) RETURNING bill_id",
+            str(congress),
+            bill_type,
+            str(number),
+        )
+    )
+
+
+def _bill_of(number: int) -> str | None:
+    bill_id = _roll(number)["bill_id"]
+    return None if bill_id is None else str(bill_id)
+
+
+HOUSE_LABELS = [
+    ("H R", "hr"), ("H RES", "hres"), ("H J RES", "hjres"), ("H CON RES", "hconres"),
+    ("S", "s"), ("S RES", "sres"), ("S J RES", "sjres"), ("S CON RES", "sconres"),
+]
+
+
+@pytest.mark.parametrize(("label", "bill_type"), HOUSE_LABELS, ids=[label for label, _ in HOUSE_LABELS])
+def test_every_bill_label_the_clerk_prints_links_to_that_bill(clerk: FakeClerk, label: str, bill_type: str) -> None:
+    clerk.publish(YEAR, 1, _roll_xml(1, legis=f"{label} 7"), modified=MODIFIED)
+    bill = _add_bill(bill_type, 7)
+
+    connector = _sync(clerk)
+
+    assert _bill_of(1) == bill and connector.result["linked_to_bills_at_end"] == 1
+
+
+def test_a_bill_loaded_after_its_roll_call_links_on_the_next_run_without_a_download(clerk: FakeClerk) -> None:
+    connector = _sync(clerk)
+    assert _bill_of(1) is None and connector.result["linked_to_bills_at_end"] == 0
+    bill = _add_bill("hr", 1)
+    downloads = len(clerk.downloads)
+
+    again = _sync(clerk)
+    third = _sync(clerk)
+
+    assert _bill_of(1) == bill and _bill_of(2) is None
+    assert again.result["linked_to_bills_at_end"] == 1 and third.result["linked_to_bills_at_end"] == 0
+    assert len(clerk.downloads) == downloads
+
+
+def test_a_procedural_label_or_another_congresses_bill_is_never_linked(clerk: FakeClerk) -> None:
+    for number, label in ((1, "JOURNAL"), (2, "H R 2"), (3, "QUORUM")):
+        clerk.publish(YEAR, number, _roll_xml(number, legis=label), modified=MODIFIED)
+    _add_bill("hr", 2, congress=997)
+    _add_bill("hr", 1)
+
+    connector = _sync(clerk)
+
+    assert [_bill_of(n) for n in (1, 2, 3)] == [None, None, None]
+    assert connector.result["linked_to_bills_at_end"] == 0
+
+
+def test_a_refresh_that_changes_the_official_bill_number_moves_the_link(clerk: FakeClerk) -> None:
+    first, corrected = _add_bill("hr", 1), _add_bill("hr", 40)
+    _sync(clerk)
+    assert _bill_of(1) == first
+
+    clerk.publish(YEAR, 1, _roll_xml(1, legis="H R 40"))
+    _sync(clerk)
+    assert _bill_of(1) == corrected
+
+    clerk.publish(YEAR, 1, _roll_xml(1, legis="H R 41"), modified="Thu, 03 Sep 2020 12:06:52 GMT")
+    _sync(clerk)
+    assert _bill_of(1) is None  # the corrected number names a bill we do not hold
+
+
+def test_the_link_command_links_stored_roll_calls_without_contacting_the_clerk(clerk: FakeClerk) -> None:
+    from typer.testing import CliRunner
+
+    from opendiscourse_research import cli
+
+    _sync(clerk)
+    bill = _add_bill("hr", 1)
+    heads = clerk.heads
+
+    first = CliRunner().invoke(cli.app, ["link-vote-bills", "--congress", str(CONGRESS)])
+    second = CliRunner().invoke(cli.app, ["link-vote-bills", "--congress", str(CONGRESS)])
+
+    assert first.exit_code == 0 and '"house_linked": 1' in first.output
+    assert '"house_linked": 0' in second.output
+    assert _bill_of(1) == bill and clerk.heads == heads
