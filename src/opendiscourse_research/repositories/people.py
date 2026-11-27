@@ -250,11 +250,18 @@ def congress_chamber_organizations(conn: psycopg.Connection) -> tuple[UUID, UUID
     return found["lower"][0], found["upper"][0]
 
 
-def promote_terms(conn: psycopg.Connection, rows: Iterable[tuple[Any, ...]]) -> dict[str, int]:
+def promote_terms(
+    conn: psycopg.Connection,
+    rows: Iterable[tuple[Any, ...]],
+    run_id: UUID | str | None = None,
+) -> dict[str, Any]:
     """Load staged legislator terms as divisions, posts and memberships in one transaction.
 
     ``rows`` follow ``TERM_STAGE_COLUMNS`` (``metadata`` a JSON string). People are matched by
-    BioGuide only. Returns counts; a rerun with the same rows inserts and updates nothing.
+    BioGuide only. A term the rows no longer list is removed only when a listed term of the same
+    member and chamber overlaps it (a corrected start date); ``superseded_terms`` names each one
+    and, with ``run_id``, is saved on that run in the same transaction.
+    Returns counts; a rerun with the same rows changes nothing.
     """
     house, senate = congress_chamber_organizations(conn)
     params = {"house": house, "senate": senate}
@@ -275,6 +282,26 @@ def promote_terms(conn: psycopg.Connection, rows: Iterable[tuple[Any, ...]]) -> 
         posts = cur.rowcount
         cur.execute(_query("upsert_term_memberships"), params)
         outcomes = [row["inserted"] for row in cur.fetchall()]
+        cur.execute("ANALYZE term_stage")  # a temp table has no statistics until asked
+        cur.execute(_query("delete_superseded_terms"), params)
+        superseded = sorted(
+            (
+                {
+                    "bioguide": row["bioguide"],
+                    "role": row["role"],
+                    "start": row["start_date"].isoformat(),
+                    "end": row["end_date"].isoformat(),
+                    "replaced_by_start": row["replaced_by_start"].isoformat(),
+                }
+                for row in cur.fetchall()
+            ),
+            key=lambda term: (term["bioguide"], term["start"]),
+        )
+        if run_id is not None:
+            cur.execute(
+                _query("record_superseded_terms"),
+                {"run_id": run_id, "terms": Jsonb(superseded)},
+            )
     inserted = sum(outcomes)
     return {
         "terms_staged": staged,
@@ -284,6 +311,7 @@ def promote_terms(conn: psycopg.Connection, rows: Iterable[tuple[Any, ...]]) -> 
         "memberships_created": inserted,
         "memberships_updated": len(outcomes) - inserted,
         "memberships_unchanged": staged - unresolved - len(outcomes),
+        "superseded_terms": superseded,
     }
 
 

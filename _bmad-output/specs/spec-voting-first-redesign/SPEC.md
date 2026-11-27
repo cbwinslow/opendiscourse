@@ -77,6 +77,7 @@ line by line; work item R0 extends it.
 | R20 | The restore drill passed while a link failed to restore | Leave out `core.division_boundary` rows; drill fails on unexpected errors (#145) | Done; drill passed 2026-11-27 |
 | R21 | The Clerk moved its files; House sync failed | Read `/evslegacy/` (#149) | Done 2026-11-27; the address may be retired by the publisher |
 | R22 | `sync-committee-membership` was fixed to the publisher's 2026-09-03 commit, so a refresh could not change anything | Follow the latest commit and record it on the run, as `load-legislators` now does | A run records the commit it read |
+| R23 | A corrected start date added a second term and kept the old one: 42 members showed two overlapping terms after the 2026-11-27 load | Remove an unlisted term only when a listed term of the same member and chamber overlaps it, and name it on the run | A load leaves no unlisted overlapping term |
 
 Known inefficiency deliberately deferred: about 398 GB of staging (raw JSON census and
 finance rows). Finance is redesigned in its own spec; the 2026-10-10 PUMS decision stands.

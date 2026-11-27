@@ -318,8 +318,11 @@ class LegislatorsConnector:
         with connect() as conn:
             counts = promote_legislators(conn, rows)
             conn.commit()
-            terms = promote_terms(conn, term_rows)
+            terms = promote_terms(conn, term_rows, run_id=ctx.run_id)
             conn.commit()
+            if self._run is not None:
+                # Already saved with the deletion; kept here so a later parameter write keeps it.
+                self._run.parameters["superseded_terms"] = terms["superseded_terms"]
             profile = publish_legislator_profile(conn, **self._profile_rows(ctx.run_id))
             conn.commit()
             for name, url in zip(ALL_FILES, ctx.artifact_urls, strict=True):

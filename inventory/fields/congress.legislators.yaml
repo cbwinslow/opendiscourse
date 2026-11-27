@@ -25,8 +25,9 @@ capture:
     In this copy of the files every social and office id already belongs to a
     member. Washington contact is whatever the member file prints on that term,
     not a history of earlier offices. A newer member file updates those columns
-    and clears one the file no longer prints. A term the file drops is still
-    kept, which is the rule the term load already uses. Gender today is M or F
+    and clears one the file no longer prints. A term the file drops is kept,
+    except when a listed term of the same member and chamber overlaps it (a
+    corrected start date); that old row is removed and named on the run. Gender today is M or F
     (12,317 and 453). A new letter is stored and the run says so. 542 people
     have no birthday.
 fields:
