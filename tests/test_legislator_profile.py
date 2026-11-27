@@ -55,9 +55,9 @@ def test_social_handle_and_id_stay_on_one_row() -> None:
 
 def test_a_new_social_field_is_refused() -> None:
     try:
-        social_accounts({"id": {"bioguide": "R000600"}, "social": {"bluesky": "someone"}})
+        social_accounts({"id": {"bioguide": "R000600"}, "social": {"friendster": "someone"}})
     except ValueError as exc:
-        assert "bluesky" in str(exc)
+        assert "friendster" in str(exc)
     else:
         raise AssertionError("expected the new field to be refused")
 

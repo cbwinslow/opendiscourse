@@ -99,7 +99,7 @@ fields:
   where: >-
     core.membership columns of the same names. Empty when that term's entry has
     none. This is the Washington office the file prints, not a history.
-- name: social.twitter, social.twitter_id, social.facebook, social.instagram, social.instagram_id, social.youtube, social.youtube_id, social.mastodon
+- name: social.twitter, social.twitter_id, social.facebook, social.instagram, social.instagram_id, social.youtube, social.youtube_id, social.mastodon, social.threads, social.bluesky, social.substack, social.linkedin, social.tiktok, social.medium, social.rumble, social.flickr
   status: typed
   where: >-
     core.person_social_account, one row per network (network, handle, external
