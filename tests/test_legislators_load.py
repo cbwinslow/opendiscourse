@@ -1127,3 +1127,37 @@ def test_a_dropped_term_that_no_listed_term_overlaps_is_kept(
         "2019-06-01",
         "2021-01-03",
     ]
+
+
+def test_removed_terms_are_named_on_the_run_even_if_it_dies_right_after(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from opendiscourse_research.ingestion import legislators as module
+
+    bg = _bioguide()
+    upstream = _upstream(
+        tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7]}], [{"bioguide": _bioguide()}]
+    )
+    _load(tmp_path, monkeypatch, upstream)
+    _upstream(
+        tmp_path,
+        [{"bioguide": bg, "terms": [{**HOUSE_WA7, "start": "2019-02-25"}]}],
+        [{"bioguide": _bioguide()}],
+    )
+
+    real = module.promote_terms
+
+    def killed(*args: object, **kwargs: object) -> None:
+        real(*args, **kwargs)  # the term transaction commits...
+        raise KeyboardInterrupt  # ...and the connector never sees the result
+
+    monkeypatch.setattr(module, "promote_terms", killed)
+    with pytest.raises(KeyboardInterrupt):
+        _load(tmp_path, monkeypatch, upstream)
+
+    run = _latest_run()
+    assert run["status"] == "failed"
+    assert [(t["bioguide"], t["start"]) for t in run["parameters"]["superseded_terms"]] == [
+        (bg, "2019-01-03")
+    ]
+    assert run["parameters"]["commit"] == _head(upstream)  # earlier parameters survive
