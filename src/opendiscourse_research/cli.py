@@ -137,7 +137,11 @@ from .repositories.names import ENTITIES, UnrankedSource, resolve_names
 from .repositories.people import merge_reviewed_people
 from .repositories.runs import loaded_coverage
 from .repositories.source_status import source_status
-from .repositories.votes import link_house_bills, link_senate_bills, prune_provider_votes
+from .repositories.votes import (
+    link_house_bills,
+    link_senate_bills,
+    prune_provider_votes,
+)
 from .scaffold import ScaffoldError, new_provider
 from .votereconcile import reconcile_openstates_votes
 
