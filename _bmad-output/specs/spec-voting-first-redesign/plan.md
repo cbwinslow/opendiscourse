@@ -20,16 +20,16 @@ Execution: one agent, in order, test first, one commit per task, PR, merge on gr
 
 ## Batch 1
 
-- [ ] T1 (R12): `tests/conftest.py` gives database tests their own 300 s timeout.
+- [x] T1 (R12): `tests/conftest.py` gives database tests their own 300 s timeout.
       Proof: `tests/test_artifact_versioning.py` passes with no `--timeout` flag.
-- [ ] T2 (R1): `sql/query/votes/link_house_roll_call_bills.sql`, `link_house_bills()`,
+- [x] T2 (R1): `sql/query/votes/link_house_roll_call_bills.sql`, `link_house_bills()`,
       House `_finish`, `research-db link-vote-bills` (no network), upsert clears a link when
       the official number changes. Tests in `tests/test_house_votes_connector.py`.
-- [ ] T3 (R4): revision adds `member_vote_person_idx` and `roll_call_bill_idx` concurrently;
+- [x] T3 (R4): revision adds `member_vote_person_idx` and `roll_call_bill_idx` concurrently;
       same indexes in `models/core.py`. Check `scripts/render_baseline_ddl.py --check`.
-- [ ] T4 (R13): backup script keeps a second copy in `OPENDISCOURSE_BACKUP_MIRROR_DIR`.
+- [x] T4 (R13): backup script keeps a second copy in `OPENDISCOURSE_BACKUP_MIRROR_DIR`.
       Operator decision: the server is the backup location.
-- [ ] T5: apply to the live warehouse (backup first), measure, record in `PROJECT-STATE.md`.
+- [x] T5: apply to the live warehouse (backup first), measure, record in `PROJECT-STATE.md`.
 
 ## Later batches (plan each when reached)
 

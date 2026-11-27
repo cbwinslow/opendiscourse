@@ -30,10 +30,14 @@ Start from `_bmad-output/specs/spec-opendiscourse/SPEC.md` and
 - Do not name-match people. Federal person *joins* need BioGuide (Epic 3).
   FEC/disclosure/elections politician joins stay gated by `person_join` in
   `inventory/sources.yaml`; call `identitygate.require_person_join` before promoting
-  person-keyed rows. The money, outcomes, disclosures and statements epics
-  (14, 16, 17, 18; they replace the old Epic 7) open only after Epic 10 Story 10.6
-  (`slice_proven`), and each source first needs a written contract (coverage,
-  licence, size) and a capacity preview. Operator decision 2026-10-10.
+  person-keyed rows. **Work order (operator, 2026-11-27):** (1) House vote to bill links,
+  federal refresh and its automation; (2) federal voting profiles; (3) campaign finance;
+  (4) disclosures and trades, small trial first; (5) bill explanations; state data after.
+  This replaces the 2026-10-10 rule that money and disclosure work wait for Story 10.6;
+  Epic 10 is paused, not dropped. Each source still first needs a written contract
+  (coverage, licence, size) and a capacity preview. `inventory/dataset-roadmap.yaml`
+  still marks rows `slice_proven`/`epic7`; change a row's gate only in the story that
+  opens that source.
 - No market-price data and no news product. Members' STOCK Act trades and other
   required disclosures are an allowed source domain. GDELT/news is allowed only as
   evidence that a statement was reported (link plus short quote, lower trust).
