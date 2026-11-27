@@ -26,7 +26,11 @@ GOVINFO_MANIFEST = "https://www.govinfo.gov/bulkdata/json/BILLSTATUS/{congress}/
 GOVINFO_BILLS_ROOT = "https://www.govinfo.gov/bulkdata/json/BILLS"
 GOVINFO_BILLS_MANIFEST = "https://www.govinfo.gov/bulkdata/json/BILLS/{congress}/{session}/{bill_type}"
 SENATE_MENU = "https://www.senate.gov/legislative/LIS/roll_call_lists/vote_menu_{congress}_{session}.xml"
-HOUSE_INDEX = "https://clerk.house.gov/evs/{year}/index.asp"
+# The Clerk's published files (seen 2026-11-27): the former ``/evs`` address no longer lists a year,
+# refuses HEAD, sends no Last-Modified, rewrites the XML, and answers 200 for a file that does not
+# exist. This address serves the same bytes as before, with sizes, dates and real 404s.
+HOUSE_ROOT = "https://clerk.house.gov/evslegacy"
+HOUSE_INDEX = HOUSE_ROOT + "/{year}/index.asp"
 _ROLL_NUMBER = re.compile(r"rollnumber=(\d+)", re.IGNORECASE)
 
 

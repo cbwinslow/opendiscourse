@@ -23,7 +23,7 @@ items:
       house`: one retained artifact per file, whole record as JSON, typed header, party totals and member
       votes; the 1,400 OpenStates-derived House roll calls are enriched in place. The Senate (senate.gov XML)
       is Story 11.2. `unitedstates/congress` (vendor/) was used as a reference for URLs and formats only.
-    origin: https://clerk.house.gov/evs/<year>/roll<NNN>.xml
+    origin: https://clerk.house.gov/evslegacy/<year>/roll<NNN>.xml
     provenance: authoritative_official_publisher
     sensitivity: public
     validate: >-
