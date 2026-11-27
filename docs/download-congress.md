@@ -63,6 +63,14 @@ already loaded. After loading more bills, `uv run research-db link-vote-bills`
 adds the missing links without downloading anything. Procedural votes and
 nominations name no bill and stay unlinked.
 
+
+## Official record and provider copies
+
+The Clerk and Senate XML files are the official record. When a file identifies every member, a stored vote
+that did not come from it (an OpenStates leftover) is removed on load, and a later OpenStates load adds nothing
+to that roll call and changes none of its question, date or result. If a file has a member we cannot identify,
+provider rows are kept as possible gap fillers, but an official vote is never replaced. For rows stored before
+this rule, run `research-db prune-provider-votes` once (downloads nothing; safe to repeat).
 ## When a command finishes
 
 The command prints JSON.

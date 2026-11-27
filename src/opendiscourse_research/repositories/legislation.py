@@ -624,6 +624,7 @@ def load_openstates_votes(
     counts: dict[str, Any] = {
         "roll_calls": 0,
         "member_votes": 0,
+        "left_to_official_record": 0,
         "unresolved_people": 0,
         "unresolved_voter_ids": [],
         "last_ocd_id": after_ocd_id,
@@ -686,7 +687,8 @@ def load_openstates_votes(
                         "source_artifact_id": artifact_id,
                     },
                 )
-                counts["member_votes"] += 1
+                counts["member_votes"] += cur.rowcount
+                counts["left_to_official_record"] += 1 - cur.rowcount
     return counts
 
 

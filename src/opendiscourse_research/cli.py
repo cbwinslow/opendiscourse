@@ -137,7 +137,11 @@ from .repositories.names import ENTITIES, UnrankedSource, resolve_names
 from .repositories.people import merge_reviewed_people
 from .repositories.runs import loaded_coverage
 from .repositories.source_status import source_status
-from .repositories.votes import link_house_bills, link_senate_bills
+from .repositories.votes import (
+    link_house_bills,
+    link_senate_bills,
+    prune_provider_votes,
+)
 from .scaffold import ScaffoldError, new_provider
 from .votereconcile import reconcile_openstates_votes
 
@@ -798,6 +802,14 @@ def link_vote_bills(
             "senate_linked": link_senate_bills(conn, congresses),
         }
     typer.echo(json.dumps(report, sort_keys=True))
+
+
+@app.command("prune-provider-votes")
+def prune_provider_votes_command() -> None:
+    """Remove OpenStates leftover votes where the official roll-call file is complete. Downloads nothing."""
+    with connect() as conn:
+        removed = prune_provider_votes(conn)
+    typer.echo(json.dumps({"removed": removed}))
 
 
 @app.command("sync-voteview")

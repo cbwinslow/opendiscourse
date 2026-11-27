@@ -258,8 +258,12 @@ def _save_roll_call(
                 "unresolved_bioguide_ids": sorted(unresolved),
             },
         )
+        # Last, so the record just written decides whether this roll is complete.
+        cur.execute(_query("delete_provider_votes_on_official_rolls"), {"roll_call_ids": [roll_call_id]})
+        provider_votes_removed = cur.rowcount
     return {
         "roll_call_id": roll_call_id,
+        "provider_votes_removed": provider_votes_removed,
         "inserted": row["inserted"],
         "enriched": not row["inserted"] and bool(row["openstates"]),
         "typed": len(typed),
@@ -279,6 +283,13 @@ def link_house_bills(conn: Any, congresses: list[int]) -> int:
     """Link the House roll calls of these Congresses that name a bill core.bill now holds; returns how many."""
     with conn.cursor() as cur:
         cur.execute(_query("link_house_roll_call_bills"), {"congresses": [str(c) for c in congresses]})
+        return cur.rowcount
+
+
+def prune_provider_votes(conn: Any) -> int:
+    """Remove other providers' leftover votes from every officially complete roll call; returns how many."""
+    with conn.cursor() as cur:
+        cur.execute(_query("delete_provider_votes_on_official_rolls"), {"roll_call_ids": None})
         return cur.rowcount
 
 
