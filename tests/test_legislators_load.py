@@ -1147,14 +1147,16 @@ def test_removed_terms_are_named_on_the_run_even_if_it_dies_right_after(
 
     real = module.promote_terms
 
-    def killed(*args: object, **kwargs: object) -> None:
-        real(*args, **kwargs)  # the term transaction commits...
+    def killed(conn, *args: object, **kwargs: object) -> None:
+        real(conn, *args, **kwargs)
+        conn.commit()  # the term transaction commits...
         raise KeyboardInterrupt  # ...and the connector never sees the result
 
     monkeypatch.setattr(module, "promote_terms", killed)
     with pytest.raises(KeyboardInterrupt):
         _load(tmp_path, monkeypatch, upstream)
 
+    assert [str(m["start_date"]) for m in _memberships(bg)] == ["2019-02-25"]  # really removed
     run = _latest_run()
     assert run["status"] == "failed"
     assert [(t["bioguide"], t["start"]) for t in run["parameters"]["superseded_terms"]] == [
