@@ -24,7 +24,7 @@ from uuid import UUID
 import httpx
 import yaml
 
-from ..artifact_storage import retain_artifact_bytes, retained_path
+from ..artifact_storage import retain_downloaded_bytes, retained_path
 from ..capacity import GiB, RemoteObject, storage_preview
 from ..config import settings
 from ..db import connect
@@ -213,6 +213,7 @@ class LegislatorsConnector:
                 RemoteObject(url, self._sizes[name], "head")
                 for name, url in zip(ALL_FILES, ctx.artifact_urls, strict=True)
             ],
+            raw_path=self.retain_dir,
             stage_multiplier=0.0,
             database_multiplier=0.0,
             reserve_bytes=CAPACITY_RESERVE_BYTES,
@@ -238,18 +239,13 @@ class LegislatorsConnector:
 
     def evidence(self, ctx: ConnectorContext) -> ConnectorContext:
         """Retain checksum-addressed copies and register artifact versions."""
-        self.retain_dir.mkdir(parents=True, exist_ok=True)
         with connect() as conn:
             for name, url in zip(ALL_FILES, ctx.artifact_urls, strict=True):
                 checksum = self._checksums[name]
-                # Same directory as the retained file so the publish can be a hard link.
-                incoming = self.retain_dir / f".{name}.{checksum}.incoming"
-                incoming.write_bytes(self._content[name])
-                retained = retain_artifact_bytes(
-                    incoming,
+                retained = retain_downloaded_bytes(
+                    self._content[name],
                     checksum,
-                    destination=retained_path(self.retain_dir / name, checksum),
-                    move=True,
+                    retained_path(self.retain_dir / name, checksum),
                 )
                 artifact = register_artifact(
                     SOURCE_ID,

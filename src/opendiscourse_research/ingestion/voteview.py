@@ -20,7 +20,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
-from ..artifact_storage import retain_artifact_bytes, retained_path, validate_retained
+from ..artifact_storage import retain_downloaded_bytes, retained_path, validate_retained
 from ..capacity import GiB, RemoteObject, storage_preview
 from ..config import settings
 from ..db import connect
@@ -534,12 +534,7 @@ class VoteviewConnector:
             if name in self._paths:
                 continue
             checksum = self._checksums[name]
-            destination = retained_path(root / name, checksum)
-            staging = root / f".{name}.{checksum}.incoming"
-            staging.write_bytes(body)
-            retained = retain_artifact_bytes(
-                staging, checksum, destination=destination, move=True
-            )
+            retained = retain_downloaded_bytes(body, checksum, retained_path(root / name, checksum))
             self._paths[name] = str(retained)
         self._report("retained evidence")
         return ctx

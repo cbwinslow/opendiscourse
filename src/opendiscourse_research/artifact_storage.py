@@ -114,3 +114,29 @@ def retain_artifact_bytes(
         finally:
             temporary.unlink(missing_ok=True)
     return retained
+
+
+def retain_downloaded_bytes(content: bytes, checksum_sha256: str, destination: Path) -> Path:
+    """Keep downloaded bytes at ``destination`` through a staging file of this call alone.
+
+    A staging name built from the file name would be shared by overlapping runs,
+    and after a crash between link and unlink it is a second name for retained
+    evidence: writing to it again would truncate the evidence.
+    """
+    if sha256(content).hexdigest() != checksum_sha256:
+        raise ValueError(f"downloaded bytes do not match their checksum ({destination.name})")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile(
+        dir=destination.parent, prefix=".retain-", suffix=".incoming", delete=False
+    ) as output:
+        staging = Path(output.name)
+        try:
+            output.write(content)
+            output.flush()
+            os.fsync(output.fileno())
+            os.chmod(staging, 0o644)
+            return retain_artifact_bytes(
+                staging, checksum_sha256, destination=destination, move=True
+            )
+        finally:
+            staging.unlink(missing_ok=True)

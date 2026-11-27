@@ -20,7 +20,7 @@ from typing import Any
 import httpx
 import yaml
 
-from ..artifact_storage import retain_artifact_bytes, retained_path
+from ..artifact_storage import retain_downloaded_bytes, retained_path
 from ..capacity import GiB, RemoteObject, storage_preview
 from ..config import settings
 from ..db import connect
@@ -434,12 +434,8 @@ class CommitteeMembershipConnector:
         with connect() as conn:
             for name, url in zip(FILES, ctx.artifact_urls, strict=True):
                 checksum = self._checksums[name]
-                destination = retained_path(root / name, checksum)
-                # Same directory as the retained file so the publish can be a hard link.
-                staging = root / f".{name}.{checksum}.incoming"
-                staging.write_bytes(self._content[name])
-                retained = retain_artifact_bytes(
-                    staging, checksum, destination=destination, move=True
+                retained = retain_downloaded_bytes(
+                    self._content[name], checksum, retained_path(root / name, checksum)
                 )
                 artifact = register_artifact(
                     SOURCE_ID,

@@ -604,11 +604,19 @@ def test_a_refused_capacity_preview_downloads_nothing(
         "peak_required_bytes": 2,
         "filesystem_free_bytes": 1,
     }
-    monkeypatch.setattr(module, "storage_preview", lambda objects, **kwargs: refused)
+    checked: dict = {}
+
+    def preview(objects, **kwargs):
+        checked.update(kwargs)
+        return refused
+
+    monkeypatch.setattr(module, "storage_preview", preview)
     upstream = _upstream(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
 
     with pytest.raises(RuntimeError, match="capacity gate: not enough space"):
         _load(tmp_path, monkeypatch, upstream)
+
+    assert checked["raw_path"] == tmp_path / "retain"  # the disk the files will be kept on
 
     assert _latest_run()["status"] == "failed"
     assert not (tmp_path / "retain").exists()
