@@ -73,6 +73,9 @@ line by line; work item R0 extends it.
 | R16 | Lint covers `src` only; 36 findings with tests, 137 files unformatted; `ty` 1,015 diagnostics, unreviewed | Format and lint tests in a separate mechanical change; decide on `ty` after sampling | Gate covers `src` and `tests` |
 | R17 | `pg_stat_statements` approved, not enabled; TOAST compression `pglz`; 20 GB swap in use | Enable at a quiet restart; set `lz4` for new data; find swap user | Applied or declined with reason |
 | R18 | `AGENTS.md` and `epics.md` state the old order; Epic 10 status stale; `PROJECT-STATE.md` is about 1,400 lines | Update order; shorten state file, move history to an archive file | Documents agree |
+| R19 | An OpenStates load could overwrite official votes and left 62 votes crediting a member not yet serving | Official file wins (#147) | Done 2026-11-27; 62 rows wiped |
+| R20 | The restore drill passed while a link failed to restore | Leave out `core.division_boundary` rows; drill fails on unexpected errors (#145) | Done; drill passed 2026-11-27 |
+| R21 | The Clerk moved its files; House sync failed | Read `/evslegacy/` (#149) | Done 2026-11-27; the address may be retired by the publisher |
 
 Known inefficiency deliberately deferred: about 398 GB of staging (raw JSON census and
 finance rows). Finance is redesigned in its own spec; the 2026-10-10 PUMS decision stands.
@@ -121,3 +124,10 @@ while Congress sits), and how failures are shown.
 2. A destination for the second backup (another machine, drive or cloud).
 3. Which AI coding tools are in use (R14).
 4. Approval of a size limit for unattended refresh downloads (R6), after a preview.
+
+## Status, 2026-11-27 (end of first repair session)
+
+Done: R1, R4, R12, R13, R19, R20, R21. R5: 64 disagreeing roll calls fell to 2 (117th 2021 roll 1, one unresolved
+member; Senate 2020 roll 216, publisher totals 0). R9: votes current (House to 2026-11-19, Senate to
+2026-11-20); bills and text not refreshed. R18: order update done in `AGENTS.md` and `epics.md`; the rest
+open. Open: R0, R2, R3, R6-R8, R10, R11, R14-R17. Detail: `docs/SESSION-HANDOFF-2026-11-27-VOTING-REPAIR.md`.

@@ -1,5 +1,14 @@
 # Project state and handoff
 
+**Voting repair, first session (2026-11-27). Resume from `docs/SESSION-HANDOFF-2026-11-27-VOTING-REPAIR.md`.**
+Merged #145, #146, #147, #149. Live on port 5434: revision `c7e2b94d5a13`; 14,662 House and 2,046 Senate roll calls
+linked to bills; votes refreshed (House to 2026-11-19, Senate to 2026-11-20; 15,198 + 8,215 roll calls, 7,394,356
+member votes, every roll call has an official source file). **Wiped 62 derived `fact.member_vote` rows**
+(`openstates.legislation`/`federal-votes-119`, BioGuide G000606, membership starts 2025-11-12). Tally comparison: 2
+roll calls disagree (was 64). Backup and restore drill passed with the second copy. The Clerk moved its files to
+`/evslegacy/`. Bills and bill text were not refreshed, and no data refresh is scheduled. This lifts the
+"nothing changed" note in the entry below.
+
 **Priority change (operator, 2026-11-27).** The operator chose to reorder work around three goals, voting first:
 (1) link House roll calls to bills, refresh federal data and automate the refresh; (2) federal politician voting
 profiles; (3) campaign finance; (4) disclosures and trades, small trial first; (5) bill explanations; state data after.

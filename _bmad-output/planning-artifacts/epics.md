@@ -223,7 +223,7 @@ Extend the TIGER path only for the first political layers. Evaluate `pygris`
 before custom acquisition/parsing, but OpenDiscourse retains exact Census ZIP
 bytes and evidence. Do not download national block/tract layers here.
 
-### Story 10.3 — Division↔boundary and crosswalk evidence — ready
+### Story 10.3 — Division↔boundary and crosswalk evidence — done (#132)
 Add `core.division_boundary` and `core.geography_crosswalk`; prove member
 term→division→119th boundary. Relationship rows are not generic population
 weights; BEFs are whole-block tabulation assignments, not split-block polygon
@@ -368,7 +368,14 @@ Order: Epic 10 to `slice_proven`, then 12, 13, 19 (first card, U.S. House), then
 - Crime data (Epic 7), FRED depth.
 - Legislative-effectiveness metric (CAP-9, LES-style, own spec) and any causal-impact work.
 
-## Current next build (2026-10-05)
+## Current next build (2026-11-27)
+
+The operator reordered the work: voting repair and refresh, federal voting profiles, campaign finance,
+disclosures (small trial first), bill explanations, state data. Plan and fault register:
+`_bmad-output/specs/spec-voting-first-redesign/`. This replaces the 2026-10-10 order above and the
+2026-10-05 list below; Epic 10 (Stories 10.4-10.6) is paused, not dropped.
+
+## Previous next build (2026-10-05, paused)
 
 1. **Epic 10 Story 10.3** — Link political divisions to boundary vintages and
    define crosswalk evidence (`core.division_boundary`, `core.geography_crosswalk`).

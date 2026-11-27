@@ -1,5 +1,12 @@
 # Prompt for the next session
 
+**Current (2026-11-27), copy this:** Resume OpenDiscourse on `main`. Read `AGENTS.md`, the top of
+`docs/PROJECT-STATE.md` and `docs/SESSION-HANDOFF-2026-11-27-VOTING-REPAIR.md`, then the other operating
+contracts listed in section 1 of that handoff, before changing anything. Continue with its recommended next
+action.
+
+The text below is the older prompt (2026-09-27, Congress.gov gap recovery), kept because a spec cites it.
+
 Resume OpenDiscourse on `feat/source-completion`. Read `AGENTS.md`, `docs/PROJECT-STATE.md`, and `docs/SESSION-HANDOFF-2026-09-27.md` first.
 
 Find a safe, official solution for five Congress.gov HTTP 500 gaps without rerunning the full 106–107 bill download or using legacy local caches. The missing detail rows are 107 H.R. 2842 and H.R. 2843. The missing cosponsor lists are 106 S. 1378, 106 S.Res. 218, and 107 H.R. 5346.
