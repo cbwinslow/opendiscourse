@@ -40,7 +40,8 @@ carry committees and subjects under `committees/billCommittees` and `subjects/bi
 - `vendor/unitedstates-congress` (cloned, not wrapped): tasks for `votes`, `bills`, `bill_info`,
   `amendment_info`, `committee_meetings`, `nominations`, `statutes`, `govinfo`, `voteview` and
   `adler_wilkerson_bills` (Congressional Bills Project topic codes).
-- `vendor/congress-legislators` (loaded for people; terms and committee membership are not).
+- `unitedstates/congress-legislators` (no clone: `load-legislators` and `sync-committee-membership`
+  download its files over HTTPS).
 - `providers/congress.py`: Congress.gov API adapter (members, bills, actions, amendments,
   committees, House votes); plan `congcur` refreshes Congress 119.
 - `providers/govinfo.py`, `providers/paced.py`: GovInfo HEAD, manifests, paced download.

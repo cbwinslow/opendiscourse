@@ -1,7 +1,7 @@
 """Connector for ``unitedstates/congress-legislators``: the BioGuide crosswalk.
 
-Reads the legislator YAML files from the ``vendor/`` checkout, retains
-verified copies as immutable artifacts, and promotes identifiers into
+Downloads the legislator YAML files from one upstream commit into ``DATA_ROOT``,
+retains them as immutable artifacts, and promotes identifiers into
 ``core.person_identifier`` keyed on BioGuide only (Story 3.1), then promotes every term
 into ``core.membership`` with its state or district post (Story 3.3). The same load
 keeps biography, leadership, the Washington office on each term, social accounts,
@@ -13,7 +13,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import subprocess
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -22,11 +21,14 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+import httpx
 import yaml
 
 from ..artifact_storage import retain_artifact_bytes, retained_path
+from ..capacity import GiB, RemoteObject, storage_preview
 from ..config import settings
 from ..db import connect
+from ..providers.congress_legislators import API, RAW, CongressLegislatorsClient
 from ..repositories.legislation import register_artifact
 from ..repositories.legislator_profile import publish_legislator_profile
 from ..repositories.people import promote_legislators, promote_terms
@@ -44,13 +46,11 @@ from .legislator_profile import (
 from .legislator_terms import Term, parse_terms, plan_term
 
 SOURCE_ID = "congress.legislators"
-UPSTREAM = "https://raw.githubusercontent.com/unitedstates/congress-legislators"
-UPSTREAM_REPO = "https://github.com/unitedstates/congress-legislators"
 FILES = ("legislators-current.yaml", "legislators-historical.yaml")
 PROFILE_FILES = ("legislators-social-media.yaml", "legislators-district-offices.yaml")
 ALL_FILES = (*FILES, *PROFILE_FILES)
 BIOGUIDE = re.compile(r"^[A-Z]\d{6}$")
-VENDOR_DIR = Path(__file__).resolve().parents[3] / "vendor" / "congress-legislators"
+CAPACITY_RESERVE_BYTES = GiB
 
 _Loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 
@@ -144,65 +144,6 @@ def dedupe_identifiers(
     return kept, report
 
 
-def _git(vendor: Path, *args: str) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(vendor), *args], capture_output=True, text=True, check=False
-    )
-    if result.returncode:
-        raise RuntimeError(
-            f"{vendor} is not a usable git checkout ({result.stderr.strip()}). "
-            "Run scripts/bootstrap_upstream.sh."
-        )
-    return result.stdout.strip()
-
-
-def _commit_date(vendor: Path) -> str:
-    """The checkout's commit date, used as the name-fact vintage."""
-    committed = _git(vendor, "show", "-s", "--format=%cs", "HEAD")
-    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", committed):
-        raise RuntimeError(f"{vendor} commit date {committed!r} is not a calendar day")
-    return committed
-
-
-def _normalize_remote(url: str) -> str:
-    """Reduce ssh/https/.git spellings of a GitHub remote to one comparable form."""
-    url = url.strip().removesuffix("/").removesuffix(".git")
-    return url.replace("git@github.com:", "https://github.com/").lower()
-
-
-def verify_checkout(vendor: Path, expected_origin: str | None) -> str:
-    """Return HEAD only if the on-disk bytes are exactly what upstream published.
-
-    The recorded permalink is only truthful when the checkout came from the
-    expected remote, HEAD exists on a remote branch, and each file's bytes equal
-    the committed blob (``status`` alone misses assume-unchanged files).
-    """
-    commit = _git(vendor, "rev-parse", "HEAD")
-    if expected_origin is not None:
-        origin = _git(vendor, "remote", "get-url", "origin")
-        if _normalize_remote(origin) != _normalize_remote(expected_origin):
-            raise RuntimeError(
-                f"{vendor} origin is {origin!r}, expected {expected_origin!r}; the "
-                "recorded URL would not describe these bytes. Rerun "
-                "scripts/bootstrap_upstream.sh."
-            )
-        if not _git(vendor, "branch", "-r", "--contains", commit):
-            raise RuntimeError(
-                f"{vendor} HEAD {commit[:12]} is not on any remote branch (a local "
-                "commit?). Rerun scripts/bootstrap_upstream.sh."
-            )
-    for name in FILES:
-        on_disk = _git(vendor, "hash-object", "--no-filters", "--", name)
-        committed = _git(vendor, "rev-parse", f"HEAD:{name}")
-        if on_disk != committed:
-            raise RuntimeError(
-                f"{name} differs from upstream commit {commit[:12]}; the recorded URL "
-                "would not describe these bytes. Restore it with git checkout or "
-                "rerun scripts/bootstrap_upstream.sh."
-            )
-    return commit
-
-
 class LegislatorsConnector:
     """Ten-stage Connector; publishes one transaction so a failure changes nothing."""
 
@@ -210,13 +151,14 @@ class LegislatorsConnector:
 
     def __init__(
         self,
-        vendor_dir: Path = VENDOR_DIR,
+        *,
         retain_dir: Path | None = None,
         report: Callable[[str], None] | None = None,
-        expected_origin: str | None = UPSTREAM_REPO,
+        origin: str = RAW,
+        api: str = API,
+        http: httpx.Client | None = None,
     ) -> None:
-        self.vendor_dir = vendor_dir
-        self.expected_origin = expected_origin
+        self._source = CongressLegislatorsClient(raw=origin, api=api, http=http)
         # Absolute, like the other loaders: artifact.local_path is evidence and must
         # not depend on the working directory of whoever runs the load.
         self.retain_dir = (
@@ -225,6 +167,7 @@ class LegislatorsConnector:
         self._report = report or (lambda phase: None)
         self._run: IngestionRun | None = None
         self._commit = ""
+        self._sizes: dict[str, int] = {}
         self._content: dict[str, bytes] = {}
         self._checksums: dict[str, str] = {}
         self._artifacts: dict[str, UUID] = {}
@@ -238,23 +181,21 @@ class LegislatorsConnector:
 
     # -- stages -----------------------------------------------------------
     def discover(self, ctx: ConnectorContext) -> ConnectorContext:
-        """Locate the checkout and pin the exact upstream commit."""
-        missing = [n for n in ALL_FILES if not (self.vendor_dir / n).is_file()]
-        if missing:
-            raise FileNotFoundError(
-                f"{', '.join(missing)} not found in {self.vendor_dir}. "
-                "Run scripts/bootstrap_upstream.sh."
-            )
-        self._commit = verify_checkout(self.vendor_dir, self.expected_origin)
-        self._commit_date = _commit_date(self.vendor_dir)
-        self._run = IngestionRun(
-            SOURCE_ID,
-            {"commit": self._commit, "files": list(ALL_FILES), "vintage": self._commit_date},
-            mode="backfill",
-        )
+        """Pin the publisher's latest commit and learn each file's size.
+
+        The run is opened first, so a publisher that cannot be reached leaves a
+        failed run behind instead of nothing.
+        """
+        self._run = IngestionRun(SOURCE_ID, {"files": list(ALL_FILES)}, mode="backfill")
         self._run.__enter__()
         ctx.run_id = str(self._run.run_id)
-        self._report("discovered upstream checkout")
+        commit = self._source.resolve_commit()
+        self._commit, self._commit_date = commit.sha, commit.day
+        self._run.update_parameters(commit=self._commit, vintage=self._commit_date)
+        for name in ALL_FILES:
+            url = self._source.file_url(self._commit, name)
+            self._sizes[name] = self._source.size(url, name)
+        self._report("found the latest upstream commit")
         return ctx
 
     def select(self, ctx: ConnectorContext) -> ConnectorContext:
@@ -264,32 +205,51 @@ class LegislatorsConnector:
         return ctx
 
     def plan(self, ctx: ConnectorContext) -> ConnectorContext:
-        """Sizes are known; retained copies are small so no capacity waiver is needed."""
+        """Capacity gate on the published sizes, before any download."""
         ctx.plan_id = f"{SOURCE_ID}@{self._commit[:12]}"
-        ctx.artifact_urls = tuple(f"{UPSTREAM}/{self._commit}/{n}" for n in ALL_FILES)
-        self._report("planned load")
+        ctx.artifact_urls = tuple(self._source.file_url(self._commit, n) for n in ALL_FILES)
+        preview = storage_preview(
+            [
+                RemoteObject(url, self._sizes[name], "head")
+                for name, url in zip(ALL_FILES, ctx.artifact_urls, strict=True)
+            ],
+            stage_multiplier=0.0,
+            database_multiplier=0.0,
+            reserve_bytes=CAPACITY_RESERVE_BYTES,
+        )
+        if not preview["approved"]:
+            raise RuntimeError(
+                f"capacity gate: {preview['reason']} for {preview['path']} "
+                f"(need {preview['peak_required_bytes']} bytes, "
+                f"{preview['filesystem_free_bytes']} free); free space or move DATA_ROOT"
+            )
+        self._report("planned download")
         return ctx
 
     def extract(self, ctx: ConnectorContext) -> ConnectorContext:
-        """Read each file once; the hash and the parsed content are the same bytes."""
-        for name in ALL_FILES:
-            content = (self.vendor_dir / name).read_bytes()
+        """Download each file once; the hash and the parsed content are the same bytes."""
+        for name, url in zip(ALL_FILES, ctx.artifact_urls, strict=True):
+            content = self._source.download(url, name, self._sizes[name])
             self._content[name] = content
             self._checksums[name] = hashlib.sha256(content).hexdigest()
         ctx.checksums = tuple(self._checksums[n] for n in ALL_FILES)
-        self._report("read files")
+        self._report("downloaded files")
         return ctx
 
     def evidence(self, ctx: ConnectorContext) -> ConnectorContext:
         """Retain checksum-addressed copies and register artifact versions."""
+        self.retain_dir.mkdir(parents=True, exist_ok=True)
         with connect() as conn:
             for name, url in zip(ALL_FILES, ctx.artifact_urls, strict=True):
                 checksum = self._checksums[name]
-                source = self.vendor_dir / name
+                # Same directory as the retained file so the publish can be a hard link.
+                incoming = self.retain_dir / f".{name}.{checksum}.incoming"
+                incoming.write_bytes(self._content[name])
                 retained = retain_artifact_bytes(
-                    source,
+                    incoming,
                     checksum,
                     destination=retained_path(self.retain_dir / name, checksum),
+                    move=True,
                 )
                 artifact = register_artifact(
                     SOURCE_ID,
@@ -592,11 +552,14 @@ class LegislatorsConnector:
             failure = exc
             raise
         finally:
-            if self._run is not None:
-                self._run.__exit__(
-                    type(failure) if failure else None, failure, None
-                )
-                self._run = None
+            try:
+                if self._run is not None:
+                    self._run.__exit__(
+                        type(failure) if failure else None, failure, None
+                    )
+                    self._run = None
+            finally:
+                self._source.close()
         self._report("checkpointed")
         return ctx
 

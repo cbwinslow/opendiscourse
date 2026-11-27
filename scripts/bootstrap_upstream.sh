@@ -17,7 +17,6 @@ clone_or_update() {
 }
 
 clone_or_update "$vendor/unitedstates-congress" "https://github.com/unitedstates/congress.git"
-clone_or_update "$vendor/congress-legislators" "https://github.com/unitedstates/congress-legislators.git"
 
 # MCP helper clones are pinned. Do not float them to origin/HEAD; re-audit, then
 # change the SHA here and in docs/mcp-servers.md together.
