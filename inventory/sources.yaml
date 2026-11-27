@@ -290,7 +290,7 @@ providers:
       - id: congress.committee_membership
         title: Current committee and subcommittee assignments (BioGuide)
         access: >-
-          unitedstates/congress-legislators YAML at a pinned commit:
+          unitedstates/congress-legislators YAML at the latest upstream commit:
           committees-current.yaml, committees-historical.yaml, committee-membership-current.yaml
         client: httpx; pyyaml
         grain: committee (membership-file key) × current member
