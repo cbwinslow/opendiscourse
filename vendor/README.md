@@ -12,7 +12,6 @@ scripts/bootstrap_upstream.sh
 | Directory | Upstream | Role |
 |---|---|---|
 | `unitedstates-congress` | https://github.com/unitedstates/congress | House/Senate vote and bill scrapers GovTrack runs on |
-| `congress-legislators` | https://github.com/unitedstates/congress-legislators | BioGuide-keyed legislator identity YAML |
 | `mcp/congress` | https://github.com/amurshak/congressMCP (`838687d`) | Congress.gov / GovInfo MCP helper |
 | `mcp/fec` | https://github.com/sh-patterson/fec-mcp-server (`79f9ffd`) | OpenFEC MCP helper |
 | `mcp/census` | https://github.com/uscensusbureau/us-census-bureau-data-api-mcp (`5dcaa63`) | Census MCP helper |

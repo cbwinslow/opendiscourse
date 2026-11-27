@@ -1,7 +1,8 @@
 """Connector for current committee membership from congress-legislators.
 
-Downloads three pinned YAML files over HTTP into ``DATA_ROOT``, keeps them as
-evidence, and loads every committee body plus the current member snapshot.
+Downloads three YAML files from the publisher's latest commit into
+``DATA_ROOT``, keeps them as evidence, and loads every committee body plus the
+current member snapshot.
 A subcommittee's identity is the membership-file key: the parent thomas id
 plus the short code (``SSAF`` + ``13``). Short codes such as ``01`` repeat
 across parents and are not unique. People link only on BioGuide. This loader
@@ -19,10 +20,11 @@ from typing import Any
 import httpx
 import yaml
 
-from ..artifact_storage import retain_artifact_bytes, retained_path
+from ..artifact_storage import retain_downloaded_bytes, retained_path
 from ..capacity import GiB, RemoteObject, storage_preview
 from ..config import settings
 from ..db import connect
+from ..providers.congress_legislators import API, RAW, CongressLegislatorsClient
 from ..repositories.committees import publish_committee_membership, try_sync_lock
 from ..repositories.legislation import register_artifact
 from .base import IngestionRun
@@ -30,10 +32,6 @@ from .connector import ConnectorContext
 
 SOURCE_ID = "congress.committee_membership"
 LOCK_KEY = f"{SOURCE_ID}:sync"
-UPSTREAM = "https://raw.githubusercontent.com/unitedstates/congress-legislators"
-# Pinned so a rerun fetches the same bytes until this constant changes.
-COMMIT = "8a3c7e6987f890b32e56058f7ddbdf380860b4a3"
-COMMIT_DATE = "2026-09-03"
 CURRENT = "committees-current.yaml"
 HISTORICAL = "committees-historical.yaml"
 MEMBERSHIP = "committee-membership-current.yaml"
@@ -108,11 +106,6 @@ class Snapshot:
     members: list[Member]
     source_rows: list[SourceRow]
     preferred_file: dict[str, str] = field(default_factory=dict)
-
-
-def file_url(name: str, *, origin: str = UPSTREAM, commit: str = COMMIT) -> str:
-    """Permalink of one upstream file at the pinned commit."""
-    return f"{origin.rstrip('/')}/{commit}/{name}"
 
 
 def _json_ready(value: Any, where: str) -> Any:
@@ -363,17 +356,14 @@ class CommitteeMembershipConnector:
     def __init__(
         self,
         *,
-        origin: str = UPSTREAM,
-        commit: str = COMMIT,
-        vintage: str = COMMIT_DATE,
+        origin: str = RAW,
+        api: str = API,
         http: httpx.Client | None = None,
         report: Callable[[str], None] | None = None,
     ) -> None:
-        self._origin = origin
-        self._commit = commit
-        self._vintage = vintage
-        self._http = http
-        self._owns_http = http is None
+        self._source = CongressLegislatorsClient(raw=origin, api=api, http=http)
+        self._commit = ""
+        self._vintage = ""
         self._report = report or (lambda phase: None)
         self._run: IngestionRun | None = None
         self._lock: Any = None
@@ -386,19 +376,18 @@ class CommitteeMembershipConnector:
         self.result: dict[str, Any] = {}
 
     def discover(self, ctx: ConnectorContext) -> ConnectorContext:
-        """Pin the commit and learn each file's size. A missing file stops before any download."""
+        """Pin the latest commit and learn each size. A missing file stops before any download."""
         self._acquire_lock()
-        self._run = IngestionRun(
-            SOURCE_ID,
-            {"commit": self._commit, "files": list(FILES), "vintage": self._vintage},
-            mode="backfill",
-        )
+        self._run = IngestionRun(SOURCE_ID, {"files": list(FILES)}, mode="backfill")
         self._run.__enter__()
         ctx.run_id = str(self._run.run_id)
+        commit = self._source.resolve_commit()
+        self._commit, self._vintage = commit.sha, commit.day
+        self._run.update_parameters(commit=self._commit, vintage=self._vintage)
         for name in FILES:
-            url = file_url(name, origin=self._origin, commit=self._commit)
+            url = self._source.file_url(self._commit, name)
             self._report(f"checking origin: {name}")
-            self._sizes[name] = self._size(url, name)
+            self._sizes[name] = self._source.size(url, name)
         return ctx
 
     def select(self, ctx: ConnectorContext) -> ConnectorContext:
@@ -410,7 +399,7 @@ class CommitteeMembershipConnector:
     def plan(self, ctx: ConnectorContext) -> ConnectorContext:
         """Capacity gate. An unknown size refuses the run."""
         ctx.plan_id = f"{SOURCE_ID}@{self._commit[:12]}"
-        ctx.artifact_urls = tuple(file_url(name, origin=self._origin, commit=self._commit) for name in FILES)
+        ctx.artifact_urls = tuple(self._source.file_url(self._commit, name) for name in FILES)
         preview = storage_preview(
             [RemoteObject(url, self._sizes[name], "head") for name, url in zip(FILES, ctx.artifact_urls, strict=True)],
             stage_multiplier=0.0,
@@ -430,7 +419,7 @@ class CommitteeMembershipConnector:
         """Download, then refuse a bad file before any evidence or promotion."""
         for name, url in zip(FILES, ctx.artifact_urls, strict=True):
             self._report(f"downloading {name}")
-            body = self._download(url, name, self._sizes[name])
+            body = self._source.download(url, name, self._sizes[name])
             self._content[name] = body
             self._checksums[name] = hashlib.sha256(body).hexdigest()
         self._snapshot = parse_committee_files(self._content)
@@ -445,12 +434,8 @@ class CommitteeMembershipConnector:
         with connect() as conn:
             for name, url in zip(FILES, ctx.artifact_urls, strict=True):
                 checksum = self._checksums[name]
-                destination = retained_path(root / name, checksum)
-                # Same directory as the retained file so the publish can be a hard link.
-                staging = root / f".{name}.{checksum}.incoming"
-                staging.write_bytes(self._content[name])
-                retained = retain_artifact_bytes(
-                    staging, checksum, destination=destination, move=True
+                retained = retain_downloaded_bytes(
+                    self._content[name], checksum, retained_path(root / name, checksum)
                 )
                 artifact = register_artifact(
                     SOURCE_ID,
@@ -615,51 +600,9 @@ class CommitteeMembershipConnector:
                 if self._lock is not None:
                     self._lock.close()
                     self._lock = None
-                if self._owns_http and self._http is not None:
-                    self._http.close()
-                    self._http = None
+                self._source.close()
         self._report("checkpointed")
         return ctx
-
-    def _client(self) -> httpx.Client:
-        if self._http is None:
-            self._http = httpx.Client(
-                timeout=45,
-                follow_redirects=True,
-                # Identity encoding: GitHub's HEAD content-length is the compressed
-                # size when gzip is accepted, and that must match the bytes we keep.
-                headers={
-                    "User-Agent": "opendiscourse-research/0.1",
-                    "Accept-Encoding": "identity",
-                },
-            )
-        return self._http
-
-    def _size(self, url: str, name: str) -> int:
-        try:
-            response = self._client().request("HEAD", url)
-        except httpx.HTTPError as exc:
-            raise RuntimeError(f"could not download {name}: {exc.__class__.__name__}") from None
-        if response.status_code != 200:
-            raise RuntimeError(f"could not download {name}: HTTP {response.status_code}")
-        length = response.headers.get("content-length")
-        if length is None or not length.isdigit():
-            raise RuntimeError(f"capacity gate: size unavailable for {name}")
-        return int(length)
-
-    def _download(self, url: str, name: str, expected: int) -> bytes:
-        try:
-            response = self._client().get(url)
-        except httpx.HTTPError as exc:
-            raise RuntimeError(f"could not download {name}: {exc.__class__.__name__}") from None
-        if response.status_code != 200:
-            raise RuntimeError(f"could not download {name}: HTTP {response.status_code}")
-        body = response.content
-        if len(body) != expected:
-            raise RuntimeError(
-                f"{name}: downloaded {len(body)} bytes but the origin reports {expected}"
-            )
-        return body
 
     def _acquire_lock(self) -> None:
         """One sync at a time: two would race on the assignment snapshot."""

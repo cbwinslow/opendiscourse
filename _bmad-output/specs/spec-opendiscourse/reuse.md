@@ -6,7 +6,7 @@ search, or export code. Wrap behind provenance.
 | Upstream | Decision |
 |---|---|
 | `unitedstates/congress` | Wrap as vote/bill producer (`vendor/unitedstates-congress`) |
-| `unitedstates/congress-legislators` | Identity crosswalk (`vendor/congress-legislators`). Same repo is the source for current committee/subcommittee membership YAML (`committee-membership-current.yaml`); wrap that next, do not scrape Clerk HTML. |
+| `unitedstates/congress-legislators` | Identity crosswalk (downloaded over HTTPS by `load-legislators`; no local clone). Same repo is the source for current committee/subcommittee membership YAML (`committee-membership-current.yaml`); wrap that next, do not scrape Clerk HTML. |
 | Voteview / DW-NOMINATE (UCLA) | Wrap the three current official exports: `HSall_members.csv`, `HSall_rollcalls.json`, and `HSall_parties.csv`; join people on ICPSR. Do not replace Clerk/Senate.gov votes, download `HSall_votes.csv`, or run the obsolete `unitedstates/congress` Voteview task. |
 | BICAM (MIT, *Scientific Data* 2025) | Academic bulk Congress.gov/GovInfo ingest (`bicam.net`, `bicam-data/bicam`). Use as schema/methods literature and a completeness check, not as our system of record. |
 | CBO cost estimates | Retained GovInfo BILLSTATUS XML carries `cboCostEstimates` (`pubDate`, `title`, `url`, `description`), promoted with bill/artifact/member/ordinal evidence. A scripted fetch of cbo.gov/cost-estimates/xml returned HTTP 403 (2026-09-22). |

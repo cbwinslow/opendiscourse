@@ -20,7 +20,6 @@ from opendiscourse_research.config import settings
 from opendiscourse_research.db import connect
 from opendiscourse_research.ingestion import committee_membership as membership
 from opendiscourse_research.ingestion.committee_membership import (
-    COMMIT_DATE,
     FILES,
     CommitteeMembershipConnector,
     parse_committee_files,
@@ -29,7 +28,8 @@ from opendiscourse_research.ingestion.connector import run_connector
 from opendiscourse_research.repositories.committees import publish_committee_membership
 
 ORIGIN = "https://example.test/legislators"
-COMMIT = "abc123def4567890abcd"
+API = "https://api.test/commits"
+COMMIT = "abc123def4567890abcdabc123def4567890abcd"
 VINTAGE = "2024-01-15"
 PEOPLE = {
     "C000001": "Database Ann",
@@ -158,16 +158,22 @@ def _files() -> dict[str, bytes]:
 
 
 class _Origin:
-    """Serves the three files, or fails, without leaving the machine."""
+    """Serves the latest commit and its three files, or fails, without leaving the machine."""
 
     def __init__(self, files: dict[str, bytes]) -> None:
         self.files = files
         self.fail = False
+        self.commit = COMMIT
 
     def transport(self, request: httpx.Request) -> httpx.Response:
         if self.fail:
             return httpx.Response(404)
-        name = request.url.path.rsplit("/", 1)[-1]
+        if request.url.host == "api.test":
+            commit = {"committer": {"date": f"{VINTAGE}T12:00:00Z"}}
+            return httpx.Response(200, json={"sha": self.commit, "commit": commit})
+        sha, name = request.url.path.split("/")[-2:]
+        if sha != self.commit:
+            return httpx.Response(404)
         body = self.files[name]
         if request.method == "HEAD":
             return httpx.Response(200, headers={"Content-Length": str(len(body))})
@@ -239,9 +245,7 @@ def _rows(sql: str) -> list[tuple]:
 
 def _sync(origin: _Origin) -> CommitteeMembershipConnector:
     client = httpx.Client(transport=httpx.MockTransport(origin.transport))
-    connector = CommitteeMembershipConnector(
-        origin=ORIGIN, commit=COMMIT, vintage=VINTAGE, http=client
-    )
+    connector = CommitteeMembershipConnector(origin=ORIGIN, api=API, http=client)
     run_connector(connector)
     return connector
 
@@ -464,10 +468,23 @@ def test_a_missing_origin_promotes_nothing_and_keeps_retained_files() -> None:
     assert retained and all(Path(row[0]).is_file() for row in retained)
     before = _snapshot()
     origin.fail = True
-    with pytest.raises(RuntimeError, match="could not download"):
+    with pytest.raises(RuntimeError, match="could not"):
         _sync(origin)
     assert _snapshot() == before
     assert all(Path(row[0]).is_file() for row in retained)
+
+
+def test_each_run_follows_the_publishers_latest_commit() -> None:
+    origin = _Origin(_files())
+    first = _sync(origin)
+    assert (first.result["commit"], first.result["vintage"]) == (COMMIT, VINTAGE)
+    origin.commit = "f" * 40
+    again = _sync(origin)
+    assert again.result["commit"] == "f" * 40
+    assert _rows(
+        "SELECT parameters->>'commit' FROM ingest.run "
+        "WHERE dataset_id = 'congress.committee_membership' ORDER BY started_at DESC LIMIT 1"
+    ) == [("f" * 40,)]
 
 
 def test_a_publish_failure_rolls_back_and_a_rerun_does_not_duplicate(
@@ -554,19 +571,9 @@ def test_parse_rejects_a_member_without_a_bioguide() -> None:
         parse_committee_files(files)
 
 
-def test_downloads_ask_for_uncompressed_bytes() -> None:
-    """GitHub reports the gzip size when compression is accepted, which would fail the size check."""
-    connector = CommitteeMembershipConnector()
-    try:
-        assert connector._client().headers["accept-encoding"] == "identity"
-    finally:
-        connector._client().close()
-
-
 def test_files_constant_is_the_three_upstream_names() -> None:
     assert FILES == (
         "committees-current.yaml",
         "committees-historical.yaml",
         "committee-membership-current.yaml",
     )
-    assert COMMIT_DATE == "2026-09-03"

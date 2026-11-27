@@ -1,8 +1,8 @@
 dataset: congress.legislators
 audited_on: '2026-09-26'
 origin: >-
-  https://github.com/unitedstates/congress-legislators at a pinned commit,
-  copied from the vendor checkout into DATA_ROOT. This list covers
+  https://github.com/unitedstates/congress-legislators at one commit per run,
+  downloaded into DATA_ROOT. This list covers
   legislators-current.yaml, legislators-historical.yaml,
   legislators-social-media.yaml, and legislators-district-offices.yaml.
   executive.yaml (presidents and vice presidents) is a different list.

@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Protocol
 
-from ..artifact_storage import retain_artifact_bytes, retained_path
+from ..artifact_storage import retain_downloaded_bytes, retained_path
 from ..config import settings
 from ..db import connect
 from ..providers.congress_api import CongressServerError
@@ -902,10 +902,7 @@ class CongressBillConnector:
         digest = hashlib.sha256(body).hexdigest()
         root = Path(settings.data_root).expanduser().resolve() / "congress" / "congress_gov"
         destination = retained_path(root / f"{key.replace('/', '__')}.json", digest)
-        staging = destination.with_suffix(".incoming")
-        staging.parent.mkdir(parents=True, exist_ok=True)
-        staging.write_bytes(body)
-        retained = retain_artifact_bytes(staging, digest, destination=destination, move=True)
+        retained = retain_downloaded_bytes(body, digest, destination)
         artifact = register_artifact(
             SOURCE_ID,
             url,

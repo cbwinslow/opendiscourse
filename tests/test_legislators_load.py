@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import itertools
 import json
-import subprocess
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
+import httpx
 import pytest
 from db_cluster import cloned_database
 from idempotency_harness import (
@@ -143,37 +144,63 @@ def _yaml(entries: list[dict]) -> str:
     return "\n".join(out) + "\n"
 
 
-def _git(path: Path, *args: str) -> None:
-    subprocess.run(["git", "-C", str(path), *args], check=True, capture_output=True)
+ORIGIN = "https://raw.test/congress-legislators"
+API = "https://api.test/commits"
+DAY = "2026-09-27"
 
 
-def _vendor(
+def _head(upstream: Path) -> str:
+    """The fake publisher's current commit: it moves whenever a file in the folder changes."""
+    digest = hashlib.sha1()
+    for path in sorted(upstream.iterdir()):
+        digest.update(path.name.encode() + b"\0" + path.read_bytes() + b"\0")
+    return digest.hexdigest()
+
+
+def _http(upstream: Path) -> httpx.Client:
+    """Serve the folder as the publisher would: the latest commit, then files at that commit only."""
+
+    def transport(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "api.test":
+            commit = {"committer": {"date": f"{DAY}T12:00:00Z"}}
+            return httpx.Response(200, json={"sha": _head(upstream), "commit": commit})
+        sha, name = request.url.path.split("/")[-2:]
+        path = upstream / name
+        if sha != _head(upstream) or not path.is_file():
+            return httpx.Response(404)
+        body = path.read_bytes()
+        if request.method == "HEAD":
+            return httpx.Response(200, headers={"content-length": str(len(body))})
+        return httpx.Response(200, content=body)
+
+    return httpx.Client(transport=httpx.MockTransport(transport))
+
+
+def _upstream(
     tmp_path: Path,
     current: list[dict],
     historical: list[dict],
     social: str = "[]\n",
     offices: str = "[]\n",
 ) -> Path:
-    vendor = tmp_path / "vendor"
-    vendor.mkdir(exist_ok=True)
-    if not (vendor / ".git").exists():
-        _git(vendor, "init", "-q")
-        _git(vendor, "config", "user.email", "t@example.com")
-        _git(vendor, "config", "user.name", "t")
-    (vendor / "legislators-current.yaml").write_text(_yaml(current))
-    (vendor / "legislators-historical.yaml").write_text(_yaml(historical))
-    (vendor / "legislators-social-media.yaml").write_text(social)
-    (vendor / "legislators-district-offices.yaml").write_text(offices)
-    _git(vendor, "add", "-A")
-    _git(vendor, "commit", "-q", "-m", "data", "--allow-empty")
-    return vendor
+    upstream = tmp_path / "upstream"
+    upstream.mkdir(exist_ok=True)
+    (upstream / "legislators-current.yaml").write_text(_yaml(current))
+    (upstream / "legislators-historical.yaml").write_text(_yaml(historical))
+    (upstream / "legislators-social-media.yaml").write_text(social)
+    (upstream / "legislators-district-offices.yaml").write_text(offices)
+    return upstream
 
 
-def _load(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, vendor: Path) -> LegislatorsConnector:
-    monkeypatch.setattr(settings, "data_root", str(tmp_path / "lake" / "raw"))
-    connector = LegislatorsConnector(
-        vendor_dir=vendor, retain_dir=tmp_path / "retain", expected_origin=None
+def _connector(tmp_path: Path, upstream: Path) -> LegislatorsConnector:
+    return LegislatorsConnector(
+        retain_dir=tmp_path / "retain", origin=ORIGIN, api=API, http=_http(upstream)
     )
+
+
+def _load(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, upstream: Path) -> LegislatorsConnector:
+    monkeypatch.setattr(settings, "data_root", str(tmp_path / "lake" / "raw"))
+    connector = _connector(tmp_path, upstream)
     run_connector(connector)
     return connector
 
@@ -217,12 +244,12 @@ def test_fresh_legislator_gets_person_and_evidence_backed_identifiers(
     catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bg = _bioguide()
-    vendor = _vendor(
+    upstream = _upstream(
         tmp_path,
         [{"bioguide": bg, "ids": {"govtrack": f"g{bg}", "fec": [f"F{bg}A", f"F{bg}B"]}, "first": "Fresh", "last": "Face"}],
         [{"bioguide": _bioguide()}],
     )
-    connector = _load(tmp_path, monkeypatch, vendor)
+    connector = _load(tmp_path, monkeypatch, upstream)
 
     row = _identifier("bioguide", bg)
     assert row is not None and row["source_artifact_id"] is not None
@@ -247,12 +274,12 @@ def test_existing_person_matched_by_bioguide_is_not_rewritten(
     bg = _bioguide()
     pid = _seed_person("Baseline Name", bg, govtrack=f"old{bg}")
     before = _person_count()
-    vendor = _vendor(
+    upstream = _upstream(
         tmp_path,
         [{"bioguide": bg, "ids": {"govtrack": f"new{bg}", "wikidata": f"Q{bg}"}, "first": "Other", "last": "Name"}],
         [{"bioguide": _bioguide()}],
     )
-    _load(tmp_path, monkeypatch, vendor)
+    _load(tmp_path, monkeypatch, upstream)
 
     assert _person_count() == before + 1  # only the historical newcomer
     with session() as s:
@@ -271,24 +298,24 @@ def test_same_name_without_bioguide_is_never_merged(
 ) -> None:
     namesake = _seed_person("Twin Person")
     bg = _bioguide()
-    vendor = _vendor(
+    upstream = _upstream(
         tmp_path, [{"bioguide": bg, "first": "Twin", "last": "Person"}], [{"bioguide": _bioguide()}]
     )
-    _load(tmp_path, monkeypatch, vendor)
+    _load(tmp_path, monkeypatch, upstream)
     assert _identifier("bioguide", bg)["person_id"] != namesake
 
 
 def test_rerun_with_same_bytes_changes_nothing(
     catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    vendor = _vendor(
+    upstream = _upstream(
         tmp_path,
         [{"bioguide": _bioguide(), "ids": {"govtrack": f"r{next(_counter)}"}}],
         [{"bioguide": _bioguide()}],
     )
-    _load(tmp_path, monkeypatch, vendor)
+    _load(tmp_path, monkeypatch, upstream)
     people, versions = _person_count(), {a["artifact_id"]: a["artifact_version"] for a in _artifacts()}
-    second = _load(tmp_path, monkeypatch, vendor)
+    second = _load(tmp_path, monkeypatch, upstream)
 
     assert (second.result["people_created"], second.result["identifiers_created"]) == (0, 0)
     assert _person_count() == people
@@ -299,11 +326,11 @@ def test_changed_upstream_appends_version_and_adds_only_new_identifiers(
     catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bg, hist = _bioguide(), _bioguide()
-    vendor = _vendor(tmp_path, [{"bioguide": bg}], [{"bioguide": hist}])
-    _load(tmp_path, monkeypatch, vendor)
+    upstream = _upstream(tmp_path, [{"bioguide": bg}], [{"bioguide": hist}])
+    _load(tmp_path, monkeypatch, upstream)
     old = {a["artifact_id"] for a in _artifacts()}
-    _vendor(tmp_path, [{"bioguide": bg, "ids": {"icpsr": f"i{bg}"}}], [{"bioguide": hist}])
-    second = _load(tmp_path, monkeypatch, vendor)
+    _upstream(tmp_path, [{"bioguide": bg, "ids": {"icpsr": f"i{bg}"}}], [{"bioguide": hist}])
+    second = _load(tmp_path, monkeypatch, upstream)
 
     assert second.result["people_created"] == 0 and second.result["identifiers_created"] == 1
     new_row = _identifier("icpsr", f"i{bg}")
@@ -319,10 +346,10 @@ def test_identifier_owned_by_the_only_other_person_attaches_the_rest_to_it(
     bg = _bioguide()
     owner = _seed_person("Someone Else", fec=f"C{bg}")
     before = _person_count()
-    vendor = _vendor(
+    upstream = _upstream(
         tmp_path, [{"bioguide": bg, "ids": {"fec": f"C{bg}", "govtrack": f"c{bg}"}}], [{"bioguide": _bioguide()}]
     )
-    connector = _load(tmp_path, monkeypatch, vendor)
+    connector = _load(tmp_path, monkeypatch, upstream)
 
     assert _identifier("fec", f"C{bg}")["person_id"] == owner  # not moved
     assert _identifier("bioguide", bg)["person_id"] == owner  # attached to the person who held the fec id
@@ -338,10 +365,10 @@ def test_identifiers_split_across_two_persons_are_recorded_not_guessed(
     holder = _seed_person("Holds the fec id", fec=f"C{bg}")
     bioguide_owner = _seed_person("Holds the bioguide id", bg)
     before = _person_count()
-    vendor = _vendor(
+    upstream = _upstream(
         tmp_path, [{"bioguide": bg, "ids": {"fec": f"C{bg}", "govtrack": f"c{bg}"}}], [{"bioguide": _bioguide()}]
     )
-    connector = _load(tmp_path, monkeypatch, vendor)
+    connector = _load(tmp_path, monkeypatch, upstream)
 
     assert _identifier("fec", f"C{bg}")["person_id"] == holder
     assert _identifier("bioguide", bg)["person_id"] == bioguide_owner
@@ -358,11 +385,11 @@ def test_shared_upstream_identifier_is_skipped_for_both_people(
 ) -> None:
     a, b = _bioguide(), _bioguide()
     shared = f"S{a}"
-    vendor = _vendor(
+    upstream = _upstream(
         tmp_path, [{"bioguide": a, "ids": {"fec": shared}}, {"bioguide": b, "ids": {"fec": shared, "govtrack": f"s{b}"}}],
         [{"bioguide": _bioguide()}],
     )
-    connector = _load(tmp_path, monkeypatch, vendor)
+    connector = _load(tmp_path, monkeypatch, upstream)
     assert _identifier("fec", shared) is None
     assert _identifier("govtrack", f"s{b}") is not None
     assert connector.result["shared_upstream_identifiers"][0]["bioguide_ids"] == sorted([a, b])
@@ -372,9 +399,9 @@ def test_malformed_bioguide_fails_before_any_write_and_marks_run_failed(
     catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     before = _person_count()
-    vendor = _vendor(tmp_path, [{"bioguide": "bad-id"}], [{"bioguide": _bioguide()}])
+    upstream = _upstream(tmp_path, [{"bioguide": "bad-id"}], [{"bioguide": _bioguide()}])
     with pytest.raises(ValueError, match="malformed BioGuide"):
-        _load(tmp_path, monkeypatch, vendor)
+        _load(tmp_path, monkeypatch, upstream)
     assert _person_count() == before
     with connect() as conn:
         status = conn.execute(
@@ -382,22 +409,6 @@ def test_malformed_bioguide_fails_before_any_write_and_marks_run_failed(
             "ORDER BY started_at DESC LIMIT 1"
         ).fetchone()
     assert status["status"] == "failed" and "malformed" in status["error_message"]
-
-
-def test_locally_modified_checkout_is_refused(
-    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    vendor = _vendor(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
-    (vendor / "legislators-current.yaml").write_text("- edited\n")
-    with pytest.raises(RuntimeError, match="differs from upstream commit"):
-        _load(tmp_path, monkeypatch, vendor)
-
-
-def test_missing_checkout_gives_actionable_error(
-    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    with pytest.raises(FileNotFoundError, match="bootstrap_upstream.sh"):
-        _load(tmp_path, monkeypatch, tmp_path / "nowhere")
 
 
 def test_failed_publish_rolls_back_every_write(catalog_database: None) -> None:
@@ -428,14 +439,14 @@ def test_damaged_retained_copy_fails_and_is_left_untouched(
 ) -> None:
     from opendiscourse_research.artifact_storage import file_checksum, retained_path
 
-    vendor = _vendor(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
-    checksum = file_checksum(vendor / "legislators-current.yaml")
+    upstream = _upstream(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
+    checksum = file_checksum(upstream / "legislators-current.yaml")
     damaged = retained_path(tmp_path / "retain" / "legislators-current.yaml", checksum)
     damaged.parent.mkdir(parents=True)
     damaged.write_text("not the evidence\n")
     before = _person_count()
     with pytest.raises(ValueError, match="never overwritten"):
-        _load(tmp_path, monkeypatch, vendor)
+        _load(tmp_path, monkeypatch, upstream)
     assert damaged.read_text() == "not the evidence\n"
     assert _person_count() == before
 
@@ -452,8 +463,8 @@ def test_successful_run_is_recorded_and_stamped_on_new_identifiers(
     catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bg = _bioguide()
-    vendor = _vendor(tmp_path, [{"bioguide": bg}], [{"bioguide": _bioguide()}])
-    _load(tmp_path, monkeypatch, vendor)
+    upstream = _upstream(tmp_path, [{"bioguide": bg}], [{"bioguide": _bioguide()}])
+    _load(tmp_path, monkeypatch, upstream)
     run = _latest_run()
     assert (run["status"], run["record_count"]) == ("succeeded", 2)
     assert _identifier("bioguide", bg)["source_run_id"] == run["run_id"]
@@ -473,11 +484,11 @@ def test_provenance_survives_a_same_bytes_rerun_on_a_newer_commit(
     catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bg = _bioguide()
-    vendor = _vendor(tmp_path, [{"bioguide": bg}], [{"bioguide": _bioguide()}])
-    _load(tmp_path, monkeypatch, vendor)
+    upstream = _upstream(tmp_path, [{"bioguide": bg}], [{"bioguide": _bioguide()}])
+    _load(tmp_path, monkeypatch, upstream)
     first = _latest_run()
-    _git(vendor, "commit", "-q", "--allow-empty", "-m", "upstream moved, bytes did not")
-    _load(tmp_path, monkeypatch, vendor)
+    (upstream / "README.md").write_text("upstream moved, member files did not")
+    _load(tmp_path, monkeypatch, upstream)
     assert _latest_run()["run_id"] != first["run_id"]
     # The identifier still resolves to the run (and commit) that first asserted it.
     stamped = _identifier("bioguide", bg)["source_run_id"]
@@ -496,9 +507,9 @@ def test_interrupt_before_publish_marks_run_failed(
         raise KeyboardInterrupt
 
     monkeypatch.setattr(LegislatorsConnector, "stage", interrupted)
-    vendor = _vendor(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
+    upstream = _upstream(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
     with pytest.raises(KeyboardInterrupt):
-        _load(tmp_path, monkeypatch, vendor)
+        _load(tmp_path, monkeypatch, upstream)
     assert _latest_run()["status"] == "failed"
 
 
@@ -509,9 +520,9 @@ def test_error_with_empty_message_still_marks_run_failed(
         raise ValueError()
 
     monkeypatch.setattr(LegislatorsConnector, "normalize", blank)
-    vendor = _vendor(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
+    upstream = _upstream(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
     with pytest.raises(ValueError):
-        _load(tmp_path, monkeypatch, vendor)
+        _load(tmp_path, monkeypatch, upstream)
     assert _latest_run()["status"] == "failed"
 
 
@@ -521,10 +532,10 @@ def test_run_with_conflicts_is_partial_and_report_is_per_run(
     bg = _bioguide()
     _seed_person("Holder", fec=f"P{bg}")
     _seed_person("Owner", bg)
-    vendor = _vendor(
+    upstream = _upstream(
         tmp_path, [{"bioguide": bg, "ids": {"fec": f"P{bg}"}}], [{"bioguide": _bioguide()}]
     )
-    connector = _load(tmp_path, monkeypatch, vendor)
+    connector = _load(tmp_path, monkeypatch, upstream)
     run = _latest_run()
     assert run["status"] == "partial"
     assert str(run["run_id"]) in connector.result["report"]
@@ -534,37 +545,81 @@ def test_truncated_or_empty_yaml_fails_closed_without_writes(
     catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     before = _person_count()
-    vendor = _vendor(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
-    (vendor / "legislators-historical.yaml").write_text("")
-    _git(vendor, "add", "-A")
-    _git(vendor, "commit", "-q", "-m", "empty")
+    upstream = _upstream(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
+    (upstream / "legislators-historical.yaml").write_text("{}\n")
     with pytest.raises(ValueError, match="YAML list"):
-        _load(tmp_path, monkeypatch, vendor)
+        _load(tmp_path, monkeypatch, upstream)
     assert _person_count() == before
     assert _latest_run()["status"] == "failed"
 
 
-def test_assume_unchanged_edit_is_still_detected(
+def test_load_downloads_from_the_commit_it_pinned_and_records_it(
     catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    vendor = _vendor(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
-    _git(vendor, "update-index", "--assume-unchanged", "legislators-current.yaml")
-    (vendor / "legislators-current.yaml").write_text(_yaml([{"bioguide": _bioguide()}]))
-    with pytest.raises(RuntimeError, match="differs from upstream commit"):
-        _load(tmp_path, monkeypatch, vendor)
+    upstream = _upstream(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
+    head = _head(upstream)
+
+    connector = _load(tmp_path, monkeypatch, upstream)
+
+    run = _latest_run()
+    assert (run["parameters"]["commit"], run["parameters"]["vintage"]) == (head, DAY)
+    assert connector.result["upstream_commit"] == head
+    name = "legislators-current.yaml"
+    checksum = hashlib.sha256((upstream / name).read_bytes()).hexdigest()
+    with connect() as conn:
+        artifact = conn.execute(
+            "SELECT remote_url, local_path FROM ingest.artifact "
+            "WHERE dataset_id = 'congress.legislators' AND checksum_sha256 = %s",
+            (checksum,),
+        ).fetchone()
+    assert artifact["remote_url"] == f"{ORIGIN}/{head}/{name}"
+    assert Path(artifact["local_path"]).read_bytes() == (upstream / name).read_bytes()
+    assert sorted(path.name for path in (tmp_path / "retain").glob(".*")) == []
 
 
-def test_wrong_origin_or_unpushed_head_is_refused(
+def test_a_file_the_publisher_cannot_serve_writes_nothing_and_fails_the_run(
     catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    vendor = _vendor(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
-    _git(vendor, "remote", "add", "origin", "https://github.com/someone/fork.git")
-    strict = LegislatorsConnector(vendor_dir=vendor, retain_dir=tmp_path / "retain")
-    with pytest.raises(RuntimeError, match="origin is"):
-        run_connector(strict)
-    _git(vendor, "remote", "set-url", "origin", "git@github.com:unitedstates/congress-legislators.git")
-    with pytest.raises(RuntimeError, match="not on any remote branch"):
-        run_connector(LegislatorsConnector(vendor_dir=vendor, retain_dir=tmp_path / "retain"))
+    before = _person_count()
+    upstream = _upstream(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
+    (upstream / "legislators-social-media.yaml").unlink()
+
+    with pytest.raises(RuntimeError, match="legislators-social-media.yaml: HTTP 404"):
+        _load(tmp_path, monkeypatch, upstream)
+
+    assert _person_count() == before
+    assert _latest_run()["status"] == "failed"
+    assert not (tmp_path / "retain").exists()
+
+
+def test_a_refused_capacity_preview_downloads_nothing(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from opendiscourse_research.ingestion import legislators as module
+
+    refused = {
+        "approved": False,
+        "reason": "not enough space",
+        "path": "x",
+        "peak_required_bytes": 2,
+        "filesystem_free_bytes": 1,
+    }
+    checked: dict = {}
+
+    def preview(objects, **kwargs):
+        checked.update(kwargs)
+        return refused
+
+    monkeypatch.setattr(module, "storage_preview", preview)
+    upstream = _upstream(tmp_path, [{"bioguide": _bioguide()}], [{"bioguide": _bioguide()}])
+
+    with pytest.raises(RuntimeError, match="capacity gate: not enough space"):
+        _load(tmp_path, monkeypatch, upstream)
+
+    assert checked["raw_path"] == tmp_path / "retain"  # the disk the files will be kept on
+
+    assert _latest_run()["status"] == "failed"
+    assert not (tmp_path / "retain").exists()
 
 
 def _legislator_snapshot() -> dict:
@@ -613,7 +668,7 @@ def _legislator_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, point: 
     from opendiscourse_research.ingestion import legislators as module
 
     bg = [_bioguide(), _bioguide(), _bioguide()]
-    vendor = _vendor(
+    upstream = _upstream(
         tmp_path,
         [
             {
@@ -641,7 +696,7 @@ def _legislator_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, point: 
 
     return IdempotencyCase(
         name="congress.legislators",
-        load=lambda: _load(tmp_path, monkeypatch, vendor),
+        load=lambda: _load(tmp_path, monkeypatch, upstream),
         snapshot=_legislator_snapshot,
         wipe=_remove_loaded_rows,
         interrupt=interrupt,
@@ -700,12 +755,12 @@ def test_terms_become_memberships_on_posts_and_divisions_with_evidence(
     at_large = {"type": "rep", "start": "2001-01-03", "end": "2003-01-03", "state": "AK", "district": 0}
     unknown = {"type": "rep", "start": "1851-03-04", "end": "1853-03-04", "state": "OH", "district": -1}
     delegate = {"type": "rep", "start": "1999-01-03", "end": "2001-01-03", "state": "DC", "district": 0}
-    vendor = _vendor(
+    upstream = _upstream(
         tmp_path,
         [{"bioguide": bg, "terms": [unknown, delegate, at_large, HOUSE_WA7, SENATE_WA]}],
         [{"bioguide": _bioguide()}],
     )
-    connector = _load(tmp_path, monkeypatch, vendor)
+    connector = _load(tmp_path, monkeypatch, upstream)
 
     assert connector.result["memberships_created"] == 5 and connector.result["terms_unresolved"] == 0
     old, dc, ak, wa7, wa_sen = _memberships(bg)
@@ -756,8 +811,8 @@ def test_two_at_large_members_share_one_post(
 ) -> None:
     a, b = _bioguide(), _bioguide()
     term = {"type": "rep", "start": "1913-03-04", "end": "1915-03-04", "state": "WA", "district": 0}
-    vendor = _vendor(tmp_path, [{"bioguide": a, "terms": [term]}], [{"bioguide": b, "terms": [term]}])
-    _load(tmp_path, monkeypatch, vendor)
+    upstream = _upstream(tmp_path, [{"bioguide": a, "terms": [term]}], [{"bioguide": b, "terms": [term]}])
+    _load(tmp_path, monkeypatch, upstream)
 
     (first,), (second,) = _memberships(a), _memberships(b)
     assert first["post_label"] == second["post_label"] == "Representative, WA-AL"
@@ -771,11 +826,11 @@ def test_rerun_with_same_bytes_changes_no_membership(
     catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bg = _bioguide()
-    vendor = _vendor(tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7, SENATE_WA]}], [{"bioguide": _bioguide()}])
-    _load(tmp_path, monkeypatch, vendor)
+    upstream = _upstream(tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7, SENATE_WA]}], [{"bioguide": _bioguide()}])
+    _load(tmp_path, monkeypatch, upstream)
     before = _memberships(bg)
 
-    second = _load(tmp_path, monkeypatch, vendor)
+    second = _load(tmp_path, monkeypatch, upstream)
 
     assert (second.result["memberships_created"], second.result["memberships_updated"]) == (0, 0)
     assert second.result["memberships_unchanged"] == 2
@@ -788,14 +843,14 @@ def test_upstream_edit_updates_the_term_and_adds_the_new_one(
     catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bg = _bioguide()
-    vendor = _vendor(tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7]}], [{"bioguide": _bioguide()}])
-    _load(tmp_path, monkeypatch, vendor)
+    upstream = _upstream(tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7]}], [{"bioguide": _bioguide()}])
+    _load(tmp_path, monkeypatch, upstream)
     (before,) = _memberships(bg)
     resigned = {**HOUSE_WA7, "end": "2020-06-01", "party": "Independent"}
     later = {**HOUSE_WA7, "start": "2021-01-03", "end": "2023-01-03"}
-    _vendor(tmp_path, [{"bioguide": bg, "terms": [resigned, later]}], [{"bioguide": _bioguide()}])
+    _upstream(tmp_path, [{"bioguide": bg, "terms": [resigned, later]}], [{"bioguide": _bioguide()}])
 
-    second = _load(tmp_path, monkeypatch, vendor)
+    second = _load(tmp_path, monkeypatch, upstream)
 
     assert (second.result["memberships_created"], second.result["memberships_updated"]) == (1, 1)
     first, new = _memberships(bg)
@@ -810,8 +865,8 @@ def test_an_unknown_jurisdiction_is_reported_not_guessed_and_the_run_is_partial(
 ) -> None:
     bg = _bioguide()
     odd = {"type": "rep", "start": "1900-03-04", "end": "1901-03-04", "state": "ZZ", "district": 1}
-    vendor = _vendor(tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7, odd]}], [{"bioguide": _bioguide()}])
-    connector = _load(tmp_path, monkeypatch, vendor)
+    upstream = _upstream(tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7, odd]}], [{"bioguide": _bioguide()}])
+    connector = _load(tmp_path, monkeypatch, upstream)
 
     assert [m["post_label"] for m in _memberships(bg)] == ["Representative, WA-7"]
     assert connector.result["terms_unknown_jurisdiction"] == [
@@ -830,13 +885,13 @@ def test_missing_chamber_organizations_fail_before_any_write_with_the_fix_named(
     catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bg = _bioguide()
-    vendor = _vendor(tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7]}], [{"bioguide": _bioguide()}])
+    upstream = _upstream(tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7]}], [{"bioguide": _bioguide()}])
     with connect() as conn:
         conn.execute("UPDATE core.organization SET jurisdiction_geoid = 'xx' WHERE organization_type = 'lower'")
         conn.commit()
     try:
         with pytest.raises(RuntimeError, match="load-openstates-organizations"):
-            _load(tmp_path, monkeypatch, vendor)
+            _load(tmp_path, monkeypatch, upstream)
     finally:
         with connect() as conn:
             conn.execute("UPDATE core.organization SET jurisdiction_geoid = 'us' WHERE organization_type = 'lower'")
@@ -854,14 +909,14 @@ def test_profile_saves_biography_and_drops_a_removed_social_account(
         f"- id:\n    bioguide: {bg}\n  offices:\n"
         f"  - id: {bg}-town\n    city: Town\n    state: WA\n    latitude: 47.6\n    longitude: -122.3\n"
     )
-    vendor = _vendor(
+    upstream = _upstream(
         tmp_path,
         [{"bioguide": bg, "terms": [term]}],
         [{"bioguide": _bioguide()}],
         social=social,
         offices=offices,
     )
-    current = vendor / "legislators-current.yaml"
+    current = upstream / "legislators-current.yaml"
     text = current.read_text().replace(
         "  name:\n    first: Given\n    last: Family\n",
         "  name:\n    first: Maria\n    last: Cantwell\n    official_full: Maria Cantwell\n    nickname: Maria\n"
@@ -870,10 +925,8 @@ def test_profile_saves_biography_and_drops_a_removed_social_account(
         "    start: '2019-01-03'\n    end: '2021-01-03'\n",
     )
     current.write_text(text)
-    _git(vendor, "add", "-A")
-    _git(vendor, "commit", "-q", "-m", "profile")
 
-    first = _load(tmp_path, monkeypatch, vendor)
+    first = _load(tmp_path, monkeypatch, upstream)
     with connect() as conn:
         person = conn.execute(
             "SELECT birthday, gender FROM core.person p "
@@ -898,15 +951,13 @@ def test_profile_saves_biography_and_drops_a_removed_social_account(
     assert social_count == 1 and office_count == 1
     assert first.result["profile_unknown_bioguides"] == []
 
-    second = _load(tmp_path, monkeypatch, vendor)
+    second = _load(tmp_path, monkeypatch, upstream)
     assert second.result["social_changed"] == 0
     assert second.result["leadership_changed"] == 0
     assert second.result["profile_names_changed"] == 0
 
-    (vendor / "legislators-social-media.yaml").write_text("[]\n")
-    _git(vendor, "add", "-A")
-    _git(vendor, "commit", "-q", "-m", "drop social")
-    third = _load(tmp_path, monkeypatch, vendor)
+    (upstream / "legislators-social-media.yaml").write_text("[]\n")
+    third = _load(tmp_path, monkeypatch, upstream)
     assert third.result["social_removed"] == 1
     with connect() as conn:
         left = conn.execute(
@@ -920,12 +971,12 @@ def test_profile_keeps_the_later_end_for_duplicate_leadership_identity(
 ) -> None:
     """A publisher duplicate keeps one typed role without losing either source record."""
     bg = _bioguide()
-    vendor = _vendor(
+    upstream = _upstream(
         tmp_path,
         [{"bioguide": bg, "terms": [HOUSE_WA7]}],
         [{"bioguide": _bioguide()}],
     )
-    current = vendor / "legislators-current.yaml"
+    current = upstream / "legislators-current.yaml"
     text = current.read_text().replace(
         "  name:\n    first: Given\n    last: Family\n",
         "  name:\n    first: Given\n    last: Family\n"
@@ -934,10 +985,8 @@ def test_profile_keeps_the_later_end_for_duplicate_leadership_identity(
         "  - title: Example Chair\n    chamber: house\n    start: '2021-01-03'\n    end: '2025-01-03'\n",
     )
     current.write_text(text)
-    _git(vendor, "add", "-A")
-    _git(vendor, "commit", "-q", "-m", "duplicate leadership")
 
-    result = _load(tmp_path, monkeypatch, vendor)
+    result = _load(tmp_path, monkeypatch, upstream)
 
     with connect() as conn:
         roles = conn.execute(

@@ -20,7 +20,7 @@ person's BioGuide id.
 
 | What | Years | Command |
 |---|---|---|
-| Members and terms | current file, back to the 1st Congress | `bash scripts/bootstrap_upstream.sh` then `uv run research-db load-legislators` |
+| Members and terms | current file, back to the 1st Congress | `uv run research-db load-legislators` |
 | Current committee seats | the current roster | `uv run research-db sync-committee-membership` |
 | Bills | 2003 onward (Congress 108 and later) | `uv run research-db sync-billstatus` |
 | Bill text | 2013 onward (Congress 113–119) | `uv run research-db sync-bill-text` |
@@ -45,12 +45,10 @@ loader start at Congress 108.
 `sync-congress-bills` needs `CONGRESS_API_KEY` in `.env`. The other commands
 in the table do not.
 
-`load-legislators` is the one command that does not download by itself. The
-bootstrap script clones the public `unitedstates/congress-legislators` project
-into `vendor/` (that folder is not committed). The command checks that
-checkout, copies the two member files into `DATA_ROOT`, and loads people and
-terms. Committee seats are a separate download: `sync-committee-membership`
-fetches its own three files.
+`load-legislators` asks GitHub for the latest commit of the public
+`unitedstates/congress-legislators` project and downloads four member files from
+that commit into `DATA_ROOT`. Committee seats are a separate download:
+`sync-committee-membership` fetches its own three files.
 
 `sync-voteview` downloads Voteview's member, roll-call, and party files. It
 does not download the file of every member's vote, and it does not replace

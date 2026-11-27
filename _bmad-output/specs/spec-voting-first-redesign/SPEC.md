@@ -76,6 +76,7 @@ line by line; work item R0 extends it.
 | R19 | An OpenStates load could overwrite official votes and left 62 votes crediting a member not yet serving | Official file wins (#147) | Done 2026-11-27; 62 rows wiped |
 | R20 | The restore drill passed while a link failed to restore | Leave out `core.division_boundary` rows; drill fails on unexpected errors (#145) | Done; drill passed 2026-11-27 |
 | R21 | The Clerk moved its files; House sync failed | Read `/evslegacy/` (#149) | Done 2026-11-27; the address may be retired by the publisher |
+| R22 | `sync-committee-membership` was fixed to the publisher's 2026-09-03 commit, so a refresh could not change anything | Follow the latest commit and record it on the run, as `load-legislators` now does | A run records the commit it read |
 
 Known inefficiency deliberately deferred: about 398 GB of staging (raw JSON census and
 finance rows). Finance is redesigned in its own spec; the 2026-10-10 PUMS decision stands.

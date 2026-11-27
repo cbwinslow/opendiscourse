@@ -228,8 +228,8 @@ providers:
         priority: 1
       - id: congress.legislators
         title: Federal legislators since 1789 and their external identifiers (BioGuide crosswalk)
-        access: unitedstates/congress-legislators YAML checkout under vendor/
-        client: pyyaml; git checkout via scripts/bootstrap_upstream.sh
+        access: unitedstates/congress-legislators YAML over HTTPS at the latest upstream commit
+        client: httpx; pyyaml
         grain: legislator × external identifier
         identifiers: [bioguide, fec, govtrack, opensecrets, icpsr, wikidata]
         cadence: on_upstream_change
@@ -290,7 +290,7 @@ providers:
       - id: congress.committee_membership
         title: Current committee and subcommittee assignments (BioGuide)
         access: >-
-          unitedstates/congress-legislators YAML at a pinned commit:
+          unitedstates/congress-legislators YAML at the latest upstream commit:
           committees-current.yaml, committees-historical.yaml, committee-membership-current.yaml
         client: httpx; pyyaml
         grain: committee (membership-file key) × current member

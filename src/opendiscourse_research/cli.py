@@ -972,11 +972,11 @@ def person_join_status_command() -> None:
 
 @app.command("load-legislators")
 def load_legislators_command() -> None:
-    """Load members and terms from the congress-legislators checkout.
+    """Download the member YAML into DATA_ROOT and load people and terms (idempotent).
 
-    Run scripts/bootstrap_upstream.sh first. This command checks that public
-    checkout, copies the two YAML files into DATA_ROOT, and loads people and
-    terms. It does not download committee seats; use sync-committee-membership.
+    Reads the latest commit of unitedstates/congress-legislators. It does not
+    download committee seats; use sync-committee-membership. A failed run is
+    safe to rerun: retained files are never overwritten.
     """
     with render_progress("Loading congress-legislators", 10) as advance:
         connector = LegislatorsConnector(report=advance)
