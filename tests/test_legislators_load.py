@@ -1071,3 +1071,59 @@ def test_the_network_list_cannot_be_narrowed_while_an_added_network_has_rows(
     finally:
         command.upgrade(_alembic_config(), "head")
     assert state() == (before[0], 0)
+
+
+def test_a_corrected_start_date_replaces_the_old_term_and_says_so(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bg = _bioguide()
+    upstream = _upstream(
+        tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7]}], [{"bioguide": _bioguide()}]
+    )
+    _load(tmp_path, monkeypatch, upstream)
+    corrected = {**HOUSE_WA7, "start": "2019-02-25"}
+    _upstream(tmp_path, [{"bioguide": bg, "terms": [corrected]}], [{"bioguide": _bioguide()}])
+
+    second = _load(tmp_path, monkeypatch, upstream)
+
+    assert [str(m["start_date"]) for m in _memberships(bg)] == ["2019-02-25"]
+    removed = [
+        {
+            "bioguide": bg,
+            "role": "representative",
+            "start": "2019-01-03",
+            "end": "2021-01-03",
+            "replaced_by_start": "2019-02-25",
+        }
+    ]
+    assert second.result["superseded_terms"] == removed
+    assert _latest_run()["parameters"]["superseded_terms"] == removed
+    assert _latest_run()["status"] == "succeeded"
+
+    third = _load(tmp_path, monkeypatch, upstream)
+    assert third.result["superseded_terms"] == []
+    assert [str(m["start_date"]) for m in _memberships(bg)] == ["2019-02-25"]
+
+
+def test_a_dropped_term_that_no_listed_term_overlaps_is_kept(
+    catalog_database: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bg = _bioguide()
+    adjacent = {**HOUSE_WA7, "start": "2021-01-03", "end": "2023-01-03"}  # begins the day HOUSE_WA7 ends
+    other_chamber = {**SENATE_WA, "start": "2019-06-01", "end": "2020-06-01"}
+    upstream = _upstream(
+        tmp_path, [{"bioguide": bg, "terms": [HOUSE_WA7]}], [{"bioguide": _bioguide()}]
+    )
+    _load(tmp_path, monkeypatch, upstream)
+    _upstream(
+        tmp_path, [{"bioguide": bg, "terms": [other_chamber, adjacent]}], [{"bioguide": _bioguide()}]
+    )
+
+    second = _load(tmp_path, monkeypatch, upstream)
+
+    assert second.result["superseded_terms"] == []
+    assert [str(m["start_date"]) for m in _memberships(bg)] == [
+        "2019-01-03",
+        "2019-06-01",
+        "2021-01-03",
+    ]

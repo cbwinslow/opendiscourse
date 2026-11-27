@@ -320,6 +320,9 @@ class LegislatorsConnector:
             conn.commit()
             terms = promote_terms(conn, term_rows)
             conn.commit()
+            if self._run is not None:
+                # The removed rows are named on the run: the warehouse no longer holds them.
+                self._run.update_parameters(superseded_terms=terms["superseded_terms"])
             profile = publish_legislator_profile(conn, **self._profile_rows(ctx.run_id))
             conn.commit()
             for name, url in zip(ALL_FILES, ctx.artifact_urls, strict=True):

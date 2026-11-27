@@ -1,5 +1,15 @@
 # Project state and handoff
 
+**Refresh inputs fixed and members reloaded (2026-11-27, second session).** Merged #150, #151, #152. `load-legislators`
+and `sync-committee-membership` now download the publisher's latest commit (R7, new fault R22). Live port 5434 is at
+revision `e5a3f9c1b846` (eight more social networks). Both loads ran from commit `2b1fe728` (2026-11-22).
+**Open, found after the load (call it R23):** the legislator load added 43 terms and left 42 older terms that the file no
+longer lists; all 42 overlap a current term of the same member and chamber (start dates changed upstream, e.g. Joe Wilson
+2001-12-18 vs 2001-12-19), so those members show duplicate terms. Nothing was deleted. Next: decide and fix in the term
+load (identity includes the start date), then wipe the stale rows and record it. Then R6 (one refresh command and timer;
+needs an operator-approved size limit). Also open: an unlisted social network still stops the whole member load; seven
+`ingest.run` rows are stuck at "running" (R11).
+
 **Voting repair, first session (2026-11-27). Resume from `docs/SESSION-HANDOFF-2026-11-27-VOTING-REPAIR.md`.**
 Merged #145, #146, #147, #149. Live on port 5434: revision `c7e2b94d5a13`; 14,662 House and 2,046 Senate roll calls
 linked to bills; votes refreshed (House to 2026-11-19, Senate to 2026-11-20; 15,198 + 8,215 roll calls, 7,394,356
