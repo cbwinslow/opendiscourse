@@ -17,6 +17,14 @@ inferences. Server layout and sizes come from `docs/data-inventory-2026-09-19.md
    **and** there are scripts that make re-downloading and re-ingesting easy. The second condition is not met
    yet (see "Still to do"), so nothing has been dropped.
 
+## Second copy (operator, 2026-11-27)
+
+The operator chose to keep backups on this server. The database, raw files and the main backup share
+the RAID array `md0`, so the nightly script also keeps one mirror of the dump (about 2 GB) in
+`OPENDISCOURSE_BACKUP_MIRROR_DIR`, set to a directory on the root disk, which is a separate physical
+disk. The mirror is skipped with an error unless 20 GB stays free there. It protects against losing
+the array, not against losing the machine.
+
 ## What is in place
 
 - **`scripts/ops/backup_opendiscourse.sh`**: dumps the whole schema plus the rows of everything hard to rebuild

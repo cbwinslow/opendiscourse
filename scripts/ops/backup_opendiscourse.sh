@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Back up the OpenDiscourse database: ONE copy, small, and never on the root disk.
+# Back up the OpenDiscourse database: ONE small copy, plus an optional mirror on a second disk.
 #
 #   scripts/ops/backup_opendiscourse.sh             write the backup (replaces the previous one)
 #   scripts/ops/backup_opendiscourse.sh --dry-run   show what would happen; write nothing
@@ -18,6 +18,10 @@
 #   OPENDISCOURSE_BACKUP_DIR          default <parent of DATA_ROOT>/backup
 #   OPENDISCOURSE_BACKUP_EXCLUDE_DATA space-separated table patterns to leave rows out of
 #   ALLOW_ROOT_BACKUP=1               permit a target on the same disk as / (refused by default)
+#   OPENDISCOURSE_BACKUP_MIRROR_DIR   second copy of the verified backup, for a different physical disk
+#                                     (unset = none). It may be on the root disk because it is refused
+#                                     unless 20 GB stays free there afterwards. One copy, replaced only
+#                                     after the new one is written and compared.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -39,6 +43,9 @@ fi
 EXCLUDE_DATA="${OPENDISCOURSE_BACKUP_EXCLUDE_DATA:-stage.* fact.acs_bulk_estimate fact.business_pattern core.geography_boundary}"
 
 # pg_dump must be at least as new as the server; the default one on PATH may be older.
+MIRROR_DIR="${OPENDISCOURSE_BACKUP_MIRROR_DIR:-$(env_value OPENDISCOURSE_BACKUP_MIRROR_DIR)}"
+MIRROR_KEEP_FREE_GB=20
+
 SERVER_NUM="$(psql "$DSN" -X -Atc 'show server_version_num' 2>/dev/null)" || die "cannot connect to $DSN"
 MAJOR=$((SERVER_NUM / 10000))
 PG_DUMP=""
@@ -70,6 +77,7 @@ say "database : $DSN (PostgreSQL $MAJOR)"
 say "tool     : $PG_DUMP"
 say "target   : $FINAL (${free_gb} GB free; one copy, replaced only after a verified new dump)"
 say "rows left out (tables kept): $EXCLUDE_DATA"
+[ -z "$MIRROR_DIR" ] || say "mirror   : $MIRROR_DIR"
 [ "$DRY_RUN" = 1 ] && { say "dry run: nothing written"; exit 0; }
 
 umask 077  # the dump holds the foreign-server definitions for the OpenStates connection
@@ -107,3 +115,21 @@ mv -f "$PARTIAL" "$FINAL"
 mv -f "$MANIFEST.partial" "$MANIFEST"
 trap - EXIT
 say "done: $(du -h "$FINAL" | cut -f1) at $FINAL (previous copy replaced; manifest $MANIFEST)"
+
+# The mirror comes last, so a problem with the second disk never costs the backup itself.
+[ -n "$MIRROR_DIR" ] || exit 0
+mirror_failed() { die "the backup is saved, but the mirror at $MIRROR_DIR was not updated: $*"; }
+mkdir -p "$MIRROR_DIR" 2>/dev/null || mirror_failed "cannot create the directory"
+need_gb=$(( $(du -B1G "$FINAL" | cut -f1) + MIRROR_KEEP_FREE_GB ))
+have_gb=$(( $(df --output=avail -B1G "$MIRROR_DIR" | tail -1 | tr -d ' ') ))
+[ "$have_gb" -ge "$need_gb" ] || mirror_failed "${have_gb} GB free, need $need_gb"
+trap 'rm -f "$MIRROR_DIR"/*.partial' EXIT
+for source in "$FINAL" "$MANIFEST"; do
+  copy="$MIRROR_DIR/$(basename "$source").partial"
+  cp "$source" "$copy" && cmp -s "$source" "$copy" || mirror_failed "the copy does not match"
+done
+for name in "$(basename "$FINAL")" "$(basename "$MANIFEST")"; do
+  mv -f "$MIRROR_DIR/$name.partial" "$MIRROR_DIR/$name"
+done
+trap - EXIT
+say "mirrored : $MIRROR_DIR"
