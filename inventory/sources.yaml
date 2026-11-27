@@ -264,7 +264,7 @@ providers:
           record. Do not fetch bill.dtd or billres.xsl. PLAW, BILLSUM, PDF and HTM are out of scope.
       - id: congress.house_votes
         title: House roll-call votes from the Clerk's official XML (one file per roll call, 108th Congress on)
-        access: clerk.house.gov/evs/<year>/roll<NNN>.xml, listed by the yearly index (index.asp and ROLL_*.asp)
+        access: clerk.house.gov/evslegacy/<year>/roll<NNN>.xml, listed by the yearly index (clerk.house.gov/evslegacy/<year>/index.asp and ROLL_*.asp)
         client: httpx; xml.etree for parsing
         grain: roll call × member position
         identifiers: [congress, roll_year, roll_number, bioguide_id]

@@ -1,6 +1,6 @@
 """House Clerk roll-call client: HTTP only (Story 11.1).
 
-Read-only, unauthenticated lookups against ``clerk.house.gov/evs``:
+Read-only, unauthenticated lookups against ``clerk.house.gov/evslegacy``:
 
 - the roll numbers the Clerk lists for a calendar year (``index.asp`` shows the latest few and links
   to ``ROLL_000.asp``, ``ROLL_100.asp`` ... which list the rest);
@@ -22,15 +22,14 @@ from datetime import UTC, date, datetime
 
 import httpx
 
-from .official_counts import HOUSE_INDEX
+from .official_counts import HOUSE_INDEX, HOUSE_ROOT
 from .paced import PacedClient, Send
 from .remote_roll import RemoteRoll, RollFileError, RollFileNotFound
 
 USER_AGENT = "opendiscourse-research/0.1 (House votes connector; polite, resumable)"
 PACE_SECONDS = 0.25
-EVS_ROOT = "https://clerk.house.gov/evs"
-LIST_URL = EVS_ROOT + "/{year}/{page}"
-ROLL_URL = EVS_ROOT + "/{year}/roll{number:03d}.xml"
+LIST_URL = HOUSE_ROOT + "/{year}/{page}"
+ROLL_URL = HOUSE_ROOT + "/{year}/roll{number:03d}.xml"
 _LIST_PAGE = re.compile(r'href="(ROLL_\d+\.asp)"', re.IGNORECASE)
 _ROLL_LINK = re.compile(r"year=(\d{4})&(?:amp;)?rollnumber=(\d+)", re.IGNORECASE)
 

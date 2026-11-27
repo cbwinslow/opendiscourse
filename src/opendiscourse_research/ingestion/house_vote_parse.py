@@ -1,6 +1,6 @@
 """Read one House Clerk roll-call XML file into its lossless record and its typed fields (Story 11.1).
 
-The Clerk publishes each roll call at ``clerk.house.gov/evs/<year>/roll<NNN>.xml``. Two things come
+The Clerk publishes each roll call at ``clerk.house.gov/evslegacy/<year>/roll<NNN>.xml``. Two things come
 out of a file, both from the same parse:
 
 - ``record``: every element and attribute, as JSON (the encoding of ``billstatus_record``), so a

@@ -88,3 +88,10 @@ immediately and says another sync is in progress.
 - `research-db ingest congress-bill` fetches one bill.
 - `research-db load-billstatus` reads a GovInfo archive that is already on disk and already checked. Use `sync-billstatus` to download.
 - `research-db load-openstates-votes` reads the OpenStates copy. The official roll calls are `sync-votes`.
+
+## House Clerk address (changed by the publisher, seen 2026-11-27)
+
+House lists and files are read from `https://clerk.house.gov/evslegacy/`. The files there are byte-for-byte what
+the loader retained before. The former `/evs/` address now rewrites the XML, sends no change date, refuses HEAD
+and answers 200 for missing files, so it cannot be used to detect changes. The word "legacy" suggests this
+address may be retired; if it is, the sync fails loudly at the yearly list.

@@ -1,6 +1,6 @@
 dataset: congress.house_votes
 audited_on: '2026-09-20'
-origin: https://clerk.house.gov/evs/<year>/roll<NNN>.xml (one XML file per roll call; the yearly index at index.asp and ROLL_*.asp lists the roll numbers)
+origin: https://clerk.house.gov/evslegacy/<year>/roll<NNN>.xml (one XML file per roll call; the yearly index at clerk.house.gov/evslegacy/<year>/index.asp and ROLL_*.asp lists the roll numbers)
 capture:
   whole_record: core.roll_call_source_record
   notes: >-
