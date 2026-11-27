@@ -1083,6 +1083,7 @@ core_roll_call = Table(
     Column("source_artifact_id", PostgreSQLUUID(as_uuid=True), ForeignKey("ingest.artifact.artifact_id")),
     UniqueConstraint("jurisdiction", "legislative_session", "external_id"),
     Index("roll_call_ocd_id_idx", "ocd_id", unique=True, postgresql_where=text("ocd_id IS NOT NULL")),
+    Index("roll_call_bill_idx", "bill_id"),
     schema="core",
 )
 
@@ -1155,6 +1156,7 @@ fact_member_vote = Table(
         "source_artifact_id IS NOT NULL OR source_payload_id IS NOT NULL",
         name="member_vote_source_evidence",
     ),
+    Index("member_vote_person_idx", "person_id", "roll_call_id", postgresql_include=["position"]),
     schema="fact",
 )
 
